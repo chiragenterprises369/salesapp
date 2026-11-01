@@ -111,9 +111,9 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
   const feed = useFloorFeed({ userIds, stress: dev.stress });
   const { state, dispatch } = feed;
 
-  // Mode: dev override > this session's toggle > saved setting (if not auto) > prop.
+  // Mode: this session's toggle > dev override > saved setting (if not auto) > prop.
   const saved = me?.settings.teamFloorMode;
-  const requested: TeamFloorMode = lockMode ?? dev.mode ?? localMode ?? (saved && saved !== 'auto' ? saved : modeProp);
+  const requested: TeamFloorMode = lockMode ?? localMode ?? dev.mode ?? (saved && saved !== 'auto' ? saved : modeProp);
   const canRender3d = gpu.webgl && !sceneFailed;
   const autoFlat = coarse || small || reducedMotion || initialTier === 'low';
   const view: FloorViewMode = requested === 'flat' || !canRender3d ? 'flat' : requested === '3d' ? '3d' : autoFlat ? 'flat' : '3d';
@@ -234,7 +234,7 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
         <div
           className={
             view === '3d'
-              ? 'relative h-[min(70dvh,640px)] min-h-[420px] overflow-hidden rounded-lg border border-border bg-surface shadow-card lg:h-auto'
+              ? 'relative h-[max(320px,min(70dvh,80vw))] overflow-hidden rounded-lg border border-border bg-surface shadow-card lg:h-auto lg:min-h-[420px]'
               : 'relative min-h-0 lg:overflow-y-auto'
           }
         >

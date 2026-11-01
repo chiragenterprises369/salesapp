@@ -1,20 +1,21 @@
 'use client';
 
-import { EMPLOYEE_STATUS_LABEL, formatDuration, type AttentionItem } from '@vistar/shared';
+import { EMPLOYEE_STATUS_LABEL, formatDuration, type AttentionItem, type CallOutcome } from '@vistar/shared';
 import { MapPin, Phone } from 'lucide-react';
-import { useRef, useState, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { Chip, StatusChip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
 import { useNow } from '../state/env';
 import { OUTCOME_LABEL, OUTCOME_TONE } from '../state/reducer';
 import { LOCATION_LABEL, locationOf } from '../state/selectors';
-import type { FloorEmployee, FloorState } from '../state/types';
+import type { FloorEmployee, FloorLocation, FloorState } from '../state/types';
 
 /**
  * Accessible employee list. Always rendered: as the desk grid inside the flat floor plan
  * (`variant="plan"`), or visually hidden next to the 3D canvas (`variant="hidden"`, shown as an
  * overlay while it has keyboard focus). One tab stop; arrow keys move between people.
+ * Rows are memoised: an event re-renders only the people it changed.
  */
 
 export interface EmployeeListProps {
@@ -30,37 +31,54 @@ export function employeeDomId(prefix: string, id: string) {
   return `${prefix}-emp-${id}`;
 }
 
+const NO_ITEMS: AttentionItem[] = [];
+const OUTCOME_SHOW_MS = 3500;
+
 export function EmployeeList({ state, attention, selectedId, onOpen, variant, idPrefix }: EmployeeListProps) {
   const now = useNow();
   const listRef = useRef<HTMLUListElement>(null);
   const [active, setActive] = useState(0);
   const people = [...state.employees].sort((a, b) => a.desk - b.desk);
+  const peopleRef = useRef(people);
+  useEffect(() => {
+    peopleRef.current = people;
+  });
   const activeIndex = Math.min(active, Math.max(0, people.length - 1));
 
-  const move = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const list = listRef.current;
-    if (!list) return;
-    let cols = 1;
-    if (variant === 'plan') {
-      const template = getComputedStyle(list).gridTemplateColumns;
-      cols = Math.max(1, template.split(' ').filter(Boolean).length);
-    }
-    const map: Record<string, number> = {
-      ArrowRight: index + 1,
-      ArrowLeft: index - 1,
-      ArrowDown: index + cols,
-      ArrowUp: index - cols,
-      Home: 0,
-      End: people.length - 1,
-    };
-    const next = map[e.key];
-    if (next === undefined) return;
-    e.preventDefault();
-    const clamped = Math.max(0, Math.min(people.length - 1, next));
-    setActive(clamped);
-    const target = people[clamped];
-    if (target) document.getElementById(employeeDomId(idPrefix, target.id))?.focus();
-  };
+  const outcomes = new Map<string, CallOutcome>();
+  for (const e of state.effects) {
+    if (e.kind === 'call_outcome' && e.outcome && now - e.at < OUTCOME_SHOW_MS) outcomes.set(e.userId, e.outcome);
+  }
+
+  const onItemKey = useCallback(
+    (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
+      const list = listRef.current;
+      const all = peopleRef.current;
+      if (!list) return;
+      let cols = 1;
+      if (variant === 'plan') {
+        const template = getComputedStyle(list).gridTemplateColumns;
+        cols = Math.max(1, template.split(' ').filter(Boolean).length);
+      }
+      const map: Record<string, number> = {
+        ArrowRight: index + 1,
+        ArrowLeft: index - 1,
+        ArrowDown: index + cols,
+        ArrowUp: index - cols,
+        Home: 0,
+        End: all.length - 1,
+      };
+      const next = map[e.key];
+      if (next === undefined) return;
+      e.preventDefault();
+      const clamped = Math.max(0, Math.min(all.length - 1, next));
+      setActive(clamped);
+      const target = all[clamped];
+      if (target) document.getElementById(employeeDomId(idPrefix, target.id))?.focus();
+    },
+    [variant, idPrefix],
+  );
+  const onItemFocus = useCallback((index: number) => setActive(index), []);
 
   const hidden = variant === 'hidden';
 
@@ -71,9 +89,7 @@ export function EmployeeList({ state, attention, selectedId, onOpen, variant, id
           'sr-only focus-within:not-sr-only focus-within:absolute focus-within:inset-x-3 focus-within:top-3 focus-within:z-20 focus-within:max-h-[calc(100%-4.5rem)] focus-within:overflow-y-auto focus-within:rounded-lg focus-within:border focus-within:border-border focus-within:bg-surface focus-within:p-2 focus-within:shadow-overlay',
       )}
     >
-      <h3 className={cn(hidden ? 'px-2 pt-1 pb-2 text-sm font-semibold text-fg' : 'sr-only')}>
-        Employees on the floor ({people.length})
-      </h3>
+      <h3 className={cn(hidden ? 'px-2 pt-1 pb-2 text-sm font-semibold text-fg' : 'sr-only')}>Employees on the floor ({people.length})</h3>
       <p id={`${idPrefix}-list-hint`} className="sr-only">
         Use the arrow keys to move between people and Enter to open details.
       </p>
@@ -86,16 +102,18 @@ export function EmployeeList({ state, attention, selectedId, onOpen, variant, id
           <li key={emp.id}>
             <PersonButton
               emp={emp}
-              state={state}
-              items={attention.get(emp.id) ?? []}
-              now={now}
+              index={i}
+              location={locationOf(state, emp).kind}
+              items={attention.get(emp.id) ?? NO_ITEMS}
+              now={emp.status === 'on_call' ? now : 0}
+              outcome={outcomes.get(emp.id) ?? null}
               selected={emp.id === selectedId}
               compact={hidden}
-              tabIndex={i === activeIndex ? 0 : -1}
+              tabbable={i === activeIndex}
               domId={employeeDomId(idPrefix, emp.id)}
-              onFocus={() => setActive(i)}
-              onKeyDown={(e) => move(e, i)}
-              onClick={() => onOpen(emp.id)}
+              onItemFocus={onItemFocus}
+              onItemKey={onItemKey}
+              onOpen={onOpen}
             />
           </li>
         ))}
@@ -104,55 +122,60 @@ export function EmployeeList({ state, attention, selectedId, onOpen, variant, id
   );
 }
 
-function PersonButton({
-  emp,
-  state,
-  items,
-  now,
-  selected,
-  compact,
-  tabIndex,
-  domId,
-  onFocus,
-  onKeyDown,
-  onClick,
-}: {
+interface PersonButtonProps {
   emp: FloorEmployee;
-  state: FloorState;
+  index: number;
+  location: FloorLocation['kind'];
   items: AttentionItem[];
+  /** Clock for the call timer (0 unless on a call, so other rows skip the 1 s re-render). */
   now: number;
+  outcome: CallOutcome | null;
   selected: boolean;
   compact: boolean;
-  tabIndex: number;
+  tabbable: boolean;
   domId: string;
-  onFocus: () => void;
-  onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => void;
-  onClick: () => void;
-}) {
-  const location = locationOf(state, emp);
-  const away = location.kind !== 'desk';
+  onItemFocus: (index: number) => void;
+  onItemKey: (e: KeyboardEvent<HTMLButtonElement>, index: number) => void;
+  onOpen: (id: string) => void;
+}
+
+const PersonButton = memo(function PersonButton({
+  emp,
+  index,
+  location,
+  items,
+  now,
+  outcome,
+  selected,
+  compact,
+  tabbable,
+  domId,
+  onItemFocus,
+  onItemKey,
+  onOpen,
+}: PersonButtonProps) {
+  const away = location !== 'desk';
   const timer = emp.status === 'on_call' && emp.activeCall && now ? formatDuration((now - emp.activeCall.startedAt) / 1000) : null;
-  const outcome = state.effects.find((e) => e.kind === 'call_outcome' && e.userId === emp.id && now - e.at < 3500);
   const urgent = items.some((i) => i.severity === 'critical');
+  const common = {
+    id: domId,
+    type: 'button' as const,
+    tabIndex: tabbable ? 0 : -1,
+    'aria-current': selected || undefined,
+    onFocus: () => onItemFocus(index),
+    onKeyDown: (e: KeyboardEvent<HTMLButtonElement>) => onItemKey(e, index),
+    onClick: () => onOpen(emp.id),
+  };
 
   if (compact) {
     return (
-      <button
-        id={domId}
-        type="button"
-        tabIndex={tabIndex}
-        aria-current={selected || undefined}
-        onFocus={onFocus}
-        onKeyDown={onKeyDown}
-        onClick={onClick}
-        className="focus-ring flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-2 aria-[current]:bg-accent-soft"
-      >
+      <button {...common} className="focus-ring flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-surface-2 aria-[current]:bg-accent-soft">
         <span className="min-w-0 flex-1 truncate font-medium text-fg">{emp.name}</span>
         <span className="text-xs text-muted-strong">
           {EMPLOYEE_STATUS_LABEL[emp.status]}
           {timer ? `, ${timer}` : ''}
           {emp.currentLeadName ? `, ${emp.currentLeadName}` : ''}
-          {away ? `, ${LOCATION_LABEL[location.kind].toLowerCase()}` : ''}
+          {away ? `, ${LOCATION_LABEL[location].toLowerCase()}` : ''}
           {items.length ? `, ${items.length} ${items.length === 1 ? 'item needs' : 'items need'} you` : ''}
         </span>
       </button>
@@ -161,13 +184,7 @@ function PersonButton({
 
   return (
     <button
-      id={domId}
-      type="button"
-      tabIndex={tabIndex}
-      aria-current={selected || undefined}
-      onFocus={onFocus}
-      onKeyDown={onKeyDown}
-      onClick={onClick}
+      {...common}
       className={cn(
         'focus-ring relative flex h-full w-full flex-col gap-1.5 rounded-md border bg-surface p-2.5 text-left shadow-card transition-[border-color,box-shadow,background-color] duration-150 ease-standard hover:border-border-strong hover:shadow-raised',
         selected ? 'border-ring bg-accent-soft' : 'border-border',
@@ -193,19 +210,19 @@ function PersonButton({
             {timer}
           </span>
         )}
-        {outcome && outcome.kind === 'call_outcome' && outcome.outcome && (
-          <Chip tone={OUTCOME_TONE[outcome.outcome]} className="motion-safe:animate-fade-in">
-            {OUTCOME_LABEL[outcome.outcome]}
+        {outcome && (
+          <Chip tone={OUTCOME_TONE[outcome]} className="motion-safe:animate-fade-in">
+            {OUTCOME_LABEL[outcome]}
           </Chip>
         )}
       </span>
       <span className="truncate text-xs text-muted">{emp.currentLeadName ?? (emp.status === 'offline' ? 'Desk empty' : 'No lead open')}</span>
-      {away && location.kind !== 'gone' && (
+      {away && location !== 'gone' && (
         <span className="flex items-center gap-1 text-xs text-muted">
           <MapPin aria-hidden className="size-3" />
-          {LOCATION_LABEL[location.kind]}
+          {LOCATION_LABEL[location]}
         </span>
       )}
     </button>
   );
-}
+});

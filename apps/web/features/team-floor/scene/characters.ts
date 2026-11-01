@@ -343,6 +343,10 @@ export function createProceduralCharacters(capacity: number, materials: { blob: 
   proxy.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
 
   const styles: (HairStyle | null)[] = new Array(cap).fill(null);
+  /** Compact instance index per hair style, so each style mesh draws only its own people. */
+  const styleIndex = new Int32Array(cap).fill(-1);
+  const styleCount = new Map<HairStyle, number>();
+  for (const part of hair.values()) part.mesh.count = 0;
 
   // Scratch objects (no allocation per frame).
   const root = new THREE.Matrix4();
@@ -383,20 +387,32 @@ export function createProceduralCharacters(capacity: number, materials: { blob: 
         hands.mesh.setColorAt(slot * 2 + k, skin);
         legs.mesh.setColorAt(slot * 2 + k, trousers);
       }
-      for (const [style, part] of hair) {
-        part.mesh.setColorAt(slot, hairC);
-        if (style !== a.hairStyle) part.mesh.setMatrixAt(slot, ZERO);
+      for (const p of [torso, head, arms, hands, legs]) if (p.mesh.instanceColor) p.mesh.instanceColor.needsUpdate = true;
+      // Hair: one compact instance in the mesh for this person's style (assigned once per slot).
+      if (styles[slot] === null) {
+        const part = hair.get(a.hairStyle);
+        if (part) {
+          const n = styleCount.get(a.hairStyle) ?? 0;
+          styleCount.set(a.hairStyle, n + 1);
+          styleIndex[slot] = n;
+          part.mesh.count = n + 1;
+          part.mesh.setColorAt(n, hairC);
+          if (part.mesh.instanceColor) part.mesh.instanceColor.needsUpdate = true;
+        }
+        styles[slot] = a.hairStyle;
       }
-      styles[slot] = a.hairStyle;
-      for (const p of parts) if (p.mesh.instanceColor) p.mesh.instanceColor.needsUpdate = true;
     },
     setStatusColor(slot, color) {
       status.mesh.setColorAt(slot, color);
       if (status.mesh.instanceColor) status.mesh.instanceColor.needsUpdate = true;
     },
     update(slot, pose) {
+      const style = styles[slot];
+      const hairPart = style && style !== 'bald' ? hair.get(style) : undefined;
+      const hairSlot = styleIndex[slot] ?? -1;
       if (!pose.visible) {
-        for (const p of parts) for (let k = 0; k < p.per; k++) p.mesh.setMatrixAt(slot * p.per + k, ZERO);
+        for (const p of [legs, torso, head, arms, hands, phone, blob, status, proxy]) for (let k = 0; k < p.per; k++) p.mesh.setMatrixAt(slot * p.per + k, ZERO);
+        if (hairPart && hairSlot >= 0) hairPart.mesh.setMatrixAt(hairSlot, ZERO);
         return;
       }
       const P = pose.params;
@@ -412,15 +428,9 @@ export function createProceduralCharacters(capacity: number, materials: { blob: 
 
       headM.multiplyMatrices(torsoM, setLocal(0, 0.5, 0, P.headPitch, P.headYaw, P.headRoll));
       head.mesh.setMatrixAt(slot, headM);
-      const style = styles[slot];
-      if (style && style !== 'bald') hair.get(style)?.mesh.setMatrixAt(slot, lod === 'far' ? ZERO : headM);
+      if (hairPart && hairSlot >= 0) hairPart.mesh.setMatrixAt(hairSlot, headM);
 
-      if (lod === 'far') {
-        // Simplified figure: torso + head + ring only.
-        for (const p of [legs, arms, hands]) for (let k = 0; k < 2; k++) p.mesh.setMatrixAt(slot * 2 + k, ZERO);
-        phone.mesh.setMatrixAt(slot, ZERO);
-        return;
-      }
+      if (lod === 'far') return; // limbs are hidden meshes at far zoom (simplified figures)
 
       legs.mesh.setMatrixAt(slot * 2, m.multiplyMatrices(root, setLocal(0.085, P.hip, 0, P.legL, 0, 0)));
       legs.mesh.setMatrixAt(slot * 2 + 1, m.multiplyMatrices(root, setLocal(-0.085, P.hip, 0, P.legR, 0, 0)));
@@ -439,6 +449,10 @@ export function createProceduralCharacters(capacity: number, materials: { blob: 
     },
     setLod(level) {
       lod = level;
+      // Far: simple figures (torso, head, status ring). Mid: no hands/phone detail.
+      for (const p of [legs, arms]) p.mesh.visible = level !== 'far';
+      for (const p of [hands, phone]) p.mesh.visible = level === 'near';
+      for (const p of hair.values()) p.mesh.visible = level !== 'far';
     },
     setShadows(cast) {
       for (const p of [legs, torso, head, arms, hands, ...hair.values()]) p.mesh.castShadow = cast;

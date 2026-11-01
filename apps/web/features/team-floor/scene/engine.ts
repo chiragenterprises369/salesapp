@@ -140,9 +140,13 @@ export class FloorEngine {
     this.el.style.touchAction = 'none';
     this.el.style.cursor = 'grab';
 
-    // Looping clips (typing, phone, breathing, call pulses) render at a capped rate when nothing else moves.
+    // Looping clips (typing, phone, breathing, call pulses) render at a capped rate when nothing else
+    // moves. With reduced motion nothing loops; pending expiries (popups) wake the scene at 4 Hz.
+    let tick = 0;
     this.ambientTimer = setInterval(() => {
-      if (!this.continuous && !document.hidden && this.agents.ambient) this.o.invalidate();
+      tick++;
+      if (this.continuous || document.hidden) return;
+      if (this.agents.ambient || (tick % 6 === 0 && this.effects.pending) || (tick % AMBIENT_FPS === 0 && this.effects.liveTimers)) this.o.invalidate();
     }, 1000 / AMBIENT_FPS);
   }
 

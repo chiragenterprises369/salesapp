@@ -324,7 +324,7 @@ export function attentionFromTask(task: Task, at: string): AttentionItem {
     id: `task_overdue:${task.id}`,
     kind: 'task_overdue',
     title: task.title,
-    subtitle: task.leadName ? `Overdue task · ${task.leadName}` : 'Overdue task',
+    subtitle: task.leadName && !task.title.includes(task.leadName) ? `Overdue task · ${task.leadName}` : 'Overdue task',
     href: task.leadId ? `/app/leads?lead=${task.leadId}` : '/app/tasks',
     leadId: task.leadId,
     userId: task.assignee?.id ?? null,

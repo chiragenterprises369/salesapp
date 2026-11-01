@@ -44,6 +44,8 @@ interface Popup {
   label: PillLabel;
   userId: string;
   t: number;
+  /** Wall-clock start (ms); set on the first frame it is drawn. */
+  born: number;
 }
 
 interface Burst {
@@ -221,7 +223,7 @@ export class EffectsSystem {
         label.sprite.center.set(0.5, 0);
         label.sprite.renderOrder = 13;
         this.group.add(label.sprite);
-        this.popups.push({ label, userId: e.userId, t: 0 });
+        this.popups.push({ label, userId: e.userId, t: 0, born: 0 });
         return;
       }
       case 'parcel_spawn':
@@ -368,6 +370,16 @@ export class EffectsSystem {
         this.palette.font,
       );
     }
+  }
+
+  /** Something will change without motion (popup or parcel expiry): wake up now and then. */
+  get pending(): boolean {
+    return this.popups.length > 0 || this.parcels.some((p) => p.phase === 'landed' || p.phase === 'vanish');
+  }
+
+  /** Sprite name tags show call timers that need a redraw every second. */
+  get liveTimers(): boolean {
+    return this.tagsMode === 'sprite' && !!this.state?.employees.some((e) => e.status === 'on_call');
   }
 
   /** Bubble under the ray (sprites are tested first: they render on top). */
@@ -578,17 +590,19 @@ export class EffectsSystem {
       b.label.sprite.visible = true;
     }
 
-    // Outcome popups (~3 s).
+    // Outcome popups (~3 s, wall clock). When zoomed out (no name tags), only the newest few show.
+    const popupLimit = this.tagsVisible ? Infinity : 5;
     for (let i = this.popups.length - 1; i >= 0; i--) {
       const p = this.popups[i]!;
-      p.t += dt;
+      if (p.born === 0) p.born = nowMs;
+      p.t = (nowMs - p.born) / 1000;
       if (p.t > 3.2) {
         this.group.remove(p.label.sprite);
         p.label.dispose();
         this.popups.splice(i, 1);
         continue;
       }
-      const head = this.agents.headOf(p.userId, tmpV);
+      const head = this.popups.length - 1 - i < popupLimit ? this.agents.headOf(p.userId, tmpV) : null;
       if (!head) {
         p.label.sprite.visible = false;
         continue;
@@ -598,7 +612,7 @@ export class EffectsSystem {
       p.label.material.opacity = rm ? 1 : Math.min(1, p.t / 0.2, (3.2 - p.t) / 0.5);
       p.label.fit(zoom);
       p.label.sprite.visible = true;
-      moving = true;
+      if (!rm) moving = true;
     }
 
     this.counter.fit(zoom);
