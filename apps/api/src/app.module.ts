@@ -10,10 +10,12 @@ import { PrismaModule } from './infra/prisma/prisma.module.js';
 import { RedisModule } from './infra/redis/redis.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CallsModule } from './modules/calls/calls.module.js';
+import { CustomizationModule } from './modules/customization/customization.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { IntegrationsModule } from './modules/integrations/integrations.module.js';
 import { LeadsModule } from './modules/leads/leads.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
+import { PacksModule } from './modules/packs/packs.module.js';
 import { PipelineModule } from './modules/pipeline/pipeline.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { SuperadminModule } from './modules/superadmin/superadmin.module.js';
@@ -43,6 +45,8 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     PipelineModule,
     NotificationsModule,
     DashboardModule,
+    CustomizationModule,
+    PacksModule,
     // realtime-integrations
     RealtimeModule,
     WebhooksModule,

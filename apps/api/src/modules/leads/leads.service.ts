@@ -4,6 +4,8 @@ import {
   SavedViewSchema,
   type Activity,
   type CursorPaginationQuery,
+  type CustomFieldValues,
+  type FieldDefinition,
   type Lead as LeadDto,
   type LeadCreate,
   type LeadListItem,
@@ -21,13 +23,15 @@ import { AppException, notFound } from '../../common/errors/app-exception.js';
 import type { Lead as LeadRow, Prisma } from '../../generated/prisma/client.js';
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { applyPatch, changedKeys, loadFieldDefs, roleKeyOf, validateValues, visibleFor } from '../customization/custom-values.js';
+import { entityUniqueErrors, lockUnique, uniqueDefsIn } from '../customization/unique.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { ActivityService } from './activity.service.js';
 import { LEAD_DETAIL_INCLUDE, LEAD_LIST_INCLUDE, parseCustomFields, toLead, toLeadListItem, type LeadDetailRow } from './lead.mapper.js';
 import { endOfColumn, topOfColumn } from './lead-position.js';
 import { buildLeadWhere, leadCursorWhere, leadNextCursor, leadOrderBy } from './lead-query.js';
 import { scoreLead } from './lead-score.js';
-import { stageDates, syncDealsForStage } from './lead-stage.js';
+import { activeStageOrThrow, stageDates, syncDealsForStage } from './lead-stage.js';
 import { afterTimeCursor, nextTimeCursor } from './lib/cursor.js';
 import { publishSafe, requestActor, requirePermission, type RequestActor, type TenantDb } from './lib/context.js';
 
@@ -126,14 +130,31 @@ export class LeadsService {
     if (ok !== 1) throw notFound('User');
   }
 
-  /** First stage of the default pipeline (or of the oldest pipeline when none is marked default). */
+  /** First stage of the default pipeline (or of the oldest pipeline when none is marked default). Archived pipelines and stages are skipped. */
   async defaultStage(db: TenantDb) {
     const pipeline =
-      (await db.pipeline.findFirst({ where: { isDefault: true }, orderBy: { createdAt: 'asc' } })) ??
-      (await db.pipeline.findFirst({ orderBy: { createdAt: 'asc' } }));
-    const stage = pipeline ? await db.stage.findFirst({ where: { pipelineId: pipeline.id }, orderBy: { order: 'asc' } }) : null;
+      (await db.pipeline.findFirst({ where: { isDefault: true, archivedAt: null }, orderBy: { createdAt: 'asc' } })) ??
+      (await db.pipeline.findFirst({ where: { archivedAt: null }, orderBy: { createdAt: 'asc' } }));
+    const stage = pipeline ? await db.stage.findFirst({ where: { pipelineId: pipeline.id, archivedAt: null }, orderBy: { order: 'asc' } }) : null;
     if (!stage) throw new AppException('STAGE_NOT_IN_PIPELINE', 'Set up a pipeline with at least one stage first');
     return stage;
+  }
+
+  // ------------------------------------------------------------------ custom fields
+
+  /** Lead DTO for the caller: custom values hidden for the caller's role are removed. */
+  async present(db: TenantDb, auth: AuthContext, row: LeadDetailRow, defs?: FieldDefinition[]): Promise<LeadDto> {
+    const [fieldDefs, roleKey] = await Promise.all([defs ?? loadFieldDefs(db, 'lead'), roleKeyOf(db, auth)]);
+    const dto = toLead(row);
+    return { ...dto, customFields: visibleFor(fieldDefs, dto.customFields, roleKey) };
+  }
+
+  /** Unique lead custom fields (inside the write transaction, serialised per workspace). */
+  async assertUniqueCustom(tx: TenantDb, workspaceId: string, defs: FieldDefinition[], values: CustomFieldValues, opts: { excludeId?: string; keys?: string[] } = {}): Promise<void> {
+    if (!uniqueDefsIn(defs, values, opts.keys).length) return;
+    await lockUnique(tx, `lead-unique:${workspaceId}`);
+    const errors = await entityUniqueErrors(tx, 'lead', defs, values, { ...opts, pathPrefix: 'customFields' });
+    if (errors.length) throw new AppException('FIELD_VALUE_NOT_UNIQUE', 'Another lead already uses one of these values', { details: errors });
   }
 
   /** Link (or create) the Contact for a lead: by phone (unique), else by email, else a new contact. */
@@ -166,7 +187,7 @@ export class LeadsService {
   async get(auth: AuthContext, id: string): Promise<LeadDto> {
     const db = this.prisma.forTenant(auth.workspaceId);
     await this.loadVisible(db, auth, id);
-    return toLead(await this.detail(db, id));
+    return this.present(db, auth, await this.detail(db, id));
   }
 
   async create(auth: AuthContext, body: LeadCreate): Promise<LeadDto> {
@@ -178,8 +199,9 @@ export class LeadsService {
     if (ownerId && ownerId !== auth.userId) requirePermission(auth, 'leads.assign', 'You cannot assign leads to other users');
     if (ownerId) await this.assertAssignable(db, ownerId);
 
-    const stage = body.stageId ? await db.stage.findUnique({ where: { id: body.stageId } }) : await this.defaultStage(db);
-    if (!stage) throw notFound('Stage');
+    const stage = body.stageId ? await activeStageOrThrow(db, body.stageId) : await this.defaultStage(db);
+    const defs = await loadFieldDefs(db, 'lead');
+    const customFields = applyPatch({}, await validateValues(db, auth, defs, body.customFields, { mode: 'create', pathPrefix: 'customFields' }));
 
     const sourceRef = emptyToNull(body.sourceRef);
     if (sourceRef && (await db.lead.count({ where: { source: body.source, sourceRef } }))) {
@@ -201,6 +223,7 @@ export class LeadsService {
     const scored = scoreLead({ ...fields, source: body.source, valueInr: body.valueInr, tags, createdAt: now, lastActivityAt: null }, now);
 
     const { lead, rows } = await db.$transaction(async (tx) => {
+      await this.assertUniqueCustom(tx, wid, defs, customFields);
       const contactId = await this.linkContact(tx, wid, fields);
       const position = await topOfColumn(tx, stage.id);
       const created = await tx.lead.create({
@@ -218,7 +241,7 @@ export class LeadsService {
           scoreBreakdown: scored.breakdown,
           temperature: scored.temperature,
           tags,
-          customFields: body.customFields,
+          customFields: customFields as Prisma.InputJsonObject,
           contactId,
           ...stageDates(stage.type, now),
           createdAt: now,
@@ -238,7 +261,7 @@ export class LeadsService {
     await publishSafe(this.events, this.logger, 'lead.created', wid, { lead: toLeadListItem(lead) }, { actor: actor.event });
     await this.activities.publishCreated(db, wid, rows, actor);
     await this.notifyAssigned(auth, actor, [lead], ownerId);
-    return toLead(lead);
+    return this.present(db, auth, lead, defs);
   }
 
   async update(auth: AuthContext, id: string, body: LeadUpdate): Promise<LeadDto> {
@@ -269,10 +292,18 @@ export class LeadsService {
       const next = normalizeTags(body.tags);
       if (next.length !== current.tags.length || next.some((t) => !current.tags.includes(t))) set('tags', next);
     }
+    let defs: FieldDefinition[] | undefined;
+    let customKeys: string[] = [];
+    let nextCustom: CustomFieldValues | null = null;
     if (body.customFields !== undefined) {
+      defs = await loadFieldDefs(db, 'lead');
       const prev = parseCustomFields(current.customFields);
-      const next = { ...prev, ...body.customFields };
-      if (JSON.stringify(next) !== JSON.stringify(prev)) set('customFields', next as Prisma.JsonObject, prev as Prisma.JsonObject);
+      const next = applyPatch(prev, await validateValues(db, auth, defs, body.customFields, { mode: 'update', pathPrefix: 'customFields' }));
+      customKeys = changedKeys(prev, next);
+      if (customKeys.length) {
+        nextCustom = next;
+        set('customFields', next as Prisma.JsonObject, prev as Prisma.JsonObject);
+      }
     }
     if (body.nextFollowUpAt !== undefined) {
       const next = body.nextFollowUpAt ? new Date(body.nextFollowUpAt) : null;
@@ -291,12 +322,11 @@ export class LeadsService {
     // stage
     let newStage: { id: string; pipelineId: string; type: LeadDto['stageType'] } | null = null;
     if (body.stageId !== undefined && body.stageId !== current.stageId) {
-      newStage = await db.stage.findUnique({ where: { id: body.stageId }, select: { id: true, pipelineId: true, type: true } });
-      if (!newStage) throw notFound('Stage');
+      newStage = await activeStageOrThrow(db, body.stageId);
       Object.assign(data, { stageId: newStage.id, pipelineId: newStage.pipelineId, lastActivityAt: now, ...stageDates(newStage.type, now) });
     }
 
-    if (!fieldChanges.length && !ownerChanged && !newStage) return toLead(await this.detail(db, id));
+    if (!fieldChanges.length && !ownerChanged && !newStage) return this.present(db, auth, await this.detail(db, id), defs);
 
     const merged = { ...current, ...(data as Partial<LeadRow>) };
     const scored = scoreLead(merged, now);
@@ -306,6 +336,7 @@ export class LeadsService {
     data.scoreBreakdown = scored.breakdown;
 
     const { lead, rows } = await db.$transaction(async (tx) => {
+      if (nextCustom && defs) await this.assertUniqueCustom(tx, wid, defs, nextCustom, { excludeId: id, keys: customKeys });
       if (newStage) data.position = await endOfColumn(tx, newStage.id, id);
       const res = await tx.lead.updateMany({ where: { id, version: current.version, deletedAt: null }, data: { ...data, version: { increment: 1 } } });
       if (res.count !== 1) throw new AppException('VERSION_CONFLICT', 'Someone else changed this lead. Reload to see the latest version.');
@@ -333,7 +364,7 @@ export class LeadsService {
       await publishSafe(this.events, this.logger, 'stage.changed', wid, { lead: item, fromStageId: current.stageId, toStageId: lead.stageId, position: lead.position }, { actor: actor.event });
     }
     await this.activities.publishCreated(db, wid, rows, actor);
-    return toLead(lead);
+    return this.present(db, auth, lead, defs);
   }
 
   async remove(auth: AuthContext, req: Request, id: string): Promise<{ ok: true }> {

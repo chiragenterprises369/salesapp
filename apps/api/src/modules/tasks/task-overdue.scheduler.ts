@@ -4,7 +4,7 @@ import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { publishSafe, SYSTEM_ACTOR } from '../leads/lib/context.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
-import { overdueAttention, overdueWhere, TASK_INCLUDE, toTask } from './task.mapper.js';
+import { overdueAttention, overdueWhere, TASK_INCLUDE, taskMappers } from './task.mapper.js';
 
 const BATCH = 200;
 const MAX_BATCHES_PER_TICK = 5;
@@ -58,10 +58,12 @@ export class TaskOverdueScheduler {
       const byWorkspace = new Map<string, string[]>();
       for (const c of claimed) byWorkspace.set(c.workspaceId, [...(byWorkspace.get(c.workspaceId) ?? []), c.id]);
       for (const [workspaceId, ids] of byWorkspace) {
-        const tasks = await this.prisma.forTenant(workspaceId).task.findMany({ where: { id: { in: ids } }, include: TASK_INCLUDE });
+        const db = this.prisma.forTenant(workspaceId);
+        const tasks = await db.task.findMany({ where: { id: { in: ids } }, include: TASK_INCLUDE });
+        const { broadcast } = await taskMappers(db, null);
         for (const t of tasks) {
           if (!t.assigneeId) continue;
-          const task = toTask(t);
+          const task = broadcast(t);
           await this.notifications.notify(workspaceId, t.assigneeId, {
             type: 'task_overdue',
             title: `Task overdue: ${t.title}`,

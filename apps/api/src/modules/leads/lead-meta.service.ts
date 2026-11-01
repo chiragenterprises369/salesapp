@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
-  DEFAULT_FIELD_ACCESS,
-  FieldDefinitionSchema,
   LeadsViewModeSchema,
   SavedViewSchema,
-  type FieldDefinition,
   type SavedView,
   type SavedViewCreate,
   type Tag,
@@ -16,7 +13,7 @@ import { Prisma, type SavedView as SavedViewRow } from '../../generated/prisma/c
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 
 /**
- * Saved views, tag catalogue and custom field definitions.
+ * Saved views and the tag catalogue. (Custom field definitions live in the customization module.)
  * SavedView has no viewMode column yet: it is stored inside `filters` under `viewMode` (see CONTRACT-REQUEST).
  */
 @Injectable()
@@ -99,38 +96,6 @@ export class LeadMetaService {
     const items = tags
       .map((t) => ({ id: t.id, name: t.name, color: t.color, usageCount: counts.get(t.name) ?? 0 }))
       .sort((a, b) => b.usageCount - a.usageCount || a.name.localeCompare(b.name));
-    return { items };
-  }
-
-  /**
-   * GET /fields (interim, read-only). TODO(backend-core): move to the customization module with
-   * create/update/archive/reorder, role key resolution and object targets.
-   */
-  async listFields(auth: AuthContext, query: { target?: string; includeArchived?: boolean }): Promise<{ items: FieldDefinition[] }> {
-    const rows = await this.prisma.forTenant(auth.workspaceId).customField.findMany({
-      where: { ...(query.target ? { target: query.target } : {}), ...(query.includeArchived ? {} : { archivedAt: null }) },
-      orderBy: [{ target: 'asc' }, { order: 'asc' }, { key: 'asc' }],
-    });
-    const items: FieldDefinition[] = [];
-    for (const r of rows) {
-      const parsed = FieldDefinitionSchema.safeParse({
-        id: r.id,
-        target: r.target,
-        key: r.key,
-        label: r.label,
-        type: r.type,
-        config: r.config ?? {},
-        helpText: r.helpText,
-        required: r.required,
-        unique: r.isUnique,
-        access: r.access ?? DEFAULT_FIELD_ACCESS,
-        order: r.order,
-        packKey: r.packKey,
-        archivedAt: r.archivedAt?.toISOString() ?? null,
-        createdAt: r.createdAt.toISOString(),
-      });
-      if (parsed.success) items.push(parsed.data);
-    }
     return { items };
   }
 }

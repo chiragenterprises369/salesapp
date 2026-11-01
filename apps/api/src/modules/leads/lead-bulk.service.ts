@@ -8,12 +8,13 @@ import { AppException, notFound } from '../../common/errors/app-exception.js';
 import type { Lead as LeadRow, Prisma } from '../../generated/prisma/client.js';
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { loadFieldDefs } from '../customization/custom-values.js';
 import { ActivityService } from './activity.service.js';
-import { LEAD_LIST_INCLUDE, parseCustomFields, toLead, toLeadListItem } from './lead.mapper.js';
+import { LEAD_LIST_INCLUDE, parseCustomFields, toLeadListItem } from './lead.mapper.js';
 import { endOfColumnKeys } from './lead-position.js';
 import { buildLeadWhere } from './lead-query.js';
 import { scoreLead } from './lead-score.js';
-import { stageDates, syncDealsForStage } from './lead-stage.js';
+import { activeStageOrThrow, stageDates, syncDealsForStage } from './lead-stage.js';
 import { LeadsService, normalizeTags } from './leads.service.js';
 import { publishSafe, requestActor, requirePermission, type RequestActor } from './lib/context.js';
 
@@ -114,8 +115,7 @@ export class LeadBulkService {
       }
 
       case 'change_stage': {
-        const stage = await db.stage.findUnique({ where: { id: body.stageId } });
-        if (!stage) throw notFound('Stage');
+        const stage = await activeStageOrThrow(db, body.stageId);
         const movers = leads.filter((l) => l.stageId !== stage.id);
         if (movers.length) {
           await db.$transaction(async (tx) => {
@@ -204,7 +204,14 @@ export class LeadBulkService {
 
     const now = new Date();
     const tags = normalizeTags([...primary.tags, ...dups.flatMap((d) => d.tags)]);
-    const customFields = Object.assign({}, ...[...dups].reverse().map((d) => parseCustomFields(d.customFields)), parseCustomFields(primary.customFields)) as Prisma.JsonObject;
+    // The primary keeps all its values; duplicates only contribute values of active lead fields (no unknown or archived keys).
+    const defs = await loadFieldDefs(db, 'lead');
+    const activeKeys = new Set(defs.filter((d) => !d.archivedAt).map((d) => d.key));
+    const fromDups = Object.assign({}, ...[...dups].reverse().map((d) => parseCustomFields(d.customFields))) as Record<string, unknown>;
+    const customFields = {
+      ...Object.fromEntries(Object.entries(fromDups).filter(([k, v]) => activeKeys.has(k) && v !== null)),
+      ...parseCustomFields(primary.customFields),
+    } as Prisma.JsonObject;
     const merged = { ...primary, ...patch, tags };
     const scored = scoreLead(merged, now);
     const actor: RequestActor = await requestActor(db, auth);
@@ -232,6 +239,6 @@ export class LeadBulkService {
     await publishSafe(this.events, this.logger, 'lead.merged', wid, { primaryId: primary.id, mergedIds: dupIds }, { actor: actor.event });
     await publishSafe(this.events, this.logger, 'lead.updated', wid, { lead: toLeadListItem(lead), changed: [...Object.keys(patch), 'tags', 'customFields', 'score'] }, { actor: actor.event });
     await this.activities.publishCreated(db, wid, activityRows, actor);
-    return toLead(lead);
+    return this.leads.present(db, auth, lead, defs);
   }
 }

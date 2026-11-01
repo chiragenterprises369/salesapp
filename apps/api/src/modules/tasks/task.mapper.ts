@@ -1,7 +1,10 @@
-import type { AttentionItem, Task } from '@vistar/shared';
+import type { AttentionItem, FieldDefinition, Task } from '@vistar/shared';
+import type { AuthContext } from '../../common/auth/auth-context.js';
 import { iso, toUserSummary, USER_SUMMARY_SELECT } from '../../common/mappers/user.mapper.js';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { loadFieldDefs, publicValues, roleKeyOf, visibleFor } from '../customization/custom-values.js';
 import { parseCustomFields } from '../leads/lead.mapper.js';
+import type { TenantDb } from '../leads/lib/context.js';
 
 export const TASK_INCLUDE = {
   assignee: { select: USER_SUMMARY_SELECT },
@@ -35,6 +38,30 @@ export function toTask(t: TaskRow): Task {
 
 /** Stable attention key for an overdue task (dashboard "Needs attention", Team Floor bubble). */
 export const overdueAttentionId = (taskId: string) => `task_overdue:${taskId}`;
+
+export interface TaskMappers {
+  defs: FieldDefinition[];
+  /** DTO for the caller: custom values hidden for the caller's role are removed. */
+  view: (t: TaskRow) => Task;
+  /** DTO for broadcast events: values of fields hidden for any role are removed. */
+  broadcast: (t: TaskRow) => Task;
+}
+
+/** Task mappers with custom field visibility for one caller (auth null = system: broadcast rules for both). */
+export async function taskMappers(db: TenantDb, auth: AuthContext | null): Promise<TaskMappers> {
+  const [defs, roleKey] = await Promise.all([loadFieldDefs(db, 'task'), auth ? roleKeyOf(db, auth) : Promise.resolve(null)]);
+  const broadcast = (t: TaskRow): Task => {
+    const dto = toTask(t);
+    return { ...dto, customFields: publicValues(defs, dto.customFields) };
+  };
+  const view = auth
+    ? (t: TaskRow): Task => {
+        const dto = toTask(t);
+        return { ...dto, customFields: visibleFor(defs, dto.customFields, roleKey) };
+      }
+    : broadcast;
+  return { defs, view, broadcast };
+}
 
 export function overdueAttention(t: TaskRow, now: Date): AttentionItem {
   const hoursLate = t.dueAt ? (now.getTime() - t.dueAt.getTime()) / 3_600_000 : 0;

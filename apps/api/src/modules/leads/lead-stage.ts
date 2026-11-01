@@ -1,4 +1,5 @@
 import type { StageType } from '@vistar/shared';
+import { AppException, notFound } from '../../common/errors/app-exception.js';
 import type { TenantDb } from './lib/context.js';
 
 /** Lead date fields to write when a lead enters a stage of `type`. */
@@ -42,4 +43,15 @@ export async function syncDealsForStage(db: TenantDb, workspaceId: string, leads
       })),
     });
   }
+}
+
+/**
+ * A stage leads may be moved/created into: exists in the tenant (else NOT_FOUND) and neither the stage nor
+ * its pipeline is archived (else STAGE_NOT_IN_PIPELINE). Archived stages only keep the leads already in them.
+ */
+export async function activeStageOrThrow(db: TenantDb, id: string) {
+  const stage = await db.stage.findUnique({ where: { id }, include: { pipeline: { select: { archivedAt: true } } } });
+  if (!stage) throw notFound('Stage');
+  if (stage.archivedAt || stage.pipeline.archivedAt) throw new AppException('STAGE_NOT_IN_PIPELINE', 'This stage is archived. Choose an active stage');
+  return stage;
 }

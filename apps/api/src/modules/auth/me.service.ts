@@ -4,6 +4,7 @@ import type { AuthContext } from '../../common/auth/auth-context.js';
 import { ScopeService } from '../../common/auth/scope.service.js';
 import { AppException } from '../../common/errors/app-exception.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { activeEntitledPacks } from '../packs/pack-entitlement.js';
 import { RolesService } from '../workspace/roles.service.js';
 import { SettingsService } from '../workspace/settings.service.js';
 import { UsersService } from '../workspace/users.service.js';
@@ -55,12 +56,9 @@ export class MeService {
     return resolveLabels(parsed.success ? parsed.data : {});
   }
 
-  /** Active packs. TODO(backend-core, packs module): exclude packs whose entitlement was revoked. */
-  private async activePacks(workspaceId: string): Promise<ActivePack[]> {
-    const rows = await this.prisma
-      .forTenant(workspaceId)
-      .workspacePack.findMany({ where: { status: 'active', installedVersion: { not: null } }, select: { packKey: true, installedVersion: true, modes: true }, orderBy: { packKey: 'asc' } });
-    return rows.map((r) => ({ key: r.packKey, version: r.installedVersion!, modes: r.modes }));
+  /** Active packs whose entitlement is active (core, plan or grant). Revoked packs keep their data but are hidden. */
+  private activePacks(workspaceId: string): Promise<ActivePack[]> {
+    return activeEntitledPacks(this.prisma, workspaceId);
   }
 
   private async impersonation(auth: AuthContext): Promise<ImpersonationInfo | null> {
