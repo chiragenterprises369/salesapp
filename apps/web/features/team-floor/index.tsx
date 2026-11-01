@@ -139,10 +139,13 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
 
   const nameOf = useCallback((id: string | null) => (state && id ? (employeeById(state, id)?.name ?? null) : 'Team'), [state]);
 
+  /** Select from a list or "Show on floor": also pans the 3D camera to the person. */
   const open = useCallback((id: string | null) => {
     setSelectedId(id);
     if (id) setFocusRequest({ id, nonce: Date.now() });
   }, []);
+  /** Select by clicking the canvas: the person is already in view, keep the camera still. */
+  const selectOnCanvas = useCallback((id: string | null) => setSelectedId(id), []);
 
   const closePanel = useCallback(() => {
     const id = selectedId;
@@ -168,9 +171,9 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
         resolve(only);
         return;
       }
-      if (hit.userId) open(hit.userId);
+      if (hit.userId) selectOnCanvas(hit.userId);
     },
-    [state, readOnly, resolve, open],
+    [state, readOnly, resolve, selectOnCanvas],
   );
 
   const onTierDrop = useCallback(() => setTier((t) => NEXT_TIER[t]), []);
@@ -256,7 +259,7 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
                   reducedMotion={reducedMotion}
                   selectedId={selectedId}
                   focusRequest={focusRequest}
-                  onSelect={open}
+                  onSelect={selectOnCanvas}
                   onBubble={onBubble}
                   onTierDrop={onTierDrop}
                   onContextLost={onContextLost}
