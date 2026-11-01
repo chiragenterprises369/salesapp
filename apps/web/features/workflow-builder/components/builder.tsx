@@ -15,6 +15,7 @@ import {
 } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
+import { resolveMotionProfile, useQuality } from '@/features/shared/physics';
 import { useCan, useMe } from '@/lib/session/session';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { SNAP } from '../lib/geometry';
@@ -119,10 +120,12 @@ export function BuilderRoot(props: BuilderProps) {
 
   useEffect(() => store.getState().setAiEnabled(aiEnabled), [aiEnabled, store]);
 
-  const physics = !flatPref && !reducedMotion;
+  const { tier } = useQuality(world.quality);
+  const profile = resolveMotionProfile({ reducedMotion, flat: flatPref, tier });
+  const physics = profile.springs;
   useLayoutEffect(
-    () => world.configure({ physics, motion: !reducedMotion }),
-    [world, physics, reducedMotion],
+    () => world.configure({ physics, motion: !reducedMotion, tilt: profile.tilt }),
+    [world, physics, reducedMotion, profile.tilt],
   );
 
   const env = useMemo<BuilderEnv>(
