@@ -12,6 +12,8 @@ import { cn } from '@/lib/cn';
 import { useCan, useMe, useSessionStatus } from '@/lib/session/session';
 import { Select } from '@/components/leads/primitives/select';
 import { EmptyState, ErrorState } from '@/components/leads/states';
+import { useLeadWords } from '@/components/leads/use-lead-words';
+import { WidgetSlot } from '@/lib/packs';
 import { CallsPerHourChart, FunnelChart, SourcesChart } from './charts';
 import { KpiCard } from './kpi-card';
 import { Leaderboard } from './leaderboard';
@@ -50,6 +52,7 @@ export function DashboardPage() {
   const status = useSessionStatus();
   const me = useMe();
   const canRead = useCan('dashboard.read');
+  const w = useLeadWords();
   if (status === 'loading' || (status === 'authenticated' && !me)) return <DashboardSkeleton />;
   if (!me)
     return (
@@ -63,7 +66,7 @@ export function DashboardPage() {
       <EmptyState
         icon={<LayoutDashboard aria-hidden />}
         title="The dashboard is not part of your role"
-        description="Ask a company admin for dashboard access, or open your leads instead."
+        description={`Ask a company admin for dashboard access, or open your ${w.leads} instead.`}
       />
     );
   return <Dashboard me={me} />;
@@ -180,6 +183,7 @@ function LiveDashboard({
     initLive,
   );
   const [sim] = useState(() => createEventSimulator({ seed: 99 }));
+  const w = useLeadWords();
 
   // Simulated realtime stream (Wave 1). Skips ticks while paused or the tab is hidden.
   useEffect(() => {
@@ -197,7 +201,7 @@ function LiveDashboard({
     () => [
       {
         key: 'newLeads',
-        label: 'New leads',
+        label: `New ${w.leads}`,
         kpi: kpis.newLeads,
         format: num,
         series: 'chart-1' as const,
@@ -239,7 +243,7 @@ function LiveDashboard({
         lowerIsBetter: true,
       },
     ],
-    [kpis, callsLabel],
+    [kpis, callsLabel, w.leads],
   );
 
   return (
@@ -270,7 +274,7 @@ function LiveDashboard({
         <div className="contents xl:col-span-2 xl:flex xl:min-w-0 xl:flex-col xl:gap-4">
           <Panel
             title="Funnel by stage"
-            description="Leads that reached each stage, with deal value"
+            description={`${w.Leads} that reached each stage, with deal value`}
             className="order-2 xl:order-none"
           >
             {() => <FunnelChart funnel={funnel} />}
@@ -282,11 +286,16 @@ function LiveDashboard({
           >
             {() => <CallsPerHourChart data={callsPerHour} />}
           </Panel>
+          {/* Industry pack widgets (render nothing when no active pack adds one). */}
+          <WidgetSlot
+            slot="dashboard.main"
+            className="order-3 md:grid-cols-2 xl:order-none md:[&>[data-size=lg]]:col-span-2"
+          />
           <div className="order-5 grid gap-4 lg:grid-cols-2 xl:order-none">
             <Panel title="Leaderboard" description="Won deal value this period">
               {() => <Leaderboard entries={leaderboard} />}
             </Panel>
-            <Panel title="Leads by source" description="New leads this period">
+            <Panel title={`${w.Leads} by source`} description={`New ${w.leads} this period`}>
               {() => <SourcesChart sources={sources} />}
             </Panel>
           </div>
@@ -299,6 +308,7 @@ function LiveDashboard({
           >
             {() => <NeedsAttention items={attention} />}
           </Panel>
+          <WidgetSlot slot="dashboard.side" className="order-1 xl:order-none" />
           <Panel
             title="Live activity"
             description={paused ? 'Paused' : 'Updates as it happens'}

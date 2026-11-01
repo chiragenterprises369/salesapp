@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent, SheetTitle } from '@/components/leads/primitives/sheet';
+import { useLeadWords } from '@/components/leads/use-lead-words';
 import { LeadDetail, type LeadPanel } from './lead-detail';
 import { restoreDrawerFocus, useDrawerIntent, useLeadDrawer } from './use-lead-drawer';
 
@@ -13,6 +14,7 @@ import { restoreDrawerFocus, useDrawerIntent, useLeadDrawer } from './use-lead-d
  */
 export function LeadDrawer({ panel }: { panel: LeadPanel }) {
   const { leadId, close } = useLeadDrawer();
+  const w = useLeadWords();
   return (
     <Sheet open={!!leadId} onOpenChange={(o) => !o && close()}>
       {leadId && (
@@ -32,7 +34,7 @@ export function LeadDrawer({ panel }: { panel: LeadPanel }) {
             restoreDrawerFocus();
           }}
         >
-          <SheetTitle className="sr-only">Lead details</SheetTitle>
+          <SheetTitle className="sr-only">{w.Lead} details</SheetTitle>
           <LeadDetail
             key={leadId}
             leadId={leadId}
@@ -40,7 +42,7 @@ export function LeadDrawer({ panel }: { panel: LeadPanel }) {
             variant="drawer"
             headerEnd={
               <SheetClose asChild>
-                <Button size="icon-sm" variant="ghost" aria-label="Close lead details">
+                <Button size="icon-sm" variant="ghost" aria-label={`Close ${w.lead} details`}>
                   <X aria-hidden />
                 </Button>
               </SheetClose>

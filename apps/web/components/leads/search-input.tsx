@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useLeadsViewState } from '@/lib/leads/state';
 import { cn } from '@/lib/cn';
+import { useLeadWords } from './use-lead-words';
 
 const DEBOUNCE_MS = 250;
 
@@ -12,6 +13,7 @@ const DEBOUNCE_MS = 250;
 export function LeadsSearch({ className }: { className?: string }) {
   const q = useLeadsViewState((s) => s.filters.q ?? '');
   const setFilters = useLeadsViewState((s) => s.setFilters);
+  const w = useLeadWords();
   const [value, setValue] = useState(q);
   const [syncedQ, setSyncedQ] = useState(q);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,7 +62,7 @@ export function LeadsSearch({ className }: { className?: string }) {
           }
         }}
         placeholder="Search name, company, phone"
-        aria-label="Search leads"
+        aria-label={`Search ${w.leads}`}
         className="pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (

@@ -1,6 +1,6 @@
 'use client';
 
-import type { LeadListItem, LeadUpdate } from '@vistar/shared';
+import { fieldAccessFor, type LeadListItem, type LeadUpdate } from '@vistar/shared';
 import { EMPLOYEE_FIXTURES, mockUsers } from '@vistar/shared/fixtures';
 import { CheckCircle2, FileSpreadsheet, Info, Upload } from 'lucide-react';
 import Papa from 'papaparse';
@@ -22,15 +22,17 @@ import { toast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import { useCreateLead, useUpdateLead } from '@/lib/leads/data';
 import { useLeadsViewState } from '@/lib/leads/state';
+import { useVisibleFields } from '@/lib/customization';
 import { useMe } from '@/lib/session/session';
 import { useScopedUsers } from '../lead-meta';
 import { Select } from '../primitives/select';
 import { useRecentLeads } from '../stores';
+import { usePipelineStages } from '../use-stages';
 import { downloadText, fetchAllLeads } from './export';
 import {
   detectDuplicates,
-  FIELD_OPTIONS,
   fieldLabel,
+  fieldOptions,
   mapRow,
   SAMPLE_CSV,
   suggestMapping,
@@ -93,6 +95,16 @@ export function ImportDialog({
   const [result, setResult] = useState<Result | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const cancelled = useRef(false);
+  const { stages } = usePipelineStages();
+  const leadFields = useVisibleFields('lead');
+  // Only fields this role may write can be imported (the API rejects the others).
+  const roleKey = me?.role.key ?? null;
+  const customFields = useMemo(
+    () => (leadFields.data ?? []).filter((d) => fieldAccessFor(d, roleKey) === 'write'),
+    [leadFields.data, roleKey],
+  );
+  const options = useMemo(() => fieldOptions(customFields), [customFields]);
+  const label = (f: ImportField) => fieldLabel(f, options);
 
   const owners = useMemo(() => {
     const ids = new Set(scoped.map((u) => u.id));
@@ -120,10 +132,10 @@ export function ImportDialog({
   const rows: MappedRow[] = useMemo(() => {
     if (!parsed || !existing) return [];
     return detectDuplicates(
-      parsed.rows.map((r) => mapRow(r, mapping, owners)),
+      parsed.rows.map((r) => mapRow(r, mapping, owners, { stages, customFields })),
       existing,
     );
-  }, [parsed, existing, mapping, owners]);
+  }, [parsed, existing, mapping, owners, stages, customFields]);
 
   const counts = useMemo(() => {
     const valid = rows.filter((r) => r.input);
@@ -170,7 +182,7 @@ export function ImportDialog({
           return;
         }
         setParsed({ fileName: file.name, headers, rows: res.data });
-        setMapping(suggestMapping(headers));
+        setMapping(suggestMapping(headers, customFields));
         setStep('map');
       },
       error: () =>
@@ -434,7 +446,7 @@ export function ImportDialog({
                                   [h]: v === SKIP ? null : (v as ImportField),
                                 }))
                               }
-                              options={[{ value: SKIP, label: 'Do not import' }, ...FIELD_OPTIONS]}
+                              options={[{ value: SKIP, label: 'Do not import' }, ...options]}
                             />
                           </td>
                         </tr>
@@ -450,7 +462,7 @@ export function ImportDialog({
               )}
               {duplicateFields.length > 0 && (
                 <p role="alert" className="text-sm text-danger-text">
-                  {fieldLabel(duplicateFields[0]!)} is mapped to more than one column. Keep one.
+                  {label(duplicateFields[0]!)} is mapped to more than one column. Keep one.
                 </p>
               )}
               {nameMapped && !mappedFields.includes('phone') && !mappedFields.includes('email') && (
@@ -562,7 +574,7 @@ export function ImportDialog({
                               scope="col"
                               className="h-8 border-b border-border px-3 text-left text-xs font-medium whitespace-nowrap text-muted"
                             >
-                              {fieldLabel(mapping[h]!)}
+                              {label(mapping[h]!)}
                             </th>
                           ))}
                         </tr>

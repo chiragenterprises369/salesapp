@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMe, useSessionStatus } from '@/lib/session/session';
 import { LeadsActions } from '@/components/leads/leads-actions';
 import { EmptyState } from '@/components/leads/states';
+import { useLeadWords } from '@/components/leads/use-lead-words';
 import { LeadDetail, leadsBasePath, type LeadPanel } from './lead-detail';
 import { useDrawerIntent } from './use-lead-drawer';
 
@@ -24,6 +25,7 @@ function LeadDetailPageInner({ leadId, panel }: { leadId: string; panel: LeadPan
   const status = useSessionStatus();
   const me = useMe();
   const router = useRouter();
+  const w = useLeadWords();
   const base = leadsBasePath(panel);
   const open = useCallback(
     (id: string, opts: { focusNote?: boolean } = {}) => {
@@ -40,7 +42,7 @@ function LeadDetailPageInner({ leadId, panel }: { leadId: string; panel: LeadPan
   if (!me)
     return (
       <EmptyState
-        title="Sign in to see this lead"
+        title={`Sign in to see this ${w.lead}`}
         description="Your session ended. Sign in again to continue."
       />
     );
@@ -54,7 +56,7 @@ function LeadDetailPageInner({ leadId, panel }: { leadId: string; panel: LeadPan
             className="focus-ring inline-flex items-center gap-1.5 rounded-sm text-sm text-muted-strong hover:text-fg"
           >
             <ArrowLeft aria-hidden className="size-4" />
-            All leads
+            All {w.leads}
           </Link>
         </nav>
         <LeadDetail leadId={leadId} panel={panel} variant="page" />
@@ -67,8 +69,9 @@ function PageSkeleton() {
   return (
     <div
       className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-5 md:px-6"
+      role="status"
       aria-busy="true"
-      aria-label="Loading lead"
+      aria-label="Loading"
     >
       <Skeleton className="h-4 w-20" />
       <div className="flex items-center gap-3">

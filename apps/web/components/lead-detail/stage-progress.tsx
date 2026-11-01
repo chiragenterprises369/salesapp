@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/cn';
-import { STAGES } from '@/components/leads/lead-meta';
+import { usePipelineStages } from '@/components/leads/use-stages';
 
 /**
  * Stage progress: open stages as steps, then Won / Lost. Click a stage to move the lead;
@@ -32,9 +32,10 @@ export function StageProgress({
 }) {
   const [confirm, setConfirm] = useState<Stage | null>(null);
   const [busy, setBusy] = useState(false);
-  const open = STAGES.filter((s) => s.type === 'open');
-  const closed = STAGES.filter((s) => s.type !== 'open');
-  const current = STAGES.find((s) => s.id === lead.stageId);
+  const { stages } = usePipelineStages();
+  const open = stages.filter((s) => s.type === 'open');
+  const closed = stages.filter((s) => s.type !== 'open');
+  const current = stages.find((s) => s.id === lead.stageId);
   const currentIdx = open.findIndex((s) => s.id === lead.stageId);
   const isClosed = current?.type !== 'open';
 

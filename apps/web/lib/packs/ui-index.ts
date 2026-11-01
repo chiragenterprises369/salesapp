@@ -22,5 +22,7 @@ export interface PackComponentProps {
 export type PackComponentLoader = () => Promise<{ default: ComponentType<PackComponentProps> }>;
 
 export const PACK_UI: Readonly<Record<string, PackComponentLoader>> = {
-  // 'demo-suppliers.SuppliersPage': () => import('@/components/packs/demo/suppliers-page'),
+  // MOCK-ONLY demo pack (lib/packs/demo-pack.ts).
+  'demo-suppliers.SuppliersPage': () => import('@/components/packs/demo/suppliers-page'),
+  'demo-suppliers.SupplierCount': () => import('@/components/packs/demo/supplier-count'),
 };

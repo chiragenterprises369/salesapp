@@ -35,7 +35,7 @@ export function TagsEditor({
   return (
     <div className="flex flex-col gap-1.5">
       <ul className="flex flex-wrap items-center gap-1.5" aria-label="Tags">
-        {tags.length === 0 && !adding && <li className="text-xs text-muted">No tags</li>}
+        {tags.length === 0 && !adding && <li className="text-xs text-muted-strong">No tags</li>}
         {tags.map((t) => (
           <li key={t}>
             <Chip size="md" className="pr-1">

@@ -48,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from './primitives/menu';
 import { StageSelect } from './stage-select';
+import { useLeadWords } from './use-lead-words';
 import { EmptyState, ErrorState, NoLeadsYet } from './states';
 import { useRecentLeads, useTablePrefs, type LeadSortField } from './stores';
 import { useFillViewport } from './use-fill-viewport';
@@ -265,6 +266,7 @@ function buildColumns(canBulk: boolean): ColumnDef<LeadListItem>[] {
 function LeadsTable({ onCreate }: { onCreate?: () => void }) {
   const canBulk = useCan('leads.bulk');
   const canCreate = useCan('leads.create');
+  const w = useLeadWords();
   const actions = useLeadActions();
   const { query, rows, total, hasFilters } = useTableRows();
   const resetFilters = useLeadsViewState((s) => s.resetFilters);
@@ -426,7 +428,7 @@ function LeadsTable({ onCreate }: { onCreate?: () => void }) {
         <table
           className="border-separate border-spacing-0 text-sm"
           style={{ tableLayout: 'fixed', width: table.getTotalSize(), minWidth: '100%' }}
-          aria-label="Leads"
+          aria-label={w.Leads}
           aria-rowcount={total + 1}
         >
           <colgroup>
@@ -464,7 +466,7 @@ function LeadsTable({ onCreate }: { onCreate?: () => void }) {
                         aria-label={
                           allLoadedSelected
                             ? 'Clear selection'
-                            : `Select all ${rows.length} loaded leads`
+                            : `Select all ${rows.length} loaded ${w.leads}`
                         }
                         disabled={rows.length === 0}
                         onClick={() =>
@@ -544,7 +546,7 @@ function LeadsTable({ onCreate }: { onCreate?: () => void }) {
                 <td colSpan={colCount}>
                   {hasFilters ? (
                     <EmptyState
-                      title="No leads match these filters"
+                      title={`No ${w.leads} match these filters`}
                       description="Try a wider date range or fewer filters."
                       action={<Button onClick={resetFilters}>Clear filters</Button>}
                     />
@@ -552,7 +554,7 @@ function LeadsTable({ onCreate }: { onCreate?: () => void }) {
                     <NoLeadsYet
                       action={
                         canCreate && onCreate ? (
-                          <Button onClick={onCreate}>New lead</Button>
+                          <Button onClick={onCreate}>New {w.lead}</Button>
                         ) : undefined
                       }
                     />
@@ -630,7 +632,7 @@ function LeadsTable({ onCreate }: { onCreate?: () => void }) {
                   ) : hasNextPage ? (
                     `Showing ${rows.length} of ${total}`
                   ) : (
-                    `All ${total} leads loaded`
+                    `All ${total} ${w.leads} loaded`
                   )}
                 </td>
               </tr>
