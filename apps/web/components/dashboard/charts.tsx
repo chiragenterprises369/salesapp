@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { SOURCE_LABEL } from '@/components/leads/lead-meta';
+import { useLeadWords } from '@/components/leads/use-lead-words';
 import { useChartPalette } from './panel';
 
 const SERIES = ['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', 'chart-6'] as const;
@@ -80,6 +81,7 @@ function SrTable({
 
 /** Funnel by stage: horizontal bars, share of the first stage on the right. */
 export function FunnelChart({ funnel }: { funnel: DashboardSummary['funnel'] }) {
+  const w = useLeadWords();
   const top = funnel[0]?.count || 1;
   return (
     <div>
@@ -109,8 +111,8 @@ export function FunnelChart({ funnel }: { funnel: DashboardSummary['funnel'] }) 
         })}
       </ol>
       <SrTable
-        caption="Leads by stage"
-        head={['Stage', 'Leads', 'Value', 'Share of first stage']}
+        caption={`${w.Leads} by stage`}
+        head={['Stage', w.Leads, 'Value', 'Share of first stage']}
         rows={funnel.map((s) => [
           s.name,
           s.count,
@@ -126,11 +128,12 @@ export function SourcesChart({ sources }: { sources: DashboardSummary['sources']
   const p = useChartPalette();
   const reduced = useReducedMotion();
   const tip = useTooltipStyle();
+  const w = useLeadWords();
   const data = sources
     .map((s) => ({ name: SOURCE_LABEL[s.source], count: s.count, won: s.wonValueInr }))
     .sort((a, b) => b.count - a.count);
   if (data.length === 0)
-    return <p className="py-8 text-center text-sm text-muted">No new leads in this period.</p>;
+    return <p className="py-8 text-center text-sm text-muted">No new {w.leads} in this period.</p>;
   return (
     <div>
       <div aria-hidden style={{ height: Math.max(140, data.length * 32) }}>
@@ -150,7 +153,7 @@ export function SourcesChart({ sources }: { sources: DashboardSummary['sources']
               axisLine={false}
               tick={{ fill: p['chart-axis'], fontSize: 12 }}
             />
-            <Tooltip {...tip} formatter={(v) => [formatNumber(Number(v)), 'Leads']} />
+            <Tooltip {...tip} formatter={(v) => [formatNumber(Number(v)), w.Leads]} />
             <Bar
               dataKey="count"
               radius={[0, 4, 4, 0]}
@@ -166,8 +169,8 @@ export function SourcesChart({ sources }: { sources: DashboardSummary['sources']
         </ResponsiveContainer>
       </div>
       <SrTable
-        caption="Leads by source"
-        head={['Source', 'Leads', 'Won value']}
+        caption={`${w.Leads} by source`}
+        head={['Source', w.Leads, 'Won value']}
         rows={data.map((d) => [d.name, d.count, formatInr(d.won)])}
       />
     </div>
