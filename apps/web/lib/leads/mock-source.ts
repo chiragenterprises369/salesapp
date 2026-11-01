@@ -1,6 +1,7 @@
 import type {
   Board,
   BulkResult,
+  CustomFieldValues,
   Lead,
   LeadBulkAction,
   LeadCreate,
@@ -11,7 +12,9 @@ import type {
   LeadUpdate,
   Page,
 } from '@vistar/shared';
+import { validateCustomValues, visibleValues } from '@vistar/shared';
 import { mockLeads, mockUsers } from '@vistar/shared/fixtures';
+import { ApiRequestError } from '../api-error';
 import { readMockDb } from '../mock-db';
 import { generateKeyBetween } from 'fractional-indexing';
 import { useSessionStore } from '../session/session';
@@ -93,8 +96,28 @@ function stageLeads(pipelineId: string, stageId: string, filters: LeadFilters) {
   return leads.filter((l) => l.pipelineId === pipelineId && l.stageId === stageId && matches(l, filters)).sort(byPosition);
 }
 
+/** Lead custom fields from the shared mock DB (field target "lead"). */
+function leadFieldDefs() {
+  const db = readMockDb();
+  return db.state.fields
+    .filter((f) => f.target === 'lead')
+    .map((f) => ({ key: f.key, label: f.label, type: f.type, config: f.config, required: f.required, access: f.access, archivedAt: f.archived ? (db.meta[f.id]?.archivedAt ?? 'archived') : null }));
+}
+
+/** Validate like the API (VALIDATION_FAILED with field paths "customFields.<key>"). */
+function validLeadCustomFields(values: Record<string, unknown>, mode: 'create' | 'update'): CustomFieldValues {
+  const s = useSessionStore.getState().session;
+  const roleKey = s?.audience === 'workspace' ? s.me.role.key : null;
+  const r = validateCustomValues(leadFieldDefs(), values, { mode, roleKey });
+  if (!r.ok) throw new ApiRequestError('VALIDATION_FAILED', r.errors[0]!.message, r.errors);
+  return r.values;
+}
+
 function toLead(l: LeadListItem): Lead {
   const stage = currentPipeline().stages.find((s) => s.id === l.stageId);
+  const s = useSessionStore.getState().session;
+  const roleKey = s?.audience === 'workspace' ? s.me.role.key : null;
+  const more = extra.get(l.id);
   return {
     ...l,
     contactId: null,
@@ -108,12 +131,12 @@ function toLead(l: LeadListItem): Lead {
       { rule: 'Deal value above ₹1L', points: l.valueInr > 100_000 ? 20 : 0 },
       { rule: 'Replied on WhatsApp', points: l.score > 50 ? 25 : 0 },
     ],
-    customFields: {},
     stageType: stage?.type ?? 'open',
     whatsappOptIn: l.source === 'whatsapp' ? true : null,
     dnd: false,
     mergedIntoId: null,
-    ...extra.get(l.id),
+    ...more,
+    customFields: visibleValues(leadFieldDefs(), more?.customFields ?? {}, roleKey),
   };
 }
 
@@ -214,7 +237,7 @@ export const mockLeadsSource: LeadsSource = {
       updatedAt: now,
     };
     leads = [item, ...leads];
-    extra.set(item.id, { productInterest: input.productInterest ?? null, requirement: input.requirement ?? null, state: input.state ?? null, customFields: input.customFields });
+    extra.set(item.id, { productInterest: input.productInterest ?? null, requirement: input.requirement ?? null, state: input.state ?? null, customFields: validLeadCustomFields(input.customFields ?? {}, 'create') });
     return toLead(item);
   },
 
@@ -225,6 +248,11 @@ export const mockLeadsSource: LeadsSource = {
     if (patch.expectedVersion !== undefined && patch.expectedVersion !== lead.version) throw new Error('VERSION_CONFLICT');
     const owner = patch.ownerId === undefined ? lead.owner : patch.ownerId === null ? null : (users.find((u) => u.id === patch.ownerId) ?? lead.owner);
     const stageId = patch.stageId ?? lead.stageId;
+    if (patch.customFields !== undefined) {
+      const prev = extra.get(id) ?? {};
+      const merged = { ...(prev.customFields ?? {}), ...validLeadCustomFields(patch.customFields, 'update') };
+      extra.set(id, { ...prev, customFields: merged });
+    }
     const next: LeadListItem = {
       ...lead,
       ...(patch.name !== undefined ? { name: patch.name } : {}),
