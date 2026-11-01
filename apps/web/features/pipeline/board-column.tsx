@@ -114,7 +114,7 @@ export const BoardColumn = memo(function BoardColumn({
       aria-labelledby={titleId}
       data-over={isOver || undefined}
       className={cn(
-        'flex w-[85vw] max-w-80 shrink-0 snap-start flex-col rounded-lg border md:w-72',
+        'relative flex w-[85vw] max-w-80 shrink-0 snap-start flex-col rounded-lg border md:w-72',
         'transition-shadow duration-150 ease-standard',
         COLUMN_TINT[tone],
         isOver && 'ring-2 ring-accent',
@@ -153,7 +153,7 @@ export const BoardColumn = memo(function BoardColumn({
 
       <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-1 pb-2">
         {leads.length > VIRTUALIZE_OVER ? (
-          <VirtualCardList {...listProps} scrollRef={scrollRef} initialOffset={initialTop} />
+          <VirtualCardList {...listProps} scrollRef={scrollRef} initialOffset={() => scrollRef.current?.scrollTop ?? initialTop} />
         ) : (
           <StaticCardList {...listProps} />
         )}

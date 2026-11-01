@@ -182,8 +182,11 @@ export function BoardView({ pipelineId, density = 'default' }: LeadsBoardViewPro
               aria-label={`${display.pipeline.name} pipeline`}
               onScroll={(e) => persistLeft(e.currentTarget.scrollLeft)}
               className={cn(
-                'flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-2',
+                // `relative` keeps absolutely positioned descendants (sr-only text) inside the scroller.
+                'relative flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-2',
                 'snap-x snap-mandatory md:snap-none data-[dragging=true]:snap-none',
+                // While a card is dragged, cards under the pointer must not react to hover.
+                'data-[dragging=true]:[&_li]:pointer-events-none',
               )}
             >
               {display.columns.map((column) => (

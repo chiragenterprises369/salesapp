@@ -117,7 +117,7 @@ export function VirtualCardList({
   scrollRef,
   initialOffset,
   ...cardProps
-}: CardListProps & { scrollRef: RefObject<HTMLDivElement | null>; initialOffset: number }) {
+}: CardListProps & { scrollRef: RefObject<HTMLDivElement | null>; initialOffset: number | (() => number) }) {
   const ctrl = useBoardController();
   const listRef = useRef<HTMLUListElement>(null);
   const leadsRef = useLeadsRef(leads);
