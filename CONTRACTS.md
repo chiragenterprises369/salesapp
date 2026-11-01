@@ -69,6 +69,7 @@ One Next.js app, three route groups, one design system:
 - API code reads the caller from `req.auth` (`AuthContext`, workspace) or `req.platformAuth` (`PlatformAuthContext`). Use `@CurrentAuth()` / `@CurrentPlatformAdmin()`.
 - Data scope: inject `ScopeService` (global) and spread `await scope.where(auth, 'ownerId' | 'assigneeId' | 'userId')` into every owned-record query; `scope.canSee(auth, ownerId)` for detail routes (return NOT_FOUND, never FORBIDDEN, for out-of-scope records).
 - Map users with `toUserSummary()` + `USER_SUMMARY_SELECT` (`common/mappers/user.mapper.ts`); dates with `iso()`.
+- Audit with the global `AuditService` (`common/audit/audit.service.ts`): `record(auth, req, { action, entityType, entityId, diff })`, `system(...)`, `platform(admin, req, { ..., workspaceId, reason })` (also writes the company log). Diffs are PII-masked.
 - **Wave 1 only:** with `DEV_AUTH=1` (development) a `DevAuthGuard` authenticates `x-dev-user: <seeded email>` and enforces route permissions. It is removed in Wave 3 when the real guards are merged.
 
 ### Web session (`lib/session`)
@@ -114,7 +115,7 @@ One Next.js app, three route groups, one design system:
 - **User setting key `leads.viewMode`** (`UserSettings.leadsViewMode`, PATCH `/me/settings`).
 - **Workspace default key `leads.defaultViewMode`** (`Workspace.defaultLeadsViewMode`, PATCH `/workspace`, admins only).
 - Shared state (`useLeadsViewState`): filters (`LeadFiltersSchema`), saved view, selection, Board select mode, filter panel, scroll positions. Switching views never resets it.
-- Shared data (`lib/leads/data.ts`): `useLeadsList`, `useLeadsBoard`, `useMoveLead` (optimistic, per-lead rollback), `applyMoveToBoard(board, { lead, fromStageId, toStageId, beforeId?, afterId?, position? })` (also used by realtime `stage.changed`), `patchListItem`, `leadKeys`. One TanStack Query cache. Wave 1 uses the mock source; Wave 3 swaps to HTTP without changing hook signatures.
+- Shared data (`lib/leads/data.ts`): `useLeadsList`, `useLeadsBoard`, `useLoadMoreColumn`, `useLead`, `useCreateLead`, `useUpdateLead`, `useBulkLeads`, `useMoveLead` (optimistic, per-lead rollback), `applyMoveToBoard(board, { lead, fromStageId, toStageId, beforeId?, afterId?, position? })` (also used by realtime `stage.changed`), `patchListItem`, `leadKeys`. One TanStack Query cache. Wave 1 uses the mock source (which applies the mock persona's data scope); Wave 3 swaps to HTTP without changing hook signatures.
 - `LeadMove` with no neighbours = end of the target column.
 - Pickers (owner dropdown, reassign) use `GET /users/options` (`leads.read`), not `/users` (`team.read`).
 - Shared actions (`components/leads-shared/lead-actions.tsx`): `LeadActionsProvider`, `useLeadActions()` (`open`, `call`, `whatsapp`, `note`), `LeadQuickActions`. Both views open the same Lead detail drawer (`?lead=<id>`).

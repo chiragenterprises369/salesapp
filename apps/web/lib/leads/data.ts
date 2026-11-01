@@ -1,7 +1,19 @@
 'use client';
 
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import type { Board, LeadFilters, LeadListItem, LeadListQuery, LeadMove, Page } from '@vistar/shared';
+import type {
+  Board,
+  BulkResult,
+  LeadBulkAction,
+  LeadCreate,
+  Lead,
+  LeadFilters,
+  LeadListItem,
+  LeadListQuery,
+  LeadMove,
+  LeadUpdate,
+  Page,
+} from '@vistar/shared';
 import { generateKeyBetween } from 'fractional-indexing';
 import { toast } from '@/components/ui/toast';
 import { mockLeadsSource } from './mock-source';
@@ -14,6 +26,12 @@ import { mockLeadsSource } from './mock-source';
 export interface LeadsSource {
   list(query: LeadListQuery): Promise<Page<LeadListItem>>;
   board(pipelineId: string, filters: LeadFilters, perColumn?: number): Promise<Board>;
+  /** Next page of one board column (cursor from BoardColumn.nextCursor). */
+  columnPage(pipelineId: string, stageId: string, filters: LeadFilters, cursor: string, limit?: number): Promise<Page<LeadListItem>>;
+  get(id: string): Promise<Lead>;
+  create(input: LeadCreate): Promise<Lead>;
+  update(id: string, patch: LeadUpdate): Promise<Lead>;
+  bulk(action: LeadBulkAction): Promise<BulkResult>;
   move(leadId: string, move: LeadMove): Promise<LeadListItem>;
 }
 
@@ -162,4 +180,71 @@ export function snapshotLeadCaches(qc: ReturnType<typeof useQueryClient>, pipeli
 /** Position between two neighbours (server does the same; exported for mocks/tests). */
 export function positionBetween(before: string | null | undefined, after: string | null | undefined): string {
   return generateKeyBetween(before ?? null, after ?? null);
+}
+
+/** Load more cards into one board column; appends to every cached board for this pipeline + filters. */
+export function useLoadMoreColumn(pipelineId: string, filters: LeadFilters) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ stageId, cursor }: { stageId: string; cursor: string }) => getLeadsSource().columnPage(pipelineId, stageId, filters, cursor),
+    onSuccess: (page, { stageId }) => {
+      qc.setQueryData<Board>(leadKeys.board(pipelineId, filters), (b) =>
+        b
+          ? {
+              ...b,
+              columns: b.columns.map((c) =>
+                c.stage.id === stageId
+                  ? { ...c, leads: [...c.leads, ...page.items.filter((i) => !c.leads.some((l) => l.id === i.id))], nextCursor: page.nextCursor }
+                  : c,
+              ),
+            }
+          : b,
+      );
+    },
+  });
+}
+
+/** Lead detail (drawer and page share this key). */
+export function useLead(id: string | null) {
+  return useQuery({
+    queryKey: leadKeys.detail(id ?? 'none'),
+    queryFn: () => getLeadsSource().get(id as string),
+    enabled: !!id,
+  });
+}
+
+/** Create a lead; refreshes lists and boards (new rows slide in on refetch). */
+export function useCreateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: LeadCreate) => getLeadsSource().create(input),
+    onSuccess: async (lead) => {
+      qc.setQueryData(leadKeys.detail(lead.id), lead);
+      await Promise.all([qc.invalidateQueries({ queryKey: leadKeys.lists() }), qc.invalidateQueries({ queryKey: leadKeys.boards() })]);
+    },
+  });
+}
+
+/** Update a lead (inline edits, drawer). Patches detail + list items; boards refetch if stage/owner/value changed. */
+export function useUpdateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: LeadUpdate }) => getLeadsSource().update(id, patch),
+    onSuccess: async (lead, { patch }) => {
+      qc.setQueryData(leadKeys.detail(lead.id), lead);
+      patchListItem(qc, lead);
+      if ('stageId' in patch || 'ownerId' in patch || 'valueInr' in patch) await qc.invalidateQueries({ queryKey: leadKeys.boards() });
+    },
+  });
+}
+
+/** Bulk actions (assign, stage, tags, delete, WhatsApp template). Refetches affected caches. */
+export function useBulkLeads() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (action: LeadBulkAction) => getLeadsSource().bulk(action),
+    onSuccess: async () => {
+      await Promise.all([qc.invalidateQueries({ queryKey: leadKeys.all }), qc.invalidateQueries({ queryKey: leadKeys.boards() })]);
+    },
+  });
 }
