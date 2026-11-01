@@ -1,4 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Module, type Provider } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { CommonModule } from './common/common.module.js';
+import { DevAuthGuard } from './common/auth/dev-auth.guard.js';
+import { getEnv } from './config/env.js';
 import { HealthController } from './health/health.controller.js';
 import { EventsModule } from './infra/events/events.module.js';
 import { PrismaModule } from './infra/prisma/prisma.module.js';
@@ -18,6 +22,9 @@ import { WhatsappModule } from './modules/whatsapp/whatsapp.module.js';
 import { WorkflowsModule } from './modules/workflows/workflows.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
 
+/** Wave 1 only (see common/auth/dev-auth.guard.ts). */
+const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useClass: DevAuthGuard }] : [];
+
 /** Root module. OWNER: orchestrator. Feature modules register their own providers. */
 @Module({
   imports: [
@@ -25,6 +32,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     PrismaModule,
     RedisModule,
     EventsModule,
+    CommonModule,
     // backend-core
     AuthModule,
     WorkspaceModule,
@@ -45,5 +53,6 @@ import { WorkspaceModule } from './modules/workspace/workspace.module.js';
     SuperadminModule,
   ],
   controllers: [HealthController],
+  providers: devProviders,
 })
 export class AppModule {}

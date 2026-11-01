@@ -68,3 +68,19 @@ Read anything. Contracts are listed in CONTRACTS.md.
 | qa-reviewer | 2, 4 | tests, accessibility and theme review, skill compliance review, diff review |
 | asset-generator | after Wave 1, once, after manifest approval | Fizzly image generation |
 | superadmin-panel | Phase 9 (or earlier if requested) | Super Admin panel UI + `/api/super` features |
+
+## Wave 1 streams (parallel worktrees)
+
+Large agents run as two streams with disjoint files. Same agent rules; each stream commits only its paths.
+
+| Stream | Worktree / branch | Paths | Ports |
+| --- | --- | --- | --- |
+| backend-core:auth | `.worktrees/backend-core` / `agent/backend-core` | `apps/api/src/modules/{auth,workspace}/**` | API 4001 |
+| backend-core:crm | `.worktrees/backend-core-crm` / `agent/backend-core-crm` | `apps/api/src/modules/{leads,tasks,pipeline,notifications,dashboard}/**` | API 4002 (`DEV_AUTH=1`) |
+| frontend-app:shell | `.worktrees/frontend-app` / `agent/frontend-app` | `app/layout.tsx`, `app/page.tsx`, `app/(auth)/**`, `app/(company)/app/**` except `page.tsx` and `leads/**`, `app/(employee)/me/**` except `leads/**`, `app/(super-admin)/**`, `components/{shell,auth,settings,employee,common}/**`, `lib/{theme,auth}/**`, `public/**` (not `generated`) | web 3001 |
+| frontend-app:leads | `.worktrees/frontend-app-leads` / `agent/frontend-app-leads` | `app/(company)/app/page.tsx` (dashboard), `app/(company)/app/leads/**`, `app/(employee)/me/leads/**`, `components/{leads,lead-detail,dashboard}/**` | web 3002 |
+| frontend-physics:board | `.worktrees/frontend-physics` / `agent/frontend-physics` | `features/pipeline/**` | web 3003 |
+| frontend-physics:builder | `.worktrees/frontend-physics-builder` / `agent/frontend-physics-builder` | `features/workflow-builder/**` | web 3004 |
+| frontend-3d | `.worktrees/frontend-3d` / `agent/frontend-3d` | `features/team-floor/**` | web 3005 |
+
+The shared Postgres (5432) and Redis (6379) are used by both API streams; neither runs migrations or edits `prisma/**`.

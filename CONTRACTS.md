@@ -27,6 +27,9 @@ The orchestrator applies it on `main`, notes it in the change log below, and tel
 | Tailwind theme mapping | `apps/web/styles/theme.css` | all UI |
 | Base UI kit | `apps/web/components/ui/*` (preview at `/kit`) | all UI |
 | Leads page shared state and data layer | `apps/web/lib/leads/*`, `apps/web/components/leads-shared/*` | Board view, Table view |
+| Web session (identity, permissions, settings) | `apps/web/lib/session/*`, `apps/web/lib/providers.tsx` | every panel, guards, features |
+| Feature public APIs (stable exports + props) | `apps/web/features/{pipeline,workflow-builder,team-floor}/index.tsx` | page shells mount them; owners replace the implementation only |
+| API data scope + dev auth + mappers | `apps/api/src/common/auth/{scope.service,dev-auth.guard}.ts`, `common/mappers/*` | all API modules |
 | Webhook signing | `packages/shared/src/webhooks.ts` | webhooks module, docs |
 | Workflow graph, node catalogue, templates | `packages/shared/src/workflow/*` | builder, engine, seed |
 | Data model | `apps/api/prisma/schema.prisma` | all API modules |
@@ -64,6 +67,20 @@ One Next.js app, three route groups, one design system:
 - A workspace token is rejected by every `/api/super` route and a platform token by every `/api/v1` route (different audience and secret). Required test.
 - **Impersonation** (Super Admin "View as company"): `ImpersonationStartSchema` (reason required, default 30 min, read-only by default). Issues a workspace token with the `imp` claim. Read-only blocks every non-GET. Message bodies and recordings stay hidden unless the company enabled support access with content (`Workspace.supportAccess`). Persistent banner from `MeResponse.impersonation`. Logged in `PlatformAuditLog` and the company `AuditLog`.
 - API code reads the caller from `req.auth` (`AuthContext`, workspace) or `req.platformAuth` (`PlatformAuthContext`). Use `@CurrentAuth()` / `@CurrentPlatformAdmin()`.
+- Data scope: inject `ScopeService` (global) and spread `await scope.where(auth, 'ownerId' | 'assigneeId' | 'userId')` into every owned-record query; `scope.canSee(auth, ownerId)` for detail routes (return NOT_FOUND, never FORBIDDEN, for out-of-scope records).
+- Map users with `toUserSummary()` + `USER_SUMMARY_SELECT` (`common/mappers/user.mapper.ts`); dates with `iso()`.
+- **Wave 1 only:** with `DEV_AUTH=1` (development) a `DevAuthGuard` authenticates `x-dev-user: <seeded email>` and enforces route permissions. It is removed in Wave 3 when the real guards are merged.
+
+### Web session (`lib/session`)
+- `useSession()`, `useMe()` (`MeResponse` | null), `usePrincipal()`, `usePermissions()`, `useCan(p)`, `useSessionStatus()`, `useSessionActions()` (`signInMock`, `signOut`, `updateSettings`, `updateWorkspace`). `<AppProviders>` (root layout) mounts the query client and session.
+- Wave 1 is mock: personas `company_admin | manager | employee | viewer | super_admin` (Shakti fixtures, ids match `mockUsers()`), stored in localStorage. Dev helpers: `?mockAs=<persona>`, `&impersonating=1`, `NEXT_PUBLIC_MOCK_PERSONA`. Wave 3 swaps internals for the real API; hook signatures stay.
+- `updateSettings(patch)` deep-merges `theme` and `notifications` and persists per persona (mock) / PATCH `/me/settings` (real).
+
+### Feature public APIs
+- `LeadsBoardView({ pipelineId, density? })` from `@/features/pipeline`.
+- `WorkflowBuilder({ workflowId, initialGraph?, readOnly?, onSave? })` from `@/features/workflow-builder`.
+- `TeamFloor({ mode?, readOnly?, userIds? })` from `@/features/team-floor` (lazy three bundle inside).
+- Dev previews (orchestrator): `/dev/board`, `/dev/builder`, `/dev/floor` (signed in as a mock manager), UI kit `/kit`.
 
 ## 5. REST API
 
@@ -126,3 +143,4 @@ One Next.js app, three route groups, one design system:
 | 2026-11-01 | Leads view modes: `LeadsViewMode`, `leads.viewMode`, `leads.defaultViewMode`, shared `LeadFiltersSchema`, board accepts filters, `SavedView.viewMode`, shared leads state/data/actions in web. |
 | 2026-11-01 | Roles and panels: role kinds (`company_admin, manager, employee, viewer`), platform `super_admin`, permission matrix, data scope, custom roles, feature flags, plan limits, navigation map, separate platform auth audience with 2FA, impersonation, support access, `/api/super` routes. |
 | 2026-11-01 | qa-reviewer fixes: Update schemas no longer re-apply defaults (Zod 4 `.partial()`), `UserSettingsUpdateSchema` explicit, `WebhookEndpointUpdateSchema`, `leads.merge` permission, `GET /me/today` (`MyTodaySchema`), `GET /users/options`, `TARGET_METRICS`, `input-border` token (`border-input`), `Button` touch sizes, tenant client hardening + `assertInTenant`, TOTP replay protection (`PlatformAdmin.totpLastStep`), `Target.subjectKey`, `TRUST_PROXY` env, self-loop fix in `validateGraph`. |
+| 2026-11-01 | Wave 1 prep: web session contract (`lib/session`, `AppProviders`), feature public APIs + dev preview routes, `ScopeService`, `DevAuthGuard` (Wave 1 only), user mapper, `DEFAULT_USER_SETTINGS`, skills `vistar-workflow-nodes`, `vistar-3d-floor`. |

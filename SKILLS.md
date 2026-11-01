@@ -7,7 +7,9 @@ Rule for every agent: **before starting a task, read the relevant skills listed 
 - `vistar-conventions` — repo structure, contracts, API/web coding rules, commit and summary format. Read for every task.
 - `vistar-theming` — tokens, both themes, motion, accessibility, UI kit usage. Read for all UI work.
 - `vistar-realtime-events` — event envelope, publish-after-commit, cache patching, rooms, presence. Read for any realtime or cache work.
-- Planned (created just before their phase): `vistar-webhooks-security` (Phase 5), `vistar-workflow-nodes` (Phase 6), `vistar-3d-floor` (Phase 8).
+- `vistar-workflow-nodes` — workflow graph, node catalogue, handles, configs, execution semantics, compliance guards, builder expectations. Read for builder, engine and workflow tests.
+- `vistar-3d-floor` — Team Floor scene, theme lighting, characters, event mapping, A*, performance tiers, flat/accessible fallbacks. Read for any Team Floor work.
+- Planned (created just before its phase): `vistar-webhooks-security` (Wave 2, Phase 5).
 
 ## User skills (`~/.claude/skills`)
 
@@ -38,7 +40,9 @@ Until these exist, agents use `context7` for library docs and the project skills
 | Agent | Skills |
 | --- | --- |
 | backend-core, realtime-integrations, workflow-engine, superadmin-panel (API) | vistar-conventions, vistar-realtime-events; ggshield scan-secrets for auth/integration work |
-| frontend-app, frontend-physics, superadmin-panel (UI) | vistar-conventions, vistar-theming, frontend-design (by path), vistar-realtime-events when touching caches |
-| frontend-3d | vistar-conventions, vistar-theming, frontend-design (by path), vistar-3d-floor (Phase 8) |
+| frontend-app, superadmin-panel (UI) | vistar-conventions, vistar-theming, frontend-design (by path), vistar-realtime-events when touching caches |
+| frontend-physics | vistar-conventions, vistar-theming, frontend-design (by path), vistar-workflow-nodes (builder) |
+| frontend-3d | vistar-conventions, vistar-theming, vistar-realtime-events, vistar-3d-floor, frontend-design (by path) |
+| workflow-engine | vistar-conventions, vistar-realtime-events, vistar-workflow-nodes |
 | qa-reviewer | all project skills (reviews against them), frontend-design (by path) |
 | asset-generator | vistar-conventions, vistar-theming (style), ggshield scan-secrets |

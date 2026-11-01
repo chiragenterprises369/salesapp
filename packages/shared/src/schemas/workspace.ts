@@ -212,6 +212,8 @@ export const UserSettingsSchema = z.object({
   leadsViewMode: LeadsViewModeSchema.nullable().default(null),
 });
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
+/** Defaults for a user with no Setting rows (API and mocks). */
+export const DEFAULT_USER_SETTINGS: UserSettings = UserSettingsSchema.parse({ theme: {}, notifications: {} });
 /**
  * PATCH body: every field optional with NO defaults (Zod 4 `.partial()` would re-apply defaults and
  * overwrite unrelated settings). Nested objects merge server-side.

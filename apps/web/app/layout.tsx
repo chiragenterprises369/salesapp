@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { Toaster } from '@/components/ui';
+import { AppProviders } from '@/lib/providers';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -21,7 +22,8 @@ export const viewport: Viewport = {
 
 /**
  * Root layout. The boot script applies data-theme before first paint (no flash).
- * frontend-app owns this file from Wave 1 (providers, shell); keep the boot script first in <head>.
+ * frontend-app owns this file from Wave 1 (theme provider etc.); keep the boot script first in
+ * <head> and keep <AppProviders> (query client + session) around the app.
  */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -30,7 +32,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: getThemeBootScript() }} />
       </head>
       <body className="min-h-dvh bg-bg font-sans text-fg antialiased">
-        {children}
+        <AppProviders>{children}</AppProviders>
         <Toaster />
       </body>
     </html>

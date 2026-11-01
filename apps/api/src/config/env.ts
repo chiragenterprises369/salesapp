@@ -53,9 +53,14 @@ const EnvSchema = z.object({
   FEATURE_AI_NODE: bool,
   /** Express "trust proxy" (e.g. "loopback", "1", "10.0.0.0/8"). Needed for real client IPs behind a load balancer. */
   TRUST_PROXY: z.string().optional(),
+  /** Wave 1 dev-only header auth (x-dev-user). Refused in production. */
+  DEV_AUTH: bool,
 }).refine((e) => e.SUPER_JWT_SECRET !== e.JWT_ACCESS_SECRET && e.SUPER_JWT_SECRET !== e.JWT_REFRESH_SECRET, {
   message: 'SUPER_JWT_SECRET must differ from the workspace JWT secrets',
   path: ['SUPER_JWT_SECRET'],
+}).refine((e) => !(e.DEV_AUTH && e.NODE_ENV === 'production'), {
+  message: 'DEV_AUTH must never be enabled in production',
+  path: ['DEV_AUTH'],
 });
 
 export type Env = z.infer<typeof EnvSchema>;

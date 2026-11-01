@@ -32,3 +32,10 @@ Defaults chosen without asking because they do not change scope. Newest last.
 | D-026 | Full-text search index (tsvector/trigram) added by a Phase 2 migration on request from backend-core | Needs measured queries first |
 | D-027 | Workflow node configs use stable keys (`stageKey`, `templateName`), not ids | Templates are portable across workspaces |
 | D-028 | Super Admin API mounted at `/api/super/*` (unversioned), workspace API at `/api/v1/*` | As specified |
+| D-029 | Wave 1 runs 7 parallel streams: backend-core and frontend-app and frontend-physics each split into two streams with disjoint folders | Keeps each agent's task within one session and maximises parallelism without shared files |
+| D-030 | Wave 1 web uses a mock session (`lib/session`) with personas; the real auth API is wired in Wave 3 behind the same hooks | Frontends never wait for the backend |
+| D-031 | `DevAuthGuard` (`x-dev-user`, `DEV_AUTH=1`, development only) lets the CRM stream test endpoints before the real guard is merged; removed in Wave 3 | Parallel backend streams without coupling |
+| D-032 | `vistar-workflow-nodes` and `vistar-3d-floor` skills created now (not Phase 6/8) because the builder and floor are built in Wave 1; `vistar-webhooks-security` comes before Wave 2 | "Just before the phase that needs them" |
+| D-033 | Builder and board each implement their own drag physics in Wave 1; shared physics primitives are consolidated in the Wave 4 performance pass if they converge | Avoids a cross-stream dependency mid-wave |
+| D-034 | Web dev ports per stream 3001-3005, API 4001-4002; main keeps 3000/4000 | Parallel dev servers do not collide |
+| D-035 | Added `papaparse` to web for client-side CSV preview in the mock import flow | Import mapping UI must work before the API exists |

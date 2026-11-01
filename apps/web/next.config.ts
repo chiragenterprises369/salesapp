@@ -2,12 +2,16 @@ import { loadEnvConfig } from '@next/env';
 import path from 'node:path';
 import type { NextConfig } from 'next';
 
-// Load the monorepo root .env. Only NEXT_PUBLIC_* values reach the browser; never put secrets there.
-loadEnvConfig(path.resolve(process.cwd(), '../..'));
+// Monorepo root (also correct inside .worktrees/<agent>). Only NEXT_PUBLIC_* values reach the browser.
+const monorepoRoot = path.resolve(process.cwd(), '../..');
+loadEnvConfig(monorepoRoot);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Pin the root so Turbopack never picks a parent checkout's lockfile (agent worktrees live inside the repo).
+  turbopack: { root: monorepoRoot },
+  outputFileTracingRoot: monorepoRoot,
   images: {
     formats: ['image/avif', 'image/webp'],
   },
