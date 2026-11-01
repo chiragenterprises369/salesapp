@@ -23,7 +23,7 @@ const WHATSAPP_COLUMNS: DataColumn[] = [
 /** Shipped content library: the shared workflow templates and the WhatsApp templates they use. Editing arrives in Phase 9. */
 export function ContentLibrary() {
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-4">
+    <div className="flex max-w-7xl flex-col gap-4">
       <PageHeader title="Content" description="Templates shipped to every company. Editing and publishing new versions arrive in Phase 9." className="mb-1" />
       <DataTable label="Workflow templates" columns={WORKFLOW_COLUMNS} status="ready" empty={{ title: 'No templates' }}>
         {WORKFLOW_TEMPLATES.map((t) => {

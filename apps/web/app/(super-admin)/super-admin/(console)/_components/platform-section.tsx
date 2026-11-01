@@ -51,7 +51,7 @@ export function PlatformSection({
   const status = query.isPending ? 'loading' : query.isError ? 'error' : (query.data?.length ?? 0) === 0 ? 'empty' : 'ready';
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-4">
+    <div className="flex max-w-7xl flex-col gap-4">
       <PageHeader title={title} description={description} className="mb-1" />
       {children}
       <DataTable

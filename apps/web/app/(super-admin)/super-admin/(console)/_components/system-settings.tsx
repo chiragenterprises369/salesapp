@@ -30,7 +30,7 @@ export function SystemSettings() {
   const session = useSession();
   const admin = session?.audience === 'platform' ? session.admin : null;
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-4">
+    <div className="flex max-w-7xl flex-col gap-4">
       <PageHeader title="System settings" description="Session security for the console and the people who can use it." className="mb-1" />
       <Card>
         <CardHeader>
