@@ -59,14 +59,14 @@ Status values: not started / in progress / done / blocked. "Verified" = what was
 | Company settings, billing, audit (15.7) | frontend-app, backend-core | 1 / 9 | in progress | Branch: settings pages (workspace, hours, theme and Leads defaults, roles, visibility, support access) with mocks; audit service writes entries; billing not started |
 | Super Admin panel (16) | superadmin-panel | 9 | not started | Shell and placeholder pages only (frontend-app) |
 | Employee panel (17) | frontend-app | 2-3 | in progress | Branch: bottom nav, Home today view, status control, profile, preferences, PWA manifest, all on mocks. Offline task list and push not started |
-| Image assets (18) | asset-generator | after Wave 1 | blocked | Input fields confirmed; waiting for manifest approval |
+| Image assets (18) | asset-generator | after Wave 1 | blocked | Prompts for hero-login light and dark received (SPEC 18.1, change #15). Fizzly env vars are set. Waiting on manifest approval and three answers: name tags vs "no text in images", how to send the negative prompt, and whether to generate now. Nothing generated, 0 credits spent |
 | Realtime backbone (19) | realtime-integrations | 4 | not started | Event bus (Redis pub/sub) and event contract ready; events validated in dev |
 | Seed and simulator (20.4) | orchestrator | 1 / 4 | in progress | Seed done; the simulator publishes events but does not save rows yet |
 | Tests and QA (20.3) | qa-reviewer | Waves 2, 4 | not started | STEP 0 review done; no test suites yet |
 | Deployment docs and CI (20.6) | orchestrator | 10 | not started | Docker Compose for local services exists |
-| Industry Packs core: custom objects/fields, labels, configurable stages, manifest, registry (22) | orchestrator (contracts, schema, migration), backend-core (API), frontend-app (settings + registry UI) | 2 | in progress | Not yet |
-| Generic Sales pack (22.5) | orchestrator | 2 | in progress | Not yet |
-| Board physics v2 (11.1) | frontend-physics | 3 | not started | Starts after Industry Packs Part 1 |
+| Industry Packs core: custom objects/fields, labels, configurable stages, manifest, registry (22) | orchestrator (contracts, schema, migration), backend-core (API), frontend-app (settings + registry UI) | 2 | done (Part 1) | `main`: shared 59 tests, API 31 tests (installer idempotency, upgrade keeps admin edits, uninstall/reinstall, adoption of migrated workspaces, tenant isolation, 403/422), `packs:sync` second run all noop on 5 workspaces, smoke:api 37/37 (fields, packs, labels, 422 path, pipeline keys), smoke:web 28/28. Branch UI checks: S 65/65, R 28/29 (lead field reload fixed on main after). UI runs on the mock data layer; not wired to the API yet |
+| Generic Sales pack (22.5) | orchestrator | 2 | done | `packs/generic-sales/manifest.json` generated and tested; installed in all seeded and existing workspaces |
+| Board physics v2 (11.1) | frontend-physics | 3 | in progress (paused) | Branch `agent/frontend-physics`: 2 commits (shared physics module, Board v2, builder reuse, `/dev/board-physics` demo) plus uncommitted e2e specs and touch handling. The run was stopped before verification; not merged |
 | Real Estate pack (23) | pack-realestate (planned, not created) | after 22 | planned (not started) | n/a |
 | Real Estate supplement (24) | pack-realestate (planned, not created) | after 23 | planned (not started) | n/a |
 | Live Site-Visit Map / Field Live (25) | frontend-map (planned, not created) | after 23 and Phase 4-5 | planned (not started) | n/a |
