@@ -17,7 +17,7 @@ import {
   type OnNodeDrag,
 } from '@xyflow/react';
 import { Maximize, Minus, Plus } from 'lucide-react';
-import { useCallback, useEffect, useRef, type DragEvent } from 'react';
+import { useCallback, useEffect, useRef, type DragEvent, type FocusEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { useDocumentTheme } from '@/lib/use-document-theme';
 import { categoryOf, isTrigger, TONE_CLASSES } from '../lib/catalog';
@@ -82,6 +82,19 @@ export function Canvas({ commands }: { commands: Commands }) {
     [store],
   );
 
+  // Keyboard focus selects the step, so Tab walks the graph and the settings panel follows.
+  const onFocusCapture = useCallback(
+    (e: FocusEvent) => {
+      const el = e.target as HTMLElement;
+      if (!el.classList.contains('react-flow__node') || !el.matches(':focus-visible')) return;
+      const id = el.dataset.id;
+      if (!id) return;
+      if (!store.getState().nodes.find((n) => n.id === id)?.selected) store.getState().select([id]);
+      commands.reveal(id);
+    },
+    [store, commands],
+  );
+
   const onDragOver = useCallback(
     (e: DragEvent) => {
       if (!env.canEdit || !e.dataTransfer.types.includes(PALETTE_MIME)) return;
@@ -101,7 +114,7 @@ export function Canvas({ commands }: { commands: Commands }) {
   );
 
   return (
-    <div ref={wrapperRef} className="vistar-flow relative h-full min-h-0 w-full" data-physics="idle" onDragOver={onDragOver} onDrop={onDrop}>
+    <div ref={wrapperRef} className="vistar-flow relative h-full min-h-0 w-full overflow-clip" data-physics="idle" onDragOver={onDragOver} onDrop={onDrop} onFocusCapture={onFocusCapture}>
       <ReactFlow<FlowNode, FlowEdge>
         nodes={nodes}
         edges={edges}

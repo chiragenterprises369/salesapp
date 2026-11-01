@@ -2,7 +2,7 @@
 
 import { NODE_CATALOG } from '@vistar/shared';
 import { ChevronDown, ChevronUp, CircleAlert, CircleCheck, Play, Square, TriangleAlert, X } from 'lucide-react';
-import { useId, useMemo } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
@@ -23,6 +23,15 @@ export function Dock({ commands, runContext, onStop, onRunAgain }: { commands: C
   const { errors, warnings } = issueCounts(issues);
   const tabsId = useId();
   const open = dock !== null;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const logLength = run?.log.length ?? 0;
+  // Keep the newest run step in view unless the user scrolled up to read earlier ones.
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el || dock !== 'run') return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (nearBottom || logLength <= 1) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [logLength, dock]);
   const setDock = (d: typeof dock) => store.getState().setDock(d);
 
   const runLabel = run ? (run.status === 'running' ? 'Test run · running' : run.status === 'completed' ? 'Test run · completed' : run.status === 'failed' ? 'Test run · failed' : `Test run · ${run.status}`) : null;
@@ -80,7 +89,7 @@ export function Dock({ commands, runContext, onStop, onRunAgain }: { commands: C
         </div>
       </div>
       {open && (
-        <div id={`${tabsId}-panel`} role="tabpanel" aria-labelledby={`${tabsId}-${dock}`} className="h-44 overflow-y-auto border-t border-border">
+        <div ref={panelRef} id={`${tabsId}-panel`} role="tabpanel" aria-labelledby={`${tabsId}-${dock}`} className="h-44 overflow-y-auto border-t border-border">
           {dock === 'issues' ? <IssuesList commands={commands} /> : <RunLog commands={commands} runContext={runContext} />}
         </div>
       )}

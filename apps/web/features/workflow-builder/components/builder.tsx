@@ -59,7 +59,10 @@ export function BuilderRoot(props: BuilderProps) {
     return createBuilderStore({ workflowId: props.workflowId, name: init.name, templateKey: init.templateKey, graph: init.graph, status: 'draft', versions: [], activeVersion: null, aiEnabled });
   });
   const [world] = useState(() => new PhysicsWorld(store));
-  useEffect(() => () => world.dispose(), [world]);
+  useLayoutEffect(() => {
+    world.attach();
+    return () => world.detach();
+  }, [world]);
 
   // Local (mock) persistence loads after mount so server and client markup agree.
   useEffect(() => {
@@ -194,7 +197,8 @@ function BuilderShell({
         const { step, nextEdgeId } = e.payload;
         s.applyStep(step, nextEdgeId);
         if (nextEdgeId) world.sendPacket(nextEdgeId, PACKET_MS);
-        if (step.status !== 'running') {
+        if (step.status === 'running') commands.follow(step.nodeId);
+        else {
           const node = s.nodes.find((n) => n.id === step.nodeId);
           if (node) s.announce(`${displayLabel(node.type, node.data)}: ${STEP_STATUS_META[step.status].label.toLowerCase()}`);
         }
@@ -203,7 +207,7 @@ function BuilderShell({
         s.announce(`Test run ${e.payload.status}`);
       }
     },
-    [store, world],
+    [commands, store, world],
   );
 
   const startRun = useCallback(
@@ -240,7 +244,7 @@ function BuilderShell({
   const ctx = useMemo(() => runContext(lastInput, env.workspaceName, null), [lastInput, env.workspaceName]);
 
   return (
-    <div ref={rootRef} className="flex h-[calc(100dvh-8rem)] min-h-[520px] w-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-card">
+    <div ref={rootRef} className="flex h-[calc(100dvh-8rem)] min-h-[520px] w-full flex-col overflow-clip rounded-lg border border-border bg-surface shadow-card">
       <Toolbar
         commands={commands}
         saving={saving}
@@ -365,7 +369,7 @@ function useShortcuts({
       if (!canEdit) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        if (focusedNodeId && !store.getState().nodes.find((n) => n.id === focusedNodeId)?.selected) store.getState().select([focusedNodeId]);
+        if (focusedNodeId && !store.getState().nodes.some((n) => n.selected)) store.getState().select([focusedNodeId]);
         commands.deleteSelection();
         return;
       }
@@ -382,7 +386,7 @@ function useShortcuts({
       const arrows: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
       const dir = arrows[e.key];
       if (dir) {
-        if (focusedNodeId && !store.getState().nodes.find((n) => n.id === focusedNodeId)?.selected) store.getState().select([focusedNodeId]);
+        if (focusedNodeId && !store.getState().nodes.some((n) => n.selected)) store.getState().select([focusedNodeId]);
         if (!store.getState().nodes.some((n) => n.selected)) return;
         e.preventDefault();
         const step = SNAP * (e.shiftKey ? 4 : 1);

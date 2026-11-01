@@ -82,26 +82,53 @@ export function autoLayout(nodes: FlowNode[], edges: FlowEdge[]): Map<string, Po
       treeKids.set(id, kids);
     }
 
+    // Columns: contour packing (Reingold-Tilford style). Subtrees sit side by side in handle order,
+    // shifted right only as far as needed so they never share a cell on any row.
+    type Contour = Map<number, [number, number]>;
     const col = new Map<string, number>();
-    const place = (id: string, l: number): number => {
+    const rowOf = (id: string) => row.get(id) ?? 0;
+    const place = (id: string): { cols: Map<string, number>; contour: Contour } => {
       const kids = treeKids.get(id) ?? [];
-      if (kids.length === 0) {
-        col.set(id, l);
-        return 1;
-      }
-      let cur = l;
-      for (const k of kids) cur += place(k, cur);
-      const width = cur - l;
-      const centre = l + (width - 1) / 2;
-      let best = col.get(kids[0]!)!;
+      if (kids.length === 0) return { cols: new Map([[id, 0]]), contour: new Map([[rowOf(id), [0, 0]]]) };
+      const cols = new Map<string, number>();
+      const contour: Contour = new Map();
+      const kidCols: number[] = [];
       for (const k of kids) {
-        const c = col.get(k)!;
-        if (Math.abs(c - centre) < Math.abs(best - centre) - 1e-6) best = c;
+        const sub = place(k);
+        let offset = 0;
+        if (contour.size > 0) {
+          offset = -Infinity;
+          for (const [r, [min]] of sub.contour) {
+            const taken = contour.get(r);
+            if (taken) offset = Math.max(offset, taken[1] + 1 - min);
+          }
+          if (offset === -Infinity) offset = Math.max(...kidCols) + 1 - (sub.cols.get(k) ?? 0);
+        }
+        for (const [nid, c] of sub.cols) cols.set(nid, c + offset);
+        for (const [r, [min, max]] of sub.contour) {
+          const cur = contour.get(r);
+          contour.set(r, cur ? [Math.min(cur[0], min + offset), Math.max(cur[1], max + offset)] : [min + offset, max + offset]);
+        }
+        kidCols.push(cols.get(k)!);
       }
-      col.set(id, best);
-      return width;
+      const centre = (kidCols[0]! + kidCols[kidCols.length - 1]!) / 2;
+      let best = kidCols[0]!;
+      for (const c of kidCols) if (Math.abs(c - centre) < Math.abs(best - centre) - 1e-6) best = c;
+      cols.set(id, best);
+      const r = rowOf(id);
+      const cur = contour.get(r);
+      contour.set(r, cur ? [Math.min(cur[0], best), Math.max(cur[1], best)] : [best, best]);
+      return { cols, contour };
     };
-    const width = place(root, left);
+    const placed1 = place(root);
+    let minCol = Infinity;
+    let maxCol = -Infinity;
+    for (const c of placed1.cols.values()) {
+      minCol = Math.min(minCol, c);
+      maxCol = Math.max(maxCol, c);
+    }
+    for (const [nid, c] of placed1.cols) col.set(nid, c - minCol + left);
+    const width = maxCol - minCol + 1;
     for (const id of reach) {
       placed.add(id);
       result.set(id, { x: (col.get(id) ?? left) * GRID_X, y: (row.get(id) ?? 0) * GRID_Y });

@@ -80,22 +80,22 @@ export const TONE_CLASSES: Record<NodeCategory, { chip: string; lip: string; min
   trigger: {
     chip: 'border-status-indigo-border bg-status-indigo-bg text-status-indigo-fg',
     lip: 'bg-status-indigo-border',
-    mini: 'var(--status-indigo-fg)',
+    mini: 'color-mix(in srgb, var(--status-indigo-fg) 55%, var(--surface))',
   },
   action: {
     chip: 'border-status-blue-border bg-status-blue-bg text-status-blue-fg',
     lip: 'bg-status-blue-border',
-    mini: 'var(--status-blue-fg)',
+    mini: 'color-mix(in srgb, var(--status-blue-fg) 55%, var(--surface))',
   },
   logic: {
     chip: 'border-status-amber-border bg-status-amber-bg text-status-amber-fg',
     lip: 'bg-status-amber-border',
-    mini: 'var(--status-amber-fg)',
+    mini: 'color-mix(in srgb, var(--status-amber-fg) 55%, var(--surface))',
   },
   ai: {
     chip: 'border-status-grey-border bg-status-grey-bg text-status-grey-fg',
     lip: 'bg-status-grey-border',
-    mini: 'var(--status-grey-fg)',
+    mini: 'color-mix(in srgb, var(--status-grey-fg) 55%, var(--surface))',
   },
 };
 

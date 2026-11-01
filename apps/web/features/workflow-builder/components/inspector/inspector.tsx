@@ -83,7 +83,7 @@ function NodeInspector({ node, commands }: { node: NodeView; commands: Commands 
   const store = useBuilderApi();
   const env = useEnv();
   const me = useMe();
-  const focusToken = useBuilder((s) => s.focusToken);
+  const focusRequest = useBuilder((s) => s.focusRequest);
   const issues = useBuilder((s) => s.issues);
   const rootRef = useRef<HTMLDivElement>(null);
   const firstRef = useRef<HTMLInputElement>(null);
@@ -93,19 +93,17 @@ function NodeInspector({ node, commands }: { node: NodeView; commands: Commands 
   const config = node.data.config;
   const errors = useMemo(() => configErrors(type, config), [type, config]);
   const nodeIssues = issues.filter((i) => i.nodeId === node.id && (i.path === null || !(i.path in errors)));
-  const lastToken = useRef(focusToken);
-
   useEffect(() => {
-    if (focusToken === lastToken.current) return;
-    lastToken.current = focusToken;
+    if (focusRequest !== node.id) return;
+    store.getState().requestFocus(null);
     requestAnimationFrame(() => firstRef.current?.focus());
-  }, [focusToken]);
+  }, [focusRequest, node.id, store]);
 
   const onConfig: EditorProps['onChange'] = (next, opts) => store.getState().updateConfig(node.id, () => next, opts);
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
-      commands.focusNode(node.id);
+      commands.focusNode(node.id, { center: false });
     }
   };
 

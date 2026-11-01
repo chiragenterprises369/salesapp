@@ -85,18 +85,25 @@ export class PhysicsWorld {
   private last = 0;
   private acc = 0;
   private statusEl: HTMLElement | null = null;
-  private unsubscribe: () => void;
+  private unsubscribe: (() => void) | null = null;
   private dragging = 0;
 
   constructor(private source: NodeSource) {
     this.syncNodes(source.getState().nodes);
-    this.unsubscribe = source.subscribe((s, prev) => {
+  }
+
+  /** Start following the store (call from an effect; StrictMode may attach/detach twice). */
+  attach() {
+    this.unsubscribe?.();
+    this.syncNodes(this.source.getState().nodes);
+    this.unsubscribe = this.source.subscribe((s, prev) => {
       if (s.nodes !== prev.nodes) this.syncNodes(s.nodes);
     });
   }
 
-  dispose() {
-    this.unsubscribe();
+  detach() {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
     if (this.raf) cancelAnimationFrame(this.raf);
     this.raf = 0;
   }

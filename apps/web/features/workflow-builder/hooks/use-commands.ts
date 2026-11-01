@@ -71,20 +71,47 @@ export function useCommands() {
         void rf.fitView({ padding: 0.15, maxZoom: 1, duration });
       },
       /** Select a node, centre it, and either focus it on the canvas or open its settings. */
-      focusNode(id: string, opts: { openSettings?: boolean } = {}) {
+      focusNode(id: string, opts: { openSettings?: boolean; center?: boolean } = {}) {
         const n = store.getState().nodes.find((x) => x.id === id);
         if (!n) return;
         store.getState().select([id]);
         const { w, h } = nodeSize(n.type, n.data.config);
-        void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, { zoom: Math.max(rf.getZoom(), 0.85), duration });
-        if (opts.openSettings) store.getState().requestFocus();
+        if (opts.center !== false) void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, { zoom: Math.max(rf.getZoom(), 0.85), duration });
+        if (opts.openSettings) store.getState().requestFocus(id);
         else focusNodeElement(id);
+      },
+      /** Pan (keeping the zoom) so a step is fully visible; used when keyboard focus lands on it. */
+      reveal(id: string) {
+        const n = store.getState().nodes.find((x) => x.id === id);
+        const el = document.querySelector('.vistar-flow');
+        if (!n || !el) return;
+        const { w, h } = nodeSize(n.type, n.data.config);
+        const rect = el.getBoundingClientRect();
+        const tl = rf.flowToScreenPosition({ x: n.position.x, y: n.position.y });
+        const br = rf.flowToScreenPosition({ x: n.position.x + w, y: n.position.y + h });
+        if (tl.x >= rect.left + 24 && tl.y >= rect.top + 24 && br.x <= rect.right - 24 && br.y <= rect.bottom - 24) return;
+        void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, { zoom: rf.getZoom(), duration });
+      },
+      /** Keep a running test step in view at a readable zoom (pans only when it would be off screen). */
+      follow(id: string) {
+        const n = store.getState().nodes.find((x) => x.id === id);
+        const el = document.querySelector('.vistar-flow');
+        if (!n || !el) return;
+        const { w, h } = nodeSize(n.type, n.data.config);
+        const rect = el.getBoundingClientRect();
+        const zoom = rf.getZoom();
+        const tl = rf.flowToScreenPosition({ x: n.position.x, y: n.position.y });
+        const br = rf.flowToScreenPosition({ x: n.position.x + w, y: n.position.y + h });
+        const margin = 48;
+        const inside = tl.x >= rect.left + margin && tl.y >= rect.top + margin && br.x <= rect.right - margin && br.y <= rect.bottom - margin;
+        if (inside && zoom >= 0.7) return;
+        void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2 + 90, { zoom: Math.max(zoom, 0.8), duration: env.reducedMotion ? 0 : 450 });
       },
       openSettings(id?: string) {
         const target = id ?? (selected().length === 1 ? selected()[0]!.id : null);
         if (!target) return;
         store.getState().select([target]);
-        store.getState().requestFocus();
+        store.getState().requestFocus(target);
       },
       /** Palette click / Enter: add after the selected step, else at the viewport centre. */
       add(type: NodeType) {

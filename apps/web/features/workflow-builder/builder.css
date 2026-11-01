@@ -110,12 +110,17 @@
   fill: var(--accent);
 }
 
-/* Minimap */
+/* Minimap (desktop only; on small screens it would cover the canvas). */
 .vistar-flow .react-flow__minimap {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: var(--elevation-2);
+}
+@media (max-width: 1023px) {
+  .vistar-flow .react-flow__minimap {
+    display: none;
+  }
 }
 
 /* Panels sit on the canvas; keep their margins tight. */

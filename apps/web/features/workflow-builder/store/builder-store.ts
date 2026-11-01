@@ -95,8 +95,8 @@ export interface BuilderState {
   activeVersion: number | null;
   dragSnapshot: Snapshot | null;
   run: RunState | null;
-  /** Incremented to ask the inspector to move focus into its first field. */
-  focusToken: number;
+  /** Node whose settings should take focus once the inspector shows it (Enter / double-click). */
+  focusRequest: string | null;
   dock: 'issues' | 'run' | null;
   /** Polite live-region text for screen readers. */
   announcement: { text: string; n: number };
@@ -125,7 +125,7 @@ export interface BuilderState {
   setStatus: (status: 'draft' | 'active') => void;
   markSaved: (version: LocalVersion, opts?: { activate?: boolean }) => void;
   setVersions: (versions: LocalVersion[], activeVersion: number | null) => void;
-  requestFocus: () => void;
+  requestFocus: (nodeId: string | null) => void;
   setDock: (dock: 'issues' | 'run' | null) => void;
   startRun: (id: string, leadName: string) => void;
   applyStep: (step: WorkflowRunStep, nextEdgeId: string | null) => void;
@@ -225,7 +225,7 @@ export function createBuilderStore(init: {
       activeVersion: init.activeVersion,
       dragSnapshot: null,
       run: null,
-      focusToken: 0,
+      focusRequest: null,
       dock: null,
       announcement: { text: '', n: 0 },
 
@@ -478,7 +478,7 @@ export function createBuilderStore(init: {
         })),
 
       setVersions: (versions, activeVersion) => set({ versions, activeVersion }),
-      requestFocus: () => set((s) => ({ focusToken: s.focusToken + 1 })),
+      requestFocus: (nodeId) => set({ focusRequest: nodeId }),
       setDock: (dock) => set({ dock }),
 
       startRun: (id, leadName) =>
