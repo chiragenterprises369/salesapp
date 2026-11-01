@@ -1,6 +1,6 @@
 'use client';
 
-import { Skeleton } from '@/components/ui/skeleton';
+import { BoardView } from './board-view';
 
 /**
  * PUBLIC API of features/pipeline (contract; owner frontend-physics replaces the implementation,
@@ -13,16 +13,10 @@ export interface LeadsBoardViewProps {
   density?: 'default' | 'compact';
 }
 
-export function LeadsBoardView(_props: LeadsBoardViewProps) {
-  return (
-    <div className="flex gap-3 overflow-x-auto p-1" aria-busy="true" aria-label="Board loading">
-      {Array.from({ length: 6 }, (_, i) => (
-        <div key={i} className="flex w-72 shrink-0 flex-col gap-2 rounded-lg bg-surface-2 p-2">
-          <Skeleton className="h-5 w-1/2" />
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
-        </div>
-      ))}
-    </div>
-  );
+/**
+ * WorkDo-style kanban for one pipeline: tinted stage columns, spring-physics drag and drop with a
+ * keyboard and menu alternative, select mode for bulk actions, quick add, virtualised long columns.
+ */
+export function LeadsBoardView(props: LeadsBoardViewProps) {
+  return <BoardView {...props} />;
 }
