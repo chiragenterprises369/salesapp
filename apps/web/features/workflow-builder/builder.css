@@ -1,0 +1,131 @@
+/*
+  Workflow builder canvas. React Flow's base.css is unlayered, so these overrides are unlayered too.
+  Colours come only from design tokens (CSS variables from styles/tokens.css).
+*/
+.vistar-flow .react-flow {
+  --xy-background-color: var(--bg);
+  --xy-background-pattern-dots-color-default: var(--border-strong);
+  --xy-edge-stroke: var(--input-border);
+  --xy-edge-stroke-selected: var(--accent-text);
+  --xy-connectionline-stroke: var(--accent-text);
+  --xy-minimap-background-color: var(--surface);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--bg) 72%, transparent);
+  --xy-minimap-mask-stroke-color: var(--border-strong);
+  --xy-minimap-node-background-color: var(--muted);
+  --xy-selection-background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+  --xy-selection-border: 1px solid var(--accent-text);
+  --xy-handle-background-color: var(--surface);
+  font-family: var(--font-sans);
+}
+
+/* Nodes: the wrapper is the focus target; round it so the focus ring hugs the card. */
+.vistar-flow .react-flow__node {
+  border-radius: 12px;
+}
+.vistar-flow .react-flow__node:focus {
+  outline: none;
+}
+.vistar-flow .react-flow__node:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+.vistar-flow .react-flow__nodesselection-rect {
+  border-radius: 12px;
+}
+
+/* Handles */
+.vistar-flow .react-flow__handle.wf-handle {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 9999px;
+  border: 2px solid var(--input-border);
+  background: var(--surface);
+  transition: background-color 150ms var(--easing), border-color 150ms var(--easing), transform 150ms var(--easing);
+}
+.vistar-flow .react-flow__handle.wf-handle.connectionindicator:hover,
+.vistar-flow .react-flow__handle.wf-handle.connectingfrom,
+.vistar-flow .react-flow__handle.wf-handle.valid {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.vistar-flow .react-flow__handle.wf-handle.react-flow__handle-bottom.connectionindicator:hover {
+  transform: translate(-50%, 50%) scale(1.25);
+}
+.vistar-flow .react-flow__handle.wf-handle.react-flow__handle-top.connectionindicator:hover {
+  transform: translate(-50%, -50%) scale(1.25);
+}
+
+/* Edges */
+.vistar-flow .wf-edge-path {
+  stroke: var(--input-border);
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  transition: stroke 150ms var(--easing), stroke-width 150ms var(--easing);
+}
+.vistar-flow .wf-edge-shadow {
+  stroke: var(--fg);
+  stroke-opacity: 0.08;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+[data-theme='dark'] .vistar-flow .wf-edge-shadow {
+  stroke: var(--overlay);
+  stroke-opacity: 0.7;
+}
+.vistar-flow .wf-edge.is-flat .wf-edge-shadow {
+  display: none;
+}
+.vistar-flow .react-flow__edge:hover .wf-edge-path,
+.vistar-flow .react-flow__edge.selected .wf-edge-path,
+.vistar-flow .wf-edge.is-selected .wf-edge-path {
+  stroke: var(--accent-text);
+  stroke-width: 2.25;
+}
+.vistar-flow .react-flow__edge:focus-visible .wf-edge-path {
+  stroke: var(--ring);
+  stroke-width: 3;
+}
+.vistar-flow .wf-edge.is-traversed .wf-edge-path {
+  stroke: var(--accent-text);
+  stroke-width: 2.25;
+}
+.vistar-flow .wf-packet {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+  pointer-events: none;
+}
+.vistar-flow .wf-packet-halo {
+  fill: var(--accent);
+  pointer-events: none;
+}
+.vistar-flow .wf-connection-line {
+  stroke: var(--accent-text);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+}
+.vistar-flow .wf-connection-end {
+  fill: var(--accent);
+}
+
+/* Minimap */
+.vistar-flow .react-flow__minimap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--elevation-2);
+}
+
+/* Panels sit on the canvas; keep their margins tight. */
+.vistar-flow .react-flow__panel {
+  margin: 12px;
+}
+.vistar-flow .react-flow__attribution {
+  margin: 6px 8px;
+  background: transparent;
+}
+.vistar-flow .react-flow__attribution a {
+  color: var(--muted-strong);
+}

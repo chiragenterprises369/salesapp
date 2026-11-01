@@ -1,7 +1,9 @@
 'use client';
 
 import type { WorkflowGraph } from '@vistar/shared';
-import { Skeleton } from '@/components/ui/skeleton';
+import '@xyflow/react/dist/base.css';
+import './builder.css';
+import { BuilderRoot } from './components/builder';
 
 /**
  * PUBLIC API of features/workflow-builder (contract; owner frontend-physics replaces the
@@ -17,6 +19,7 @@ export interface WorkflowBuilderProps {
   onSave?: (graph: WorkflowGraph) => Promise<void> | void;
 }
 
-export function WorkflowBuilder(_props: WorkflowBuilderProps) {
-  return <Skeleton className="h-[calc(100dvh-8rem)] w-full rounded-lg" aria-label="Workflow builder loading" />;
+export function WorkflowBuilder(props: WorkflowBuilderProps) {
+  // Remount on a different workflow so the editor state never leaks between workflows.
+  return <BuilderRoot key={props.workflowId} {...props} />;
 }
