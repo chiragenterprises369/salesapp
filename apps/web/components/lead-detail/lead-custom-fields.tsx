@@ -54,14 +54,14 @@ export function LeadCustomFields({ lead }: { lead: Lead }) {
           ))}
         </div>
       ) : fields.isError ? (
-        <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
+        <p className="flex flex-wrap items-center gap-2 text-sm text-muted-strong">
           Custom fields did not load.
           <Button size="sm" variant="link" onClick={() => void fields.refetch()}>
             Try again
           </Button>
         </p>
       ) : defs.length === 0 ? (
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted-strong">
           No custom fields yet. A company admin can add them in Settings.
         </p>
       ) : editing ? (
@@ -85,7 +85,7 @@ export function LeadCustomFields({ lead }: { lead: Lead }) {
             const readOnly = canUpdate && fieldAccessFor(d, me?.role.key) === 'read';
             return (
               <div key={d.key} className="contents">
-                <dt className="flex items-start gap-1 text-muted">
+                <dt className="flex items-start gap-1 text-muted-strong">
                   <span>{d.label}</span>
                   {readOnly && (
                     <>

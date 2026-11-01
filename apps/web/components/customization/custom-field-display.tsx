@@ -42,7 +42,7 @@ export function CustomFieldDisplay({
   className?: string;
 }) {
   if (isEmptyValue(value) || value === undefined) {
-    return <span className={cn('text-muted', className)}>{compact ? '—' : 'Not set'}</span>;
+    return <span className={cn('text-muted-strong', className)}>{compact ? '—' : 'Not set'}</span>;
   }
   const wrap = compact ? 'truncate' : 'break-words';
   switch (def.type) {

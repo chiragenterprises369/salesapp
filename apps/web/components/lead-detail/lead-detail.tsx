@@ -263,13 +263,13 @@ function LeadDetailBody({
         ) : (
           <h2 className="truncate text-lg font-semibold">{lead.name}</h2>
         )}
-        <p className="truncate text-sm text-muted">
+        <p className="truncate text-sm text-muted-strong">
           {[lead.companyName, lead.city].filter(Boolean).join(' · ') || 'No company'}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <TemperatureChip temperature={lead.temperature} />
           <SourceChip source={lead.source} />
-          <span className="text-xs text-muted">Created {formatCreated(lead.createdAt)}</span>
+          <span className="text-xs text-muted-strong">Created {formatCreated(lead.createdAt)}</span>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
@@ -341,13 +341,11 @@ function LeadDetailBody({
           {canAssign ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="-mx-2 justify-start gap-2 px-2"
-                  aria-label={`Owner: ${lead.owner?.name ?? 'Unassigned'}. Reassign`}
-                >
+                <Button variant="ghost" className="-mx-2 justify-start gap-2 px-2">
                   {lead.owner ? <Avatar name={lead.owner.name} size="xs" aria-hidden /> : null}
+                  <span className="sr-only">Owner: </span>
                   <span className="truncate">{lead.owner?.name ?? 'Unassigned'}</span>
+                  <span className="sr-only">. Reassign</span>
                   <ChevronDown aria-hidden className="text-muted" />
                 </Button>
               </DropdownMenuTrigger>
@@ -407,7 +405,7 @@ function LeadDetailBody({
 
       <Section title="Contact">
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
-          <dt className="flex items-center gap-1.5 text-muted">
+          <dt className="flex items-center gap-1.5 text-muted-strong">
             <Phone aria-hidden className="size-3.5" /> Phone
           </dt>
           <dd className="tabular truncate">
@@ -422,7 +420,7 @@ function LeadDetailBody({
               '—'
             )}
           </dd>
-          <dt className="flex items-center gap-1.5 text-muted">
+          <dt className="flex items-center gap-1.5 text-muted-strong">
             <Mail aria-hidden className="size-3.5" /> Email
           </dt>
           <dd className="truncate">
@@ -437,16 +435,16 @@ function LeadDetailBody({
               '—'
             )}
           </dd>
-          <dt className="flex items-center gap-1.5 text-muted">
+          <dt className="flex items-center gap-1.5 text-muted-strong">
             <MapPin aria-hidden className="size-3.5" /> City
           </dt>
           <dd className="truncate">{[lead.city, lead.state].filter(Boolean).join(', ') || '—'}</dd>
-          <dt className="text-muted">Source</dt>
+          <dt className="text-muted-strong">Source</dt>
           <dd className="truncate">
             {SOURCE_LABEL[lead.source]}
-            {lead.sourceRef && <span className="text-muted"> · {lead.sourceRef}</span>}
+            {lead.sourceRef && <span className="text-muted-strong"> · {lead.sourceRef}</span>}
           </dd>
-          <dt className="text-muted">Last activity</dt>
+          <dt className="text-muted-strong">Last activity</dt>
           <dd className="truncate">{lead.lastActivityAt ? timeAgo(lead.lastActivityAt) : '—'}</dd>
         </dl>
       </Section>

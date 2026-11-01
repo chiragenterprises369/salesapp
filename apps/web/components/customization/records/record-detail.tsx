@@ -1,10 +1,12 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import {
   objectRecordsHref,
   objectTarget,
   type CustomObject,
   type CustomRecord,
+  type Page,
 } from '@vistar/shared';
 import { format } from 'date-fns';
 import { AlertTriangle, ArrowLeft, ChevronDown, Pencil, Trash2 } from 'lucide-react';
@@ -37,6 +39,7 @@ import {
 import { ErrorState } from '@/components/leads/states';
 import {
   isApiRequestError,
+  recordKeys,
   useCustomObject,
   useDeleteRecord,
   useRecord,
@@ -115,6 +118,7 @@ function RecordDetailBody({
   const fields = useObjectFields(object);
   const update = useUpdateRecord(object.key);
   const del = useDeleteRecord(object.key);
+  const qc = useQueryClient();
   const [editing, setEditing] = useState<{ version: number; formKey: number } | null>(null);
   const [conflict, setConflict] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -139,6 +143,18 @@ function RecordDetailBody({
   const remove = async () => {
     try {
       await del.mutateAsync(record.id);
+      // Drop it from cached lists now so the list does not flash the deleted row while it refetches.
+      qc.setQueriesData<Page<CustomRecord>>(
+        { queryKey: [...recordKeys.object(object.key), 'list'] },
+        (p) =>
+          p && p.items.some((r) => r.id === record.id)
+            ? {
+                ...p,
+                items: p.items.filter((r) => r.id !== record.id),
+                ...(p.total !== undefined ? { total: Math.max(0, p.total - 1) } : {}),
+              }
+            : p,
+      );
       toast.success(`${singular} deleted: ${title}`);
       setConfirmDelete(false);
       router.replace(basePath);
@@ -397,9 +413,10 @@ function OwnerControl({
           variant="ghost"
           disabled={saving}
           className="-mx-2 h-11 w-[calc(100%+1rem)] justify-start gap-2 px-2 sm:h-9"
-          aria-label={`Owner: ${name}. Change owner`}
         >
+          <span className="sr-only">Owner: </span>
           {shown}
+          <span className="sr-only">. Change owner</span>
           <ChevronDown aria-hidden className="ml-auto text-muted" />
         </Button>
       </DropdownMenuTrigger>
