@@ -1,6 +1,7 @@
 import type { AttentionItem, Task } from '@vistar/shared';
 import { iso, toUserSummary, USER_SUMMARY_SELECT } from '../../common/mappers/user.mapper.js';
 import type { Prisma } from '../../generated/prisma/client.js';
+import { parseCustomFields } from '../leads/lead.mapper.js';
 
 export const TASK_INCLUDE = {
   assignee: { select: USER_SUMMARY_SELECT },
@@ -26,6 +27,7 @@ export function toTask(t: TaskRow): Task {
     completedAt: iso(t.completedAt),
     source: t.source,
     workflowRunId: t.workflowRunId,
+    customFields: parseCustomFields(t.customFields),
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
   };

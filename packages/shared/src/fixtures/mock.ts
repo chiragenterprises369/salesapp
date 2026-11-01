@@ -56,8 +56,10 @@ export function mockUsers(): UserSummary[] {
 export function mockPipeline(): Pipeline {
   return {
     id: MOCK_PIPELINE_ID,
+    key: 'sales',
     name: 'Sales',
     isDefault: true,
+    packKey: 'generic-sales',
     stages: DEFAULT_STAGES.map((s, i) => ({
       id: `0190f5a0-0000-7000-8000-2000000000${String(i).padStart(2, '0')}`,
       pipelineId: MOCK_PIPELINE_ID,
@@ -230,6 +232,7 @@ export function createEventSimulator(opts: { workspaceId?: string; seed?: number
           notes: null,
           disposition: null,
           provider: 'mock',
+          customFields: {},
         };
         activeCalls.set(u.id, call);
         out.push(envelope('call.started', { call }));
@@ -274,6 +277,7 @@ export function createEventSimulator(opts: { workspaceId?: string; seed?: number
         completedAt: null,
         source: 'workflow',
         workflowRunId: null,
+        customFields: {},
         createdAt: new Date(Date.now() - 3 * 3600_000).toISOString(),
         updatedAt: new Date().toISOString(),
       };

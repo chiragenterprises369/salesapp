@@ -43,6 +43,7 @@ function task(me: MeResponse, rng: () => number, lead: LeadListItem, type: TaskT
     completedAt: null,
     source: type === 'call' ? 'workflow' : 'manual',
     workflowRunId: null,
+    customFields: {},
     createdAt: new Date(now - 6 * HOUR).toISOString(),
     updatedAt: new Date(now - 6 * HOUR).toISOString(),
   };
@@ -140,6 +141,7 @@ export function buildRecentCalls(me: MeResponse, nowMs: number): Call[] {
       notes: null,
       disposition: null,
       provider: 'mock',
+      customFields: {},
     } satisfies Call;
   });
 }

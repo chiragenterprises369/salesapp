@@ -13,6 +13,8 @@ export const PERMISSION_MATRIX = {
   dashboard: ['read'],
   leads: ['read', 'create', 'update', 'delete', 'assign', 'bulk', 'merge', 'import', 'export'],
   pipeline: ['read', 'manage'],
+  /** Custom object records (flexible data layer). Data scope applies via CustomRecord.ownerId. */
+  records: ['read', 'create', 'update', 'delete'],
   tasks: ['read', 'create', 'update', 'delete'],
   calls: ['read', 'make', 'recordings'],
   messages: ['read', 'send', 'team_inbox'],
@@ -51,6 +53,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKind, Permission[]> = {
     'dashboard.read',
     'leads.read', 'leads.create', 'leads.update', 'leads.assign', 'leads.bulk', 'leads.merge', 'leads.export',
     'pipeline.read',
+    'records.read', 'records.create', 'records.update',
     'tasks.read', 'tasks.create', 'tasks.update', 'tasks.delete',
     'calls.read', 'calls.make', 'calls.recordings',
     'messages.read', 'messages.send', 'messages.team_inbox',
@@ -64,6 +67,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKind, Permission[]> = {
   employee: [
     'leads.read', 'leads.create', 'leads.update',
     'pipeline.read',
+    'records.read', 'records.create', 'records.update',
     'tasks.read', 'tasks.create', 'tasks.update',
     'calls.read', 'calls.make', 'calls.recordings',
     'messages.read', 'messages.send',
@@ -72,7 +76,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKind, Permission[]> = {
     'teamfloor.read',
     'targets.read',
   ],
-  viewer: ['dashboard.read', 'leads.read', 'pipeline.read', 'reports.read'],
+  viewer: ['dashboard.read', 'leads.read', 'pipeline.read', 'records.read', 'reports.read'],
 };
 
 export const DEFAULT_ROLE_SCOPE: Record<RoleKind, DataScope> = {
@@ -139,6 +143,7 @@ export const PLATFORM_PERMISSIONS = [
   'platform.billing.manage',
   'platform.usage.read',
   'platform.flags.manage',
+  'platform.packs.manage',
   'platform.health.read',
   'platform.analytics.read',
   'platform.support.impersonate',

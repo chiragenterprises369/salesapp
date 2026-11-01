@@ -51,5 +51,18 @@ export const OkResponseSchema = z.object({ ok: z.literal(true) });
 
 export const IdParamSchema = z.object({ id: IdSchema });
 
-/** Custom field values on leads/contacts. Keys are CustomField.key. */
-export const CustomFieldValuesSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]));
+/** Geo-point value for `geo_point` custom fields. */
+export const GeoPointSchema = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) });
+export type GeoPoint = z.infer<typeof GeoPointSchema>;
+
+/**
+ * One stored custom field value (shape depends on the field type; see customization/values.ts):
+ * text/date/select/url = string, number/money = number, boolean, multi_select/multiple user|relation|file = string[],
+ * geo_point = { lat, lng }, null = cleared.
+ */
+export const CustomFieldValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(z.string()), GeoPointSchema]);
+export type CustomFieldValue = z.infer<typeof CustomFieldValueSchema>;
+
+/** Custom field values on core entities and custom object records. Keys are field keys. */
+export const CustomFieldValuesSchema = z.record(z.string(), CustomFieldValueSchema);
+export type CustomFieldValues = z.infer<typeof CustomFieldValuesSchema>;

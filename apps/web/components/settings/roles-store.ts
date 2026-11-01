@@ -21,6 +21,7 @@ export const RESOURCE_LABELS: Record<PermissionResource, { label: string; hint: 
   dashboard: { label: 'Dashboard', hint: 'KPIs, funnel and live feed' },
   leads: { label: 'Leads', hint: 'Lead records, owners and imports' },
   pipeline: { label: 'Pipeline', hint: 'Stages and the Board' },
+  records: { label: 'Custom records', hint: 'Records of custom objects (e.g. Projects, Units)' },
   tasks: { label: 'Tasks', hint: 'Follow-ups and reminders' },
   calls: { label: 'Calls', hint: 'Click-to-call and recordings' },
   messages: { label: 'WhatsApp messages', hint: 'Chats with leads' },

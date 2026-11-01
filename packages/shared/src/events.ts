@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { EmployeeStatusSchema, MessageStatusSchema, WorkflowRunStatusSchema } from './enums.js';
 import { ThemeModeSchema } from './theme.js';
+import { CustomRecordSchema } from './customization/objects.js';
 import { ActivitySchema } from './schemas/activity.js';
 import { CallSchema } from './schemas/call.js';
 import { IdSchema, IsoDateTimeSchema } from './schemas/common.js';
@@ -143,6 +144,24 @@ export const eventPayloadSchemas = {
     userId: IdSchema.nullable(),
     mode: ThemeModeSchema,
   }),
+
+  // customization & packs (flexible data layer)
+  'customization.changed': z.object({
+    /** What changed; clients refetch field definitions, objects, labels, pipelines or the pack runtime. */
+    scope: z.enum(['fields', 'objects', 'labels', 'stages', 'packs']),
+    target: z.string().nullable().describe('Field target or object key when scope is fields/objects'),
+  }),
+  'pack.installed': z.object({
+    packKey: z.string(),
+    version: z.string(),
+    modes: z.array(z.string()),
+    action: z.enum(['install', 'upgrade', 'sync']),
+    summary: z.record(z.string(), z.number().int()),
+  }),
+  'pack.uninstalled': z.object({ packKey: z.string(), version: z.string().nullable() }),
+  'record.created': z.object({ record: CustomRecordSchema }),
+  'record.updated': z.object({ record: CustomRecordSchema, changed: z.array(z.string()).describe('Changed value keys, plus "ownerId"') }),
+  'record.deleted': z.object({ objectKey: z.string(), recordIds: z.array(IdSchema) }),
 } as const;
 
 export type EventName = keyof typeof eventPayloadSchemas;
@@ -180,7 +199,7 @@ export function parseDomainEvent(raw: unknown): DomainEvent {
 }
 
 /** Query-cache scopes the client should invalidate after a resync. */
-export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows'] as const;
+export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records'] as const;
 export type SyncScope = (typeof SYNC_SCOPES)[number];
 
 export const HeartbeatSchema = z.object({

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TaskPrioritySchema, TaskStatusSchema, TaskTypeSchema } from '../enums.js';
-import { CursorPaginationQuerySchema, IdSchema, IsoDateTimeSchema, queryArray } from './common.js';
+import { CursorPaginationQuerySchema, CustomFieldValuesSchema, IdSchema, IsoDateTimeSchema, queryArray } from './common.js';
 import { UserSummarySchema } from './workspace.js';
 
 export const TaskSchema = z.object({
@@ -19,6 +19,8 @@ export const TaskSchema = z.object({
   completedAt: IsoDateTimeSchema.nullable(),
   source: z.enum(['manual', 'workflow', 'system']),
   workflowRunId: IdSchema.nullable(),
+  /** Custom field values (field target "task"); hidden fields are stripped per role. */
+  customFields: CustomFieldValuesSchema,
   createdAt: IsoDateTimeSchema,
   updatedAt: IsoDateTimeSchema,
 });
@@ -33,6 +35,7 @@ const TaskInputFields = z.object({
   assigneeId: IdSchema.optional().describe('Defaults to the current user'),
   dueAt: IsoDateTimeSchema.optional(),
   remindAt: IsoDateTimeSchema.optional(),
+  customFields: CustomFieldValuesSchema.optional().describe('Validated against task field definitions; on update only the given keys change'),
 });
 
 export const TaskCreateSchema = TaskInputFields.extend({

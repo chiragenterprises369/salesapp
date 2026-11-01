@@ -59,7 +59,6 @@ import {
 } from '../schemas/integration.js';
 import {
   BulkResultSchema,
-  CustomFieldSchema,
   ImportCommitRequestSchema,
   ImportJobSchema,
   ImportPreviewResponseSchema,
@@ -126,6 +125,43 @@ import {
   WorkspaceUpdateSchema,
 } from '../schemas/workspace.js';
 import { ThemeModeSchema } from '../theme.js';
+import {
+  FieldDefinitionCreateSchema,
+  FieldDefinitionSchema,
+  FieldDefinitionUpdateSchema,
+  FieldListQuerySchema,
+  FieldReorderSchema,
+} from '../customization/fields.js';
+import { LabelsResponseSchema, LabelsUpdateSchema } from '../customization/labels.js';
+import {
+  CustomObjectCreateSchema,
+  CustomObjectSchema,
+  CustomObjectUpdateSchema,
+  CustomRecordCreateSchema,
+  CustomRecordListQuerySchema,
+  CustomRecordSchema,
+  CustomRecordUpdateSchema,
+  ObjectKeyParamSchema,
+  RecordParamSchema,
+} from '../customization/objects.js';
+import {
+  PackCompanyParamSchema,
+  PackCompanyUsageSchema,
+  PackInstallLogSchema,
+  PackInstallRequestSchema,
+  PackInstallResultSchema,
+  PackKeyParamSchema,
+  PackListItemSchema,
+  PackPlanQuerySchema,
+  PackPlanResponseSchema,
+  PackRuntimeSchema,
+  PackUsageSchema,
+  PackVersionParamSchema,
+  SuperPackCompanyUpdateSchema,
+  SuperPackPlansUpdateSchema,
+  SuperPackSchema,
+  SuperPackVersionSchema,
+} from '../packs/runtime.js';
 
 /**
  * REST API CONTRACT
@@ -237,7 +273,36 @@ export const API_ROUTES = {
   viewCreate: route({ method: 'post', path: '/views', summary: 'Create a saved view', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.read', body: SavedViewCreateSchema, response: SavedViewSchema, status: 201 }),
   viewDelete: route({ method: 'delete', path: '/views/{id}', summary: 'Delete a saved view', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.read', params: IdParamSchema, response: OkResponseSchema }),
   tagList: route({ method: 'get', path: '/tags', summary: 'Tags with usage counts', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.read', response: listOf(TagSchema) }),
-  customFieldList: route({ method: 'get', path: '/custom-fields', summary: 'Custom field definitions', tag: 'settings', owner: 'backend-core', phase: 2, auth: 'jwt', permission: null, response: listOf(CustomFieldSchema) }),
+
+  // ---------------- flexible data layer: fields, objects, records, labels (phase 2) ----------------
+  fieldList: route({ method: 'get', path: '/fields', summary: 'Field definitions (custom fields on core entities and object fields); fields hidden for the caller role are omitted', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: null, query: FieldListQuerySchema, response: listOf(FieldDefinitionSchema) }),
+  fieldCreate: route({ method: 'post', path: '/fields', summary: 'Add a field to a core entity or custom object', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', body: FieldDefinitionCreateSchema, response: FieldDefinitionSchema, status: 201 }),
+  fieldUpdate: route({ method: 'patch', path: '/fields/{id}', summary: 'Edit label, help, required, unique, access or config (key, type and target are fixed)', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: IdParamSchema, body: FieldDefinitionUpdateSchema, response: FieldDefinitionSchema }),
+  fieldArchive: route({ method: 'post', path: '/fields/{id}/archive', summary: 'Archive a field (values are kept; the key is never reused)', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: IdParamSchema, response: FieldDefinitionSchema }),
+  fieldRestore: route({ method: 'post', path: '/fields/{id}/restore', summary: 'Restore an archived field', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: IdParamSchema, response: FieldDefinitionSchema }),
+  fieldReorder: route({ method: 'put', path: '/fields/order', summary: 'Reorder the fields of one target', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', body: FieldReorderSchema, response: listOf(FieldDefinitionSchema) }),
+  objectList: route({ method: 'get', path: '/objects', summary: 'Custom objects with their fields', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'records.read', query: z.object({ includeArchived: z.stringbool().optional() }), response: listOf(CustomObjectSchema) }),
+  objectGet: route({ method: 'get', path: '/objects/{key}', summary: 'One custom object', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'records.read', params: ObjectKeyParamSchema, response: CustomObjectSchema }),
+  objectCreate: route({ method: 'post', path: '/objects', summary: 'Create a custom object with its fields', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', body: CustomObjectCreateSchema, response: CustomObjectSchema, status: 201 }),
+  objectUpdate: route({ method: 'patch', path: '/objects/{key}', summary: 'Rename, change icon, title field or navigation', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: ObjectKeyParamSchema, body: CustomObjectUpdateSchema, response: CustomObjectSchema }),
+  objectArchive: route({ method: 'post', path: '/objects/{key}/archive', summary: 'Archive an object (records are kept)', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: ObjectKeyParamSchema, response: CustomObjectSchema }),
+  objectRestore: route({ method: 'post', path: '/objects/{key}/restore', summary: 'Restore an archived object', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: ObjectKeyParamSchema, response: CustomObjectSchema }),
+  recordList: route({ method: 'get', path: '/objects/{key}/records', summary: 'Records of a custom object (data scope applies via ownerId)', tag: 'records', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'records.read', params: ObjectKeyParamSchema, query: CustomRecordListQuerySchema, response: pageOf(CustomRecordSchema) }),
+  recordCreate: route({ method: 'post', path: '/objects/{key}/records', summary: 'Create a record (values validated against the object fields)', tag: 'records', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'records.create', params: ObjectKeyParamSchema, body: CustomRecordCreateSchema, response: CustomRecordSchema, status: 201 }),
+  recordGet: route({ method: 'get', path: '/objects/{key}/records/{id}', summary: 'One record', tag: 'records', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'records.read', params: RecordParamSchema, response: CustomRecordSchema }),
+  recordUpdate: route({ method: 'patch', path: '/objects/{key}/records/{id}', summary: 'Patch record values or owner (optimistic version check)', tag: 'records', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'records.update', params: RecordParamSchema, body: CustomRecordUpdateSchema, response: CustomRecordSchema }),
+  recordDelete: route({ method: 'delete', path: '/objects/{key}/records/{id}', summary: 'Delete a record (soft delete)', tag: 'records', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'records.delete', params: RecordParamSchema, response: OkResponseSchema }),
+  labelsGet: route({ method: 'get', path: '/labels', summary: 'Display labels (defaults + workspace overrides)', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: null, response: LabelsResponseSchema }),
+  labelsUpdate: route({ method: 'put', path: '/labels', summary: 'Replace label overrides (display text only)', tag: 'customization', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', body: LabelsUpdateSchema, response: LabelsResponseSchema }),
+
+  // ---------------- Industry Packs: company admin (phase 2) ----------------
+  packList: route({ method: 'get', path: '/packs', summary: 'Packs available to the workspace (Settings > Industry)', tag: 'packs', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', response: listOf(PackListItemSchema) }),
+  packRuntime: route({ method: 'get', path: '/packs/runtime', summary: 'Active pack extensions: labels, navigation, widgets, reports, import mappings, objects', tag: 'packs', owner: 'backend-core', phase: 2, auth: 'jwt', permission: null, response: PackRuntimeSchema }),
+  packPlan: route({ method: 'get', path: '/packs/{key}/plan', summary: 'Dry run of install, upgrade or uninstall (nothing is written)', tag: 'packs', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: PackKeyParamSchema, query: PackPlanQuerySchema, response: PackPlanResponseSchema }),
+  packInstall: route({ method: 'post', path: '/packs/{key}/install', summary: 'Install, reinstall or change modes (idempotent; entitlement required)', tag: 'packs', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: PackKeyParamSchema, body: PackInstallRequestSchema, response: PackInstallResultSchema }),
+  packUpgrade: route({ method: 'post', path: '/packs/{key}/upgrade', summary: 'Upgrade to the latest version (admin edits are kept)', tag: 'packs', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: PackKeyParamSchema, response: PackInstallResultSchema }),
+  packUninstall: route({ method: 'post', path: '/packs/{key}/uninstall', summary: 'Uninstall: archives what the pack added, keeps all user data (core packs cannot be uninstalled)', tag: 'packs', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: PackKeyParamSchema, response: PackInstallResultSchema }),
+  packLog: route({ method: 'get', path: '/packs/{key}/log', summary: 'Install history of a pack in this workspace', tag: 'packs', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'settings.manage', params: PackKeyParamSchema, response: listOf(PackInstallLogSchema) }),
 
   // ---------------- tasks (phase 2) ----------------
   taskList: route({ method: 'get', path: '/tasks', summary: 'My or team tasks', tag: 'tasks', owner: 'backend-core', phase: 2, auth: 'jwt_or_api_key', permission: 'tasks.read', query: TaskListQuerySchema, response: pageOf(TaskSchema) }),
@@ -351,6 +416,13 @@ export const API_ROUTES = {
   superImpersonateStart: route({ method: 'post', path: '/api/super/impersonations', absolute: true, summary: 'Start time-limited "View as company" (reason required, audit logged in both logs)', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.support.impersonate', body: ImpersonationStartSchema, response: ImpersonationSessionSchema, status: 201 }),
   superImpersonateEnd: route({ method: 'post', path: '/api/super/impersonations/{id}/end', absolute: true, summary: 'End impersonation', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.support.impersonate', params: IdParamSchema, response: ImpersonationSessionSchema }),
   superAuditList: route({ method: 'get', path: '/api/super/audit-logs', absolute: true, summary: 'Platform audit log', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.audit.read', query: CursorPaginationQuerySchema.extend({ workspaceId: IdSchema.optional(), action: z.string().optional() }), response: pageOf(PlatformAuditLogSchema) }),
+
+  // ---------------- Super Admin: Industry Pack registry (phase 2, backend-core; panel UI by frontend-app) ----------------
+  superPackList: route({ method: 'get', path: '/api/super/packs', absolute: true, summary: 'Pack registry: packs, versions, plans, installs', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', response: listOf(SuperPackSchema) }),
+  superPackVersion: route({ method: 'get', path: '/api/super/packs/{key}/versions/{version}', absolute: true, summary: 'Preview one manifest version', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackVersionParamSchema, response: SuperPackVersionSchema }),
+  superPackPlans: route({ method: 'put', path: '/api/super/packs/{key}/plans', absolute: true, summary: 'Plans that include the pack, and its add-on price (audit logged)', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackKeyParamSchema, body: SuperPackPlansUpdateSchema, response: SuperPackSchema }),
+  superPackCompany: route({ method: 'put', path: '/api/super/packs/{key}/companies/{workspaceId}', absolute: true, summary: 'Grant or revoke the pack for one company (reason required, audit logged)', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackCompanyParamSchema, body: SuperPackCompanyUpdateSchema, response: PackCompanyUsageSchema }),
+  superPackUsage: route({ method: 'get', path: '/api/super/packs/{key}/usage', absolute: true, summary: 'Usage per company (entitlement, status, version, records)', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackKeyParamSchema, response: PackUsageSchema }),
 } as const satisfies Record<string, RouteDef>;
 
 export type ApiRouteId = keyof typeof API_ROUTES;

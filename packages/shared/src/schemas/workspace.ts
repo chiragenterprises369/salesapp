@@ -10,6 +10,8 @@ import {
 } from '../enums.js';
 import { FEATURE_FLAGS, PermissionSchema, type FeatureFlag } from '../rbac.js';
 import { HhMmSchema, ThemeModeSchema, ThemePreferenceSchema } from '../theme.js';
+import { ResolvedLabelsSchema } from '../customization/labels.js';
+import { ActivePackSchema } from '../packs/active.js';
 import { HexColorSchema, IdSchema, IsoDateSchema, IsoDateTimeSchema, PhoneSchema } from './common.js';
 
 export const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -107,6 +109,8 @@ export const SETTING_KEYS = {
     defaultLeadsViewMode: 'leads.defaultViewMode',
     showEmployeeRank: 'performance.showRank',
     leadRouting: 'leads.routing',
+    /** LabelOverrides (customization/labels.ts) */
+    labels: 'ui.labels',
   },
 } as const;
 
@@ -255,5 +259,9 @@ export const MeResponseSchema = z.object({
   teamMemberIds: z.array(IdSchema),
   settings: UserSettingsSchema,
   impersonation: ImpersonationInfoSchema.nullable(),
+  /** Display labels (e.g. Lead shown as "Enquiry"); defaults merged with workspace overrides. */
+  labels: ResolvedLabelsSchema,
+  /** Active, entitled Industry Packs (details: GET /packs/runtime). */
+  packs: z.array(ActivePackSchema),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;

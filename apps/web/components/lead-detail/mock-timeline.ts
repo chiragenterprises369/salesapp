@@ -237,6 +237,7 @@ export function mockTasks(lead: Lead, now = Date.now()): Task[] {
       status === 'done' ? new Date(now - int(rng, 1, 72) * 3_600_000).toISOString() : null,
     source: rng() < 0.4 ? 'workflow' : 'manual',
     workflowRunId: null,
+    customFields: {},
     createdAt: lead.createdAt,
     updatedAt: lead.updatedAt,
   });

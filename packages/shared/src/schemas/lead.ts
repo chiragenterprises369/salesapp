@@ -11,6 +11,7 @@ import {
   SortDirSchema,
 } from './common.js';
 import { UserSummarySchema } from './workspace.js';
+import { FIELD_TYPES, FieldDefinitionSchema, type FieldDefinition } from '../customization/fields.js';
 
 export const LeadScoreBreakdownSchema = z.array(
   z.object({ rule: z.string(), points: z.number().int() }),
@@ -267,15 +268,10 @@ export type SavedViewCreate = z.infer<typeof SavedViewCreateSchema>;
 export const TagSchema = z.object({ id: IdSchema, name: z.string(), color: z.string().nullable(), usageCount: z.number().int() });
 export type Tag = z.infer<typeof TagSchema>;
 
-export const CUSTOM_FIELD_TYPES = ['text', 'number', 'date', 'select', 'boolean', 'url'] as const;
-export const CustomFieldSchema = z.object({
-  id: IdSchema,
-  entity: z.enum(['lead', 'contact']),
-  key: z.string().regex(/^[a-z0-9_]+$/),
-  label: z.string(),
-  type: z.enum(CUSTOM_FIELD_TYPES),
-  options: z.array(z.string()).default([]),
-  required: z.boolean(),
-  order: z.number().int(),
-});
-export type CustomField = z.infer<typeof CustomFieldSchema>;
+/**
+ * Custom fields moved to the flexible data layer (customization/fields.ts). These aliases keep old
+ * imports compiling; new code uses FIELD_TYPES / FieldDefinitionSchema / FieldDefinition.
+ */
+export const CUSTOM_FIELD_TYPES = FIELD_TYPES;
+export const CustomFieldSchema = FieldDefinitionSchema;
+export type CustomField = FieldDefinition;

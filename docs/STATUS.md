@@ -21,17 +21,15 @@ Fixed during the check:
 
 Known gaps (by design until Wave 3): the web app runs on the mock session and mock data, not the API. There are no sockets yet. Seven test workspaces (`verify-traders-*`) created by backend-core remain in the dev DB.
 
-## Next
+## Now (scope lock, change #13)
 
-1. You send the four pending specs (industry packs, real estate pack and supplement, live site-visit map) and the board physics resend. I fold them into `docs/SPEC.md`.
-2. **Before Wave 2 agents start:** backend-core does the User-Workspace membership refactor (CONTRACTS.md "Planned: membership", D-036).
-3. Wave 2 (on your "go"): realtime-integrations, workflow-engine, qa-reviewer (Wave 1 tests), and `vistar-webhooks-security` skill first.
-4. Queued for Wave 3:
-   - move the leads stream's Radix primitives into `components/ui`
-   - add the remaining lead hooks (timeline, notes, tasks, duplicates, merge, saved views, import) to `lib/leads`
-   - wire the shell's profile, status and support-access edits to the new session actions
-   - remove `DevAuthGuard`
-5. Asset generator: Fizzly inputs are confirmed; it waits for your manifest approval.
+Executing only these two items, in order:
+- (a) Industry Packs Part 1: flexible data layer, pack manifest, registry skeleton, migration of existing Leads and pipeline data, green tests.
+- (b) Board physics (frontend-physics).
+
+After that: the full check (typecheck, lint, tests, builds, `pnpm smoke:api`, `pnpm smoke:web`) and the report. Wave 2 only on "go"; it now includes the workflow platform (SPEC 27, change #14), which is folded into the docs but not started.
+
+**Awaiting your confirmation** (in change #9, not in the scope lock): the User-Workspace membership refactor (D-036) and deleting the seven `verify-traders-*` dev companies.
 ## Modules
 
 Status values: not started / in progress / done / blocked. "Verified" = what was checked and where. "Branch" means the owner checked it in their worktree before the merge, not yet on `main`.
@@ -66,5 +64,16 @@ Status values: not started / in progress / done / blocked. "Verified" = what was
 | Seed and simulator (20.4) | orchestrator | 1 / 4 | in progress | Seed done; the simulator publishes events but does not save rows yet |
 | Tests and QA (20.3) | qa-reviewer | Waves 2, 4 | not started | STEP 0 review done; no test suites yet |
 | Deployment docs and CI (20.6) | orchestrator | 10 | not started | Docker Compose for local services exists |
-| Industry packs, real estate pack and supplement, live site-visit map (21.1) | unassigned | ? | blocked | Spec arrives after the Wave 1 report |
-| User-Workspace membership (5.4) | backend-core | before Wave 2 | not started | Design in CONTRACTS.md (D-036) |
+| Industry Packs core: custom objects/fields, labels, configurable stages, manifest, registry (22) | orchestrator (contracts, schema, migration), backend-core (API), frontend-app (settings + registry UI) | 2 | in progress | Not yet |
+| Generic Sales pack (22.5) | orchestrator | 2 | in progress | Not yet |
+| Board physics v2 (11.1) | frontend-physics | 3 | not started | Starts after Industry Packs Part 1 |
+| Real Estate pack (23) | pack-realestate (planned, not created) | after 22 | planned (not started) | n/a |
+| Real Estate supplement (24) | pack-realestate (planned, not created) | after 23 | planned (not started) | n/a |
+| Live Site-Visit Map / Field Live (25) | frontend-map (planned, not created) | after 23 and Phase 4-5 | planned (not started) | n/a |
+| User-Workspace membership (5.4) | backend-core | before Wave 2 | not started (awaiting confirmation) | Design in CONTRACTS.md (D-036) |
+| Workflow platform: connections vault, HTTP Request node, SSRF-safe client (27.1, 27.3, 27.7) | realtime-integrations (vault, client), workflow-engine (node) | Wave 2 step 1 | planned (not started; waits for "go") | n/a |
+| Workflow platform: webhook, schedule, poll, CRM and sub-workflow triggers (27.2) | workflow-engine, realtime-integrations (inbound endpoint) | Wave 2 step 2 | planned (not started) | n/a |
+| Workflow platform: wait-for-event, switch, loops, merge, error branch, approvals (27.4) | workflow-engine | Wave 2 step 3 | planned (not started) | n/a |
+| Workflow platform: data picker, pin data, run timeline, replay (27.5, 27.6) | frontend-physics (UI), workflow-engine (API) | Wave 2 step 4 | planned (not started) | n/a |
+| Workflow platform: WhatsApp, email, Telegram, SMS/voice mock nodes (27.3) | realtime-integrations (adapters), workflow-engine (nodes) | Wave 2 step 5 | planned (not started) | n/a |
+| Workflow platform: connector definitions, library, templates gallery, seed (27.8, 27.9) | realtime-integrations (connectors), frontend-physics (gallery), orchestrator (seed) | Wave 2 step 6 | planned (not started) | n/a |

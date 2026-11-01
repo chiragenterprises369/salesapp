@@ -117,7 +117,7 @@ export class LeadImportService {
     const table = await parseTable(fileName, file.buffer);
 
     const db = this.prisma.forTenant(auth.workspaceId);
-    const customFields = await db.customField.findMany({ where: { entity: 'lead' }, select: { key: true, label: true } });
+    const customFields = await db.customField.findMany({ where: { target: 'lead', archivedAt: null }, select: { key: true, label: true } });
     const id = randomUUID();
     await mkdir(IMPORT_DIR, { recursive: true });
     await writeFile(path.join(IMPORT_DIR, id), file.buffer);
@@ -193,7 +193,7 @@ export class LeadImportService {
     if (job.status !== 'previewed') throw new AppException('CONFLICT', 'This import has already run');
 
     // mapping
-    const customTypes = new Map((await db.customField.findMany({ where: { entity: 'lead' }, select: { key: true, type: true } })).map((f) => [f.key, f.type]));
+    const customTypes = new Map((await db.customField.findMany({ where: { target: 'lead', archivedAt: null }, select: { key: true, type: true } })).map((f) => [f.key, f.type]));
     const columnFor = new Map<MappingTarget, string>();
     for (const [column, target] of Object.entries(body.mapping)) {
       if (!job.columns.includes(column)) throw new AppException('IMPORT_MAPPING_INVALID', 'The mapping refers to a column that is not in the file');

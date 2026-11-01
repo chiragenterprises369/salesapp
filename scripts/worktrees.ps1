@@ -21,8 +21,8 @@ foreach ($s in $Streams) {
   if (-not (Test-Path $wt)) {
     git -C $root worktree add $wt -b "agent/$s" main | Out-Null
   }
-  # .env without asset-generation secrets; per-stream overrides appended.
-  $envLines = Get-Content (Join-Path $root '.env') | Where-Object { $_ -notmatch '^FIZZLY_' }
+  # .env without asset-generation or storage secrets (agents do not need them); per-stream overrides appended.
+  $envLines = Get-Content (Join-Path $root '.env') | Where-Object { $_ -notmatch '^FIZZLY_' -and $_ -notmatch '^(BUNNY_)?S3_(ACCESS_KEY|SECRET_KEY)=' }
   $extra = $ports[$s]
   if ($extra) {
     foreach ($k in $extra.Keys) {

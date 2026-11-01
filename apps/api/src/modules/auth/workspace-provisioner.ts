@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import {
   DEFAULT_BUSINESS_HOURS,
+  DEFAULT_PIPELINE_KEY,
   DEFAULT_ROLE_PERMISSIONS,
   DEFAULT_ROLE_SCOPE,
   DEFAULT_STAGES,
+  GENERIC_SALES_PACK_KEY,
   ROLE_KIND_LABELS,
   ROLE_KINDS,
   SYSTEM_ROLE_KEYS,
@@ -89,7 +91,7 @@ export class WorkspaceProvisioner {
       });
       const adminRole = roles.find((r) => r.kind === 'company_admin')!;
 
-      const pipeline = await tx.pipeline.create({ data: { workspaceId, name: 'Sales', isDefault: true } });
+      const pipeline = await tx.pipeline.create({ data: { workspaceId, key: DEFAULT_PIPELINE_KEY, packKey: GENERIC_SALES_PACK_KEY, name: 'Sales', isDefault: true } });
       await tx.stage.createMany({
         data: DEFAULT_STAGES.map((s, order) => ({ workspaceId, pipelineId: pipeline.id, key: s.key, name: s.name, type: s.type, order, probability: s.probability })),
       });
@@ -103,6 +105,7 @@ export class WorkspaceProvisioner {
           status: 'approved' as const,
           body: t.body,
           variables: t.variables,
+          packKey: GENERIC_SALES_PACK_KEY,
         })),
       });
       const user = await tx.user.create({

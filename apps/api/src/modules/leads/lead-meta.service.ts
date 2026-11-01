@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import {
-  CUSTOM_FIELD_TYPES,
+  DEFAULT_FIELD_ACCESS,
+  FieldDefinitionSchema,
   LeadsViewModeSchema,
   SavedViewSchema,
-  type CustomField,
+  type FieldDefinition,
   type SavedView,
   type SavedViewCreate,
   type Tag,
@@ -101,22 +102,34 @@ export class LeadMetaService {
     return { items };
   }
 
-  async listCustomFields(auth: AuthContext): Promise<{ items: CustomField[] }> {
-    const rows = await this.prisma.forTenant(auth.workspaceId).customField.findMany({ orderBy: [{ entity: 'asc' }, { order: 'asc' }, { key: 'asc' }] });
-    const items: CustomField[] = [];
+  /**
+   * GET /fields (interim, read-only). TODO(backend-core): move to the customization module with
+   * create/update/archive/reorder, role key resolution and object targets.
+   */
+  async listFields(auth: AuthContext, query: { target?: string; includeArchived?: boolean }): Promise<{ items: FieldDefinition[] }> {
+    const rows = await this.prisma.forTenant(auth.workspaceId).customField.findMany({
+      where: { ...(query.target ? { target: query.target } : {}), ...(query.includeArchived ? {} : { archivedAt: null }) },
+      orderBy: [{ target: 'asc' }, { order: 'asc' }, { key: 'asc' }],
+    });
+    const items: FieldDefinition[] = [];
     for (const r of rows) {
-      if (r.entity !== 'lead' && r.entity !== 'contact') continue;
-      if (!(CUSTOM_FIELD_TYPES as readonly string[]).includes(r.type)) continue;
-      items.push({
+      const parsed = FieldDefinitionSchema.safeParse({
         id: r.id,
-        entity: r.entity,
+        target: r.target,
         key: r.key,
         label: r.label,
-        type: r.type as CustomField['type'],
-        options: r.options,
+        type: r.type,
+        config: r.config ?? {},
+        helpText: r.helpText,
         required: r.required,
+        unique: r.isUnique,
+        access: r.access ?? DEFAULT_FIELD_ACCESS,
         order: r.order,
+        packKey: r.packKey,
+        archivedAt: r.archivedAt?.toISOString() ?? null,
+        createdAt: r.createdAt.toISOString(),
       });
+      if (parsed.success) items.push(parsed.data);
     }
     return { items };
   }

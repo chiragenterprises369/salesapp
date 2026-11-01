@@ -18,8 +18,12 @@ export type Stage = z.infer<typeof StageSchema>;
 
 export const PipelineSchema = z.object({
   id: IdSchema,
+  /** Stable slug, unique per workspace ("sales" for the default pipeline). Packs match pipelines by key. */
+  key: z.string(),
   name: z.string(),
   isDefault: z.boolean(),
+  /** Pack that created the pipeline (null = created by the workspace). */
+  packKey: z.string().nullable(),
   stages: z.array(StageSchema),
 });
 export type Pipeline = z.infer<typeof PipelineSchema>;

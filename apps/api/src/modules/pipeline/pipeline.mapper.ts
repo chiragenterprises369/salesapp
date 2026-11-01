@@ -17,9 +17,14 @@ export function toStage(s: StageRow): Stage {
 export function toPipeline(p: PipelineRow & { stages: StageRow[] }): Pipeline {
   return {
     id: p.id,
+    key: p.key,
     name: p.name,
     isDefault: p.isDefault,
-    stages: [...p.stages].sort((a, b) => a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime()).map(toStage),
+    packKey: p.packKey,
+    stages: p.stages
+      .filter((s) => !s.archivedAt)
+      .sort((a, b) => a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime())
+      .map(toStage),
   };
 }
 

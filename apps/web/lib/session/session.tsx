@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { create } from 'zustand';
 import { MOCK_PERSONAS, mockMe, mockPlatformAdmin, type MockPersona } from './mock';
+import { readMockDb } from '../mock-db';
 
 /**
  * SESSION CONTRACT (web). OWNER: orchestrator. Every panel reads identity, permissions and
@@ -78,6 +79,10 @@ function write(key: string, value: unknown) {
 function build(persona: MockPersona, impersonating = false): Session {
   if (persona === 'super_admin') return { audience: 'platform', admin: mockPlatformAdmin(), accessToken: null };
   const me = mockMe(persona, {
+    labels: readMockDb().state.labelOverrides,
+    packs: readMockDb()
+      .packs.filter((p) => p.status === 'active' && p.installedVersion)
+      .map((p) => ({ key: p.key, version: p.installedVersion!, modes: p.modes })),
     settings: read<UserSettings>(keySettings(persona)) ?? undefined,
     workspace: read<Partial<Workspace>>(KEY_WORKSPACE) ?? undefined,
     impersonating,

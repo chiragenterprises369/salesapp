@@ -10,9 +10,11 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
   DEFAULT_BUSINESS_HOURS,
+  DEFAULT_PIPELINE_KEY,
   DEFAULT_ROLE_PERMISSIONS,
   DEFAULT_ROLE_SCOPE,
   DEFAULT_STAGES,
+  GENERIC_SALES_PACK_KEY,
   normalizeIndianPhone,
   PLATFORM_PERMISSIONS,
   ROLE_KIND_LABELS,
@@ -112,14 +114,14 @@ async function seedCompany(prisma: PrismaClient, fx: CompanyFixture, passwordHas
   const owners = fx.employees.filter((e) => e.role === 'employee' || e.role === 'manager').map((e) => userIdByKey.get(e.key)!);
   const managerId = userIdByKey.get(fx.employees.find((e) => e.role === 'manager')!.key)!;
 
-  const pipeline = await prisma.pipeline.create({ data: { workspaceId, name: 'Sales', isDefault: true } });
+  const pipeline = await prisma.pipeline.create({ data: { workspaceId, key: DEFAULT_PIPELINE_KEY, packKey: GENERIC_SALES_PACK_KEY, name: 'Sales', isDefault: true } });
   const stages = [];
   for (const [order, s] of DEFAULT_STAGES.entries()) {
     stages.push(await prisma.stage.create({ data: { workspaceId, pipelineId: pipeline.id, key: s.key, name: s.name, type: s.type, order, probability: s.probability } }));
   }
 
   await prisma.template.createMany({
-    data: WHATSAPP_TEMPLATE_FIXTURES.map((t) => ({ workspaceId, channel: 'whatsapp' as const, name: t.name, language: 'en', category: t.category, status: 'approved' as const, body: t.body, variables: t.variables })),
+    data: WHATSAPP_TEMPLATE_FIXTURES.map((t) => ({ workspaceId, channel: 'whatsapp' as const, name: t.name, language: 'en', category: t.category, status: 'approved' as const, body: t.body, variables: t.variables, packKey: GENERIC_SALES_PACK_KEY })),
   });
   for (const [i, tpl] of WORKFLOW_TEMPLATES.entries()) {
     const active = i < 2;

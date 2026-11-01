@@ -33,6 +33,7 @@
     "lint": "eslint src scripts",
     "tokens": "pnpm build && node scripts/generate-tokens.mjs",
     "openapi": "pnpm build && node scripts/generate-openapi.mjs",
+    "packs": "pnpm build && node scripts/generate-packs.mjs",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

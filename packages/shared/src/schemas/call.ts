@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CallDirectionSchema, CallOutcomeSchema, CallStatusSchema } from '../enums.js';
-import { CursorPaginationQuerySchema, IdSchema, IsoDateTimeSchema, PhoneSchema, queryArray } from './common.js';
+import { CursorPaginationQuerySchema, CustomFieldValuesSchema, IdSchema, IsoDateTimeSchema, PhoneSchema, queryArray } from './common.js';
 import { UserSummarySchema } from './workspace.js';
 
 export const CallSchema = z.object({
@@ -21,6 +21,8 @@ export const CallSchema = z.object({
   notes: z.string().nullable(),
   disposition: z.string().nullable(),
   provider: z.string(),
+  /** Custom field values (field target "call"); hidden fields are stripped per role. */
+  customFields: CustomFieldValuesSchema,
 });
 export type Call = z.infer<typeof CallSchema>;
 
@@ -34,6 +36,7 @@ export const CallUpdateSchema = z.object({
   outcome: CallOutcomeSchema.optional(),
   notes: z.string().max(5000).optional(),
   disposition: z.string().max(80).optional(),
+  customFields: CustomFieldValuesSchema.optional().describe('Validated against call field definitions; only the given keys change'),
 });
 export type CallUpdate = z.infer<typeof CallUpdateSchema>;
 

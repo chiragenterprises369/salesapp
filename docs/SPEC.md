@@ -49,6 +49,8 @@ explained in `DECISIONS.md`. Open questions are in section 21.
 | qa-reviewer | tests (unit, API integration, Playwright e2e), accessibility and both-theme checks, reviews every agent's diff against the skills; read-only on source except test folders |
 | asset-generator | Fizzly image generation (section 18); runs once after Wave 1, only after the manifest is approved |
 | superadmin-panel | Super Admin panel UI and `/api/super` features (section 16); Phase 9 unless the user says earlier |
+| pack-realestate | **Planned, not created.** Real Estate pack (sections 23, 24): owns `apps/web/features/realestate`, `apps/api/src/modules/realestate`, `packs/realestate` |
+| frontend-map | **Planned, not created.** Live Site-Visit Map (section 25): owns `apps/web/features/map`, `apps/api/src/modules/tracking` |
 
 Folder ownership: `OWNERSHIP.md`.
 
@@ -228,10 +230,47 @@ Folder ownership: `OWNERSHIP.md`.
 ## 11. Module: Pipeline (Board behaviour and stages)
 The pipeline is the **Board view of the Leads page** (section 9.4); there is no separate Pipeline page. Stages are managed in Settings > Pipeline stages.
 
-### 11.1 Board physics
-- Lift on pick-up (scale + growing shadow); tilt from pointer velocity (max ~8 degrees, smoothed); inertia on release, then snap to the slot with a slight overshoot; dashed placeholder at the origin; target column highlight; neighbours nudge apart.
-- Optimistic update with rollback on error; realtime sync across users.
-- Keyboard-accessible alternative (move with a menu).
+### 11.1 Board physics and motion (final version: board physics change #12, replaces the earlier summary)
+Goal: the Leads Board feels like a physical, premium product. Cards behave like real thick cards with weight, momentum and depth, at 60 fps on a mid-range phone. It still looks clean and professional (Linear / Stripe level), not playful or neon, in light and dark themes.
+
+**Stack:** React + TypeScript, Pointer Events, react-spring (or Motion) springs, transform/opacity only. `@dnd-kit` optional and only for accessibility, sensors and collision detection; the dragged card is rendered and animated by our own spring layer. No heavy physics engine: spring dynamics with real velocity, mass and damping.
+
+**Card depth (always on)**
+- Perspective on the board (~1200 px). Cards have layered soft shadows (contact + ambient), a 1 px top highlight edge and a subtle thickness edge so they read as thick cards.
+- Idle: slight hover lift on desktop (translateZ + shadow growth, 150 ms) and a very subtle specular sheen that follows the pointer (desktop only).
+
+**Drag behaviour**
+1. Pick-up: desktop on pointer down after 4 px movement; touch after a 180 ms long-press with a haptic tick (`navigator.vibrate` where available). The card lifts on a spring (stiffness ~320, damping ~22, mass 1): scale 1.05, translateZ, shadow grows and blurs, neighbours dim slightly (opacity 0.9).
+2. While dragging: the card follows the pointer with a light spring lag (weight). Pointer velocity is low-pass filtered; rotateZ and rotateX/rotateY follow velocity, clamped to ~8 degrees, smoothed by a spring, levelling out when the pointer stops. The shadow offset moves opposite to the motion; the specular highlight shifts with tilt.
+3. Placeholder: dashed outline slot at the origin. Over a column, a gap opens at the target index with a spring; other cards slide apart with staggered springs (no instant jumps). The target column gets a soft highlight and its count chip pulses.
+4. Edge auto-scroll: vertical inside a column and horizontal for the board near edges; speed ramps with proximity; smooth and cancelable.
+5. Drop: inertia from the release velocity carries the card a little, then a spring snaps it into the slot with a small overshoot; scale returns to 1, shadow settles, tilt levels. A 400 ms ring/glow pulse in the stage colour confirms the move; the stage total animates (number tick). Dropped outside a column, it springs back to the origin with a gentle bounce.
+6. Optimistic update immediately; rollback animation plus toast on API error. Realtime: a card moved by another user animates along an arc (spring) to its new place instead of teleporting; a new realtime lead drops into the "New" column from above with a soft landing and highlight.
+7. Multi-select drag (optional, if time): selected cards stack like a deck with a count badge.
+
+**Motion polish**
+- Staggered entrance of columns and cards on first load (fast, 40 ms stagger, once only).
+- Count chips and INR totals use animated number ticks.
+- Card hover actions (call, WhatsApp, note) slide in with a spring; on mobile a long-press opens them.
+- Skeleton loaders with a subtle shimmer; cards re-flow with springs when filters change.
+- Column header shows a thin progress bar of the stage's share of total value.
+- UI durations 150-250 ms; springs for physical motion; no animation without purpose.
+
+**Performance**
+- Animate only transform and opacity; `will-change` on the dragged card during drag only.
+- Dragged card rendered in a portal overlay (no column layout thrash); columns over ~50 cards are virtualised and drag still works.
+- Idle animations pause when the tab is hidden. Target 60 fps on a mid Android phone; adaptive quality reduces tilt, shadows and sheen if FPS drops under 45.
+- "Reduce motion / Flat mode" setting and `prefers-reduced-motion`: no tilt, sheen, overshoot or stagger; a simple fade-move transition remains.
+
+**Accessibility**
+- Keyboard: Space picks up, arrow keys move between positions and columns, Space drops, Esc cancels; live-region announcements ("Moved Ryan Murphy to Contacted, position 2").
+- A "Move to..." menu on every card as the non-drag alternative. Visible focus rings. Touch targets at least 44 px.
+
+**Quality**
+- Spring constants and limits in one config file (`board-physics.config.ts`), tunable without code changes.
+- A demo page with sliders for stiffness, damping and tilt limit, plus a "slow motion" toggle.
+- Playwright e2e: drag between columns, drop outside (spring back), keyboard move, rollback on API failure, reduced-motion mode.
+- The same physics module is reused by workflow builder node dragging (extracted to `features/shared/physics`).
 
 ### 11.2 Stages
 - Configurable stages (default: New, Contacted, Interested, Quote sent, Won, Lost) managed in Settings > Pipeline stages. Column totals in INR.
@@ -385,6 +424,8 @@ Workspace, User, Role, Team, Lead, Contact, Company, Deal, Stage, Pipeline, Acti
 - Unit: workflow engine, webhook signature verification.
 - API integration tests, including tenant isolation for every role; EMPLOYEE cannot reach `/app` or `/super-admin` routes or APIs; COMPANY_ADMIN cannot reach `/super-admin`; a workspace token cannot call `/api/super`; impersonation banner and expiry.
 - Playwright e2e: login (role-based redirect), route guards, lead import, pipeline drag, workflow test run, employee mobile viewport flow, Leads view mode (default Board on first visit, choice persists after reload and in another browser session, URL param override, filters survive a view switch, workspace default respected).
+- Industry packs: install / upgrade / uninstall idempotency; migration of existing data; custom field validation and per-field permissions; tenant isolation of custom objects and records.
+- Board physics e2e: drag between columns, drop outside (spring back), keyboard move, rollback on API failure, reduced-motion mode.
 - WCAG AA contrast in both themes (all three panels), full keyboard navigation, focus rings.
 - Lighthouse performance 85+ on core pages (3D page excluded from the budget but lazy-loaded).
 
@@ -397,7 +438,7 @@ Workspace, User, Role, Team, Lead, Contact, Company, Deal, Stage, Pipeline, Acti
 | Phase | Scope |
 | --- | --- |
 | 1 | Monorepo, design tokens, light/dark/system/scheduled theme, auth, layout shell, RBAC; **role model, permission matrix, guards, the three route groups with navigation shells** |
-| 2 | Leads, lead detail, import/export, tasks, notifications; **Employee panel right after Leads (Phase 2-3)** |
+| 2 | Leads, lead detail, import/export, tasks, notifications; **Industry Packs core: flexible data layer, pack manifest, registry (section 22)**; **Employee panel right after Leads (Phase 2-3)** |
 | 3 | Leads Board with spring-physics drag and drop, realtime sync |
 | 4 | Realtime backbone (Socket.IO, events), live dashboard, event simulator |
 | 5 | Integrations hub, inbound/outbound webhooks with logs and replay, IndiaMART and WhatsApp Cloud API adapters, WhatsApp inbox |
@@ -408,18 +449,15 @@ Workspace, User, Role, Team, Lead, Contact, Company, Deal, Stage, Pipeline, Acti
 | 10 | Hardening, performance, accessibility, e2e tests, deployment docs (Docker Compose, env vars, CI) |
 
 Waves (section 2.5) run the frontends of later phases early against mocks; backends follow the phase order.
+Industry pack work after the core (all planned): Real Estate basics -> Real Estate supplement (section 24 order) and, after the realtime backbone, the Field Live map (section 25). See section 26.
 
 ### 20.6 Deliverables
 - Full source code; README with setup in under 10 minutes; `.env.example`; seed and simulator scripts; OpenAPI spec; a short architecture doc.
 
 ## 21. Pending specs and resolved questions
 
-### 21.1 Pending specs (arrive after the Wave 1 check report; do not design or build anything for them yet)
-- Industry packs
-- Real estate pack
-- Real estate supplement
-- Live site-visit map
-- Board physics (a separate message that will be resent). Until then the physics in sections 9.4 and 11.1 apply.
+### 21.1 Pending specs
+- None pending. Industry Packs (22), Real Estate pack (23), Real Estate supplement (24), Live Site-Visit Map (25) and board physics (11.1) were received on 2026-11-01.
 
 The "also add this additional feature" fragment in change #5 is void; no extra feature was intended.
 
@@ -437,3 +475,411 @@ The "also add this additional feature" fragment in change #5 is void; no extra f
 | 12 | Telephony | Mock adapter only; Exotel first real adapter later (15.1) |
 | 13 | AI node | Off by default; keyword/rule-based classifier behind a provider adapter (13.2) |
 | 14 | Fizzly inputs | Field names, defaults, smallest size, mock_mode check (18) |
+
+## 22. Industry Packs architecture (Part 1) — ACTIVE (executing now)
+
+Goal: the core CRM stays the same for every business; an **Industry Pack** adds industry-specific data and screens on top. Packs are add-ons that the Super Admin enables per company or per plan (entitlement + billing), and the company admin activates in **Settings > Industry**. The orchestrator builds the architecture first, updates `packages/shared`, `CONTRACTS.md`, `OWNERSHIP.md`, and creates the skill `vistar-industry-packs`.
+
+### 22.1 Flexible data layer (must exist before packs)
+- **Custom objects**: name, fields, relations.
+- **Custom fields on every core entity**.
+- **Configurable pipeline stages** and **configurable labels** (e.g. "Lead" displayed as "Enquiry").
+- All of it is stored in the database, not in code.
+- Field types: text, number, money (INR), date, select, multi-select, user, relation, file, geo-point.
+- Validation; permissions per field; show/hide per role.
+
+### 22.2 Pack manifest (JSON, versioned)
+Declares objects and fields, pipeline stages and labels, workflow templates, WhatsApp template suggestions, dashboard widgets, reports, import mappings, roles/permissions, navigation items and map layers.
+Installing a pack = applying its manifest to a workspace: **idempotent, upgradeable, removable without deleting user data**.
+
+### 22.3 Pack registry (Super Admin panel)
+List packs and versions, enable per company / per plan, preview a manifest, usage per pack.
+
+### 22.4 No forks of core code
+New screens plug in through a **route/menu extension point** and **widget slots**.
+
+### 22.5 First packs
+- Build **"Generic Sales"** (default) as the example now.
+- "Real Estate" is the second example; with the scope lock its manifest belongs to section 23 (planned).
+- Later, in the same manifest format: education, insurance, finance/DSA, auto dealers, travel, interior/solar, recruitment, wholesale/IndiaMART, clinics (enquiry only).
+
+### 22.6 Order and migration
+- Industry Packs core is Phase 2 work. Leads is already built, so existing Leads and pipeline data are migrated carefully without breaking anything (tests must stay green).
+
+### 22.7 Quality
+- Tests for pack install / upgrade / uninstall idempotency.
+- Tests for the migration of existing Leads and pipeline data.
+- Both themes and WCAG AA on every new settings and registry screen.
+
+## 23. Real Estate pack (Part 2) — PLANNED (not started; no agent created)
+
+Owner when started: new agent **pack-realestate** (owns `apps/web/features/realestate`, `apps/api/src/modules/realestate`, `packs/realestate`). Follows the design system and both themes. Starts after Industry Packs core (section 22).
+
+### 23.1 Data model
+Custom objects from the pack manifest, all with `workspaceId`:
+- **Project**: name, developer, location (geo-point and polygon), RERA number, status, possession date, amenities, brochure and media, price list.
+- **Tower/Phase** and **Unit**: tower, floor, number, type/BHK, carpet and built-up area, facing, price, status (Available, Hold, Booked, Sold, Blocked); inventory history.
+- **Lead requirement**: budget range in INR, locations, BHK, possession timeline, purpose (self use or investment), loan needed. Matched to units.
+- **Channel partner / broker**: firm, contact, RERA ID, commission rules, leads sourced, payouts.
+- **Site visit**: lead, project, agent, scheduled time, status, geofence check-in/out, feedback, outcome, next step.
+- **Booking**: lead, unit, token amount, agreement value, payment schedule/milestones, demand letters, documents, status.
+- **Commission and payout records**.
+
+### 23.2 Pipeline and pages
+- Default stages (editable): New Enquiry, Contacted, Site Visit Scheduled, Site Visit Done, Negotiation, Booked, Agreement, Closed Won, Lost.
+- Pages (menu items injected by the pack):
+  - Projects
+  - Inventory: stack plan grid by tower and floor, units coloured by status, hold with expiry, realtime updates
+  - Site Visits: calendar, list, live map
+  - Channel Partners
+  - Bookings and Payments
+  - Real Estate Reports
+
+### 23.3 Features
+- **Unit matching**: suggest units from a lead's requirements; send a WhatsApp shortlist (project brochure plus selected units).
+- **Unit hold/lock** for a lead, with an expiry and an auto-release job (BullMQ).
+- **Site visit flow**:
+  1. Schedule the visit.
+  2. WhatsApp template reminder to the lead and the agent.
+  3. The agent taps "Start visit"; live tracking starts.
+  4. Geofence arrival check-in.
+  5. Visit feedback form.
+  6. "Check out".
+  7. Auto-create a follow-up task and trigger a workflow.
+- **Lead sources**: 99acres, MagicBricks, Housing.com, Meta/Google lead ads, website forms, walk-in, channel partners. They arrive through inbound webhooks and import mappings.
+- **Workflow templates**:
+  - Main cadence: enquiry -> welcome with brochure -> visit invite -> reminders 24 h and 2 h before -> post-visit feedback -> follow-up cadence -> booking reminder -> payment milestone reminders.
+  - "No-show revival".
+  - "Channel partner lead acknowledgment".
+- **Dashboard widgets**: visits today, no-shows, unit availability by project, bookings this month, pipeline value, partner leaderboard, collections due.
+- **Reports**: visit-to-booking funnel, source ROI by cost per booking, agent conversion, partner performance, inventory aging, collections.
+- **Documents**:
+  - Brochure and price sheet.
+  - Cost sheet generator: base price + PLC + floor rise + GST + stamp duty + registration. Formula-driven and editable per project.
+  - PDF export and share on WhatsApp.
+- **Roles**: Sales Head, Sales Executive, Site Manager, Channel Partner (limited portal: add leads, see own leads, their status and payouts only), Accounts.
+
+### 23.4 Quality and seed
+- **Tests**:
+  - Unit hold expiry job.
+  - Cost sheet formula tests.
+  - Permission tests: a channel partner sees only own data; other tenants never see anything.
+- **Seed**: a real estate company with 3 projects (towers and units), 40 leads, 12 channel partners and 15 site visits.
+- **Super Admin**: entitlement "pack-realestate".
+
+## 24. Real Estate pack supplement — PLANNED (not started)
+
+Applies on top of section 23 (owner pack-realestate). Build after Real Estate basics, in this order:
+1. CP deep features and lead protection
+2. Telecaller handover and walk-in
+3. Approvals engine
+4. Booking, collections and loan tracker
+5. Pricing and inventory extensions
+6. Broker mode
+7. Marketing and referrals
+8. Incentives
+9. Customer portal
+
+### 24.0 Modes
+- Chosen at activation; both can be enabled:
+  - **DEVELOPER** mode: new projects, inventory, bookings, collections.
+  - **BROKER** mode: resale and rental listings, owners and buyers/tenants.
+- Navigation and objects adapt to the mode.
+
+### 24.1 Channel partner (CP) management
+- **Onboarding**:
+  - Registration form, KYC documents, RERA ID, agreement upload.
+  - Optional e-sign provider adapter.
+  - Admin approval workflow; status Pending, Active or Suspended.
+- **Hierarchy**: CP firm, CP agents under a firm, and an internal CP relationship manager who owns each CP.
+- **Lead registration** by a CP (portal, WhatsApp or API) with **lead protection**:
+  - The lead is locked to that CP for a configurable validity period (default 90 days, per project), with renewal rules.
+  - Duplicate check by normalised phone/email, showing "already registered by X on date".
+  - Rule-based resolution: first-come wins, or a conflict queue for manager review with evidence (timestamps, source, activity).
+  - Every decision is audit logged and visible to both parties as allowed.
+- **Commission engine**:
+  - Rules per project and unit type: flat or percentage, or slabs (tiers by bookings count or value in a period).
+  - Bonus and incentive schemes.
+  - Payout stages: on booking, on agreement, on collection milestones.
+  - Clawback on cancellation.
+  - TDS and GST fields, PDF payout statements, payment status tracking.
+- **CP portal**: limited role, mobile-first, own login.
+  - Register a lead; track own leads and visit status.
+  - View allowed inventory and price sheets; download brochures.
+  - Schedule a visit for their lead; see commission earned and payout status; raise queries.
+  - No access to other partners' data, or to customer PII beyond their own leads.
+- **CP analytics**: leads submitted, visit rate, booking rate, revenue, payout due, leaderboard (can be disabled), inactive-CP alerts and a revival workflow.
+
+### 24.2 Lead management specifics
+- **Source tagging**: direct, CP, portal (99acres, MagicBricks, Housing.com), Meta/Google ads, walk-in, referral, hoarding/QR, event.
+- **Ownership and routing**:
+  - By project, source, city or language; round-robin and least-busy.
+  - Reassign inactive leads after N hours.
+  - Lead aging and SLA alerts (first response time).
+- **Pre-sales handover**:
+  - The telecaller team qualifies leads with a qualification form (budget, location, timeline, purpose, loan).
+  - Qualified leads go to a Sales Executive with the form attached and a visit-scheduling task.
+  - Handover SLA; rejection with a reason loops back to the telecaller.
+- **Walk-in registration**:
+  - Reception/kiosk form or QR code at the site office, with an instant duplicate check.
+  - Assignment to the available sales executive from a queue.
+  - Printed or WhatsApp visitor token.
+- **Requirement matching score**: rank available units against the lead's requirements; show the best 3 on the lead page.
+- Dormant-lead revival workflows and "lost reason" analytics.
+
+### 24.3 Site visit extensions
+- Visit types: first visit, revisit, family visit, virtual visit. Multiple visits per lead.
+- Visits with a CP: the CP is notified and credited.
+- Pickup/cab coordination fields, simple driver assignment, and visit incentives for agents.
+- Visit feedback form (liked/disliked, budget fit, decision timeline, objections) that feeds the lead score.
+- Uses the Field Live map (section 25) unchanged.
+
+### 24.4 Inventory and pricing extensions
+- **Price lists**: effective dates and revision history, PLC, floor rise, parking, club membership, schemes and offers with validity, cost sheet versions.
+- **Unit hold approval workflow**:
+  - Rules for who can hold, max holds per person and hold duration.
+  - Extension requests need manager approval.
+  - Auto-release job with notifications.
+- **Viewers and media**: stack plan and floor plan viewer, project gallery, 360/virtual tour links, brochure tracking through tracked share links (who opened which file).
+- **Optional microsite / landing page generator**: its form feeds leads with source and campaign.
+
+### 24.5 Booking, sales and collections (developer mode)
+- **Booking**:
+  - Booking form with applicant and co-applicant details.
+  - KYC document checklist and status; token receipt.
+- **Loan assistance tracker**: bank partners; applied, sanctioned and disbursed stages; documents; reminders.
+- **Agreement and registration tracking**: draft, signed, stamp duty paid, registered, with dates and document uploads.
+- **Payments and collections**:
+  - Payment schedule per booking, construction-linked or time-linked.
+  - Demand letter PDFs sent on WhatsApp; receipts.
+  - Outstanding/overdue dashboard and delay-interest calculation.
+  - Reminders through workflows and collection follow-up tasks.
+- **Changes**: cancellation, transfer and refund flows with approvals and an audit trail.
+- **Possession and post-sales**: handover checklist, snag list with photos and status, service requests, customer feedback.
+- **Accounting export**:
+  - CSV and Tally-compatible export of receipts and invoices.
+  - GST/TDS fields; values are user-entered or formula-configured (no tax advice built in).
+
+### 24.6 Approvals engine (reusable, core-level)
+- Configurable multi-step approvals: discount over X percent, hold extension, cancellation, commission exceptions, price override.
+- Approver roles, SLA, comments, notifications, realtime updates, audit log.
+- An **"Approval" workflow node** lets automations request an approval and wait for it.
+
+### 24.7 Broker mode (resale and rental)
+- **Listings**: property type, locality with map pin, price or rent, area, BHK, furnishing, owner, photos and documents, availability, exclusive or open mandate, validity.
+- **Owner and buyer/tenant leads**: automatic requirement-to-listing matching, WhatsApp shortlist sharing, tracked shared listing links.
+- **Deals**:
+  - Site visits to listings use the same flow and live map.
+  - Negotiation notes, token and agreement tracking.
+  - Brokerage invoice and commission split between agents.
+- **Listing sync**: an adapter interface only; portal APIs come later.
+
+### 24.8 Marketing and referrals
+- Campaign and spend tracking per source; cost per lead, per visit and per booking in reports.
+- WhatsApp broadcast campaigns to segments, using approved templates and respecting opt-in and quiet hours.
+- Customer referral program: links or codes, reward rules, status tracking, payout.
+
+### 24.9 Team, targets and incentives
+- **Roles to add**: Telecaller, Reception, Sales Executive, Sales Head, CP Manager, Site Manager, Accounts, Loan Executive, CRM/Post-sales.
+- **Targets and incentives**:
+  - Targets per person and team (visits, bookings, value).
+  - Incentive slabs with automatic calculation and statements.
+  - Incentive visibility controlled by role.
+
+### 24.10 Customer portal (optional flag)
+- Signed-in or magic-link portal for booked customers.
+- Shows unit details, payment schedule and receipts, documents, construction updates (photos and milestones posted by the company), and service requests.
+- Strict per-customer isolation.
+
+### 24.11 Reports and dashboards (additional)
+- Funnel by source and by CP; cost per booking; visit-to-booking by project.
+- Inventory aging and hold utilisation; approvals pending.
+- Collections due and collected; loan pipeline; incentive and commission liabilities.
+- Telecaller qualification rate, lead response SLA, no-show rate.
+
+### 24.12 Pack plumbing
+- Everything above is declared in the pack manifest: objects, fields, stages, workflow templates, WhatsApp template suggestions, widgets, reports, roles and menu items.
+- The manifest is versioned, with idempotent install, upgrade, and removal that keeps user data.
+- **Ready workflow templates**:
+  - CP lead acknowledgment; lead protection expiry reminder.
+  - Telecaller-to-sales handover; visit reminders (24 h and 2 h); post-visit feedback.
+  - Hold expiry warning.
+  - Payment milestone reminders; overdue collection escalation; loan stage follow-up.
+  - Possession handover checklist.
+- **New events**: `cp.lead_registered`, `lead.protection_expired`, `approval.requested`, `payment.overdue` (plus others as needed).
+
+### 24.13 Quality and seed
+- **Permission tests per role**:
+  - A CP sees only own leads and payouts.
+  - A telecaller cannot see financials.
+  - Accounts cannot edit leads.
+  - Other tenants never see anything.
+- **Unit tests**: lead protection and duplicate resolution, commission slabs and clawback, delay interest, hold expiry and approvals, cost sheet formulas.
+- **Playwright e2e**: CP registers a lead -> duplicate conflict -> manager resolves -> visit -> booking -> payment milestone -> commission payout.
+- Both themes, mobile-first CP and employee views, flat fallbacks, WCAG AA.
+- **Seed**:
+  - A developer company with 3 projects and 400 units.
+  - 12 CPs with varied status.
+  - 40 leads, including duplicates and conflicts.
+  - 15 bookings with payment schedules.
+  - A broker company with 60 listings.
+
+## 25. Live Site-Visit Map (Part 3) — PLANNED (not started; no agent created)
+
+Owner when started: new agent **frontend-map** (owns `apps/web/features/map`, `apps/api/src/modules/tracking`). Starts after Real Estate basics and after the realtime backbone (Phase 4-5).
+
+### 25.1 Experience
+- **"Field Live" page**, plus a widget on the Live Team Floor and the dashboard:
+  - 3D-extruded buildings; tilted camera (pitch ~55 degrees, bearing control); smooth fly-to.
+  - Highlighted project polygons; stylised markers.
+- **Agent markers**: each agent on an active visit is an avatar marker.
+  - Moves smoothly along the road, interpolated between GPS points, with heading rotation and a subtle trail.
+  - Shows a name tag, status (On the way, Arrived, In visit, Returning), speed/ETA, and the lead and project being visited.
+  - Clicking opens a side panel with the lead, visit details and call/message actions.
+- **Routes and pins**:
+  - Route line from the agent to the project, with ETA.
+  - Arrival animation (pulse ring) at geofence entry.
+  - Project pins show the visits-today count; pins cluster when zoomed out.
+- **Route replay** after a visit: timeline slider (departure, arrival, time at site, return), distance and duration.
+- **Office link**: when a visit starts, the agent's Team Floor character walks out of the office and shows "Out on site visit" with a link to the map; on return it walks back in.
+- **Modes and theme**:
+  - 3D / Flat toggle; flat (2D) by default on mobile, low-end devices and with `prefers-reduced-motion`.
+  - Light and dark map styles follow the app theme.
+  - The map bundle is lazy-loaded only on map pages.
+- **Customer share link** (optional, per-workspace setting):
+  - A signed, expiring public page "Your agent is on the way", sent on WhatsApp when the visit starts.
+  - Shows live ETA and the agent's name/photo, nothing else.
+  - Expires when the visit ends.
+
+### 25.2 Tech
+- **Map renderer** behind an adapter interface:
+  - Default: MapLibre GL JS with OpenStreetMap-based vector tiles (free). Mapbox or Google are optional providers via env keys.
+  - 3D buildings as fill-extrusion layers.
+  - Avatar markers via a deck.gl layer or a Three.js custom layer, reusing the Team Floor character models/colours when available; a lightweight HTML marker fallback.
+- **Provider keys**: kept server-side where the provider allows, otherwise domain-restricted; never committed. Add `MAP_PROVIDER` and the keys to `.env.example`.
+- **Location pipeline**:
+  - The employee app sends location updates to `POST /api/tracking/points`: every 5-15 s while moving, adaptive, batched when offline. Each point has accuracy, speed, heading and visitId.
+  - The server validates the points and stores them in a time-series table (default retention 30 days, configurable).
+  - It smooths noise and detects arrival via geofence.
+  - It emits `visit.started`, `location.updated`, `visit.arrived`, `visit.completed` over Socket.IO to authorised viewers only. These events join the shared event contract.
+- **Employee app**:
+  - PWA first: foreground tracking with Screen Wake Lock and a clear "tracking on" banner, plus a graceful message that background tracking needs the native app.
+  - A documented API and background-tracking contract, so a Flutter/React Native app can follow (battery-aware, Android foreground service, iOS significant-change updates).
+- **Anti-fraud and quality**:
+  - Reject impossible jumps; flag mock locations where detectable.
+  - Accuracy threshold for check-in; optional selfie or QR check-in at the site.
+  - Manager manual override, with the reason logged.
+
+### 25.3 Privacy and compliance (non-negotiable)
+- **When tracking happens**: only during an active, scheduled or started site visit, or an explicit "duty" session if the company enables it. Never outside active sessions.
+- **Consent and visibility**:
+  - An explicit employee consent screen before first use, stored in ConsentRecord.
+  - A persistent visible indicator while tracking.
+  - Employees can see their own history.
+  - Company policy text is editable in Settings.
+- **Access control**:
+  - Only managers/admins and the employee can see live and historical location; viewers and channel partners cannot.
+  - Every access to historical routes is audit logged.
+  - Retention and deletion controls; delete-my-data covers tracking points.
+- **Customer share link**: exposes only the agent's first name, optional photo and live ETA. Signed token, expiry, revocable.
+
+### 25.4 Quality, seed, flags
+- Both themes; WCAG AA; a keyboard-accessible list of active visits that mirrors the map; the flat fallback is always usable.
+- Performance: adaptive cap on simultaneously animated markers, throttled updates, FPS-based quality reduction, pause when the tab is hidden.
+- **Tests**:
+  - Geofence arrival with simulated GPS traces.
+  - Permissions: an employee sees only own tracking, a channel partner sees none, other tenants never see anything.
+  - Playwright: schedule visit -> start -> arrive -> feedback -> complete; 3D/flat toggle.
+- **Seed**: a GPS simulator script that replays realistic paths in a city (public/fictional coordinates).
+- **Super Admin**: entitlement/flag "field-live-map" and usage metering for tracking points.
+
+## 26. Order of work (current, from changes #9 and #13)
+1. **Now:**
+   - Fold every spec into this file and `docs/STATUS.md` (done).
+   - Execute only (a) Industry Packs Part 1 (section 22), then (b) board physics (section 11.1, frontend-physics).
+   - Then run the full check (typecheck, lint, tests, builds, `pnpm smoke:api`, `pnpm smoke:web`) and report.
+2. **Planned, do not build or scaffold**: Real Estate pack (23), Real Estate supplement (24), Live Site-Visit Map (25). Do not create the pack-realestate or frontend-map agents until the user says so.
+3. **Wave 2** starts only after the user says "go". It now includes the workflow platform (section 27, change #14) in the order of 27.11.
+4. **Awaiting confirmation** (listed in change #9 but not in the scope lock): the User-Workspace membership refactor (D-036) and deleting the seven `verify-traders-*` test companies from the dev database.
+5. **Later phase order** (from change #10):
+   - Real Estate basics (projects, inventory, site visits, bookings).
+   - Tracking pipeline and Field Live map (after the realtime backbone, Phase 4-5).
+   - Real estate workflows, reports and partner portal.
+   - Route replay, customer share link and Team Floor integration.
+   - The supplement in its own order (section 24).
+
+## 27. Workflow platform: generic automation (change #14) — PLANNED for Wave 2 (not started; waits for "go")
+
+Owners: **workflow-engine** (engine, triggers, logic, data nodes, HTTP Request node, run control, limits), **realtime-integrations** (connections vault, inbound webhook endpoints, channel adapters, connector definitions, SSRF-safe HTTP client), **frontend-physics** (builder UI, data picker, run timeline UI, templates gallery). frontend-app builds the Connections settings screens. Applies on top of section 13 (builder physics, existing node catalogue) and the earlier integrations spec (section 15.5). Read the skills first; summaries end with "Skills used: ...".
+
+Goal: Workflows is a general n8n-style automation builder. A company connects ANY platform (IndiaMART is one example), listens for events or polls on a schedule, and decides what happens next on any channel. A new platform needs no platform-specific code.
+
+### 27.1 Connections (credential vault, per company)
+- Types: API key/header, Bearer token, Basic auth, OAuth2 (authorization code + refresh), custom headers/query params, webhook signing secret, SMTP, Telegram bot token, WhatsApp provider.
+- Stored encrypted; masked after save; never logged or returned by the API; nodes reference a connection by name.
+- "Test connection" button; usage list ("used by these workflows").
+
+### 27.2 Triggers
+- **Inbound webhook**: unique URL per workflow, optional HMAC / shared-secret check, captures a sample payload for mapping, answers 200 at once and processes from a queue, stores the raw payload with replay.
+- **Schedule**: cron with a friendly editor (every N minutes, daily at a time, weekdays only, specific dates); timezone-aware (default the workspace timezone, Asia/Kolkata); optional "skip if the previous run is still active"; "run now" for testing.
+- **HTTP poll**: any endpoint, method, headers, query/body with variables (`{{last_run}}`, `{{cursor}}`), interval, path to the item list, unique-key field for dedupe, pagination (page, cursor, offset), rate-limit and backoff handling.
+- **CRM events**: lead created/updated/assigned, stage changed, message received, call ended/missed, task overdue, form submitted, payment overdue (when available).
+- **Manual** trigger and **called by another workflow** (sub-workflows).
+- **Platform presets** built from the same primitives: IndiaMART push and pull, WhatsApp inbound, Telegram inbound, email inbound / IMAP (later).
+
+### 27.3 Actions
+- **Channels**: WhatsApp (template, text inside the 24 h window, media); Email (SMTP/provider, templates, attachments); Telegram (message/photo to a chat or channel via a bot); SMS and voice behind provider adapters (mock first); in-app notification; push notification.
+- **CRM**: create/update contact or lead, add note, add tag, change stage, assign owner (round-robin, least-busy, rule-based), create task / call task, update custom fields, create deal, upload file.
+- **HTTP Request** (the universal connector): any URL and method, headers, query, JSON/form/raw body, auth from a connection, response parsing, retries with backoff, timeout, "continue on error".
+- **Data**: set/transform fields, merge, filter, sort, aggregate, split items, JSON parse/stringify, date/time helpers, text templates, simple formulas and expressions.
+- **Code** node (optional, behind a flag): sandboxed JavaScript with CPU, memory and time limits; no network or filesystem.
+- **Team notifications**: message a manager when something happens (e.g. a high-value lead), with a link.
+
+### 27.4 Logic and flow control
+- **Wait**: fixed duration; until a date/time; until a weekday / business hour; **wait for event** (e.g. a WhatsApp reply for up to 2 hours, else the "no reply" branch).
+- **Condition** and **Switch** (multi-branch) with a visual rule builder (field, operator, value, AND/OR) and an expression mode.
+- Loop over items; parallel branches and merge (wait for all or first); delay between items; stop/exit; error branch; retry policy per node; rate limiting per channel.
+- **Approval** node (human in the loop): ask a role or person, wait, continue on approve / reject.
+- Sub-workflows, reusable templates, variables and workflow-level settings.
+
+### 27.5 Data flow and mapping
+- Every node outputs JSON. A data picker lets users click fields of earlier nodes (`{{trigger.body.name}}`, `{{node3.response.id}}`) instead of typing paths. Live preview of resolved values from the last test payload. Defaults and fallbacks. Type warnings.
+- Test one node, test the whole workflow with a captured payload, and "pin data" to freeze sample input.
+
+### 27.6 Run control and observability
+- Per-run timeline: each node's input, output, status, duration, error. Search runs by lead, workflow, status, date. Replay a failed run from a chosen node. Cancel running executions.
+- Versions (draft vs active), rollback, duplicate, import/export workflow JSON, folders and tags.
+- Failure alerts (email / in-app / Telegram), failure-rate dashboard, dead-letter list, usage per workflow for billing and plan limits (runs, nodes, schedules).
+
+### 27.7 Safety, compliance and limits (non-negotiable)
+- SSRF protection for the HTTP node and the poll trigger: block private/internal IP ranges and metadata endpoints, resolve and re-check after redirects, size and time limits, optional allowlist per company.
+- Outbound rate limits, concurrency caps per workflow and per company, loop and run-time limits, idempotency keys, duplicate-event protection.
+- WhatsApp rules stay enforced inside the WhatsApp node: approved templates for first contact, 24 h window, opt-out check, quiet hours. Email and SMS nodes respect unsubscribe / opt-out and sender rules.
+- Secrets never appear in logs, run history or exports; exports store connection names only.
+- Permissions per role to create, edit, activate and view run data; audit log for every change and activation.
+
+### 27.8 Builder UI
+- Keep the depth-card canvas and physics (section 13.1). Node palette grouped (Triggers, Channels, CRM, Data, Logic, Flow), search, drag from the palette, quick-add "+" on edges, mini map, undo/redo, copy/paste, multi-select, keyboard shortcuts, auto-layout, side panel for node settings with validation.
+- Plain-language summary on each node ("When a lead arrives from IndiaMART", "Wait until reply, max 2h") and a "Test" button per node.
+- Templates gallery: lead nurturing across WhatsApp + email, missed-call follow-up, scheduled daily summary to Telegram, abandoned quote reminder, "any platform webhook to CRM lead", "poll an API every 10 minutes".
+- Mobile: read-only workflows, runs and failures, plus enable/disable and run-now. Editing stays on larger screens.
+
+### 27.9 Connector definitions (extensibility)
+- A JSON connector format: name, auth type, base URL, trigger and action definitions with input fields and sample responses. New platforms are data, not code.
+- Ship definitions for IndiaMART (push and pull), a generic webhook, Telegram, SMTP email and the WhatsApp partner adapter.
+- Super Admin publishes connectors to the library; companies can create private custom connectors.
+
+### 27.10 Quality
+- Unit tests: expression resolution, cron / timezone / DST, wait-for-event timeout branch, dedupe, retry/backoff, SSRF blocking, secret redaction.
+- Integration tests with a mock HTTP server: webhook trigger to the WhatsApp mock, poll trigger with pagination, schedule trigger, error branch.
+- Playwright e2e: build webhook -> condition -> WhatsApp mock -> wait for reply -> Telegram mock, run it, inspect the run timeline, replay a failed node.
+- Both themes, keyboard-accessible builder, WCAG AA.
+- Seed: 6 ready workflows and sanitized sample payloads in fixtures.
+
+### 27.11 Order inside Wave 2 (workflow-engine leads)
+1. Connections vault and HTTP Request node.
+2. Webhook, schedule and poll triggers.
+3. Wait-for-event, switch and error handling.
+4. Data picker and run timeline.
+5. Channel nodes (WhatsApp, email, Telegram).
+6. Connector definitions and templates.

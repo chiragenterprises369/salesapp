@@ -4,10 +4,15 @@ import {
   DEFAULT_ROLE_SCOPE,
   DEFAULT_USER_SETTINGS,
   FEATURE_FLAGS,
+  GENERIC_SALES_MANIFEST,
+  GENERIC_SALES_PACK_KEY,
   PLATFORM_PERMISSIONS,
+  resolveLabels,
   ROLE_KIND_LABELS,
   SYSTEM_ROLE_KEYS,
+  type ActivePack,
   type FeatureFlags,
+  type LabelOverrides,
   type MeResponse,
   type PlatformAdmin,
   type RoleKind,
@@ -59,7 +64,7 @@ export function mockWorkspace(overrides: Partial<Workspace> = {}): Workspace {
 
 const roleId = (kind: RoleKind) => `0190f5a0-0000-7000-8000-30000000000${['company_admin', 'manager', 'employee', 'viewer'].indexOf(kind)}`;
 
-export function mockMe(kind: RoleKind, opts: { settings?: UserSettings; workspace?: Partial<Workspace>; impersonating?: boolean } = {}): MeResponse {
+export function mockMe(kind: RoleKind, opts: { settings?: UserSettings; workspace?: Partial<Workspace>; impersonating?: boolean; labels?: LabelOverrides | null; packs?: ActivePack[] } = {}): MeResponse {
   const users = mockUsers();
   const idx = EMPLOYEE_FIXTURES.findIndex((e) => e.key === PERSONA_FIXTURE_KEY[kind]);
   const fx = EMPLOYEE_FIXTURES[idx]!;
@@ -109,6 +114,8 @@ export function mockMe(kind: RoleKind, opts: { settings?: UserSettings; workspac
           expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
         }
       : null,
+    labels: resolveLabels(opts.labels),
+    packs: opts.packs ?? [{ key: GENERIC_SALES_PACK_KEY, version: GENERIC_SALES_MANIFEST.version, modes: [] }],
   };
 }
 

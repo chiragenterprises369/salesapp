@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ImpersonationInfo, MeResponse } from '@vistar/shared';
+import { LabelOverridesSchema, resolveLabels, SETTING_KEYS, type ActivePack, type ImpersonationInfo, type MeResponse, type ResolvedLabels } from '@vistar/shared';
 import type { AuthContext } from '../../common/auth/auth-context.js';
 import { ScopeService } from '../../common/auth/scope.service.js';
 import { AppException } from '../../common/errors/app-exception.js';
@@ -24,12 +24,14 @@ export class MeService {
   async build(auth: AuthContext): Promise<MeResponse> {
     if (!auth.userId) throw new AppException('FORBIDDEN', 'API keys have no user profile');
     const user = await this.users.get(auth.workspaceId, auth.userId);
-    const [role, workspace, settings, visible, impersonation] = await Promise.all([
+    const [role, workspace, settings, visible, impersonation, labels, packs] = await Promise.all([
       this.roles.get(auth.workspaceId, user.roleId),
       this.workspaces.get(auth.workspaceId),
       this.settings.getUserSettings(auth.workspaceId, auth.userId),
       auth.dataScope === 'team' ? this.scope.visibleUserIds(auth) : Promise.resolve([]),
       this.impersonation(auth),
+      this.labels(auth.workspaceId),
+      this.activePacks(auth.workspaceId),
     ]);
     return {
       user,
@@ -39,7 +41,26 @@ export class MeService {
       teamMemberIds: auth.dataScope === 'team' ? (visible ?? []) : [],
       settings,
       impersonation,
+      labels,
+      packs,
     };
+  }
+
+  /** Workspace label overrides (Setting ui.labels) merged over the defaults. */
+  private async labels(workspaceId: string): Promise<ResolvedLabels> {
+    const row = await this.prisma
+      .forTenant(workspaceId)
+      .setting.findFirst({ where: { scope: 'workspace', scopeId: workspaceId, key: SETTING_KEYS.workspace.labels }, select: { value: true } });
+    const parsed = LabelOverridesSchema.safeParse(row?.value ?? {});
+    return resolveLabels(parsed.success ? parsed.data : {});
+  }
+
+  /** Active packs. TODO(backend-core, packs module): exclude packs whose entitlement was revoked. */
+  private async activePacks(workspaceId: string): Promise<ActivePack[]> {
+    const rows = await this.prisma
+      .forTenant(workspaceId)
+      .workspacePack.findMany({ where: { status: 'active', installedVersion: { not: null } }, select: { packKey: true, installedVersion: true, modes: true }, orderBy: { packKey: 'asc' } });
+    return rows.map((r) => ({ key: r.packKey, version: r.installedVersion!, modes: r.modes }));
   }
 
   private async impersonation(auth: AuthContext): Promise<ImpersonationInfo | null> {

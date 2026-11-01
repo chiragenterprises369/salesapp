@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { API_ROUTES } from '@vistar/shared';
+import { API_ROUTES, formatFieldValue, type FieldType } from '@vistar/shared';
 import ExcelJS from 'exceljs';
 import type { Request, Response } from 'express';
 import Papa from 'papaparse';
@@ -47,7 +47,7 @@ export class LeadExportService {
     const [stages, users, customFields, actor] = await Promise.all([
       db.stage.findMany({ select: { id: true, name: true } }),
       db.user.findMany({ select: { id: true, name: true, email: true } }),
-      db.customField.findMany({ where: { entity: 'lead' }, orderBy: { order: 'asc' }, select: { key: true, label: true } }),
+      db.customField.findMany({ where: { target: 'lead', archivedAt: null }, orderBy: { order: 'asc' }, select: { key: true, label: true, type: true, config: true } }),
       requestActor(db, auth),
     ]);
     const stageName = new Map(stages.map((s) => [s.id, s.name]));
@@ -80,7 +80,7 @@ export class LeadExportService {
         width: 18,
         value: (l: LeadListRow) => {
           const v = parseCustomFields(l.customFields)[f.key];
-          return v === undefined || v === null ? null : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v;
+          return v === undefined || v === null ? null : formatFieldValue({ type: f.type as FieldType, config: f.config as Record<string, unknown> }, v);
         },
       })),
     ];

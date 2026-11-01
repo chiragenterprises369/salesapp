@@ -1,7 +1,7 @@
 // Vistar data model. OWNER: orchestrator (contract). Agents request changes via the orchestrator.
 // Rules:
 //  - Every table except Workspace and platform tables (PlatformAdmin, PlatformSession, PlatformAuditLog,
-//    PlanDefinition) carries workspaceId and is indexed by it (tenant isolation).
+//    PlanDefinition, PackDefinition, PackVersion, PackPlanEntitlement) carries workspaceId and is indexed by it.
 //  - Enum literals MUST equal the values in packages/shared/src/enums.ts.
 //  - Money is whole rupees (Int). Ids are UUIDv7.
 //  - Use the tenant client (PrismaService.forTenant) with UNCHECKED inputs (scalar *Id fields, no `connect`).
@@ -367,6 +367,10 @@ model Workspace {
   consentRecords    ConsentRecord[]
   tags              Tag[]
   customFields      CustomField[]
+  customObjects     CustomObject[]
+  customRecords     CustomRecord[]
+  workspacePacks    WorkspacePack[]
+  packInstallLogs   PackInstallLog[]
   savedViews        SavedView[]
   files             File[]
   importJobs        ImportJob[]
@@ -412,6 +416,7 @@ model User {
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
   targets           Target[]
+  ownedRecords      CustomRecord[]     @relation("RecordOwner")
 
   @@index([workspaceId, isActive])
   @@index([workspaceId, status])
@@ -428,6 +433,10 @@ model Role {
   /// Permission strings from @vistar/shared PERMISSIONS
   permissions String[]
   isSystem    Boolean  @default(true)
+  /// Pack that created the role (null = system or workspace-defined)
+  packKey     String?
+  /// Archived by a pack uninstall/upgrade; hidden from role pickers, members keep it
+  archivedAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -502,6 +511,7 @@ model Company {
   city        String?
   state       String?
   website     String?
+  customFields Json     @default("{}")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
@@ -541,17 +551,24 @@ model Contact {
 }
 
 model Pipeline {
-  id          String   @id @default(uuid(7)) @db.Uuid
-  workspaceId String   @db.Uuid
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  /// Stable slug, unique per workspace ("sales" = default pipeline). Packs match pipelines by key.
+  key         String
   name        String
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isDefault   Boolean   @default(false)
+  /// Pack that created the pipeline (null = workspace-defined)
+  packKey     String?
+  /// Archived by a pack uninstall; leads in it are kept
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   stages    Stage[]
   leads     Lead[]
 
+  @@unique([workspaceId, key])
   @@index([workspaceId])
 }
 
@@ -565,6 +582,8 @@ model Stage {
   order       Int
   color       String?
   probability Int       @default(10)
+  /// Archived by a pack upgrade (only when empty); hidden from the board
+  archivedAt  DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -655,6 +674,7 @@ model Deal {
   status          StageType @default(open)
   expectedCloseAt DateTime?
   closedAt        DateTime?
+  customFields    Json      @default("{}")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -695,23 +715,140 @@ model Tag {
   @@unique([workspaceId, name])
 }
 
+/// Field definition of the flexible data layer (custom fields on core entities and custom object fields).
+/// Values live in the entity's `customFields` JSON or in CustomRecord.values. Archive only; keys are never reused.
 model CustomField {
-  id          String   @id @default(uuid(7)) @db.Uuid
-  workspaceId String   @db.Uuid
-  /// lead | contact
-  entity      String
-  key         String
-  label       String
-  /// text | number | date | select | boolean | url
-  type        String
-  options     String[] @default([])
-  required    Boolean  @default(false)
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
+  id             String    @id @default(uuid(7)) @db.Uuid
+  workspaceId    String    @db.Uuid
+  /// Core entity (lead | contact | company | deal | task | call) or object:<key>
+  target         String
+  /// Set when target is object:<key>
+  customObjectId String?   @db.Uuid
+  key            String
+  label          String
+  /// FIELD_TYPES in @vistar/shared (text, number, money, date, select, multi_select, user, relation, file, geo_point, boolean, url)
+  type           String
+  /// Per-type config (FIELD_CONFIG_SCHEMAS), e.g. { options } for select
+  config         Json      @default("{}")
+  /// FieldAccess { hiddenFor, readOnlyFor } by Role.key
+  access         Json      @default("{\"hiddenFor\": [], \"readOnlyFor\": []}")
+  helpText       String?
+  required       Boolean   @default(false)
+  isUnique       Boolean   @default(false)
+  order          Int       @default(0)
+  /// Pack that created the field (null = workspace-defined); pack fields keep key and type locked
+  packKey        String?
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customObject CustomObject? @relation(fields: [customObjectId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, target, key])
+  @@index([workspaceId, target, order])
+}
+
+/// Workspace-defined record type (e.g. Supplier, or Project/Unit from a pack). Archive only.
+model CustomObject {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  workspaceId     String    @db.Uuid
+  key             String
+  labelSingular   String
+  labelPlural     String
+  /// lucide-react icon name
+  icon            String    @default("Box")
+  description     String?
+  /// Key of the text field used as the record title
+  primaryFieldKey String
+  showInNav       Boolean   @default(true)
+  packKey         String?
+  archivedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  fields    CustomField[]
+  records   CustomRecord[]
+
+  @@unique([workspaceId, key])
+}
+
+/// One record of a custom object. values = { fieldKey: value } validated by validateCustomValues().
+model CustomRecord {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  objectId    String    @db.Uuid
+  /// Denormalised value of the object's primary (title) field
+  title       String    @default("")
+  values      Json      @default("{}")
+  /// Data scope (own | team | all) applies through ownerId
+  ownerId     String?   @db.Uuid
+  createdById String?   @db.Uuid
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  object    CustomObject @relation(fields: [objectId], references: [id], onDelete: Cascade)
+  owner     User?        @relation("RecordOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, objectId, createdAt])
+  @@index([workspaceId, objectId, ownerId])
+  @@index([values(ops: JsonbPathOps)], type: Gin)
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "CustomRecord_title_trgm_idx")
+}
+
+/// Industry Pack activation in a workspace. Super Admin entitlement overrides live here too (written via the root client).
+model WorkspacePack {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  workspaceId      String    @db.Uuid
+  packKey          String
+  /// active | uninstalled | failed | not_installed (row created only for a Super Admin override)
+  status           String    @default("not_installed")
+  installedVersion String?
+  /// Modes enabled at activation (e.g. developer, broker)
+  modes            String[]  @default([])
+  /// Super Admin override: grant | revoke | null (follow the plan)
+  platformOverride String?
+  overrideReason   String?
+  lastError        String?
+  installedAt      DateTime?
+  uninstalledAt    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  @@unique([workspaceId, entity, key])
+  @@unique([workspaceId, packKey])
+}
+
+/// Every install / upgrade / uninstall / sync attempt (success, noop or failed).
+model PackInstallLog {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  workspaceId String         @db.Uuid
+  packKey     String
+  /// install | upgrade | uninstall | sync
+  action      String
+  fromVersion String?
+  toVersion   String?
+  modes       String[]       @default([])
+  /// success | noop | failed
+  status      String
+  /// summarizeOps() counts
+  summary     Json           @default("{}")
+  /// PackConflict[]
+  conflicts   Json           @default("[]")
+  error       String?
+  actorType   AuditActorType @default(user)
+  actorId     String?        @db.Uuid
+  actorName   String?
+  createdAt   DateTime       @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, packKey, createdAt])
 }
 
 model SavedView {
@@ -793,6 +930,7 @@ model Task {
   overdueNotifiedAt DateTime?
   source            TaskSource   @default(manual)
   workflowRunId     String?      @db.Uuid
+  customFields      Json         @default("{}")
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   deletedAt         DateTime?
@@ -829,6 +967,7 @@ model Call {
   providerCallId String?
   notes          String?
   disposition    String?
+  customFields   Json          @default("{}")
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -908,6 +1047,8 @@ model Template {
   header             String?
   footer             String?
   providerTemplateId String?
+  /// Pack that suggested the template (null = created by the workspace)
+  packKey            String?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -1370,4 +1511,53 @@ model PlanDefinition {
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------- Industry Pack registry (platform; root client only)
+
+/// One pack in the registry, synced from packs/<key>/manifest.json by `pnpm packs:sync`.
+model PackDefinition {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  key             String   @unique
+  name            String
+  description     String
+  industry        String
+  icon            String
+  /// Core packs are installed in every workspace and cannot be uninstalled
+  core            Boolean  @default(false)
+  latestVersion   String
+  /// Add-on price per workspace per month (whole rupees); null = included in the plan
+  priceInrMonthly Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  versions     PackVersion[]
+  entitlements PackPlanEntitlement[]
+}
+
+/// Immutable manifest of one pack version (parsed PackManifestSchema output).
+model PackVersion {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  packId    String   @db.Uuid
+  version   String
+  manifest  Json
+  /// SHA-256 of the canonical manifest JSON; a changed file with the same version is rejected by sync
+  checksum  String
+  createdAt DateTime @default(now())
+
+  pack PackDefinition @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@unique([packId, version])
+}
+
+/// Plans that include a pack. Per-company overrides live in WorkspacePack.platformOverride.
+model PackPlanEntitlement {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  packId    String   @db.Uuid
+  plan      Plan
+  createdAt DateTime @default(now())
+
+  pack PackDefinition @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@unique([packId, plan])
 }

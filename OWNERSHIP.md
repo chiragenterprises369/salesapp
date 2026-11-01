@@ -12,11 +12,11 @@ ask the orchestrator; do not guess from other sections.
 
 | Agent | `docs/SPEC.md` sections |
 | --- | --- |
-| backend-core | 2.3, 5, 6.2, 7, 8 (API), 9 and 10 (API), 11.2, 15.2, 15.4, 15.6, 15.7 (API), 19 (publishing), 20.1-20.3 |
-| realtime-integrations | 2.3, 5.4, 12 (snapshot + events), 14, 15.1, 15.5, 19, 20.2, 20.3 |
-| workflow-engine | 2.3, 5.4, 13, 15.5 (triggers, outbound webhook action), 19, 20.2, 20.3 |
-| frontend-app | 2.3, 4, 5.3, 6, 7 (UI), 8, 9.1-9.3, 9.5, 9.6, 10, 15.2-15.7 (UI), 17 |
-| frontend-physics | 2.3, 4, 9.1-9.4, 11, 13.1, 13.2, 13.4, 13.5 |
+| backend-core | 2.3, 5, 6.2, 7, 8 (API), 9 and 10 (API), 11.2, 15.2, 15.4, 15.6, 15.7 (API), 19 (publishing), 20.1-20.3, 22 (API) |
+| realtime-integrations | 2.3, 5.4, 12 (snapshot + events), 14, 15.1, 15.5, 19, 20.2, 20.3, 27 (27.1, 27.2 inbound webhook, 27.3 channels, 27.7, 27.9) |
+| workflow-engine | 2.3, 5.4, 13, 15.5 (triggers, outbound webhook action), 19, 20.2, 20.3, 27 |
+| frontend-app | 2.3, 4, 5.3, 6, 7 (UI), 8, 9.1-9.3, 9.5, 9.6, 10, 15.2-15.7 (UI), 17, 22 (settings, records and registry UI), 27.1 (Connections settings UI) |
+| frontend-physics | 2.3, 4, 9.1-9.4, 11, 13.1, 13.2, 13.4, 13.5, 27.5, 27.6 (UI), 27.8 |
 | frontend-3d | 2.3, 4, 12, 17 (Team Floor item), 19 (consuming events) |
 | qa-reviewer | 2.3, 2.4, 4.5, 5, 6, 20.2, 20.3 (+ the sections of the area under review) |
 | asset-generator | 2.3, 4.1, 18 |
@@ -45,7 +45,12 @@ ask the orchestrator; do not guess from other sections.
 | `components/ui/**` | orchestrator | base kit, read-only |
 | `components/leads-shared/**` | orchestrator | shared lead actions contract |
 | `features/pipeline/**` | frontend-physics | Board view (`LeadsBoardView`), kanban physics |
-| `features/workflow-builder/**` | frontend-physics | React Flow builder |
+| `features/workflow-builder/**` | frontend-physics | React Flow builder (Wave 2 adds data picker, run timeline UI, templates gallery: SPEC 27) |
+| `features/shared/physics/**` | frontend-physics | Shared spring/drag physics used by the Board and the builder (SPEC 11.1) |
+| `app/(dev)/dev/board-physics/**` | frontend-physics | Physics demo page (sliders, slow motion) |
+| `app/(company)/app/settings/{industry,fields,labels,objects}/**`, `app/(company)/app/objects/**`, `app/(company)/app/x/**`, `app/(employee)/me/x/**`, `app/(super-admin)/super-admin/packs/**`, `components/{customization,packs}/**` | frontend-app | Industry Packs UI: settings, records pages, pack page host, Super Admin registry (SPEC 22) |
+| `lib/customization/**`, `lib/packs/**`, `lib/mock-db.ts` | orchestrator | Data hooks and extension points (`usePackRuntime`, `PackPage`, `WidgetSlot`, `ui-index.ts`), shared mock store |
+| `app/(company)/app/settings/connections/**` | frontend-app (Wave 2, planned) | Connections vault UI (SPEC 27.1) |
 | `features/team-floor/**` | frontend-3d | R3F floor + flat fallback |
 | `lib/auth/**`, `lib/theme/**`, `lib/api/**` | frontend-app | session (mock in Wave 1), theme system, HTTP client |
 | `lib/realtime/**` | realtime-integrations (client side, Wave 2) | socket client + cache updaters; orchestrator wires in Wave 3 |
@@ -60,8 +65,10 @@ ask the orchestrator; do not guess from other sections.
 | Path | Owner |
 | --- | --- |
 | `src/modules/{auth,workspace,leads,tasks,pipeline,notifications,dashboard}/**` | backend-core (auth includes Super Admin login, 2FA and the platform guard) |
+| `src/modules/{customization,packs}/**`, `scripts/packs-sync.ts` | backend-core (fields, objects, records, labels, pack installer, registry incl. `/api/super/packs`) |
 | `src/modules/{realtime,webhooks,integrations,whatsapp,calls}/**` | realtime-integrations |
-| `src/modules/workflows/**` | workflow-engine |
+| `src/modules/{connections,connectors}/**` | realtime-integrations (Wave 2, planned: credential vault, OAuth2, SSRF-safe HTTP client, connector library) |
+| `src/modules/workflows/**` | workflow-engine (Wave 2 adds triggers, HTTP Request/data/logic nodes, run control: SPEC 27) |
 | `src/modules/superadmin/**` | superadmin-panel (Phase 9) |
 | `src/{main.ts,app.module.ts,common,infra,config,health}/**` | orchestrator |
 | `prisma/**` (schema, migrations, seed), `scripts/simulator.ts` | orchestrator |
@@ -73,7 +80,9 @@ ask the orchestrator; do not guess from other sections.
 | --- | --- |
 | `packages/shared/src/**` | orchestrator (contracts) |
 | `packages/shared/test/**` | qa-reviewer |
-| `e2e/**` (Playwright) | qa-reviewer |
+| `packs/**` (pack manifests; generated from `packages/shared/src/packs`) | orchestrator |
+| `connectors/**` (JSON connector definitions, Wave 2, planned) | realtime-integrations |
+| `e2e/**` (Playwright) | qa-reviewer, except `e2e/board/**` (frontend-physics) and `e2e/playwright.config.ts` (orchestrator) |
 | `scripts/assets/**` | asset-generator |
 | `.claude/**`, root configs, docs (`CONTRACTS.md`, `OWNERSHIP.md`, `DECISIONS.md`, `SKILLS.md`, `README.md`, `docs/**`) | orchestrator |
 

@@ -1,5 +1,7 @@
 import type { RoleKind } from './enums.js';
 import type { FeatureFlag, FeatureFlags, Permission, PlatformPermission } from './rbac.js';
+import { DEFAULT_LABELS, type LabelKey, type ResolvedLabels } from './customization/labels.js';
+import type { RuntimeNavItem, RuntimeObject } from './packs/runtime.js';
 
 /**
  * PANELS AND NAVIGATION MAP. One Next.js app, three route groups:
@@ -69,6 +71,7 @@ export const NAV_SUPER_ADMIN: readonly NavGroup[] = [
       { id: 'plans', label: 'Plans and billing', href: '/super-admin/plans', icon: 'CreditCard', anyOf: ['platform.plans.manage', 'platform.billing.manage'] },
       { id: 'usage', label: 'Usage', href: '/super-admin/usage', icon: 'Gauge', anyOf: ['platform.usage.read'] },
       { id: 'flags', label: 'Feature flags', href: '/super-admin/flags', icon: 'ToggleRight', anyOf: ['platform.flags.manage'] },
+      { id: 'packs', label: 'Industry packs', href: '/super-admin/packs', icon: 'Package', anyOf: ['platform.packs.manage'] },
       { id: 'health', label: 'Platform health', href: '/super-admin/health', icon: 'Activity', anyOf: ['platform.health.read'] },
       { id: 'analytics', label: 'Analytics', href: '/super-admin/analytics', icon: 'LineChart', anyOf: ['platform.analytics.read'] },
       { id: 'support', label: 'Support', href: '/super-admin/support', icon: 'LifeBuoy', anyOf: ['platform.support.impersonate'] },
@@ -129,8 +132,11 @@ export const NAV_COMPANY: readonly NavGroup[] = [
           { id: 'settings-workspace', label: 'Workspace', href: '/app/settings', icon: 'Building2', anyOf: ['settings.manage'] },
           { id: 'settings-branding', label: 'Branding', href: '/app/settings/branding', icon: 'Palette', anyOf: ['settings.manage'] },
           { id: 'settings-hours', label: 'Business hours', href: '/app/settings/hours', icon: 'Clock', anyOf: ['settings.manage'] },
+          { id: 'settings-industry', label: 'Industry', href: '/app/settings/industry', icon: 'Factory', anyOf: ['settings.manage'] },
           { id: 'settings-stages', label: 'Pipeline stages', href: '/app/settings/stages', icon: 'Columns3', anyOf: ['pipeline.manage'] },
           { id: 'settings-fields', label: 'Custom fields', href: '/app/settings/fields', icon: 'TextCursorInput', anyOf: ['settings.manage'] },
+          { id: 'settings-objects', label: 'Custom objects', href: '/app/settings/objects', icon: 'Boxes', anyOf: ['settings.manage'] },
+          { id: 'settings-labels', label: 'Labels', href: '/app/settings/labels', icon: 'Type', anyOf: ['settings.manage'] },
           { id: 'settings-tags', label: 'Tags', href: '/app/settings/tags', icon: 'Tag', anyOf: ['settings.manage'] },
           { id: 'settings-templates', label: 'Templates', href: '/app/settings/templates', icon: 'MessageSquareText', anyOf: ['templates.manage'] },
           { id: 'settings-roles', label: 'Roles and permissions', href: '/app/settings/roles', icon: 'ShieldCheck', anyOf: ['roles.manage'] },
@@ -195,3 +201,64 @@ export const EMPLOYEE_STATUS_CONTROL = [
   { status: 'away', label: 'Break' },
   { status: 'offline', label: 'Offline' },
 ] as const;
+
+// ---------------------------------------------------------------- extension points (Industry Packs, custom objects, labels)
+
+/** Route of a pack page: /app/x/<packKey>/<page> (company) or /me/x/<packKey>/<page> (employee). */
+export function packPageHref(panel: 'company' | 'employee', packKey: string, page: string): string {
+  return `${panel === 'company' ? '/app' : '/me'}/x/${packKey}/${page}`;
+}
+
+/** Records page of a custom object. */
+export const objectRecordsHref = (objectKey: string) => `/app/objects/${objectKey}`;
+
+const packNavItem = (panel: 'company' | 'employee', i: RuntimeNavItem): NavItem => ({
+  id: `pack-${i.packKey}-${i.id}`,
+  label: i.label,
+  href: packPageHref(panel, i.packKey, i.page),
+  icon: i.icon,
+  ...(i.anyOf.length ? { anyOf: i.anyOf } : {}),
+});
+
+/** Company nav + pack navigation items (appended to the item's group). Filter with visibleNav() afterwards. */
+export function withPackNavigation(groups: readonly NavGroup[], items: readonly RuntimeNavItem[]): NavGroup[] {
+  const company = items.filter((i) => i.panels.includes('company'));
+  return groups.map((g) => {
+    const extra = company.filter((i) => i.group === g.id).map((i) => packNavItem('company', i));
+    return extra.length ? { ...g, items: [...g.items, ...extra] } : g;
+  });
+}
+
+/** Employee "More" sheet + pack items that target the employee panel. */
+export function withPackEmployeeNavigation(more: readonly NavItem[], items: readonly RuntimeNavItem[]): NavItem[] {
+  return [...more, ...items.filter((i) => i.panels.includes('employee')).map((i) => packNavItem('employee', i))];
+}
+
+/** Company nav + custom objects that have showInNav (added to the "work" group, after Leads). */
+export function withObjectNavigation(groups: readonly NavGroup[], objects: readonly RuntimeObject[]): NavGroup[] {
+  const extra: NavItem[] = objects
+    .filter((o) => o.showInNav)
+    .map((o) => ({ id: `object-${o.key}`, label: o.labelPlural, href: objectRecordsHref(o.key), icon: o.icon, anyOf: ['records.read'] }));
+  if (!extra.length) return [...groups];
+  return groups.map((g) => {
+    if (g.id !== 'work') return g;
+    const at = g.items.findIndex((i) => i.id === 'leads') + 1;
+    return { ...g, items: [...g.items.slice(0, at), ...extra, ...g.items.slice(at)] };
+  });
+}
+
+/** Nav item ids whose label follows a configurable label (e.g. "Leads" -> "Enquiries"). */
+export const NAV_LABEL_KEYS: Readonly<Record<string, LabelKey>> = { leads: 'lead', tasks: 'task', calls: 'call' };
+
+/** Replace the default plural in a nav label with the workspace label ("Tasks and reminders" -> "Follow-ups and reminders"). */
+export function labelNavItem<T extends NavItem>(item: T, labels: ResolvedLabels): T {
+  const key = NAV_LABEL_KEYS[item.id];
+  const children = item.children?.map((c) => labelNavItem(c, labels));
+  if (!key) return children ? { ...item, children } : item;
+  const label = item.label.replace(DEFAULT_LABELS[key].plural, labels[key].plural);
+  return { ...item, label, ...(children ? { children } : {}) };
+}
+
+export function withNavLabels(groups: readonly NavGroup[], labels: ResolvedLabels): NavGroup[] {
+  return groups.map((g) => ({ ...g, items: g.items.map((i) => labelNavItem(i, labels)) }));
+}

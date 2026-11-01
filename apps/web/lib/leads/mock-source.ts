@@ -11,7 +11,8 @@ import type {
   LeadUpdate,
   Page,
 } from '@vistar/shared';
-import { mockLeads, mockPipeline, mockUsers } from '@vistar/shared/fixtures';
+import { mockLeads, mockUsers } from '@vistar/shared/fixtures';
+import { readMockDb } from '../mock-db';
 import { generateKeyBetween } from 'fractional-indexing';
 import { useSessionStore } from '../session/session';
 import type { LeadsSource } from './data';
@@ -21,11 +22,28 @@ import type { LeadsSource } from './data';
  * persona's data scope (own / team / all) exactly like the API will.
  * Set `window.__vistarMockFailRate = 0.5` in devtools to exercise optimistic rollback.
  */
-const pipeline = mockPipeline();
 const users = mockUsers();
 let leads: LeadListItem[] = mockLeads(240, 7);
 const extra = new Map<string, Partial<Lead>>();
 const delay = (ms = 120 + Math.random() * 180) => new Promise((r) => setTimeout(r, ms));
+
+/** Default pipeline from the shared mock DB, so stage edits in Settings show on the Board. */
+function currentPipeline() {
+  const db = readMockDb();
+  const p = db.state.pipelines.find((x) => x.isDefault && !x.archived) ?? db.state.pipelines[0]!;
+  const stages = p.stages
+    .filter((s) => !s.archived)
+    .sort((a, b) => a.order - b.order)
+    .map((s, order) => ({ id: s.id, pipelineId: p.id, key: s.key, name: s.name, type: s.type, order, color: s.color, probability: s.probability }));
+  return { id: p.id, key: p.key, name: p.name, isDefault: p.isDefault, packKey: p.packKey, stages };
+}
+
+/** Leads per stage id (all leads, ignoring data scope), for the stage editor's delete guard. */
+export function mockLeadCountByStage(): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const l of leads) m.set(l.stageId, (m.get(l.stageId) ?? 0) + 1);
+  return m;
+}
 
 function viewer(): { userId: string | null; visible: string[] | null } {
   const s = useSessionStore.getState().session;
@@ -76,7 +94,7 @@ function stageLeads(pipelineId: string, stageId: string, filters: LeadFilters) {
 }
 
 function toLead(l: LeadListItem): Lead {
-  const stage = pipeline.stages.find((s) => s.id === l.stageId);
+  const stage = currentPipeline().stages.find((s) => s.id === l.stageId);
   return {
     ...l,
     contactId: null,
@@ -139,6 +157,7 @@ export const mockLeadsSource: LeadsSource = {
 
   async board(pipelineId: string, filters: LeadFilters, perColumn = 50): Promise<Board> {
     await delay();
+    const pipeline = currentPipeline();
     return {
       pipeline,
       columns: pipeline.stages.map((stage) => {
@@ -170,7 +189,7 @@ export const mockLeadsSource: LeadsSource = {
     await delay();
     maybeFail();
     const now = new Date().toISOString();
-    const stageId = input.stageId ?? pipeline.stages[0]!.id;
+    const stageId = input.stageId ?? currentPipeline().stages[0]!.id;
     const owner = input.ownerId ? (users.find((u) => u.id === input.ownerId) ?? null) : (users.find((u) => u.id === viewer().userId) ?? null);
     const item: LeadListItem = {
       id: crypto.randomUUID(),
@@ -180,7 +199,7 @@ export const mockLeadsSource: LeadsSource = {
       email: input.email ?? null,
       city: input.city ?? null,
       source: input.source,
-      pipelineId: pipeline.id,
+      pipelineId: currentPipeline().id,
       stageId,
       position: topPosition(stageId),
       owner,

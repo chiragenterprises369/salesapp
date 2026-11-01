@@ -38,6 +38,8 @@ const EnvSchema = z.object({
   S3_ACCESS_KEY: z.string().optional(),
   S3_SECRET_KEY: z.string().optional(),
   S3_FORCE_PATH_STYLE: bool,
+  /** Public CDN base (e.g. Bunny pull zone) for public files only; private files use signed URLs. */
+  S3_PUBLIC_BASE_URL: z.string().optional(),
 
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().optional(),

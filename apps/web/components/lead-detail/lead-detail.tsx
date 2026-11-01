@@ -550,6 +550,7 @@ function LeadDetailBody({
               completedAt: null,
               source: 'manual',
               workflowRunId: null,
+              customFields: {},
               createdAt: nowIso,
               updatedAt: nowIso,
             });

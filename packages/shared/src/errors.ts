@@ -53,6 +53,12 @@ export const ErrorCode = {
   WORKFLOW_LOOP_LIMIT: 'WORKFLOW_LOOP_LIMIT',
   // billing
   PLAN_LIMIT_REACHED: 'PLAN_LIMIT_REACHED',
+  // customization / packs
+  FIELD_KEY_TAKEN: 'FIELD_KEY_TAKEN',
+  FIELD_VALUE_NOT_UNIQUE: 'FIELD_VALUE_NOT_UNIQUE',
+  PACK_NOT_ENTITLED: 'PACK_NOT_ENTITLED',
+  PACK_CORE_LOCKED: 'PACK_CORE_LOCKED',
+  PACK_INSTALL_FAILED: 'PACK_INSTALL_FAILED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -101,6 +107,11 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   WORKFLOW_NOT_ACTIVE: 409,
   WORKFLOW_LOOP_LIMIT: 422,
   PLAN_LIMIT_REACHED: 402,
+  FIELD_KEY_TAKEN: 409,
+  FIELD_VALUE_NOT_UNIQUE: 409,
+  PACK_NOT_ENTITLED: 403,
+  PACK_CORE_LOCKED: 409,
+  PACK_INSTALL_FAILED: 422,
 };
 
 export const FieldErrorSchema = z.object({
