@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023", "DOM"],
+    "rootDir": "src",
+    "outDir": "dist",
+    "declarationMap": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "incremental": true
+  },
+  "include": ["src"]
+}

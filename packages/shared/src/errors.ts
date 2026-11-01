@@ -1,0 +1,126 @@
+import { z } from 'zod';
+
+/**
+ * Stable, machine-readable error codes. Every non-2xx API response uses ApiErrorSchema.
+ * Never change an existing code's meaning; add new codes instead.
+ */
+export const ErrorCode = {
+  // generic
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+  VERSION_CONFLICT: 'VERSION_CONFLICT',
+  RATE_LIMITED: 'RATE_LIMITED',
+  PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
+  // auth / rbac / tenancy
+  AUTH_UNAUTHENTICATED: 'AUTH_UNAUTHENTICATED',
+  AUTH_INVALID_CREDENTIALS: 'AUTH_INVALID_CREDENTIALS',
+  AUTH_TOKEN_EXPIRED: 'AUTH_TOKEN_EXPIRED',
+  AUTH_TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
+  AUTH_EMAIL_TAKEN: 'AUTH_EMAIL_TAKEN',
+  AUTH_INVITE_INVALID: 'AUTH_INVITE_INVALID',
+  AUTH_ACCOUNT_DISABLED: 'AUTH_ACCOUNT_DISABLED',
+  FORBIDDEN: 'FORBIDDEN',
+  TENANT_MISMATCH: 'TENANT_MISMATCH',
+  API_KEY_INVALID: 'API_KEY_INVALID',
+  API_KEY_SCOPE_MISSING: 'API_KEY_SCOPE_MISSING',
+  // leads / pipeline
+  LEAD_DUPLICATE: 'LEAD_DUPLICATE',
+  LEAD_MERGE_INVALID: 'LEAD_MERGE_INVALID',
+  STAGE_NOT_IN_PIPELINE: 'STAGE_NOT_IN_PIPELINE',
+  STAGE_IN_USE: 'STAGE_IN_USE',
+  IMPORT_INVALID_FILE: 'IMPORT_INVALID_FILE',
+  IMPORT_MAPPING_INVALID: 'IMPORT_MAPPING_INVALID',
+  // messaging / compliance
+  CONSENT_OPTED_OUT: 'CONSENT_OPTED_OUT',
+  CONSENT_MISSING: 'CONSENT_MISSING',
+  WHATSAPP_WINDOW_CLOSED: 'WHATSAPP_WINDOW_CLOSED',
+  WHATSAPP_TEMPLATE_NOT_APPROVED: 'WHATSAPP_TEMPLATE_NOT_APPROVED',
+  QUIET_HOURS: 'QUIET_HOURS',
+  SEND_RATE_LIMITED: 'SEND_RATE_LIMITED',
+  // integrations / webhooks
+  INTEGRATION_NOT_CONNECTED: 'INTEGRATION_NOT_CONNECTED',
+  INTEGRATION_PROVIDER_ERROR: 'INTEGRATION_PROVIDER_ERROR',
+  WEBHOOK_SIGNATURE_INVALID: 'WEBHOOK_SIGNATURE_INVALID',
+  WEBHOOK_TIMESTAMP_EXPIRED: 'WEBHOOK_TIMESTAMP_EXPIRED',
+  WEBHOOK_DUPLICATE: 'WEBHOOK_DUPLICATE',
+  WEBHOOK_ENDPOINT_DISABLED: 'WEBHOOK_ENDPOINT_DISABLED',
+  // workflows
+  WORKFLOW_INVALID_GRAPH: 'WORKFLOW_INVALID_GRAPH',
+  WORKFLOW_NOT_ACTIVE: 'WORKFLOW_NOT_ACTIVE',
+  WORKFLOW_LOOP_LIMIT: 'WORKFLOW_LOOP_LIMIT',
+  // billing
+  PLAN_LIMIT_REACHED: 'PLAN_LIMIT_REACHED',
+} as const;
+
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
+export const ErrorCodeSchema = z.enum(Object.values(ErrorCode) as [ErrorCode, ...ErrorCode[]]);
+
+/** Default HTTP status for each code. Inbound duplicate webhooks return 200 (idempotent replay). */
+export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
+  VALIDATION_FAILED: 400,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  VERSION_CONFLICT: 409,
+  RATE_LIMITED: 429,
+  PAYLOAD_TOO_LARGE: 413,
+  INTERNAL_ERROR: 500,
+  SERVICE_UNAVAILABLE: 503,
+  AUTH_UNAUTHENTICATED: 401,
+  AUTH_INVALID_CREDENTIALS: 401,
+  AUTH_TOKEN_EXPIRED: 401,
+  AUTH_TOKEN_INVALID: 401,
+  AUTH_EMAIL_TAKEN: 409,
+  AUTH_INVITE_INVALID: 400,
+  AUTH_ACCOUNT_DISABLED: 403,
+  FORBIDDEN: 403,
+  TENANT_MISMATCH: 404,
+  API_KEY_INVALID: 401,
+  API_KEY_SCOPE_MISSING: 403,
+  LEAD_DUPLICATE: 409,
+  LEAD_MERGE_INVALID: 400,
+  STAGE_NOT_IN_PIPELINE: 400,
+  STAGE_IN_USE: 409,
+  IMPORT_INVALID_FILE: 400,
+  IMPORT_MAPPING_INVALID: 400,
+  CONSENT_OPTED_OUT: 422,
+  CONSENT_MISSING: 422,
+  WHATSAPP_WINDOW_CLOSED: 422,
+  WHATSAPP_TEMPLATE_NOT_APPROVED: 422,
+  QUIET_HOURS: 422,
+  SEND_RATE_LIMITED: 429,
+  INTEGRATION_NOT_CONNECTED: 422,
+  INTEGRATION_PROVIDER_ERROR: 502,
+  WEBHOOK_SIGNATURE_INVALID: 401,
+  WEBHOOK_TIMESTAMP_EXPIRED: 401,
+  WEBHOOK_DUPLICATE: 200,
+  WEBHOOK_ENDPOINT_DISABLED: 410,
+  WORKFLOW_INVALID_GRAPH: 400,
+  WORKFLOW_NOT_ACTIVE: 409,
+  WORKFLOW_LOOP_LIMIT: 422,
+  PLAN_LIMIT_REACHED: 402,
+};
+
+export const FieldErrorSchema = z.object({
+  path: z.string().describe('Dot path of the invalid field, e.g. "contact.phone"'),
+  message: z.string(),
+});
+export type FieldError = z.infer<typeof FieldErrorSchema>;
+
+/** Error envelope for every non-2xx response. */
+export const ApiErrorSchema = z.object({
+  error: z.object({
+    code: ErrorCodeSchema,
+    message: z.string().describe('Human-readable, safe to show to the user. Never contains PII or secrets.'),
+    details: z.array(FieldErrorSchema).optional(),
+    requestId: z.string().optional(),
+  }),
+});
+export type ApiError = z.infer<typeof ApiErrorSchema>;
+
+/** Type guard for clients parsing unknown error bodies. */
+export function isApiError(body: unknown): body is ApiError {
+  return ApiErrorSchema.safeParse(body).success;
+}

@@ -1,0 +1,35 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# generated
+apps/api/src/generated/
+playwright-report/
+test-results/
+
+# env and secrets (never commit)
+.env
+.env.*
+!.env.example
+*.pem
+
+# agent worktrees
+.worktrees/
+
+# logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/

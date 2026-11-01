@@ -1,0 +1,47 @@
+{
+  "name": "@vistar/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vistar contracts: types, zod schemas, realtime events, REST routes, error codes, design tokens",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./fixtures": {
+      "types": "./dist/fixtures/index.d.ts",
+      "default": "./dist/fixtures/index.js"
+    },
+    "./openapi": {
+      "types": "./dist/api/openapi.d.ts",
+      "default": "./dist/api/openapi.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "openapi"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src scripts",
+    "tokens": "pnpm build && node scripts/generate-tokens.mjs",
+    "openapi": "pnpm build && node scripts/generate-openapi.mjs",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5",
+    "yaml": "^2.9.1"
+  }
+}

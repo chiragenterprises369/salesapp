@@ -1,0 +1,207 @@
+/*
+  Vistar Tailwind theme. OWNER: orchestrator (contract). Agents read, never edit.
+  - Colors come ONLY from design tokens (styles/tokens.css, generated from @vistar/shared).
+  - Tailwind's default palette is disabled so raw colors (bg-blue-500) do not exist.
+  - Theme switches on <html data-theme="light|dark">; `dark:` variant follows it.
+*/
+@import 'tailwindcss';
+@import './tokens.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+@custom-variant reduced-motion (&:where([data-reduced-motion='on'], [data-reduced-motion='on'] *));
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Menlo, monospace;
+
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-fg: var(--accent-soft-fg);
+  --color-accent-text: var(--accent-text);
+  --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
+  --color-skeleton: var(--skeleton);
+  --color-success: var(--success);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-text: var(--warning-text);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-text: var(--danger-text);
+  --color-status-blue-bg: var(--status-blue-bg);
+  --color-status-blue-fg: var(--status-blue-fg);
+  --color-status-blue-border: var(--status-blue-border);
+  --color-status-green-bg: var(--status-green-bg);
+  --color-status-green-fg: var(--status-green-fg);
+  --color-status-green-border: var(--status-green-border);
+  --color-status-amber-bg: var(--status-amber-bg);
+  --color-status-amber-fg: var(--status-amber-fg);
+  --color-status-amber-border: var(--status-amber-border);
+  --color-status-grey-bg: var(--status-grey-bg);
+  --color-status-grey-fg: var(--status-grey-fg);
+  --color-status-grey-border: var(--status-grey-border);
+  --color-status-red-bg: var(--status-red-bg);
+  --color-status-red-fg: var(--status-red-fg);
+  --color-status-red-border: var(--status-red-border);
+  --color-status-indigo-bg: var(--status-indigo-bg);
+  --color-status-indigo-fg: var(--status-indigo-fg);
+  --color-status-indigo-border: var(--status-indigo-border);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
+
+  /* Radius: 8px default, 12px cards. */
+  --radius-*: initial;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Elevation: shadow-card | shadow-raised | shadow-overlay | shadow-lift (drag) */
+  --shadow-*: initial;
+  --shadow-card: var(--elevation-1);
+  --shadow-raised: var(--elevation-2);
+  --shadow-overlay: var(--elevation-3);
+  --shadow-lift: var(--elevation-drag);
+
+  /* Type scale. Body 14px, dense tables 13px. */
+  --text-2xs: 11px;
+  --text-2xs--line-height: 14px;
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-lg: 16px;
+  --text-lg--line-height: 24px;
+  --text-xl: 18px;
+  --text-xl--line-height: 26px;
+  --text-2xl: 22px;
+  --text-2xl--line-height: 30px;
+  --text-3xl: 28px;
+  --text-3xl--line-height: 36px;
+
+  --ease-standard: var(--easing);
+  --animate-row-in: row-in var(--duration-slow) var(--easing), row-highlight 1.6s var(--easing);
+  --animate-fade-in: fade-in var(--duration) var(--easing);
+  --animate-dialog-in: dialog-in var(--duration) var(--easing);
+  --animate-pulse: pulse 1.6s ease-in-out infinite;
+  --animate-spin: spin 0.8s linear infinite;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes row-highlight {
+  from {
+    background-color: var(--accent-soft);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.98);
+  }
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Visible keyboard focus everywhere. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Tabular figures for KPIs, money and timers. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+  }
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+  ::selection {
+    background-color: var(--accent-soft);
+    color: var(--fg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+[data-reduced-motion='on'] *,
+[data-reduced-motion='on'] ::before,
+[data-reduced-motion='on'] ::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}

@@ -1,0 +1,6 @@
+/* App-level styles. Theme, tokens and Tailwind setup live in styles/theme.css (orchestrator-owned). */
+@import '../styles/theme.css';
+
+/* Tailwind v4 source detection for workspace packages used in class names. */
+@source '../components';
+@source '../features';

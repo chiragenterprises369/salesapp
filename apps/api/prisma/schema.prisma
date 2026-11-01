@@ -1,0 +1,1361 @@
+// Vistar data model. OWNER: orchestrator (contract). Agents request changes via the orchestrator.
+// Rules:
+//  - Every table except Workspace and platform tables (PlatformAdmin, PlatformSession, PlatformAuditLog,
+//    PlanDefinition) carries workspaceId and is indexed by it (tenant isolation).
+//  - Enum literals MUST equal the values in packages/shared/src/enums.ts.
+//  - Money is whole rupees (Int). Ids are UUIDv7.
+//  - Use the tenant client (PrismaService.forTenant) with UNCHECKED inputs (scalar *Id fields, no `connect`).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- enums
+
+enum RoleKind {
+  company_admin
+  manager
+  employee
+  viewer
+}
+
+enum DataScope {
+  own
+  team
+  all
+}
+
+enum WorkspaceStatus {
+  active
+  trial
+  suspended
+  deleted
+}
+
+enum EmployeeStatus {
+  on_call
+  busy
+  idle
+  away
+  offline
+}
+
+enum LeadSource {
+  indiamart
+  website
+  whatsapp
+  manual
+  webhook
+  import
+  api
+}
+
+enum StageType {
+  open
+  won
+  lost
+}
+
+enum LeadTemperature {
+  hot
+  warm
+  cold
+}
+
+enum TaskType {
+  todo
+  call
+  follow_up
+  meeting
+  email
+}
+
+enum TaskStatus {
+  open
+  done
+  cancelled
+}
+
+enum TaskPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum TaskSource {
+  manual
+  workflow
+  system
+}
+
+enum CallDirection {
+  inbound
+  outbound
+}
+
+enum CallStatus {
+  ringing
+  in_progress
+  completed
+  missed
+  failed
+}
+
+enum CallOutcome {
+  answered
+  missed
+  interested
+  not_interested
+  callback
+  wrong_number
+  voicemail
+}
+
+enum Channel {
+  whatsapp
+  email
+  sms
+  call
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+enum MessageType {
+  text
+  template
+  image
+  document
+  audio
+  video
+  interactive
+  note
+}
+
+enum MessageStatus {
+  queued
+  sent
+  delivered
+  read
+  failed
+}
+
+enum ConversationStatus {
+  open
+  pending
+  closed
+}
+
+enum ConsentStatus {
+  opted_in
+  opted_out
+}
+
+enum ConsentSource {
+  web_form
+  inbound_message
+  manual
+  import
+  keyword_stop
+  api
+}
+
+enum TemplateCategory {
+  marketing
+  utility
+  authentication
+}
+
+enum TemplateStatus {
+  draft
+  pending
+  approved
+  rejected
+  paused
+}
+
+enum WorkflowStatus {
+  draft
+  active
+  paused
+  archived
+}
+
+enum WorkflowRunStatus {
+  queued
+  running
+  waiting
+  completed
+  failed
+  cancelled
+}
+
+enum WorkflowStepStatus {
+  pending
+  running
+  succeeded
+  failed
+  skipped
+  waiting
+}
+
+enum IntegrationProvider {
+  indiamart
+  whatsapp_cloud
+  telephony
+  smtp
+  google_calendar
+}
+
+enum IntegrationStatus {
+  disconnected
+  connected
+  error
+}
+
+enum WebhookDirection {
+  inbound
+  outbound
+}
+
+enum WebhookDeliveryStatus {
+  pending
+  success
+  failed
+  dead
+}
+
+enum InboundWebhookAction {
+  create_lead
+  start_workflow
+}
+
+enum ActivityType {
+  lead_created
+  note
+  call
+  message
+  email
+  stage_changed
+  assigned
+  task_created
+  task_completed
+  workflow_step
+  file_uploaded
+  field_updated
+  merged
+}
+
+enum AuditActorType {
+  user
+  api_key
+  system
+  workflow
+  super_admin
+}
+
+enum NotificationType {
+  lead_assigned
+  message_received
+  task_due
+  task_overdue
+  workflow_failed
+  mention
+  import_completed
+  system
+}
+
+enum Plan {
+  free
+  starter
+  growth
+  enterprise
+}
+
+enum ThemeMode {
+  system
+  light
+  dark
+  scheduled
+}
+
+enum SettingScope {
+  workspace
+  user
+}
+
+enum TargetMetric {
+  revenue_inr
+  deals_won
+  calls
+  leads_converted
+}
+
+enum ImportStatus {
+  previewed
+  running
+  completed
+  failed
+}
+
+// ---------------------------------------------------------------- tenancy, auth, team
+
+model Workspace {
+  id                String    @id @default(uuid(7)) @db.Uuid
+  name              String
+  slug              String    @unique
+  timezone          String    @default("Asia/Kolkata")
+  currency          String    @default("INR")
+  businessHours     Json
+  holidays          Json      @default("[]")
+  status            WorkspaceStatus @default(active)
+  plan              Plan      @default(free)
+  trialEndsAt       DateTime?
+  /// Super Admin support access (impersonation) allowed until; null = off
+  supportAccessUntil   DateTime?
+  /// Allow message bodies / recordings during impersonation
+  supportAccessContent Boolean @default(false)
+  logoUrl           String?
+  accentColor       String?
+  defaultTheme      ThemeMode @default(system)
+  dataRetentionDays Int?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  users             User[]
+  roles             Role[]
+  teams             Team[]
+  sessions          Session[]
+  invites           Invite[]
+  companies         Company[]
+  contacts          Contact[]
+  pipelines         Pipeline[]
+  stages            Stage[]
+  leads             Lead[]
+  deals             Deal[]
+  activities        Activity[]
+  calls             Call[]
+  conversations     Conversation[]
+  messages          Message[]
+  templates         Template[]
+  quickReplies      QuickReply[]
+  tasks             Task[]
+  workflows         Workflow[]
+  workflowVersions  WorkflowVersion[]
+  workflowRuns      WorkflowRun[]
+  workflowRunSteps  WorkflowRunStep[]
+  integrations      Integration[]
+  webhookEndpoints  WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
+  apiKeys           ApiKey[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  auditLogs         AuditLog[]
+  targets           Target[]
+  settings          Setting[]
+  consentRecords    ConsentRecord[]
+  tags              Tag[]
+  customFields      CustomField[]
+  savedViews        SavedView[]
+  files             File[]
+  importJobs        ImportJob[]
+  impersonations    ImpersonationSession[]
+  flagOverrides     FeatureFlagOverride[]
+  usageCounters     UsageCounter[]
+}
+
+model User {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  workspaceId     String         @db.Uuid
+  /// Globally unique: one user belongs to one workspace (DECISIONS.md D-008).
+  email           String         @unique
+  passwordHash    String?
+  googleSub       String?        @unique
+  name            String
+  phone           String?
+  title           String?
+  roleId          String         @db.Uuid
+  teamId          String?        @db.Uuid
+  status          EmployeeStatus @default(offline)
+  statusChangedAt DateTime?
+  lastSeenAt      DateTime?
+  isActive        Boolean        @default(true)
+  /// AvatarConfig (Team Floor customisation)
+  avatar          Json?
+  /// BusinessHours JSON; null = workspace hours
+  workingHours    Json?
+  deskIndex       Int?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role              Role               @relation(fields: [roleId], references: [id])
+  team              Team?              @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  managedTeams      Team[]             @relation("TeamManager")
+  sessions          Session[]
+  ownedLeads        Lead[]             @relation("LeadOwner")
+  assignedTasks     Task[]             @relation("TaskAssignee")
+  calls             Call[]
+  conversations     Conversation[]     @relation("ConversationAssignee")
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  targets           Target[]
+
+  @@index([workspaceId, isActive])
+  @@index([workspaceId, status])
+}
+
+model Role {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  /// Slug; system roles use the kind name, custom roles any other slug
+  key         String
+  name        String
+  kind        RoleKind
+  dataScope   DataScope
+  /// Permission strings from @vistar/shared PERMISSIONS
+  permissions String[]
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  users     User[]
+
+  @@unique([workspaceId, key])
+}
+
+model Team {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  name        String
+  managerId   String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  manager   User?     @relation("TeamManager", fields: [managerId], references: [id], onDelete: SetNull)
+  members   User[]    @relation("TeamMembers")
+  targets   Target[]
+
+  @@unique([workspaceId, name])
+}
+
+/// Refresh-token session. Rotated on every refresh; reuse of a revoked token revokes the family.
+model Session {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  workspaceId  String    @db.Uuid
+  userId       String    @db.Uuid
+  familyId     String    @db.Uuid
+  tokenHash    String    @unique
+  userAgent    String?
+  ip           String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId])
+  @@index([familyId])
+}
+
+model Invite {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  email       String?
+  roleId      String    @db.Uuid
+  teamId      String?   @db.Uuid
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, email])
+}
+
+// ---------------------------------------------------------------- CRM core
+
+model Company {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  name        String
+  gstin       String?
+  city        String?
+  state       String?
+  website     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contacts  Contact[]
+  leads     Lead[]
+
+  @@index([workspaceId, name])
+}
+
+model Contact {
+  id            String         @id @default(uuid(7)) @db.Uuid
+  workspaceId   String         @db.Uuid
+  name          String
+  /// E.164
+  phone         String?
+  email         String?
+  companyId     String?        @db.Uuid
+  city          String?
+  /// Latest WhatsApp consent (denormalised from ConsentRecord)
+  whatsappOptIn ConsentStatus?
+  dnd           Boolean        @default(false)
+  customFields  Json           @default("{}")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+
+  workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company       Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  leads         Lead[]
+  conversations Conversation[]
+  consents      ConsentRecord[]
+
+  @@unique([workspaceId, phone])
+  @@index([workspaceId, email])
+}
+
+model Pipeline {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  name        String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stages    Stage[]
+  leads     Lead[]
+
+  @@index([workspaceId])
+}
+
+model Stage {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  pipelineId  String    @db.Uuid
+  key         String
+  name        String
+  type        StageType @default(open)
+  order       Int
+  color       String?
+  probability Int       @default(10)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pipeline  Pipeline  @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  leads     Lead[]
+
+  @@unique([pipelineId, key])
+  @@index([workspaceId, pipelineId, order])
+}
+
+model Lead {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  workspaceId     String          @db.Uuid
+  name            String
+  companyName     String?
+  phone           String?
+  email           String?
+  city            String?
+  state           String?
+  source          LeadSource      @default(manual)
+  /// External id (e.g. IndiaMART UNIQUE_QUERY_ID) for idempotent ingestion
+  sourceRef       String?
+  productInterest String?
+  requirement     String?
+  ownerId         String?         @db.Uuid
+  pipelineId      String          @db.Uuid
+  stageId         String          @db.Uuid
+  /// Fractional index within the stage (lexicographic)
+  position        String
+  valueInr        Int             @default(0)
+  score           Int             @default(0)
+  scoreBreakdown  Json            @default("[]")
+  temperature     LeadTemperature @default(warm)
+  tags            String[]        @default([])
+  customFields    Json            @default("{}")
+  contactId       String?         @db.Uuid
+  companyId       String?         @db.Uuid
+  nextFollowUpAt  DateTime?
+  lastActivityAt  DateTime?
+  firstResponseAt DateTime?
+  stageChangedAt  DateTime?
+  wonAt           DateTime?
+  lostAt          DateTime?
+  mergedIntoId    String?         @db.Uuid
+  version         Int             @default(1)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner        User?         @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  pipeline     Pipeline      @relation(fields: [pipelineId], references: [id])
+  stage        Stage         @relation(fields: [stageId], references: [id])
+  contact      Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company      Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  mergedInto   Lead?         @relation("LeadMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedLeads  Lead[]        @relation("LeadMerge")
+  deals        Deal[]
+  activities   Activity[]
+  calls        Call[]
+  tasks        Task[]
+  workflowRuns WorkflowRun[]
+  files        File[]
+
+  @@unique([workspaceId, source, sourceRef])
+  @@index([workspaceId, stageId, position])
+  @@index([workspaceId, ownerId, stageId])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, phone])
+  @@index([workspaceId, email])
+  @@index([workspaceId, nextFollowUpAt])
+  @@index([tags], type: Gin)
+}
+
+model Deal {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  workspaceId     String    @db.Uuid
+  leadId          String    @db.Uuid
+  title           String
+  valueInr        Int       @default(0)
+  status          StageType @default(open)
+  expectedCloseAt DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lead      Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, leadId])
+  @@index([workspaceId, status, closedAt])
+}
+
+/// Lead timeline entry. payload shape per type: ActivitySchema in @vistar/shared.
+model Activity {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  workspaceId String         @db.Uuid
+  leadId      String         @db.Uuid
+  type        ActivityType
+  actorType   AuditActorType @default(user)
+  actorId     String?        @db.Uuid
+  payload     Json
+  createdAt   DateTime       @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lead      Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, leadId, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+model Tag {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  name        String
+  color       String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+}
+
+model CustomField {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  /// lead | contact
+  entity      String
+  key         String
+  label       String
+  /// text | number | date | select | boolean | url
+  type        String
+  options     String[] @default([])
+  required    Boolean  @default(false)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, entity, key])
+}
+
+model SavedView {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  ownerId     String?  @db.Uuid
+  name        String
+  entity      String   @default("lead")
+  filters     Json
+  columns     String[] @default([])
+  isShared    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, ownerId])
+}
+
+model File {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  workspaceId  String   @db.Uuid
+  leadId       String?  @db.Uuid
+  /// S3 object key; served only via signed URLs
+  key          String
+  name         String
+  mime         String
+  size         Int
+  uploadedById String?  @db.Uuid
+  createdAt    DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lead      Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, leadId])
+}
+
+model ImportJob {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  workspaceId String       @db.Uuid
+  createdById String?      @db.Uuid
+  status      ImportStatus @default(previewed)
+  fileKey     String
+  fileName    String
+  columns     String[]
+  rowCount    Int          @default(0)
+  mapping     Json?
+  created     Int          @default(0)
+  updated     Int          @default(0)
+  skipped     Int          @default(0)
+  errors      Json         @default("[]")
+  createdAt   DateTime     @default(now())
+  finishedAt  DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}
+
+// ---------------------------------------------------------------- tasks
+
+model Task {
+  id                String       @id @default(uuid(7)) @db.Uuid
+  workspaceId       String       @db.Uuid
+  type              TaskType     @default(todo)
+  title             String
+  notes             String?
+  status            TaskStatus   @default(open)
+  priority          TaskPriority @default(normal)
+  leadId            String?      @db.Uuid
+  assigneeId        String?      @db.Uuid
+  createdById       String?      @db.Uuid
+  dueAt             DateTime?
+  remindAt          DateTime?
+  snoozedUntil      DateTime?
+  completedAt       DateTime?
+  overdueNotifiedAt DateTime?
+  source            TaskSource   @default(manual)
+  workflowRunId     String?      @db.Uuid
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  deletedAt         DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lead      Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  assignee  User?     @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, assigneeId, status, dueAt])
+  @@index([workspaceId, leadId])
+  @@index([workspaceId, status, dueAt])
+}
+
+// ---------------------------------------------------------------- calls & messaging
+
+model Call {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  workspaceId    String        @db.Uuid
+  leadId         String?       @db.Uuid
+  userId         String?       @db.Uuid
+  direction      CallDirection
+  status         CallStatus    @default(ringing)
+  outcome        CallOutcome?
+  fromNumber     String
+  toNumber       String
+  startedAt      DateTime      @default(now())
+  answeredAt     DateTime?
+  endedAt        DateTime?
+  durationSec    Int           @default(0)
+  /// S3 key; never exposed directly
+  recordingKey   String?
+  recordingPeaks Json?
+  provider       String
+  providerCallId String?
+  notes          String?
+  disposition    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lead      Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, provider, providerCallId])
+  @@index([workspaceId, userId, startedAt])
+  @@index([workspaceId, leadId])
+  @@index([workspaceId, startedAt])
+}
+
+model Conversation {
+  id                 String             @id @default(uuid(7)) @db.Uuid
+  workspaceId        String             @db.Uuid
+  channel            Channel            @default(whatsapp)
+  contactId          String             @db.Uuid
+  leadId             String?            @db.Uuid
+  assigneeId         String?            @db.Uuid
+  status             ConversationStatus @default(open)
+  unreadCount        Int                @default(0)
+  lastMessageAt      DateTime?
+  lastMessagePreview String?
+  /// Start of the 24h customer-service window
+  lastInboundAt      DateTime?
+  businessNumberId   String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignee  User?     @relation("ConversationAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages  Message[]
+
+  @@unique([workspaceId, channel, contactId])
+  @@index([workspaceId, assigneeId, lastMessageAt])
+  @@index([workspaceId, lastMessageAt])
+}
+
+model Message {
+  id                String           @id @default(uuid(7)) @db.Uuid
+  workspaceId       String           @db.Uuid
+  conversationId    String           @db.Uuid
+  direction         MessageDirection
+  type              MessageType      @default(text)
+  body              String?
+  templateId        String?          @db.Uuid
+  templateName      String?
+  mediaFileId       String?          @db.Uuid
+  status            MessageStatus    @default(queued)
+  error             String?
+  providerMessageId String?
+  isInternalNote    Boolean          @default(false)
+  authorId          String?          @db.Uuid
+  workflowRunId     String?          @db.Uuid
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, providerMessageId])
+  @@index([workspaceId, conversationId, createdAt])
+}
+
+model Template {
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  workspaceId        String           @db.Uuid
+  channel            Channel          @default(whatsapp)
+  name               String
+  language           String           @default("en")
+  category           TemplateCategory
+  status             TemplateStatus   @default(draft)
+  body               String
+  variables          String[]         @default([])
+  header             String?
+  footer             String?
+  providerTemplateId String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, channel, name, language])
+}
+
+model QuickReply {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  shortcut    String
+  body        String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, shortcut])
+}
+
+model ConsentRecord {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  workspaceId String        @db.Uuid
+  contactId   String        @db.Uuid
+  channel     Channel
+  status      ConsentStatus
+  source      ConsentSource
+  evidence    Json?
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, contactId, channel, createdAt])
+}
+
+// ---------------------------------------------------------------- workflows
+
+model Workflow {
+  id              String         @id @default(uuid(7)) @db.Uuid
+  workspaceId     String         @db.Uuid
+  name            String
+  description     String?
+  status          WorkflowStatus @default(draft)
+  triggerType     String?
+  activeVersionId String?        @db.Uuid
+  latestVersion   Int            @default(0)
+  /// Editable draft WorkflowGraph
+  draft           Json
+  templateKey     String?
+  createdById     String?        @db.Uuid
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions  WorkflowVersion[]
+  runs      WorkflowRun[]
+
+  @@index([workspaceId, status, triggerType])
+}
+
+model WorkflowVersion {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  workflowId  String   @db.Uuid
+  version     Int
+  graph       Json
+  note        String?
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow  Workflow      @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  runs      WorkflowRun[]
+
+  @@unique([workflowId, version])
+  @@index([workspaceId])
+}
+
+model WorkflowRun {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  workspaceId    String            @db.Uuid
+  workflowId     String            @db.Uuid
+  versionId      String            @db.Uuid
+  leadId         String?           @db.Uuid
+  status         WorkflowRunStatus @default(queued)
+  isTest         Boolean           @default(false)
+  triggerEvent   Json?
+  /// Run variables (reply text, loop counters, test overrides)
+  context        Json              @default("{}")
+  currentNodeIds String[]          @default([])
+  /// Dedupe key, e.g. `${workflowId}:${leadId}:${triggerEventId}`
+  idempotencyKey String?
+  error          String?
+  startedAt      DateTime          @default(now())
+  finishedAt     DateTime?
+  updatedAt      DateTime          @updatedAt
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow  Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  version   WorkflowVersion   @relation(fields: [versionId], references: [id])
+  lead      Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  steps     WorkflowRunStep[]
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, workflowId, status])
+  @@index([workspaceId, leadId])
+}
+
+model WorkflowRunStep {
+  id           String             @id @default(uuid(7)) @db.Uuid
+  workspaceId  String             @db.Uuid
+  runId        String             @db.Uuid
+  nodeId       String
+  nodeType     String
+  /// Visit counter for loops (0 on first pass)
+  visit        Int                @default(0)
+  status       WorkflowStepStatus @default(pending)
+  attempt      Int                @default(0)
+  branch       String?
+  input        Json?
+  output       Json?
+  summary      String?
+  error        String?
+  scheduledFor DateTime?
+  jobId        String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime           @default(now())
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  run       WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, nodeId, visit])
+  @@index([workspaceId, runId])
+}
+
+// ---------------------------------------------------------------- integrations & webhooks
+
+model Integration {
+  id               String              @id @default(uuid(7)) @db.Uuid
+  workspaceId      String              @db.Uuid
+  provider         IntegrationProvider
+  status           IntegrationStatus   @default(disconnected)
+  displayName      String
+  /// Non-secret config
+  config           Json                @default("{}")
+  /// AES-256-GCM (infra/crypto). Never returned by the API.
+  secretsEncrypted String?
+  lastCheckedAt    DateTime?
+  lastError        String?
+  connectedAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider])
+}
+
+model WebhookEndpoint {
+  id              String                @id @default(uuid(7)) @db.Uuid
+  workspaceId     String                @db.Uuid
+  direction       WebhookDirection
+  name            String
+  isActive        Boolean               @default(true)
+  sourceKey       String?
+  action          InboundWebhookAction?
+  workflowId      String?               @db.Uuid
+  mapping         Json?
+  url             String?
+  events          String[]              @default([])
+  /// AES-256-GCM encrypted HMAC secret
+  secretEncrypted String
+  secretLast4     String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  deletedAt       DateTime?
+
+  workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@unique([workspaceId, sourceKey])
+  @@index([workspaceId, direction, isActive])
+}
+
+model WebhookDelivery {
+  id             String                @id @default(uuid(7)) @db.Uuid
+  workspaceId    String                @db.Uuid
+  endpointId     String                @db.Uuid
+  direction      WebhookDirection
+  event          String?
+  eventId        String?
+  status         WebhookDeliveryStatus @default(pending)
+  attempt        Int                   @default(0)
+  /// Sensitive headers redacted before storage
+  requestHeaders Json                  @default("{}")
+  requestBody    Json?
+  responseStatus Int?
+  responseBody   String?
+  latencyMs      Int?
+  error          String?
+  idempotencyKey String?
+  replayOfId     String?               @db.Uuid
+  nextAttemptAt  DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  endpoint  WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, endpointId, createdAt])
+  @@index([workspaceId, idempotencyKey])
+  @@index([workspaceId, status, nextAttemptAt])
+}
+
+model ApiKey {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  name        String
+  prefix      String
+  /// SHA-256 of the full key; plaintext shown once
+  keyHash     String    @unique
+  scopes      String[]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdById String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+// ---------------------------------------------------------------- notifications, audit, settings, targets
+
+model Notification {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  workspaceId String           @db.Uuid
+  userId      String           @db.Uuid
+  type        NotificationType
+  title       String
+  body        String?
+  href        String?
+  data        Json             @default("{}")
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, readAt, createdAt])
+}
+
+model PushSubscription {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  userId      String   @db.Uuid
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId])
+}
+
+model AuditLog {
+  id          String         @id @default(uuid(7)) @db.Uuid
+  workspaceId String         @db.Uuid
+  actorType   AuditActorType
+  actorId     String?
+  actorName   String?
+  /// e.g. lead.update, user.role_change, apikey.create
+  action      String
+  entityType  String
+  entityId    String?
+  /// PII-safe diff (phones/emails masked)
+  diff        Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime       @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, entityType, entityId])
+}
+
+model Target {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  workspaceId String       @db.Uuid
+  userId      String?      @db.Uuid
+  teamId      String?      @db.Uuid
+  metric      TargetMetric
+  /// YYYY-MM in workspace timezone
+  period      String
+  value       Int
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team?     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, teamId, metric, period])
+  @@index([workspaceId, period])
+}
+
+/// Key/value settings. scope=user -> scopeId = userId (UserSettings, incl. theme). scope=workspace -> scopeId = workspaceId.
+model Setting {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  workspaceId String       @db.Uuid
+  scope       SettingScope
+  scopeId     String       @db.Uuid
+  key         String
+  value       Json
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, scope, scopeId, key])
+}
+
+// ---------------------------------------------------------------- usage, flags, impersonation (tenant tables)
+
+/// Monthly usage metering for plan limits. metric: seats | leads | whatsapp_messages | workflow_runs | storage_mb
+model UsageCounter {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  /// YYYY-MM
+  period      String
+  metric      String
+  value       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, period, metric])
+}
+
+/// Per-company feature flag override set by Super Admin (plan defaults live in PlanDefinition.features).
+model FeatureFlagOverride {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  flag        String
+  enabled     Boolean
+  setById     String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, flag])
+}
+
+/// Super Admin "View as company". Time-limited, reason required, read-only by default; visible to the company.
+model ImpersonationSession {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  workspaceId   String    @db.Uuid
+  adminId       String    @db.Uuid
+  reason        String
+  readOnly      Boolean   @default(true)
+  contentAccess Boolean   @default(false)
+  startedAt     DateTime  @default(now())
+  expiresAt     DateTime
+  endedAt       DateTime?
+  endedReason   String?
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  admin     PlatformAdmin @relation(fields: [adminId], references: [id])
+
+  @@index([workspaceId, startedAt])
+  @@index([adminId, startedAt])
+}
+
+// ---------------------------------------------------------------- platform (no workspaceId; never use the tenant client)
+
+model PlatformAdmin {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  email               String    @unique
+  name                String
+  passwordHash        String
+  /// AES-256-GCM encrypted base32 TOTP secret; 2FA is mandatory
+  totpSecretEncrypted String?
+  mfaEnabledAt        DateTime?
+  /// PlatformPermission strings
+  permissions         String[]
+  /// Exact IPs or CIDRs; empty = any
+  ipAllowlist         String[]  @default([])
+  isActive            Boolean   @default(true)
+  lastLoginAt         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  sessions       PlatformSession[]
+  impersonations ImpersonationSession[]
+}
+
+model PlatformSession {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  adminId      String    @db.Uuid
+  familyId     String    @db.Uuid
+  tokenHash    String    @unique
+  ip           String?
+  userAgent    String?
+  lastSeenAt   DateTime  @default(now())
+  /// Absolute timeout (12 h from login)
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  replacedById String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+
+  admin PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([familyId])
+}
+
+/// Every Super Admin action. Impersonation and company-affecting actions ALSO write AuditLog in the company.
+model PlatformAuditLog {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  adminId     String?  @db.Uuid
+  adminName   String?
+  action      String
+  workspaceId String?  @db.Uuid
+  entityType  String
+  entityId    String?
+  reason      String?
+  diff        Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+model PlanDefinition {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  key             Plan     @unique
+  name            String
+  priceInrMonthly Int
+  priceInrYearly  Int
+  /// PlanLimits JSON (seats, leads, whatsappMessagesPerMonth, workflowRunsPerMonth, storageMb)
+  limits          Json
+  /// FeatureFlags JSON
+  features        Json
+  overage         Json?
+  trialDays       Int      @default(14)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

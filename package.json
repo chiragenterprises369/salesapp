@@ -1,0 +1,40 @@
+{
+  "name": "vistar",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Vistar: multi-tenant sales management (CRM, automation, live team floor) for Indian SMEs",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": "\u003e=22.12"
+  },
+  "scripts": {
+    "setup:env": "node scripts/setup-env.mjs",
+    "build:shared": "pnpm --filter @vistar/shared build",
+    "dev": "pnpm build:shared && pnpm --parallel --filter @vistar/shared --filter @vistar/api --filter @vistar/web dev",
+    "dev:web": "pnpm build:shared && pnpm --filter @vistar/web dev",
+    "dev:api": "pnpm build:shared && pnpm --filter @vistar/api dev",
+    "build": "pnpm build:shared && pnpm --filter @vistar/api --filter @vistar/web build",
+    "typecheck": "pnpm build:shared && pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm build:shared && pnpm -r --if-present test",
+    "format": "prettier --write .",
+    "openapi": "pnpm --filter @vistar/shared openapi",
+    "db:up": "docker compose up -d postgres redis minio",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @vistar/api prisma:generate",
+    "db:migrate": "pnpm --filter @vistar/api prisma:migrate",
+    "db:seed": "pnpm --filter @vistar/api seed",
+    "simulate": "pnpm --filter @vistar/api simulate",
+    "e2e": "playwright test -c e2e/playwright.config.ts"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.64.1",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.1"
+  }
+}
