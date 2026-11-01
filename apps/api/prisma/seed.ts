@@ -51,6 +51,8 @@ import { generateNKeysBetween } from 'fractional-indexing';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { PrismaClient } from '../src/generated/prisma/client.js';
+import { installPack, SYSTEM_PACK_ACTOR } from '../src/modules/packs/pack-installer.js';
+import { syncRegistry } from '../src/modules/packs/pack-registry.js';
 
 config({ path: path.resolve(process.cwd(), '../../.env'), quiet: true });
 
@@ -218,9 +220,12 @@ async function main() {
     });
 
     const summary: string[] = [];
+    // Industry Packs: register packs/*/manifest.json, then install generic-sales (adopts the pipeline and templates seeded below).
+    await syncRegistry(prisma);
     for (const fx of COMPANY_FIXTURES) {
       const r = await seedCompany(prisma, fx, passwordHash, rng);
-      summary.push(`  ${r.ws.name} (${fx.plan}): ${r.users} users, ${r.leads} leads`);
+      const pack = await installPack(prisma, r.ws.id, GENERIC_SALES_PACK_KEY, { action: 'sync', actor: SYSTEM_PACK_ACTOR });
+      summary.push(`  ${r.ws.name} (${fx.plan}): ${r.users} users, ${r.leads} leads, ${GENERIC_SALES_PACK_KEY} ${pack.status}`);
     }
 
     console.info(`Seeded in ${((Date.now() - t0) / 1000).toFixed(1)}s\n${summary.join('\n')}`);

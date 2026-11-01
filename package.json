@@ -24,6 +24,7 @@
     "db:generate": "pnpm --filter @vistar/api prisma:generate",
     "db:migrate": "pnpm --filter @vistar/api prisma:migrate",
     "db:seed": "pnpm --filter @vistar/api seed",
+    "packs:sync": "pnpm build:shared && pnpm --filter @vistar/api packs:sync",
     "simulate": "pnpm --filter @vistar/api simulate",
     "e2e": "playwright test -c e2e/playwright.config.ts",
     "smoke:api": "node scripts/smoke-api.mjs",

@@ -27,7 +27,31 @@ import type { LeadsSource } from './data';
  */
 const users = mockUsers();
 let leads: LeadListItem[] = mockLeads(240, 7);
-const extra = new Map<string, Partial<Lead>>();
+/** Lead fields that are not on LeadListItem (custom fields, requirement, ...) survive reloads in the mock. */
+const EXTRA_KEY = 'vistar.mock.leadExtra.v1';
+const extra = new Map<string, Partial<Lead>>(loadExtra());
+
+function loadExtra(): Array<[string, Partial<Lead>]> {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(EXTRA_KEY);
+    return raw ? (JSON.parse(raw) as Array<[string, Partial<Lead>]>) : [];
+  } catch {
+    return [];
+  }
+}
+function saveExtra(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(EXTRA_KEY, JSON.stringify([...extra.entries()]));
+  } catch {
+    // quota exceeded: keep in memory
+  }
+}
+function setExtra(id: string, value: Partial<Lead>): void {
+  extra.set(id, value);
+  saveExtra();
+}
 const delay = (ms = 120 + Math.random() * 180) => new Promise((r) => setTimeout(r, ms));
 
 /** Default pipeline from the shared mock DB, so stage edits in Settings show on the Board. */
@@ -237,7 +261,7 @@ export const mockLeadsSource: LeadsSource = {
       updatedAt: now,
     };
     leads = [item, ...leads];
-    extra.set(item.id, { productInterest: input.productInterest ?? null, requirement: input.requirement ?? null, state: input.state ?? null, customFields: validLeadCustomFields(input.customFields ?? {}, 'create') });
+    setExtra(item.id, { productInterest: input.productInterest ?? null, requirement: input.requirement ?? null, state: input.state ?? null, customFields: validLeadCustomFields(input.customFields ?? {}, 'create') });
     return toLead(item);
   },
 
@@ -251,7 +275,7 @@ export const mockLeadsSource: LeadsSource = {
     if (patch.customFields !== undefined) {
       const prev = extra.get(id) ?? {};
       const merged = { ...(prev.customFields ?? {}), ...validLeadCustomFields(patch.customFields, 'update') };
-      extra.set(id, { ...prev, customFields: merged });
+      setExtra(id, { ...prev, customFields: merged });
     }
     const next: LeadListItem = {
       ...lead,

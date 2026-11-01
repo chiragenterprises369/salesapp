@@ -48,7 +48,7 @@ ask the orchestrator; do not guess from other sections.
 | `features/workflow-builder/**` | frontend-physics | React Flow builder (Wave 2 adds data picker, run timeline UI, templates gallery: SPEC 27) |
 | `features/shared/physics/**` | frontend-physics | Shared spring/drag physics used by the Board and the builder (SPEC 11.1) |
 | `app/(dev)/dev/board-physics/**` | frontend-physics | Physics demo page (sliders, slow motion) |
-| `app/(company)/app/settings/{industry,fields,labels,objects}/**`, `app/(company)/app/objects/**`, `app/(company)/app/x/**`, `app/(employee)/me/x/**`, `app/(super-admin)/super-admin/packs/**`, `components/{customization,packs}/**` | frontend-app | Industry Packs UI: settings, records pages, pack page host, Super Admin registry (SPEC 22) |
+| `app/(company)/app/settings/{industry,fields,labels,objects}/**`, `app/(company)/app/objects/**`, `app/(company)/app/x/**`, `app/(employee)/me/x/**`, `app/(super-admin)/super-admin/(console)/packs/**`, `components/{customization,packs}/**` | frontend-app | Industry Packs UI: settings, records pages, pack page host, Super Admin registry (SPEC 22) |
 | `lib/customization/**`, `lib/packs/**`, `lib/mock-db.ts` | orchestrator | Data hooks and extension points (`usePackRuntime`, `PackPage`, `WidgetSlot`, `ui-index.ts`), shared mock store |
 | `app/(company)/app/settings/connections/**` | frontend-app (Wave 2, planned) | Connections vault UI (SPEC 27.1) |
 | `features/team-floor/**` | frontend-3d | R3F floor + flat fallback |

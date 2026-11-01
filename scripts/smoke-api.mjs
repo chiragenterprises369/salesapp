@@ -181,6 +181,59 @@ check(
   String(noAuth.status),
 );
 
+// ---------------------------------------------------------------- Industry Packs Part 1 (flexible data layer)
+const leadFields = await call('GET', '/api/v1/fields?target=lead', { token: admin });
+const leadFieldKeys = (leadFields.json?.items ?? []).map((f) => f.key);
+check(
+  'fields: generic-sales lead fields present and parse',
+  leadFields.status === 200 &&
+    !parses(S.FieldDefinitionSchema.array(), leadFields.json?.items) &&
+    ['gst_number', 'quantity', 'preferred_language', 'delivery_by'].every((k) => leadFieldKeys.includes(k)),
+  `${leadFields.status} ${leadFieldKeys.join(',')}`,
+);
+const empField = await call('POST', '/api/v1/fields', {
+  token: employee,
+  body: { target: 'lead', field: { key: 'smoke_x', label: 'Smoke', type: 'text' } },
+});
+check('fields: employee cannot create a field (403)', empField.status === 403, String(empField.status));
+
+const packs = await call('GET', '/api/v1/packs', { token: admin });
+const generic = (packs.json?.items ?? []).find((p) => p.key === 'generic-sales');
+check(
+  'packs: generic-sales active as core pack',
+  packs.status === 200 && !parses(S.PackListItemSchema.array(), packs.json?.items) && generic?.status === 'active' && generic?.entitlement === 'core',
+  `${packs.status} ${generic?.status}/${generic?.entitlement}`,
+);
+const runtime = await call('GET', '/api/v1/packs/runtime', { token: employee });
+check('packs: runtime parses for an employee', runtime.status === 200 && !parses(S.PackRuntimeSchema, runtime.json), `${runtime.status} ${parses(S.PackRuntimeSchema, runtime.json)}`);
+const corePlan = await call('GET', '/api/v1/packs/generic-sales/plan?action=install', { token: admin });
+check('packs: re-planning generic-sales is a noop (idempotent)', corePlan.status === 200 && corePlan.json?.noop === true, `${corePlan.status} noop=${corePlan.json?.noop}`);
+const coreUninstall = await call('POST', '/api/v1/packs/generic-sales/uninstall', { token: admin });
+check('packs: core pack cannot be uninstalled (409)', coreUninstall.status === 409 && coreUninstall.json?.error?.code === 'PACK_CORE_LOCKED', `${coreUninstall.status} ${coreUninstall.json?.error?.code}`);
+
+const labelsBefore = await call('GET', '/api/v1/labels', { token: admin });
+const putLabels = await call('PUT', '/api/v1/labels', {
+  token: admin,
+  body: { overrides: { lead: { singular: 'Enquiry', plural: 'Enquiries' } } },
+});
+const meAfterLabels = await call('GET', '/api/v1/auth/me', { token: viewer });
+check(
+  'labels: override shows in /auth/me',
+  putLabels.status === 200 && meAfterLabels.json?.labels?.lead?.plural === 'Enquiries',
+  `${putLabels.status} ${meAfterLabels.json?.labels?.lead?.plural}`,
+);
+await call('PUT', '/api/v1/labels', { token: admin, body: { overrides: labelsBefore.json?.overrides ?? {} } });
+
+const anyLeadId = board.json?.columns?.flatMap((c) => c.leads)?.[0]?.id;
+const badGst = await call('PATCH', `/api/v1/leads/${anyLeadId}`, { token: admin, body: { customFields: { gst_number: 'not-a-gstin' } } });
+check(
+  'custom fields: invalid lead value -> 422 with field path',
+  badGst.status === 422 && badGst.json?.error?.details?.[0]?.path === 'customFields.gst_number',
+  `${badGst.status} ${badGst.json?.error?.details?.[0]?.path}`,
+);
+const pipelinesKeyed = (pipelines.json?.items ?? []).every((p) => typeof p.key === 'string' && p.key.length > 0);
+check('pipelines: every pipeline has a key (migrated)', pipelinesKeyed && pipelines.json?.items?.some((p) => p.key === 'sales'), '');
+
 const failed = results.filter((r) => !r.ok);
 for (const r of results)
   console.info(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.ok || !r.detail ? '' : `  (${r.detail})`}`);
