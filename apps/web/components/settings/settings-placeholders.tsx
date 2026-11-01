@@ -1,10 +1,8 @@
 'use client';
 
-import { stageTone } from '@vistar/shared';
-import { mockPipeline, TAGS, WHATSAPP_TEMPLATE_FIXTURES } from '@vistar/shared/fixtures';
-import { ImageUp, Route, ScrollText, TextCursorInput } from 'lucide-react';
+import { TAGS, WHATSAPP_TEMPLATE_FIXTURES } from '@vistar/shared/fixtures';
+import { ImageUp, Route, ScrollText } from 'lucide-react';
 import { columnClass, DataTable, type DataColumn } from '@/components/common/data-table';
-import { EmptyState } from '@/components/common/empty-state';
 import { Chip } from '@/components/ui/chip';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useMe } from '@/lib/session/session';
@@ -38,49 +36,6 @@ export function BrandingSettings() {
         </div>
       </div>
     </SettingsCard>
-  );
-}
-
-const STAGE_COLUMNS: DataColumn[] = [
-  { key: 'order', label: '#', align: 'right' },
-  { key: 'name', label: 'Stage' },
-  { key: 'type', label: 'Type' },
-  { key: 'probability', label: 'Win probability', align: 'right', hideBelow: 'sm' },
-];
-
-export function StagesSettings() {
-  const pipeline = mockPipeline();
-  return (
-    <>
-      <div>
-        <ViewOnly />
-      </div>
-      <DataTable label={`${pipeline.name} pipeline stages`} columns={STAGE_COLUMNS} status="ready" empty={{ title: 'No stages' }}>
-        {pipeline.stages.map((s) => (
-          <TableRow key={s.id}>
-            <TableCell className="w-10 text-right text-muted tabular">{s.order + 1}</TableCell>
-            <TableCell>
-              <Chip tone={stageTone(s)} dot>
-                {s.name}
-              </Chip>
-            </TableCell>
-            <TableCell className="text-fg-secondary">{s.type === 'open' ? 'Open' : s.type === 'won' ? 'Won' : 'Lost'}</TableCell>
-            <TableCell className={`${columnClass(STAGE_COLUMNS[3]!)} tabular`}>{s.probability === null ? '–' : `${s.probability}%`}</TableCell>
-          </TableRow>
-        ))}
-      </DataTable>
-      <p className="text-xs text-muted-strong">Renaming, reordering and adding stages arrives with the pipeline editor. Workflows refer to stages by key, so renaming will not break them.</p>
-    </>
-  );
-}
-
-export function FieldsSettings() {
-  return (
-    <EmptyState
-      icon={<TextCursorInput />}
-      title="No custom fields yet"
-      description="Custom fields capture details like GST number, product size or delivery city on every lead. Creating them arrives with the field editor."
-    />
   );
 }
 
