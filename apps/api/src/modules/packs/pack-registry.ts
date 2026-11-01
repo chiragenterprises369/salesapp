@@ -103,6 +103,16 @@ async function assertSameChecksum(prisma: RootPrisma, m: PackManifest, checksum:
 
 /** Register one manifest version (idempotent). PackDefinition metadata follows the highest version. */
 export async function registerManifest(prisma: RootPrisma, manifest: PackManifest): Promise<RegisterResult> {
+  try {
+    return await registerOnce(prisma, manifest);
+  } catch (err) {
+    // Two syncs racing on the same new pack/version: the loser retries against the committed rows.
+    if ((err as { code?: string }).code !== 'P2002') throw err;
+    return registerOnce(prisma, manifest);
+  }
+}
+
+async function registerOnce(prisma: RootPrisma, manifest: PackManifest): Promise<RegisterResult> {
   const checksum = manifestChecksum(manifest);
   await assertSameChecksum(prisma, manifest, checksum);
   return prisma.$transaction(async (tx) => {
