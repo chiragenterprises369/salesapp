@@ -41,6 +41,9 @@ Dev logins (password `vistar-demo-123`, printed by the seed):
 
 ## Docs
 
+- `docs/SPEC.md` — consolidated requirements by module (the only spec)
+- `docs/CHANGELOG.md` — spec changes in the order received
+- `docs/STATUS.md` — module status and what is verified
 - `CONTRACTS.md` — shared contracts (API, events, roles, panels, theme, leads views)
 - `OWNERSHIP.md` — who owns which folder
 - `DECISIONS.md` — defaults chosen and why

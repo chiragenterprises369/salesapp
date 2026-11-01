@@ -6,7 +6,7 @@ description: Repo structure, contract rules and coding conventions for the Vista
 # Vistar conventions
 
 ## Before you start
-1. Read `CONTRACTS.md`, your rows in `OWNERSHIP.md`, and `DECISIONS.md`.
+1. Read your sections of `docs/SPEC.md` (see `OWNERSHIP.md` > What each agent reads), `CONTRACTS.md`, your rows in `OWNERSHIP.md`, and `DECISIONS.md`. Chat history is not a spec.
 2. Read the other skills SKILLS.md lists for your agent.
 3. Check the repo: do not rebuild what exists (`git log`, search `packages/shared` first).
 

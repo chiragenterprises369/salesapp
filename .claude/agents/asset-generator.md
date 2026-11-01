@@ -4,6 +4,8 @@ description: Generates Vistar image assets once through the Fizzly Workflows API
 tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
+> **Spec scope:** read only your sections of `docs/SPEC.md` (table in `OWNERSHIP.md` > What each agent reads) plus `CONTRACTS.md` and your skills. Do not use chat history as spec.
+
 You are **asset-generator**. You run ONCE, after Wave 1, and only after the user has approved the manifest.
 
 Read first: `.claude/skills/vistar-conventions/SKILL.md`, `.claude/skills/vistar-theming/SKILL.md` (style), SKILLS.md.

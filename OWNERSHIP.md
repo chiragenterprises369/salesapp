@@ -1,7 +1,29 @@
 # Ownership
 
 Stay inside your folders. Never edit another owner's files; request changes through the orchestrator.
-Read anything. Contracts are listed in CONTRACTS.md.
+Read anything in the repo when you need it. Contracts are listed in CONTRACTS.md.
+
+## What each agent reads (spec scope)
+
+Your requirements are ONLY: your sections of `docs/SPEC.md` (below) + `CONTRACTS.md` + the skills
+`SKILLS.md` lists for you. Do not use chat history as spec. Everyone also reads SPEC sections
+2.3 (rules) and 4 (design system) when doing UI work. If something you need is not in your sections,
+ask the orchestrator; do not guess from other sections.
+
+| Agent | `docs/SPEC.md` sections |
+| --- | --- |
+| backend-core | 2.3, 5, 6.2, 7, 8 (API), 9 and 10 (API), 11.2, 15.2, 15.4, 15.6, 15.7 (API), 19 (publishing), 20.1-20.3 |
+| realtime-integrations | 2.3, 5.4, 12 (snapshot + events), 14, 15.1, 15.5, 19, 20.2, 20.3 |
+| workflow-engine | 2.3, 5.4, 13, 15.5 (triggers, outbound webhook action), 19, 20.2, 20.3 |
+| frontend-app | 2.3, 4, 5.3, 6, 7 (UI), 8, 9.1-9.3, 9.5, 9.6, 10, 15.2-15.7 (UI), 17 |
+| frontend-physics | 2.3, 4, 9.1-9.4, 11, 13.1, 13.2, 13.4, 13.5 |
+| frontend-3d | 2.3, 4, 12, 17 (Team Floor item), 19 (consuming events) |
+| qa-reviewer | 2.3, 2.4, 4.5, 5, 6, 20.2, 20.3 (+ the sections of the area under review) |
+| asset-generator | 2.3, 4.1, 18 |
+| superadmin-panel | 2.3, 4, 5, 6, 15.7 (audit, billing usage), 16 |
+| orchestrator | all |
+
+`docs/` (SPEC, CHANGELOG, STATUS) is owned by the orchestrator.
 
 ## Branches and worktrees
 
@@ -53,7 +75,7 @@ Read anything. Contracts are listed in CONTRACTS.md.
 | `packages/shared/test/**` | qa-reviewer |
 | `e2e/**` (Playwright) | qa-reviewer |
 | `scripts/assets/**` | asset-generator |
-| `.claude/**`, root configs, docs (`CONTRACTS.md`, `OWNERSHIP.md`, `DECISIONS.md`, `SKILLS.md`, `README.md`) | orchestrator |
+| `.claude/**`, root configs, docs (`CONTRACTS.md`, `OWNERSHIP.md`, `DECISIONS.md`, `SKILLS.md`, `README.md`, `docs/**`) | orchestrator |
 
 ## Agents
 
