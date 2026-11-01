@@ -25,13 +25,15 @@ import { UserMenu } from './user-menu';
 const PLAN_LABEL: Record<MeResponse['workspace']['plan'], string> = { free: 'Free', starter: 'Starter', growth: 'Growth', enterprise: 'Enterprise' };
 
 function WorkspaceHeader({ me, expanded }: { me: MeResponse; expanded: boolean }) {
+  // Expanded: the visible name is the link text (WCAG 2.5.3 label in name). Icon rail: aria-label.
   return (
-    <Link href="/app" className={cn('focus-ring flex min-w-0 items-center gap-2 rounded-md', !expanded && 'mx-auto')} aria-label={`${me.workspace.name} dashboard`}>
+    <Link href="/app" className={cn('focus-ring flex min-w-0 items-center gap-2 rounded-md', !expanded && 'mx-auto')} aria-label={expanded ? undefined : `${me.workspace.name} dashboard`}>
       <LogoMark />
       {expanded && (
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold text-fg">{me.workspace.name}</span>
           <span className="block text-2xs text-muted">{PLAN_LABEL[me.workspace.plan]} plan</span>
+          <span className="sr-only">, dashboard</span>
         </span>
       )}
     </Link>
