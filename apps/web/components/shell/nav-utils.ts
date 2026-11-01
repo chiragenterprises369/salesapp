@@ -32,9 +32,10 @@ export function navContext(me: MeResponse) {
 /**
  * Company sidebar for this user. Items with children (Settings) link to their first visible child so
  * a role with only some settings permissions never lands on a page it cannot open.
+ * Pass `groups` already composed with useNavExtensions().company(NAV_COMPANY) (objects, pack pages, labels).
  */
-export function companyNav(me: MeResponse): NavGroup[] {
-  return visibleNav(NAV_COMPANY, navContext(me)).map((g) => ({
+export function companyNav(me: MeResponse, groups: readonly NavGroup[] = NAV_COMPANY): NavGroup[] {
+  return visibleNav(groups, navContext(me)).map((g) => ({
     ...g,
     items: g.items.map((i) => (i.children?.length ? { ...i, href: i.children[0]!.href } : i)),
   }));
@@ -48,12 +49,14 @@ export function settingsNav(me: MeResponse): NavItem[] {
   return [...(settings?.children ?? [])];
 }
 
-export function employeeBottomNav(me: MeResponse): NavItem[] {
-  return NAV_EMPLOYEE_BOTTOM.filter((i) => isNavItemVisible(i, navContext(me)));
+/** Pass items composed with useNavExtensions().employeeBottom(NAV_EMPLOYEE_BOTTOM) for configurable labels. */
+export function employeeBottomNav(me: MeResponse, items: readonly NavItem[] = NAV_EMPLOYEE_BOTTOM): NavItem[] {
+  return items.filter((i) => isNavItemVisible(i, navContext(me)));
 }
 
-export function employeeMoreNav(me: MeResponse): NavItem[] {
-  return NAV_EMPLOYEE_MORE.filter((i) => isNavItemVisible(i, navContext(me)));
+/** Pass items composed with useNavExtensions().employeeMore(NAV_EMPLOYEE_MORE) for pack pages and labels. */
+export function employeeMoreNav(me: MeResponse, items: readonly NavItem[] = NAV_EMPLOYEE_MORE): NavItem[] {
+  return items.filter((i) => isNavItemVisible(i, navContext(me)));
 }
 
 export function superAdminNav(admin: PlatformAdmin): NavGroup[] {

@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { Skeleton } from '@/components/ui/skeleton';
+import { WidgetSlot } from '@/lib/packs';
 import { useMe } from '@/lib/session/session';
 import { TargetRings } from './targets';
 import { useClickToCall, useMyDay } from './use-my-day';
@@ -229,6 +230,8 @@ export function TodayView() {
           )}
         </Section>
       </div>
+
+      <WidgetSlot slot="employee.home" className="grid-cols-1 lg:grid-cols-2" />
 
       <Section title="Targets this month" icon={<Trophy />}>
         <div className="px-2 pb-2">

@@ -1,5 +1,6 @@
 'use client';
 
+import { NAV_EMPLOYEE_MORE } from '@vistar/shared';
 import { Building2, ChevronRight, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, type ReactNode } from 'react';
@@ -8,6 +9,7 @@ import { NavIcon } from '@/components/shell/nav-icon';
 import { employeeMoreNav } from '@/components/shell/nav-utils';
 import { Card } from '@/components/ui/card';
 import { useSignOut } from '@/lib/auth/use-auth';
+import { useNavExtensions } from '@/lib/packs';
 import { useMe } from '@/lib/session/session';
 
 const HINT: Record<string, string> = {
@@ -45,10 +47,11 @@ function MoreRow({ icon, label, hint, href, onClick }: { icon: ReactNode; label:
   );
 }
 
-/** "More" tab: everything that does not fit in the bottom navigation (NAV_EMPLOYEE_MORE). */
+/** "More" tab: everything that does not fit in the bottom navigation (NAV_EMPLOYEE_MORE + pack pages). */
 export function MoreList() {
   const me = useMe()!;
-  const items = useMemo(() => employeeMoreNav(me), [me]);
+  const { employeeMore } = useNavExtensions();
+  const items = useMemo(() => employeeMoreNav(me, employeeMore(NAV_EMPLOYEE_MORE)), [me, employeeMore]);
   const signOut = useSignOut();
   return (
     <>

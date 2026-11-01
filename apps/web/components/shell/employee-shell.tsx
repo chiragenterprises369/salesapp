@@ -1,6 +1,6 @@
 'use client';
 
-import { EMPLOYEE_STATUS_LABEL, NAV_EMPLOYEE_MORE } from '@vistar/shared';
+import { EMPLOYEE_STATUS_LABEL, NAV_EMPLOYEE_BOTTOM, NAV_EMPLOYEE_MORE } from '@vistar/shared';
 import { Building2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -9,6 +9,7 @@ import { useMyStatus } from '@/components/employee/status-store';
 import { Button } from '@/components/ui/button';
 import { StatusChip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
+import { useNavExtensions } from '@/lib/packs';
 import { useMe } from '@/lib/session/session';
 import { ImpersonationBanner } from './impersonation-banner';
 import { LogoMark } from './logo';
@@ -17,7 +18,8 @@ import { employeeBottomNav, isActivePath } from './nav-utils';
 import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
-const MORE_PATHS = ['/me/more', ...NAV_EMPLOYEE_MORE.map((i) => i.href)];
+/** Pages reached from "More" (incl. pack pages at /me/x/...) keep the More tab active. */
+const MORE_PATHS = ['/me/more', '/me/x', ...NAV_EMPLOYEE_MORE.map((i) => i.href)];
 const WIDE_PATHS = ['/me/leads', '/me/team-floor'];
 
 function useActive() {
@@ -32,7 +34,8 @@ function useActive() {
  */
 export function EmployeeShell({ children }: { children: ReactNode }) {
   const me = useMe()!;
-  const items = useMemo(() => employeeBottomNav(me), [me]);
+  const { employeeBottom } = useNavExtensions();
+  const items = useMemo(() => employeeBottomNav(me, employeeBottom(NAV_EMPLOYEE_BOTTOM)), [me, employeeBottom]);
   const isActive = useActive();
   const pathname = usePathname();
   const [status] = useMyStatus();

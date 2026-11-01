@@ -1,6 +1,6 @@
 'use client';
 
-import type { MeResponse } from '@vistar/shared';
+import { NAV_COMPANY, type MeResponse } from '@vistar/shared';
 import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, type ReactNode } from 'react';
@@ -9,6 +9,7 @@ import { Tooltip } from '@/components/common/tooltip';
 import { useMediaQuery } from '@/components/common/use-media-query';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+import { useNavExtensions } from '@/lib/packs';
 import { useMe } from '@/lib/session/session';
 import { CommandMenu, SearchTrigger } from './command-menu';
 import { ImpersonationBanner } from './impersonation-banner';
@@ -44,7 +45,9 @@ function WorkspaceHeader({ me, expanded }: { me: MeResponse; expanded: boolean }
  */
 export function CompanyShell({ children }: { children: ReactNode }) {
   const me = useMe()!;
-  const groups = useMemo(() => companyNav(me), [me]);
+  const { company } = useNavExtensions();
+  // Compose custom objects, pack pages and configurable labels first, then filter for this user.
+  const groups = useMemo(() => companyNav(me, company(NAV_COMPANY)), [me, company]);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const collapsed = useShellStore((s) => s.collapsed);
   const toggleCollapsed = useShellStore((s) => s.toggleCollapsed);
