@@ -26,14 +26,14 @@ function strictLimit(ctx: ExecutionContext): number | undefined {
 
 /**
  * Two throttlers keyed by client IP (Express `req.ip`, so set TRUST_PROXY behind a load balancer):
- * `default` 600/min for every route, `auth` (strict, see STRICT_LIMITS) for credential endpoints.
- * Storage is in-process memory (per API instance).
+ * `default` = the strict limits above (credential endpoints only, so a 429 there carries the plain
+ * `Retry-After` header), `global` 600/min for every route. Storage is in-process memory (per API instance).
  */
 export const THROTTLER_OPTIONS: ThrottlerModuleOptions = {
   errorMessage: 'Too many requests. Wait a minute and try again',
   throttlers: [
-    { name: 'default', ttl: 60_000, limit: 600 },
-    { name: 'auth', ttl: 60_000, limit: (ctx) => strictLimit(ctx) ?? 0, skipIf: (ctx) => strictLimit(ctx) === undefined },
+    { name: 'default', ttl: 60_000, limit: (ctx) => strictLimit(ctx) ?? 0, skipIf: (ctx) => strictLimit(ctx) === undefined },
+    { name: 'global', ttl: 60_000, limit: 600 },
   ],
 };
 
