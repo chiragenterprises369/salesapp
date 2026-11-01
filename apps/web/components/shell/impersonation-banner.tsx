@@ -12,6 +12,9 @@ import { SUPER_LOGIN_PATH } from '@/lib/auth/redirect';
 import { useSignOut } from '@/lib/auth/use-auth';
 import { useMe } from '@/lib/session/session';
 
+/** CSS variable with the banner height (0 when not impersonating); overlays offset their top by it. */
+export const BANNER_HEIGHT_VAR = '--impersonation-banner-h';
+
 /**
  * Persistent banner while a Super Admin views the company ("View as company"). Sits above the shell
  * in normal flow with z-[70], so menus, drawers and dialog overlays (z-50) never cover it.
@@ -26,8 +29,24 @@ function Banner({ info, workspaceName, timeZone }: { info: ImpersonationInfo; wo
   const now = useNow(1_000);
   const signOut = useSignOut();
   const ended = useRef(false);
+  const ref = useRef<HTMLDivElement>(null);
   const expiresAt = new Date(info.expiresAt).getTime();
   const remaining = now > 0 ? expiresAt - now : null;
+
+  // Publish the banner height so drawers start below it (the banner must never be covered).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const update = () => root.style.setProperty(BANNER_HEIGHT_VAR, `${el.offsetHeight}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty(BANNER_HEIGHT_VAR);
+    };
+  }, []);
 
   useEffect(() => {
     if (remaining === null || remaining > 0 || ended.current) return;
@@ -44,6 +63,7 @@ function Banner({ info, workspaceName, timeZone }: { info: ImpersonationInfo; wo
 
   return (
     <div
+      ref={ref}
       role="region"
       aria-label="Support session"
       className="relative z-[70] flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-status-amber-border bg-status-amber-bg px-4 py-2 text-sm text-status-amber-fg"

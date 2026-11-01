@@ -100,7 +100,7 @@ export function IdleTimeout() {
       <DialogContent size="sm" hideClose onEscapeKeyDown={() => touch()}>
         <DialogHeader>
           <DialogTitle>Still there?</DialogTitle>
-          <DialogDescription>For security, the platform console signs you out after 30 minutes without activity.</DialogDescription>
+          <DialogDescription>For security, the platform console signs you out after {SUPER_SESSION.idleTimeoutSec / 60} minutes without activity.</DialogDescription>
         </DialogHeader>
         <DialogBody>
           <p className="text-sm text-fg-secondary" aria-live="polite">
