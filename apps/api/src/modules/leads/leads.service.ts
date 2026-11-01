@@ -21,6 +21,7 @@ import { AppException, notFound } from '../../common/errors/app-exception.js';
 import type { Lead as LeadRow, Prisma } from '../../generated/prisma/client.js';
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 import { ActivityService } from './activity.service.js';
 import { LEAD_DETAIL_INCLUDE, LEAD_LIST_INCLUDE, parseCustomFields, toLead, toLeadListItem, type LeadDetailRow } from './lead.mapper.js';
 import { endOfColumn } from './lead-position.js';
@@ -28,7 +29,7 @@ import { buildLeadWhere, leadCursorWhere, leadNextCursor, leadOrderBy } from './
 import { scoreLead } from './lead-score.js';
 import { stageDates, syncDealsForStage } from './lead-stage.js';
 import { afterTimeCursor, nextTimeCursor } from './lib/cursor.js';
-import { publishSafe, requestActor, requirePermission, type TenantDb } from './lib/context.js';
+import { publishSafe, requestActor, requirePermission, type RequestActor, type TenantDb } from './lib/context.js';
 
 /** Text fields copied from create/update input; '' clears the value. */
 const TEXT_FIELDS = ['companyName', 'phone', 'email', 'city', 'state', 'productInterest', 'requirement'] as const;
@@ -46,7 +47,27 @@ export class LeadsService {
     private readonly events: EventBus,
     private readonly audit: AuditService,
     private readonly activities: ActivityService,
+    private readonly notifications: NotificationsService,
   ) {}
+
+  /** Tell the new owner about leads assigned to them by someone else (one notification per call). */
+  async notifyAssigned(auth: AuthContext, actor: RequestActor, leads: Array<{ id: string; name: string; companyName: string | null }>, toUserId: string | null): Promise<void> {
+    if (!toUserId || toUserId === auth.userId || !leads.length) return;
+    const by = actor.summary?.name ?? 'A teammate';
+    const single = leads.length === 1 ? leads[0]! : null;
+    await this.notifications.notify(
+      auth.workspaceId,
+      toUserId,
+      {
+        type: 'lead_assigned',
+        title: single ? `New lead: ${single.name}` : `${leads.length} leads assigned to you`,
+        body: single ? `${by} assigned ${single.name}${single.companyName ? ` (${single.companyName})` : ''} to you` : `Assigned by ${by}`,
+        path: single ? `/leads?lead=${single.id}` : '/leads?ownerId=me',
+        data: { leadIds: leads.slice(0, 100).map((l) => l.id) },
+      },
+      actor.event,
+    );
+  }
 
   // ------------------------------------------------------------------ list
 
@@ -216,6 +237,7 @@ export class LeadsService {
     await this.ensureTags(db, wid, tags);
     await publishSafe(this.events, this.logger, 'lead.created', wid, { lead: toLeadListItem(lead) }, { actor: actor.event });
     await this.activities.publishCreated(db, wid, rows, actor);
+    await this.notifyAssigned(auth, actor, [lead], ownerId);
     return toLead(lead);
   }
 
@@ -305,6 +327,7 @@ export class LeadsService {
     await publishSafe(this.events, this.logger, 'lead.updated', wid, { lead: item, changed }, { actor: actor.event });
     if (ownerChanged) {
       await publishSafe(this.events, this.logger, 'lead.assigned', wid, { lead: item, fromUserId: current.ownerId, toUserId: lead.ownerId, rule: 'manual' }, { actor: actor.event });
+      await this.notifyAssigned(auth, actor, [lead], lead.ownerId);
     }
     if (newStage) {
       await publishSafe(this.events, this.logger, 'stage.changed', wid, { lead: item, fromStageId: current.stageId, toStageId: lead.stageId, position: lead.position }, { actor: actor.event });

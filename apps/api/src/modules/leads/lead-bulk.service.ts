@@ -97,7 +97,8 @@ export class LeadBulkService {
             });
           }, BULK_TX);
           const from = new Map(targets.map((l) => [l.id, l.ownerId]));
-          for (const lead of await db.lead.findMany({ where: { id: { in: targetIds } }, include: LEAD_LIST_INCLUDE })) {
+          const updated = await db.lead.findMany({ where: { id: { in: targetIds } }, include: LEAD_LIST_INCLUDE });
+          for (const lead of updated) {
             await publishSafe(
               this.events,
               this.logger,
@@ -107,6 +108,7 @@ export class LeadBulkService {
               { actor: actor.event },
             );
           }
+          await this.leads.notifyAssigned(auth, actor, updated, ownerId);
         }
         return { succeeded: leads.length, failed };
       }

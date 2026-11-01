@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { ActivityService } from './activity.service.js';
 import { LeadExportService } from './import/lead-export.service.js';
 import { LeadImportController } from './import/lead-import.controller.js';
@@ -13,6 +14,7 @@ import { LeadsService } from './leads.service.js';
  * Exports LeadsService + ActivityService for the pipeline, tasks and dashboard modules.
  */
 @Module({
+  imports: [NotificationsModule],
   // LeadImportController first: its static `/leads/export` route must be registered before `/leads/:id`.
   controllers: [LeadImportController, LeadsController],
   providers: [LeadsService, LeadBulkService, LeadMetaService, LeadImportService, LeadExportService, ActivityService],

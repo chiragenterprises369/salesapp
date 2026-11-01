@@ -13,6 +13,7 @@ import type { ImportJob as ImportJobRow, Lead as LeadRow, Prisma } from '../../.
 import { EventBus } from '../../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../../infra/prisma/prisma.service.js';
 import type { TenantPrisma } from '../../../infra/prisma/tenant.js';
+import { NotificationsService } from '../../notifications/notifications.service.js';
 import { ActivityService } from '../activity.service.js';
 import { endOfColumn, endOfColumnKeys } from '../lead-position.js';
 import { scoreLead } from '../lead-score.js';
@@ -102,6 +103,7 @@ export class LeadImportService {
     private readonly audit: AuditService,
     private readonly activities: ActivityService,
     private readonly leads: LeadsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ------------------------------------------------------------------ preview
@@ -250,6 +252,21 @@ export class LeadImportService {
       actor.summary?.name,
     );
     await publishSafe(this.events, this.logger, 'import.progress', wid, { importId: id, processed: job.rowCount, total: job.rowCount, done: true }, { actor: actor.event, userId: auth.userId });
+    if (auth.userId) {
+      const c = ctx?.counts ?? { created: 0, updated: 0, skipped: 0 };
+      await this.notifications.notify(
+        wid,
+        auth.userId,
+        {
+          type: 'import_completed',
+          title: failed ? `Import of ${job.fileName} stopped` : `Import of ${job.fileName} finished`,
+          body: `${c.created} created, ${c.updated} updated, ${c.skipped} skipped, ${ctx?.errorCount ?? 0} with errors`,
+          path: '/leads',
+          data: { importId: id },
+        },
+        actor.event,
+      );
+    }
     return this.toDto(finished);
   }
 
