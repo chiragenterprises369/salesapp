@@ -147,13 +147,17 @@ export class SuperAuthService {
     }
 
     let step: number | null = null;
+    let replayed = false;
     try {
-      step = verifyTotp(decryptSecret(admin.totpSecretEncrypted), body.code, { lastUsedStep: admin.totpLastStep });
+      const secret = decryptSecret(admin.totpSecretEncrypted);
+      step = verifyTotp(secret, body.code, { lastUsedStep: admin.totpLastStep });
+      // Only for the audit reason: a valid but already-used code is a replay attempt.
+      replayed = step === null && verifyTotp(secret, body.code) !== null;
     } catch {
       this.logger.error('TOTP secret could not be decrypted (check ENCRYPTION_KEY)');
     }
     if (step === null) {
-      await this.auditFailure(req, admin.id, 'invalid_totp');
+      await this.auditFailure(req, admin.id, replayed ? 'totp_replay' : 'invalid_totp');
       throw badCode();
     }
     if (!(await this.kv.setNx(chalKeys.used(challenge.jti), '1', CHALLENGE_TTL_SEC))) {
