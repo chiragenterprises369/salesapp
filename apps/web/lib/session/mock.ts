@@ -30,7 +30,8 @@ const PERSONA_FIXTURE_KEY: Record<RoleKind, string> = {
   viewer: 'viewer',
 };
 
-const ALL_FLAGS = Object.fromEntries(FEATURE_FLAGS.map((f) => [f, true])) as FeatureFlags;
+/** Growth-plan flags. The AI node is off by default on every plan (D-038). */
+const ALL_FLAGS = Object.fromEntries(FEATURE_FLAGS.map((f) => [f, f !== 'ai_node'])) as FeatureFlags;
 const CREATED = '2026-01-15T04:30:00.000Z';
 
 export function mockWorkspace(overrides: Partial<Workspace> = {}): Workspace {

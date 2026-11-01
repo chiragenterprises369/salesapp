@@ -20,7 +20,9 @@ Own ONLY: `scripts/assets/**`, `apps/web/public/generated/**`.
 - `POST {"inputs": {...}}` -> `request_id`, `status_url`, `response_url`, `cancel_url`.
 - Poll `status_url` every 2 s until `COMPLETED` or `FAILED` (reports progress and `credits_used`).
 - `GET response_url` -> `images[]` (`url`, `width`, `height`) and `metrics.credits_used`. `POST cancel_url` cancels.
-- **Never guess input field names.** Ask the user for the exact `inputs` schema before the first request.
+- **Never guess input field names.** Confirmed by the user: `prompt`, `aspect_ratio`, `model`, `resolution`, `guidance_scale`, `num_images`, `mock_mode`. Never send `character_id`, `reference_image_ids` or `reference_images` (character workflow only); never store reference URLs or character ids in the repo.
+- Defaults: `model: "nano-banana-2"`, `num_images: 1`, `aspect_ratio` per asset; smallest size = `resolution: "1K"`. Leave `guidance_scale` out unless the API requires it (then ask for the value). The workflow id always comes from `FIZZLY_WORKFLOW`.
+- Dry run: try `mock_mode: true` first and confirm `credits_used` is 0 in both the status and the response before relying on it; if it spends credits, stop and report.
 
 ## Script `scripts/assets/generate.mjs` (Node, no extra deps)
 - Manifest-driven (`scripts/assets/manifest.json`), polling with timeout and retries, download to `apps/web/public/generated/<id>.webp`, write `apps/web/public/generated/assets.json` (`id, path, width, height, prompt, creditsUsed`).

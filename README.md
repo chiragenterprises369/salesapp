@@ -36,6 +36,7 @@ Dev logins (password `vistar-demo-123`, printed by the seed):
 | --- | --- |
 | `pnpm typecheck` / `pnpm lint` / `pnpm test` | all packages |
 | `pnpm e2e` | Playwright suite (`e2e/`) |
+| `pnpm smoke:api` / `pnpm smoke:web` | Wave check against a running API (:4000) / web app (:3000) |
 | `pnpm openapi` | regenerate `packages/shared/openapi/openapi.{json,yaml}` |
 | `pnpm --filter @vistar/shared tokens` | regenerate `apps/web/styles/tokens.css` |
 

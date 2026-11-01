@@ -21,8 +21,8 @@ export const CHALLENGE_AUDIENCE = 'vistar:platform:challenge';
 export const CHALLENGE_TTL_SEC = 300;
 export const CHALLENGE_MAX_ATTEMPTS = 5;
 
-/** Public API key prefix (Authorization: Bearer vst_live_...). */
-export const API_KEY_PREFIX = 'vst_live_';
+/** Public API key prefix (Authorization: Bearer vst_live_...); defined in the shared contract. */
+export { API_KEY_PREFIX } from '@vistar/shared';
 
 export const WORKSPACE_REFRESH_PATH = `${API_BASE_PATH}/auth`;
 export const SUPER_REFRESH_PATH = '/api/super/auth';

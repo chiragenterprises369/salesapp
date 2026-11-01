@@ -93,7 +93,7 @@ export const WorkflowRunListQuerySchema = CursorPaginationQuerySchema.extend({
   workflowId: IdSchema.optional(),
   leadId: IdSchema.optional(),
   status: WorkflowRunStatusSchema.optional(),
-  isTest: z.coerce.boolean().optional(),
+  isTest: z.stringbool().optional().describe('true | false'),
 });
 
 /** Test run with a dummy lead. Waits are compressed so the run finishes in seconds. */

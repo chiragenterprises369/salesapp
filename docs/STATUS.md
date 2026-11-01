@@ -1,28 +1,37 @@
 # Status
 
-Updated 2026-11-01, after the Wave 1 merge and before the Wave 1 post-merge checks.
+Updated 2026-11-01 after the Wave 1 check on `main`.
 
-## Current state
+## Wave 1 check on main (all green)
 
-- STEP 0 is done and verified on `main` (typecheck, lint, web and API builds, API `/api/health` with DB and Redis, migrations, seed).
-- All 7 Wave 1 branches were merged into `main` without conflicts (`87ae653`). Each stayed inside its owned paths.
-- **Not yet verified on `main`:** full typecheck, lint, tests, builds and a running app after the merge. Each agent verified its work only in its own worktree. This check is paused while the specs are consolidated.
-- **Wave 1 contract requests are partly applied and uncommitted** (paused by the "do not change code" instruction):
-  - boolean query params use `z.stringbool`
-  - `InviteAcceptSchema.email`
-  - `API_KEY_PREFIX`
-  - duplicate Board "Select" toggle removed from the Leads page header
-  - migration `20261101120000_wave1_contract_requests`: `SavedView.viewMode`, `pg_trgm` trigram indexes, `Lead.position COLLATE "C"`. This one is **already applied to the local DB**.
-- Still to do in Wave 1 wrap-up:
-  - move `ScheduleModule.forRoot()` to AppModule
-  - session actions `updateProfile` / `setStatus` / `updateSupportAccess`
-  - `next.config` env inlining for `NEXT_PUBLIC_*`
-  - dev builder preview as company admin
-  - routes for resolving attention and manager-to-employee messages
-  - new leads placed at the top of their column
-  - re-seed so roles get `leads.merge`
-  - then the full check on `main` and the wave report
+| Check | Result |
+| --- | --- |
+| Merge | 7 Wave 1 branches merged without conflicts; every branch stayed inside its owned paths |
+| Typecheck / lint | `pnpm -r typecheck` and `pnpm -r lint` clean (3 packages) |
+| Tests | Runners pass; **no test suites exist yet** (qa-reviewer writes them in Wave 2) |
+| Builds | API (`nest build`) and web (`next build`, all routes) succeed |
+| DB | 3 migrations applied; re-seeded: 1 Super Admin, 3 companies, 2,940 leads |
+| API running (`pnpm smoke:api`) | 28/28: health; login for 5 personas; `/auth/me`, lead list, board, dashboard, `/me/today` and tasks all match the shared schemas; data scope (admin 2,500, manager team subset, employee own subset, viewer all); another tenant gets 404; RBAC 403s; board counts equal the list total; new lead lands at the top of its column; a settings PATCH keeps `leadsViewMode`; a workspace token gets 401 on `/api/super`; Super Admin login returns the 2FA challenge |
+| Web running (`pnpm smoke:web`) | 28/28: 14 routes for 5 personas plus signed out, in light at 1440 and dark at 375; role guards redirect correctly; no page or console errors; no horizontal scroll at 375 |
 
+Fixed during the check:
+- the dashboard's screen-reader chart tables made the page scroll sideways at 375 px
+- the seed failed on leftover impersonation rows from backend-core's test workspaces
+- `next.config` did not load the root `.env` (`NEXT_PUBLIC_*` values were not inlined)
+
+Known gaps (by design until Wave 3): the web app runs on the mock session and mock data, not the API. There are no sockets yet. Seven test workspaces (`verify-traders-*`) created by backend-core remain in the dev DB.
+
+## Next
+
+1. You send the four pending specs (industry packs, real estate pack and supplement, live site-visit map) and the board physics resend. I fold them into `docs/SPEC.md`.
+2. **Before Wave 2 agents start:** backend-core does the User-Workspace membership refactor (CONTRACTS.md "Planned: membership", D-036).
+3. Wave 2 (on your "go"): realtime-integrations, workflow-engine, qa-reviewer (Wave 1 tests), and `vistar-webhooks-security` skill first.
+4. Queued for Wave 3:
+   - move the leads stream's Radix primitives into `components/ui`
+   - add the remaining lead hooks (timeline, notes, tasks, duplicates, merge, saved views, import) to `lib/leads`
+   - wire the shell's profile, status and support-access edits to the new session actions
+   - remove `DevAuthGuard`
+5. Asset generator: Fizzly inputs are confirmed; it waits for your manifest approval.
 ## Modules
 
 Status values: not started / in progress / done / blocked. "Verified" = what was checked and where. "Branch" means the owner checked it in their worktree before the merge, not yet on `main`.
@@ -32,7 +41,7 @@ Status values: not started / in progress / done / blocked. "Verified" = what was
 | Foundation: monorepo, contracts, tokens, UI kit, Prisma, seed (2) | orchestrator | Step 0 | done | `main`: typecheck, lint, builds, API health, migrations, seed (1 Super Admin, 3 companies, 2,940 leads); qa-reviewer review, 20 fixes applied |
 | Design system and theme modes (4) | orchestrator (tokens, kit), frontend-app (theme system) | 1 | in progress | Branch: System (live) / Light / Dark / Scheduled, saved to the cookie, no flash; screenshots in both themes. Saved to the mock session, not the server yet |
 | Roles, permission matrix, data scope (5) | backend-core (API), frontend-app (UI) | 1 | in progress | Branch: API guard enforces permissions and scope (own / team / all); employee gets 403 on admin routes; roles editor UI uses mock state |
-| Panels, routing, navigation shells (6) | frontend-app | 1 | done (mock session) | Branch: three shells, role redirects for all 5 personas, "No access" state, impersonation banner, Super Admin idle timeout |
+| Panels, routing, navigation shells (6) | frontend-app | 1 | done (mock session) | `main`: smoke 28/28 (guards, both themes, 375 px). Branch: three shells, role redirects for all 5 personas, "No access" state, impersonation banner, Super Admin idle timeout |
 | Auth and onboarding, workspace (7) | backend-core | 1 | in progress | Branch API: signup provisioning, login, refresh rotation with reuse detection, `/auth/me` parses, invites, Google returns not-connected without config. Web login is mock; not wired to the API |
 | Super Admin auth (6.2, 7) | backend-core | 1 | in progress | Branch API: password, TOTP enrolment/verify, replay blocked, idle/absolute timeout, IP allowlist, audience separation both ways. UI is mock |
 | Realtime dashboard (8) | backend-core (API), frontend-app (UI) | 4 | in progress | Branch API: summary and `/me/today` parse with shared schemas. UI: KPIs, charts and feed driven by the mock simulator. No sockets yet |
@@ -52,9 +61,10 @@ Status values: not started / in progress / done / blocked. "Verified" = what was
 | Company settings, billing, audit (15.7) | frontend-app, backend-core | 1 / 9 | in progress | Branch: settings pages (workspace, hours, theme and Leads defaults, roles, visibility, support access) with mocks; audit service writes entries; billing not started |
 | Super Admin panel (16) | superadmin-panel | 9 | not started | Shell and placeholder pages only (frontend-app) |
 | Employee panel (17) | frontend-app | 2-3 | in progress | Branch: bottom nav, Home today view, status control, profile, preferences, PWA manifest, all on mocks. Offline task list and push not started |
-| Image assets (18) | asset-generator | after Wave 1 | blocked | Needs your manifest approval and the exact Fizzly `inputs` field names |
+| Image assets (18) | asset-generator | after Wave 1 | blocked | Input fields confirmed; waiting for manifest approval |
 | Realtime backbone (19) | realtime-integrations | 4 | not started | Event bus (Redis pub/sub) and event contract ready; events validated in dev |
 | Seed and simulator (20.4) | orchestrator | 1 / 4 | in progress | Seed done; the simulator publishes events but does not save rows yet |
 | Tests and QA (20.3) | qa-reviewer | Waves 2, 4 | not started | STEP 0 review done; no test suites yet |
 | Deployment docs and CI (20.6) | orchestrator | 10 | not started | Docker Compose for local services exists |
-| Industry packs, real estate pack and supplement, live site-visit map (21.1) | unassigned | ? | blocked | Spec content not received |
+| Industry packs, real estate pack and supplement, live site-visit map (21.1) | unassigned | ? | blocked | Spec arrives after the Wave 1 report |
+| User-Workspace membership (5.4) | backend-core | before Wave 2 | not started | Design in CONTRACTS.md (D-036) |

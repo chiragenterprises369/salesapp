@@ -48,6 +48,31 @@ export async function endOfColumnKeys(db: TenantDb, stageId: string, n: number, 
   return generateNKeysBetween(start, null, n);
 }
 
+/** Current top position of a column (null when empty). */
+export async function firstPosition(db: TenantDb, stageId: string): Promise<string | null> {
+  const first = await db.lead.findFirst({
+    where: { stageId, position: { not: '' } },
+    orderBy: [{ position: 'asc' }, { id: 'asc' }],
+    select: { position: true },
+  });
+  return first ? safeKey(first.position) : null;
+}
+
+/** Position at the top of a column. New leads (create, quick add, import, webhooks) go here (D-037). */
+export async function topOfColumn(db: TenantDb, stageId: string): Promise<string> {
+  return between(null, await firstPosition(db, stageId));
+}
+
+/**
+ * `n` ascending positions above every card in a column (index 0 = topmost).
+ * `before` lets a batch continue above its previous chunk.
+ */
+export async function topOfColumnKeys(db: TenantDb, stageId: string, n: number, before?: string | null): Promise<string[]> {
+  if (n <= 0) return [];
+  const end = before !== undefined ? before : await firstPosition(db, stageId);
+  return generateNKeysBetween(null, end, n);
+}
+
 /**
  * Position for a card dropped between two neighbours of the target column.
  * `beforeLeadId` = card directly above, `afterLeadId` = card directly below. No neighbours = end of column.

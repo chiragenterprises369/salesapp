@@ -39,3 +39,9 @@ Defaults chosen without asking because they do not change scope. Newest last.
 | D-033 | Builder and board each implement their own drag physics in Wave 1; shared physics primitives are consolidated in the Wave 4 performance pass if they converge | Avoids a cross-stream dependency mid-wave |
 | D-034 | Web dev ports per stream 3001-3005, API 4001-4002; main keeps 3000/4000 | Parallel dev servers do not collide |
 | D-035 | Added `papaparse` to web for client-side CSV preview in the mock import flow | Import mapping UI must work before the API exists |
+| D-036 | (User answer) User-Workspace membership: add `WorkspaceMember` (workspaceId, userId, roleId, teamId, status, deskIndex, workingHours, isActive) with `@@unique([userId])` for now; `User` becomes the global identity. Implemented as one backend-core refactor before any Wave 2 agent writes user queries (CONTRACTS.md "Planned: membership") | Multi-company later = drop one unique constraint, no data migration |
+| D-037 | (User answer) New leads go to the top of their stage column; moves with no neighbours go to the end | Matches the seed order (newest first) and quick add |
+| D-038 | (User answer) `ai_node` is off on every plan by default; the AI node uses a rule-based classifier behind an `IntentClassifier` adapter | No provider chosen |
+| D-039 | (User answer) Payments: `PaymentProvider` adapter with Razorpay + manual invoices; telephony: `TelephonyProvider` adapter with mock only (Exotel next) | Swappable providers |
+| D-040 | `ScheduleModule.forRoot()` moved from TasksModule to AppModule at merge | Other modules (webhooks, workflows) schedule jobs too; one registration |
+| D-041 | `next.config` loads the root `.env` with `forceReload` | Next caches its own env load from `apps/web`, so the earlier call was a no-op and `NEXT_PUBLIC_*` from the root `.env` were not inlined |

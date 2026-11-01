@@ -21,11 +21,8 @@ import { AuthService } from './auth.service.js';
 import { InviteService } from './invite.service.js';
 import { MeService } from './me.service.js';
 
-/**
- * Link invites carry no email, so accepting one with a password needs it from the person.
- * Accepts the contract body plus an optional `email` (see CONTRACT-REQUEST in the summary).
- */
-const InviteAcceptBodySchema = InviteAcceptSchema.extend({ email: z.email().optional() });
+/** Link invites have no email, so the contract body carries an optional email. */
+const InviteAcceptBodySchema = InviteAcceptSchema;
 
 @Controller()
 export class AuthController {

@@ -44,34 +44,37 @@ function SrTable({
   head: string[];
   rows: Array<Array<string | number>>;
 }) {
+  // Wrapped in a div: tables ignore the 1px width of sr-only and would overflow narrow viewports.
   return (
-    <table className="sr-only">
-      <caption>{caption}</caption>
-      <thead>
-        <tr>
-          {head.map((h) => (
-            <th key={h} scope="col">
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={String(r[0])}>
-            {r.map((c, i) =>
-              i === 0 ? (
-                <th key={i} scope="row">
-                  {c}
-                </th>
-              ) : (
-                <td key={i}>{c}</td>
-              ),
-            )}
+    <div className="sr-only">
+      <table>
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            {head.map((h) => (
+              <th key={h} scope="col">
+                {h}
+              </th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={String(r[0])}>
+              {r.map((c, i) =>
+                i === 0 ? (
+                  <th key={i} scope="row">
+                    {c}
+                  </th>
+                ) : (
+                  <td key={i}>{c}</td>
+                ),
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

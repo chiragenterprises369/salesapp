@@ -24,7 +24,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { ActivityService } from './activity.service.js';
 import { LEAD_DETAIL_INCLUDE, LEAD_LIST_INCLUDE, parseCustomFields, toLead, toLeadListItem, type LeadDetailRow } from './lead.mapper.js';
-import { endOfColumn } from './lead-position.js';
+import { endOfColumn, topOfColumn } from './lead-position.js';
 import { buildLeadWhere, leadCursorWhere, leadNextCursor, leadOrderBy } from './lead-query.js';
 import { scoreLead } from './lead-score.js';
 import { stageDates, syncDealsForStage } from './lead-stage.js';
@@ -202,7 +202,7 @@ export class LeadsService {
 
     const { lead, rows } = await db.$transaction(async (tx) => {
       const contactId = await this.linkContact(tx, wid, fields);
-      const position = await endOfColumn(tx, stage.id);
+      const position = await topOfColumn(tx, stage.id);
       const created = await tx.lead.create({
         data: {
           workspaceId: wid,

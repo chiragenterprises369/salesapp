@@ -6425,6 +6425,11 @@
                     "type": "string",
                     "minLength": 8,
                     "maxLength": 128
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Required when the invite has no email (link invite)"
                   }
                 },
                 "required": [
@@ -6906,10 +6911,7 @@
           },
           {
             "schema": {
-              "type": [
-                "boolean",
-                "null"
-              ]
+              "type": "string"
             },
             "required": false,
             "name": "includeInactive",
@@ -12563,12 +12565,11 @@
           },
           {
             "schema": {
-              "type": [
-                "boolean",
-                "null"
-              ]
+              "type": "string",
+              "description": "true | false"
             },
             "required": false,
+            "description": "true | false",
             "name": "unread",
             "in": "query"
           }
@@ -14344,6 +14345,171 @@
                     "feed",
                     "attention",
                     "generatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/attention/{id}/resolve": {
+      "post": {
+        "operationId": "attentionResolve",
+        "summary": "Resolve or dismiss a \"Needs attention\" item (emits attention.resolved); scope applies",
+        "description": "Requires permission `team.read`. Owner: backend-core. Phase 4.",
+        "tags": [
+          "dashboard"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "AttentionItem.id, e.g. task_overdue:<taskId>"
+            },
+            "required": true,
+            "description": "AttentionItem.id, e.g. task_overdue:<taskId>",
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}/messages": {
+      "post": {
+        "operationId": "userMessage",
+        "summary": "Send a short in-app message to a team member (notification.created); managers only to their team",
+        "description": "Requires permission `team.read`. Owner: backend-core. Phase 4.",
+        "tags": [
+          "team"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "leadId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
                   ]
                 }
               }
@@ -16830,12 +16996,11 @@
           },
           {
             "schema": {
-              "type": [
-                "boolean",
-                "null"
-              ]
+              "type": "string",
+              "description": "true | false"
             },
             "required": false,
+            "description": "true | false",
             "name": "unread",
             "in": "query"
           },
@@ -19217,12 +19382,11 @@
           },
           {
             "schema": {
-              "type": [
-                "boolean",
-                "null"
-              ]
+              "type": "string",
+              "description": "true | false"
             },
             "required": false,
+            "description": "true | false",
             "name": "isTest",
             "in": "query"
           }

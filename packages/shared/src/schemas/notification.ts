@@ -16,7 +16,7 @@ export const NotificationSchema = z.object({
 export type Notification = z.infer<typeof NotificationSchema>;
 
 export const NotificationListQuerySchema = CursorPaginationQuerySchema.extend({
-  unread: z.coerce.boolean().optional(),
+  unread: z.stringbool().optional().describe('true | false'),
 });
 
 export const NotificationMarkReadSchema = z.object({

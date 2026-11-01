@@ -100,6 +100,9 @@ export const SYSTEM_ROLE_KEYS: Record<RoleKind, string> = {
 /** Permissions a company admin can never remove from the company_admin system role (lock-out guard). */
 export const LOCKED_ADMIN_PERMISSIONS: Permission[] = ['roles.manage', 'team.manage', 'settings.manage'];
 
+/** Prefix of every public API key (plaintext shown once; SHA-256 stored). */
+export const API_KEY_PREFIX = 'vst_live_';
+
 /** API key scopes (public REST API). Subset of permissions usable by machines. */
 export const API_KEY_SCOPES = [
   'leads.read',

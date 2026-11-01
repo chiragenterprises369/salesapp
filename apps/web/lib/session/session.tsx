@@ -4,6 +4,10 @@ import {
   type MeResponse,
   type PlatformAdmin,
   type Principal,
+  type ProfileUpdate,
+  type StatusUpdate,
+  type SupportAccessUpdate,
+  type User,
   type UserSettings,
   type UserSettingsUpdate,
   type Workspace,
@@ -40,10 +44,17 @@ interface SessionState {
   updateSettings: (patch: UserSettingsUpdate) => Promise<UserSettings>;
   /** PATCH /workspace (admins). */
   updateWorkspace: (patch: WorkspaceUpdate) => Promise<Workspace>;
+  /** PATCH /me/profile (name, phone, title, avatar). */
+  updateProfile: (patch: ProfileUpdate) => Promise<User>;
+  /** PUT /me/status (Available, On call, Break, Offline). */
+  setStatus: (status: StatusUpdate['status']) => Promise<User>;
+  /** PUT /workspace/support-access (company admins). */
+  updateSupportAccess: (body: SupportAccessUpdate) => Promise<Workspace>;
 }
 
 const KEY_PERSONA = 'vistar.mock.persona';
 const keySettings = (p: MockPersona) => `vistar.mock.settings.${p}`;
+const keyProfile = (p: MockPersona) => `vistar.mock.profile.${p}`;
 const KEY_WORKSPACE = 'vistar.mock.workspace';
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -66,15 +77,13 @@ function write(key: string, value: unknown) {
 
 function build(persona: MockPersona, impersonating = false): Session {
   if (persona === 'super_admin') return { audience: 'platform', admin: mockPlatformAdmin(), accessToken: null };
-  return {
-    audience: 'workspace',
-    me: mockMe(persona, {
-      settings: read<UserSettings>(keySettings(persona)) ?? undefined,
-      workspace: read<Partial<Workspace>>(KEY_WORKSPACE) ?? undefined,
-      impersonating,
-    }),
-    accessToken: null,
-  };
+  const me = mockMe(persona, {
+    settings: read<UserSettings>(keySettings(persona)) ?? undefined,
+    workspace: read<Partial<Workspace>>(KEY_WORKSPACE) ?? undefined,
+    impersonating,
+  });
+  const profile = read<Partial<User>>(keyProfile(persona));
+  return { audience: 'workspace', me: profile ? { ...me, user: { ...me.user, ...profile } } : me, accessToken: null };
 }
 
 function currentPersona(s: Session | null): MockPersona | null {
@@ -140,6 +149,37 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     set({ session: { ...s, me: { ...s.me, workspace } } });
     return workspace;
   },
+
+  updateProfile: async (patch) => {
+    const s = get().session;
+    if (!s || s.audience !== 'workspace') throw new Error('Not signed in to a workspace');
+    await delay();
+    const key = keyProfile(s.me.role.kind);
+    const stored = { ...(read<Partial<User>>(key) ?? {}), ...patch } as Partial<User>;
+    write(key, stored);
+    const user = { ...s.me.user, ...patch } as User;
+    set({ session: { ...s, me: { ...s.me, user } } });
+    return user;
+  },
+
+  setStatus: async (status) => {
+    const s = get().session;
+    if (!s || s.audience !== 'workspace') throw new Error('Not signed in to a workspace');
+    await delay();
+    const key = keyProfile(s.me.role.kind);
+    const statusChangedAt = new Date().toISOString();
+    write(key, { ...(read<Partial<User>>(key) ?? {}), status, statusChangedAt });
+    const user: User = { ...s.me.user, status, statusChangedAt };
+    set({ session: { ...s, me: { ...s.me, user } } });
+    return user;
+  },
+
+  updateSupportAccess: async ({ enabled, durationHours = 24, includeContent = false }) => {
+    const supportAccess = enabled
+      ? { until: new Date(Date.now() + durationHours * 3_600_000).toISOString(), includeContent }
+      : { until: null, includeContent: false };
+    return get().updateWorkspace({ supportAccess } as unknown as WorkspaceUpdate);
+  },
 }));
 
 /** Mount once (root providers). Hydrates after mount, so server and first client render agree ("loading"). */
@@ -188,7 +228,13 @@ export function useSessionActions() {
   const signOut = useSessionStore((s) => s.signOut);
   const updateSettings = useSessionStore((s) => s.updateSettings);
   const updateWorkspace = useSessionStore((s) => s.updateWorkspace);
-  return useMemo(() => ({ signInMock, signOut, updateSettings, updateWorkspace }), [signInMock, signOut, updateSettings, updateWorkspace]);
+  const updateProfile = useSessionStore((s) => s.updateProfile);
+  const setStatus = useSessionStore((s) => s.setStatus);
+  const updateSupportAccess = useSessionStore((s) => s.updateSupportAccess);
+  return useMemo(
+    () => ({ signInMock, signOut, updateSettings, updateWorkspace, updateProfile, setStatus, updateSupportAccess }),
+    [signInMock, signOut, updateSettings, updateWorkspace, updateProfile, setStatus, updateSupportAccess],
+  );
 }
 
 /** Access token for the HTTP/socket clients (null in Wave 1). */

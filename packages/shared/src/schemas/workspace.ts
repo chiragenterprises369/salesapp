@@ -89,6 +89,7 @@ export const SupportAccessUpdateSchema = z.object({
   durationHours: z.number().int().min(1).max(168).default(24),
   includeContent: z.boolean().default(false),
 });
+export type SupportAccessUpdate = z.input<typeof SupportAccessUpdateSchema>;
 
 /**
  * Setting table keys (Setting.key). UserSettings fields map 1:1 to `user` keys;
@@ -160,9 +161,11 @@ export type UserUpdate = z.infer<typeof UserUpdateSchema>;
 
 /** Self-service profile update (employee panel). Role/team/active are admin-only. */
 export const ProfileUpdateSchema = UserUpdateSchema.pick({ name: true, phone: true, title: true, avatar: true });
+export type ProfileUpdate = z.infer<typeof ProfileUpdateSchema>;
 
 /** Employee status control: Available (idle), On call, Break (away), Offline. */
 export const StatusUpdateSchema = z.object({ status: z.enum(['idle', 'on_call', 'away', 'offline']) });
+export type StatusUpdate = z.infer<typeof StatusUpdateSchema>;
 
 export const TeamSchema = z.object({
   id: IdSchema,

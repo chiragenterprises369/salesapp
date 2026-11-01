@@ -8,7 +8,7 @@ import { DevFrame } from '../dev-frame';
 export default function DevBuilderPage() {
   const tpl = WORKFLOW_TEMPLATES[0]!;
   return (
-    <DevFrame title="Workflow builder">
+    <DevFrame title="Workflow builder" persona="company_admin">
       <WorkflowBuilder workflowId={tpl.key} initialGraph={tpl.graph} />
     </DevFrame>
   );

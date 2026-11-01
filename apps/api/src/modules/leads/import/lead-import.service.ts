@@ -1,3 +1,4 @@
+import { generateNKeysBetween } from 'fractional-indexing';
 import { Injectable, Logger } from '@nestjs/common';
 import type { ImportCommitRequest, ImportJob, ImportPreviewResponse, LeadSource, StageType } from '@vistar/shared';
 import type { Request } from 'express';
@@ -15,7 +16,7 @@ import { PrismaService } from '../../../infra/prisma/prisma.service.js';
 import type { TenantPrisma } from '../../../infra/prisma/tenant.js';
 import { NotificationsService } from '../../notifications/notifications.service.js';
 import { ActivityService } from '../activity.service.js';
-import { endOfColumn, endOfColumnKeys } from '../lead-position.js';
+import { endOfColumn, firstPosition } from '../lead-position.js';
 import { scoreLead } from '../lead-score.js';
 import { stageDates, syncDealsForStage } from '../lead-stage.js';
 import { LeadsService, normalizeTags } from '../leads.service.js';
@@ -70,7 +71,8 @@ interface Ctx {
   defaultOwnerId: string | null;
   defaultTags: string[];
   canAssign: boolean;
-  lastPos: Map<string, string | null>;
+  /** New rows go to the top of their column in file order (D-037): keys between lower (last key of the previous chunk) and upper (the column's original top). */
+  topBounds: Map<string, { lower: string | null; upper: string | null }>;
   seenPhone: Set<string>;
   seenEmail: Set<string>;
   seenRef: Set<string>;
@@ -308,7 +310,7 @@ export class LeadImportService {
       defaultOwnerId: body.defaultOwnerId ?? null,
       defaultTags: normalizeTags(body.defaultTags.map((t) => t.slice(0, 40))),
       canAssign,
-      lastPos: new Map(),
+      topBounds: new Map(),
       seenPhone: new Set(),
       seenEmail: new Set(),
       seenRef: new Set(),
@@ -507,15 +509,16 @@ export class LeadImportService {
       await tx.contact.createMany({ data: newContacts.map(({ r, id }) => ({ id, workspaceId: wid, name: r.name, email: r.text.email ?? null, city: r.text.city ?? null })) });
     }
 
-    // positions per stage (appended in file order)
+    // positions per stage: above existing cards, in file order
     const stageOf = (r: PreparedRow) => r.stage ?? ctx.defaultStage;
     const byStage = new Map<string, PreparedRow[]>();
     for (const r of rows) byStage.set(stageOf(r).id, [...(byStage.get(stageOf(r).id) ?? []), r]);
     const positions = new Map<PreparedRow, string>();
     for (const [stageId, list] of byStage) {
-      const keys = await endOfColumnKeys(tx, stageId, list.length, ctx.lastPos.has(stageId) ? ctx.lastPos.get(stageId) : undefined);
+      const bound = ctx.topBounds.get(stageId) ?? { lower: null, upper: await firstPosition(tx, stageId) };
+      const keys = generateNKeysBetween(bound.lower, bound.upper, list.length);
       list.forEach((r, i) => positions.set(r, keys[i]!));
-      ctx.lastPos.set(stageId, keys.at(-1) ?? null);
+      ctx.topBounds.set(stageId, { lower: keys.at(-1) ?? bound.lower, upper: bound.upper });
     }
 
     const leads = rows.map((r, i) => {
@@ -592,8 +595,11 @@ export class LeadImportService {
       acts.push(this.activities.data(wid, ctx.actor, lead.id, 'assigned', { fromUserId: lead.ownerId, toUserId: row.ownerId, rule: 'import' }, now));
     }
     if (row.stage && row.stage.id !== lead.stageId) {
-      Object.assign(data, { stageId: row.stage.id, pipelineId: row.stage.pipelineId, position: await endOfColumn(tx, row.stage.id, lead.id), lastActivityAt: now, ...stageDates(row.stage.type, now) });
-      ctx.lastPos.delete(row.stage.id);
+      const endPos = await endOfColumn(tx, row.stage.id, lead.id);
+      Object.assign(data, { stageId: row.stage.id, pipelineId: row.stage.pipelineId, position: endPos, lastActivityAt: now, ...stageDates(row.stage.type, now) });
+      // An empty column just got a card at its end: later top-inserted chunks must stay above it.
+      const bound = ctx.topBounds.get(row.stage.id);
+      if (bound && bound.upper === null) bound.upper = endPos;
       acts.push(this.activities.data(wid, ctx.actor, lead.id, 'stage_changed', { fromStageId: lead.stageId, toStageId: row.stage.id }, now));
     }
     if (!acts.length) return;

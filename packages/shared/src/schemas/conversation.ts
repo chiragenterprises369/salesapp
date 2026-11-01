@@ -56,7 +56,7 @@ export type Conversation = z.infer<typeof ConversationSchema>;
 export const ConversationListQuerySchema = CursorPaginationQuerySchema.extend({
   status: ConversationStatusSchema.optional(),
   assigneeId: z.union([IdSchema, z.literal('me'), z.literal('unassigned')]).optional(),
-  unread: z.coerce.boolean().optional(),
+  unread: z.stringbool().optional().describe('true | false'),
   q: z.string().max(200).optional(),
 });
 export type ConversationListQuery = z.infer<typeof ConversationListQuerySchema>;

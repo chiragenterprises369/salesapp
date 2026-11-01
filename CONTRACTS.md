@@ -73,7 +73,7 @@ One Next.js app, three route groups, one design system:
 - **Wave 1 only:** with `DEV_AUTH=1` (development) a `DevAuthGuard` authenticates `x-dev-user: <seeded email>` and enforces route permissions. It is removed in Wave 3 when the real guards are merged.
 
 ### Web session (`lib/session`)
-- `useSession()`, `useMe()` (`MeResponse` | null), `usePrincipal()`, `usePermissions()`, `useCan(p)`, `useSessionStatus()`, `useSessionActions()` (`signInMock`, `signOut`, `updateSettings`, `updateWorkspace`). `<AppProviders>` (root layout) mounts the query client and session.
+- `useSession()`, `useMe()` (`MeResponse` | null), `usePrincipal()`, `usePermissions()`, `useCan(p)`, `useSessionStatus()`, `useSessionActions()` (`signInMock`, `signOut`, `updateSettings`, `updateWorkspace`, `updateProfile`, `setStatus`, `updateSupportAccess`). `<AppProviders>` (root layout) mounts the query client and session.
 - Wave 1 is mock: personas `company_admin | manager | employee | viewer | super_admin` (Shakti fixtures, ids match `mockUsers()`), stored in localStorage. Dev helpers: `?mockAs=<persona>`, `&impersonating=1`, `NEXT_PUBLIC_MOCK_PERSONA`. Wave 3 swaps internals for the real API; hook signatures stay.
 - `updateSettings(patch)` deep-merges `theme` and `notifications` and persists per persona (mock) / PATCH `/me/settings` (real).
 
@@ -116,7 +116,7 @@ One Next.js app, three route groups, one design system:
 - **Workspace default key `leads.defaultViewMode`** (`Workspace.defaultLeadsViewMode`, PATCH `/workspace`, admins only).
 - Shared state (`useLeadsViewState`): filters (`LeadFiltersSchema`), saved view, selection, Board select mode, filter panel, scroll positions. Switching views never resets it.
 - Shared data (`lib/leads/data.ts`): `useLeadsList`, `useLeadsBoard`, `useLoadMoreColumn`, `useLead`, `useCreateLead`, `useUpdateLead`, `useBulkLeads`, `useMoveLead` (optimistic, per-lead rollback), `applyMoveToBoard(board, { lead, fromStageId, toStageId, beforeId?, afterId?, position? })` (also used by realtime `stage.changed`), `patchListItem`, `leadKeys`. One TanStack Query cache. Wave 1 uses the mock source (which applies the mock persona's data scope); Wave 3 swaps to HTTP without changing hook signatures.
-- `LeadMove` with no neighbours = end of the target column.
+- `LeadMove` with no neighbours = end of the target column. New leads (create, quick add, import, webhook) go to the TOP of their column (D-037).
 - Pickers (owner dropdown, reassign) use `GET /users/options` (`leads.read`), not `/users` (`team.read`).
 - Shared actions (`components/leads-shared/lead-actions.tsx`): `LeadActionsProvider`, `useLeadActions()` (`open`, `call`, `whatsapp`, `note`), `LeadQuickActions`. Both views open the same Lead detail drawer (`?lead=<id>`).
 - Board API accepts the same filters (`pipelineBoard` query = `LeadFiltersSchema` + `perColumn`; `boardColumnPage` for more cards).
@@ -145,3 +145,14 @@ One Next.js app, three route groups, one design system:
 | 2026-11-01 | Roles and panels: role kinds (`company_admin, manager, employee, viewer`), platform `super_admin`, permission matrix, data scope, custom roles, feature flags, plan limits, navigation map, separate platform auth audience with 2FA, impersonation, support access, `/api/super` routes. |
 | 2026-11-01 | qa-reviewer fixes: Update schemas no longer re-apply defaults (Zod 4 `.partial()`), `UserSettingsUpdateSchema` explicit, `WebhookEndpointUpdateSchema`, `leads.merge` permission, `GET /me/today` (`MyTodaySchema`), `GET /users/options`, `TARGET_METRICS`, `input-border` token (`border-input`), `Button` touch sizes, tenant client hardening + `assertInTenant`, TOTP replay protection (`PlatformAdmin.totpLastStep`), `Target.subjectKey`, `TRUST_PROXY` env, self-loop fix in `validateGraph`. |
 | 2026-11-01 | Wave 1 prep: web session contract (`lib/session`, `AppProviders`), feature public APIs + dev preview routes, `ScopeService`, `DevAuthGuard` (Wave 1 only), user mapper, `DEFAULT_USER_SETTINGS`, skills `vistar-workflow-nodes`, `vistar-3d-floor`. |
+| 2026-11-01 | Wave 1 contract requests: `InviteAcceptSchema.email` (link invites), `API_KEY_PREFIX`, `z.stringbool()` for boolean query params, `SavedView.viewMode` column, `Lead.position COLLATE "C"`, `pg_trgm` search indexes, routes `attentionResolve` and `userMessage`, session actions `updateProfile` / `setStatus` / `updateSupportAccess`, `ProfileUpdate` / `StatusUpdate` / `SupportAccessUpdate` types, new leads at the top of their column (`topOfColumn`, `useCreateLead` inserts at the top), `ai_node` off by default. |
+
+## Planned: User-Workspace membership (D-036, before Wave 2 agents start)
+
+Target model so one person can later belong to several companies by dropping one constraint:
+- `User` = global identity: email (unique), passwordHash, googleSub, name, phone, avatar, lastSeenAt. No workspaceId, roleId or teamId.
+- `WorkspaceMember` = `{ id, workspaceId, userId, roleId, teamId?, status, statusChangedAt, deskIndex?, workingHours?, title?, isActive, joinedAt, invitedById? }`, `@@unique([workspaceId, userId])` and, for now, `@@unique([userId])` (one company per user).
+- Tokens: `sub` = userId, `wid` + `rid` come from the membership. `Lead.ownerId`, `Task.assigneeId` etc. keep pointing at `User.id`; tenant checks verify an active membership in the workspace.
+- Tenant client: `WorkspaceMember` is tenant-scoped; `User` reads in feature code go through membership.
+- Super Admins stay in `PlatformAdmin`.
+Delivered as one backend-core refactor (schema + migration by the orchestrator, code by backend-core) before realtime-integrations and workflow-engine write user queries.

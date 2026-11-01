@@ -12,15 +12,9 @@ Code and contract changes are tracked in `CONTRACTS.md` (change log) and `DECISI
 | 5 | 2026-11-01 | **Three panels, roles and navigation map**: roles SUPER_ADMIN / COMPANY_ADMIN / MANAGER / EMPLOYEE / VIEWER, permission matrix enforced by guards, route groups `/super-admin`, `/app`, `/me`, separate Super Admin auth (2FA, timeout, IP allowlist, `/api/super`, separate audience), full navigation map, role visibility, Super Admin details (impersonation, plans, audit), company panel additions (custom roles, data visibility, support access), Employee panel (PWA), Leads page restated for all panels, quality/tests, seed (1 super admin, 3 companies), Phase 1 expanded, Employee panel after Leads; new superadmin-panel agent. Ended with "also add this additional feature" without content | 2.2, 4.1, 4.2, 5, 6, 7, 8, 9, 12, 13.5, 14, 15, 16, 17, 20.3, 20.4, 20.5 | Replaces the master roles (admin, manager, sales rep, viewer); expands Phase 1; seed data extended |
 | 6 | 2026-11-01 | "go" (start Wave 1) | none (process) | |
 | 7 | 2026-11-01 | **Consolidate specs**: single `docs/SPEC.md`, this changelog, `docs/STATUS.md`; agents read only their SPEC sections plus `CONTRACTS.md`; update `OWNERSHIP.md` | Preamble ("How agents use this file"), 2.3 | Agents no longer use chat history as spec |
+| 8 | 2026-11-01 | **Answers**: pending specs arrive after the Wave 1 report; board physics will be resent; "additional feature" fragment void; Pipeline = Leads Board; first-visit view rule; status mapping; Super Admin auth Phase 1 / panel Phase 9; early mock frontends; managers read-only for workflows; User-Workspace membership table; Razorpay + manual invoices; mock telephony (Exotel later); AI node off with rule-based classifier; Fizzly input fields | 5.3, 5.4, 7, 9.2, 11, 12, 13.2, 13.5, 15.1, 15.7, 16, 17, 18, 21 | Removes the open questions; overrides "Exotel-style provider" with mock-only for now |
 
-## Referenced but not received
+## Pending (announced, not received yet)
 
-The consolidation request (#7) listed these spec changes. Their content was never received, so they
-are not in `SPEC.md` (see SPEC section 21.1):
-
-- Board physics (as a separate change)
-- Industry packs
-- Real estate pack
-- Real estate supplement
-- Live site-visit map
-- The "additional feature" at the end of change #5
+- Industry packs, real estate pack, real estate supplement, live site-visit map (after the Wave 1 check report)
+- Board physics (to be resent)

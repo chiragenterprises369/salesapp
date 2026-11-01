@@ -120,6 +120,7 @@ export const InviteAcceptSchema = z.object({
   token: z.string().min(16),
   name: z.string().trim().min(1).max(80),
   password: PasswordSchema,
+  email: z.email().transform((e) => e.toLowerCase()).optional().describe('Required when the invite has no email (link invite)'),
 });
 export type InviteAccept = z.infer<typeof InviteAcceptSchema>;
 

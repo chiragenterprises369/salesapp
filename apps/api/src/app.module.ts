@@ -1,5 +1,6 @@
 import { Module, type Provider } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { CommonModule } from './common/common.module.js';
 import { DevAuthGuard } from './common/auth/dev-auth.guard.js';
 import { getEnv } from './config/env.js';
@@ -33,6 +34,7 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     RedisModule,
     EventsModule,
     CommonModule,
+    ScheduleModule.forRoot(),
     // backend-core
     AuthModule,
     WorkspaceModule,

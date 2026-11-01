@@ -64,8 +64,8 @@ const STAGE_WEIGHTS = [0.3, 0.22, 0.16, 0.12, 0.1, 0.1];
 const PLAN_CATALOGUE: Array<{ key: Plan; name: string; monthly: number; limits: PlanLimits; features: FeatureFlags; trialDays: number }> = [
   { key: 'free', name: 'Free', monthly: 0, trialDays: 14, limits: { seats: 3, leads: 500, whatsappMessagesPerMonth: 250, workflowRunsPerMonth: 500, storageMb: 500 }, features: { team_floor_3d: false, ai_node: false, telephony: false, api_access: false, whatsapp: true, employee_rank: true } },
   { key: 'starter', name: 'Starter', monthly: 1999, trialDays: 14, limits: { seats: 10, leads: 10_000, whatsappMessagesPerMonth: 5_000, workflowRunsPerMonth: 10_000, storageMb: 5_000 }, features: { team_floor_3d: false, ai_node: false, telephony: true, api_access: true, whatsapp: true, employee_rank: true } },
-  { key: 'growth', name: 'Growth', monthly: 5999, trialDays: 14, limits: { seats: 50, leads: 100_000, whatsappMessagesPerMonth: 50_000, workflowRunsPerMonth: 100_000, storageMb: 50_000 }, features: { team_floor_3d: true, ai_node: true, telephony: true, api_access: true, whatsapp: true, employee_rank: true } },
-  { key: 'enterprise', name: 'Enterprise', monthly: 19999, trialDays: 30, limits: { seats: null, leads: null, whatsappMessagesPerMonth: null, workflowRunsPerMonth: null, storageMb: null }, features: { team_floor_3d: true, ai_node: true, telephony: true, api_access: true, whatsapp: true, employee_rank: true } },
+  { key: 'growth', name: 'Growth', monthly: 5999, trialDays: 14, limits: { seats: 50, leads: 100_000, whatsappMessagesPerMonth: 50_000, workflowRunsPerMonth: 100_000, storageMb: 50_000 }, features: { team_floor_3d: true, ai_node: false, telephony: true, api_access: true, whatsapp: true, employee_rank: true } },
+  { key: 'enterprise', name: 'Enterprise', monthly: 19999, trialDays: 30, limits: { seats: null, leads: null, whatsappMessagesPerMonth: null, workflowRunsPerMonth: null, storageMb: null }, features: { team_floor_3d: true, ai_node: false, telephony: true, api_access: true, whatsapp: true, employee_rank: true } },
 ];
 
 function weighted<T>(rng: Rng, items: Array<[T, number]>): T {
@@ -200,6 +200,8 @@ async function main() {
 
   try {
     await prisma.workspace.deleteMany({ where: { slug: { in: COMPANY_FIXTURES.map((c) => c.slug) } } });
+    // Dev impersonation sessions in other (test) workspaces still reference the seeded admin.
+    await prisma.impersonationSession.deleteMany({ where: { admin: { email: SUPER_ADMIN_FIXTURE.email } } });
     await prisma.platformAdmin.deleteMany({ where: { email: SUPER_ADMIN_FIXTURE.email } });
 
     for (const p of PLAN_CATALOGUE) {

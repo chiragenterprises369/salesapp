@@ -213,14 +213,26 @@ export function useLead(id: string | null) {
   });
 }
 
-/** Create a lead; refreshes lists and boards (new rows slide in on refetch). */
+/** Create a lead; puts it at the TOP of its column in cached boards (D-037), then refreshes lists. */
 export function useCreateLead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: LeadCreate) => getLeadsSource().create(input),
     onSuccess: async (lead) => {
       qc.setQueryData(leadKeys.detail(lead.id), lead);
-      await Promise.all([qc.invalidateQueries({ queryKey: leadKeys.lists() }), qc.invalidateQueries({ queryKey: leadKeys.boards() })]);
+      qc.setQueriesData<Board>({ queryKey: leadKeys.boards() }, (b) =>
+        b && b.pipeline.id === lead.pipelineId
+          ? {
+              ...b,
+              columns: b.columns.map((c) =>
+                c.stage.id === lead.stageId && !c.leads.some((l) => l.id === lead.id)
+                  ? { ...c, leads: [lead, ...c.leads], count: c.count + 1, totalValueInr: c.totalValueInr + lead.valueInr }
+                  : c,
+              ),
+            }
+          : b,
+      );
+      await qc.invalidateQueries({ queryKey: leadKeys.lists() });
     },
   });
 }

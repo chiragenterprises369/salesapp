@@ -105,6 +105,11 @@ function findOrThrow(id: string): LeadListItem {
   return lead;
 }
 
+function topPosition(stageId: string): string {
+  const col = leads.filter((l) => l.stageId === stageId).sort(byPosition);
+  return generateKeyBetween(null, col[0]?.position ?? null);
+}
+
 function endPosition(stageId: string): string {
   const col = leads.filter((l) => l.stageId === stageId).sort(byPosition);
   return generateKeyBetween(col.at(-1)?.position ?? null, null);
@@ -177,7 +182,7 @@ export const mockLeadsSource: LeadsSource = {
       source: input.source,
       pipelineId: pipeline.id,
       stageId,
-      position: endPosition(stageId),
+      position: topPosition(stageId),
       owner,
       valueInr: input.valueInr,
       score: 30,

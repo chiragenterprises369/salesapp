@@ -2,14 +2,13 @@
 
 import type { LeadsViewMode, MeResponse } from '@vistar/shared';
 import { MOCK_PIPELINE_ID } from '@vistar/shared/fixtures';
-import { Download, MoreHorizontal, MousePointerClick, Plus, Upload } from 'lucide-react';
+import { Download, MoreHorizontal, Plus, Upload } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Suspense, useCallback, useState } from 'react';
 import { LeadsBoardView } from '@/features/pipeline';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
-import { cn } from '@/lib/cn';
 import { useLeadsList } from '@/lib/leads/data';
 import { useLeadsViewState } from '@/lib/leads/state';
 import { useLeadsViewMode } from '@/lib/leads/view-mode';
@@ -23,7 +22,6 @@ import { DateRangeFilter } from './date-range-filter';
 import { FiltersButton, FiltersPanel } from './filters-panel';
 import { exportLeadsCsv } from './import/export';
 import { ImportDialog } from './import/import-dialog';
-import { ACTIVE_FILTER_CLASS } from './lead-meta';
 import { LeadsActions } from './leads-actions';
 import { OwnerFilter } from './owner-filter';
 import {
@@ -87,10 +85,7 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
   const canCreate = useCan('leads.create');
   const canImport = useCan('leads.import');
   const canExport = useCan('leads.export');
-  const canBulk = useCan('leads.bulk');
   const filters = useLeadsViewState((s) => s.filters);
-  const boardSelectMode = useLeadsViewState((s) => s.boardSelectMode);
-  const setBoardSelectMode = useLeadsViewState((s) => s.setBoardSelectMode);
   const sort = useTablePrefs((s) => s.sort);
   const list = useLeadsList(filters, sort);
   const total = list.data?.pages[0]?.total;
@@ -194,16 +189,6 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
           <DateRangeFilter />
           <FiltersButton />
           <SavedViewsMenu mode={mode} onViewMode={setMode} />
-          {mode === 'board' && canBulk && (
-            <Button
-              aria-pressed={boardSelectMode}
-              onClick={() => setBoardSelectMode(!boardSelectMode)}
-              className={cn(boardSelectMode && ACTIVE_FILTER_CLASS)}
-            >
-              <MousePointerClick aria-hidden />
-              Select
-            </Button>
-          )}
         </div>
 
         <FiltersPanel />
