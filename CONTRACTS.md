@@ -78,7 +78,7 @@ One Next.js app, three route groups, one design system:
 ## 6. Tenancy
 
 - Every table except `Workspace` and the platform tables carries `workspaceId`.
-- Feature code uses `prisma.forTenant(auth.workspaceId)` which injects `workspaceId` into every `where` and `create`. Use unchecked inputs (scalar `*Id`, no `connect`). Nested creates and raw SQL are not auto-scoped. Platform tables throw if used through the tenant client.
+- Feature code uses `prisma.forTenant(auth.workspaceId)` which injects `workspaceId` into every `where` and `create`, strips `workspaceId` from update data, and pins `Workspace` queries to the caller (create/delete rejected). Use unchecked inputs (scalar `*Id`, no `connect`). Check every foreign-key id from user input with `assertInTenant(db, { stage, user, ... })`. Nested creates and raw SQL are not auto-scoped. Platform tables throw if used through the tenant client.
 - Never take `workspaceId` from the request body or URL except the inbound webhook path, which is verified by HMAC.
 
 ## 7. Realtime
@@ -93,11 +93,13 @@ One Next.js app, three route groups, one design system:
 ## 8. Leads page (Board default, Table optional)
 
 - Views: `LEADS_VIEW_MODES = ['board', 'table']`, default `board`.
-- Resolution `resolveLeadsViewMode()`: URL `?view=board|table` (that visit only) > user setting > localStorage `vistar.leads.viewMode` > workspace default > `board`.
+- Resolution `resolveLeadsViewMode()`: URL `?view=board|table` (that visit only) > this session's toggle > user setting > localStorage `vistar.leads.viewMode` > workspace default > `board`. The session choice makes the toggle instant and keeps it if the PATCH fails.
 - **User setting key `leads.viewMode`** (`UserSettings.leadsViewMode`, PATCH `/me/settings`).
 - **Workspace default key `leads.defaultViewMode`** (`Workspace.defaultLeadsViewMode`, PATCH `/workspace`, admins only).
 - Shared state (`useLeadsViewState`): filters (`LeadFiltersSchema`), saved view, selection, Board select mode, filter panel, scroll positions. Switching views never resets it.
-- Shared data (`lib/leads/data.ts`): `useLeadsList`, `useLeadsBoard`, `useMoveLead` (optimistic with rollback), `leadKeys`. One TanStack Query cache. Wave 1 uses the mock source; Wave 3 swaps to HTTP without changing hook signatures.
+- Shared data (`lib/leads/data.ts`): `useLeadsList`, `useLeadsBoard`, `useMoveLead` (optimistic, per-lead rollback), `applyMoveToBoard(board, { lead, fromStageId, toStageId, beforeId?, afterId?, position? })` (also used by realtime `stage.changed`), `patchListItem`, `leadKeys`. One TanStack Query cache. Wave 1 uses the mock source; Wave 3 swaps to HTTP without changing hook signatures.
+- `LeadMove` with no neighbours = end of the target column.
+- Pickers (owner dropdown, reassign) use `GET /users/options` (`leads.read`), not `/users` (`team.read`).
 - Shared actions (`components/leads-shared/lead-actions.tsx`): `LeadActionsProvider`, `useLeadActions()` (`open`, `call`, `whatsapp`, `note`), `LeadQuickActions`. Both views open the same Lead detail drawer (`?lead=<id>`).
 - Board API accepts the same filters (`pipelineBoard` query = `LeadFiltersSchema` + `perColumn`; `boardColumnPage` for more cards).
 
@@ -123,3 +125,4 @@ One Next.js app, three route groups, one design system:
 | 2026-11-01 | STEP 0 contracts created. |
 | 2026-11-01 | Leads view modes: `LeadsViewMode`, `leads.viewMode`, `leads.defaultViewMode`, shared `LeadFiltersSchema`, board accepts filters, `SavedView.viewMode`, shared leads state/data/actions in web. |
 | 2026-11-01 | Roles and panels: role kinds (`company_admin, manager, employee, viewer`), platform `super_admin`, permission matrix, data scope, custom roles, feature flags, plan limits, navigation map, separate platform auth audience with 2FA, impersonation, support access, `/api/super` routes. |
+| 2026-11-01 | qa-reviewer fixes: Update schemas no longer re-apply defaults (Zod 4 `.partial()`), `UserSettingsUpdateSchema` explicit, `WebhookEndpointUpdateSchema`, `leads.merge` permission, `GET /me/today` (`MyTodaySchema`), `GET /users/options`, `TARGET_METRICS`, `input-border` token (`border-input`), `Button` touch sizes, tenant client hardening + `assertInTenant`, TOTP replay protection (`PlatformAdmin.totpLastStep`), `Target.subjectKey`, `TRUST_PROXY` env, self-loop fix in `validateGraph`. |

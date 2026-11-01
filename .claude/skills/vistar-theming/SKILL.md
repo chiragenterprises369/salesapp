@@ -20,8 +20,9 @@ Source of truth: `packages/shared/src/design/tokens.ts` (palettes), `packages/sh
 
 ## Tokens (Tailwind utilities)
 - Surfaces: `bg-bg` (page), `bg-surface` (cards), `bg-surface-2` (hover, zebra), `bg-surface-3` (pressed).
-- Text: `text-fg`, `text-fg-secondary`, `text-muted` (on surface), `text-muted-strong` (small text on `bg`; plain `muted` fails AA there).
-- Borders: `border-border`, `border-border-strong` (hover).
+- Text: `text-fg`, `text-fg-secondary`, `text-muted` (on surface), `text-muted-strong` (small text on `bg`, on tinted Board columns `bg-status-*-bg`, on selected rows `bg-accent-soft`, and on `surface-3`; plain `muted` fails AA there).
+- Borders: `border-border` (dividers, cards), `border-border-strong` (hover), `border-input` (form controls: 3:1 edge, WCAG 1.4.11).
+- Focus: kit components use `ring`/`border-ring` at full opacity; never fade the focus indicator (`ring-ring/30` fails 3:1 in dark).
 - Feedback text: `text-danger-text`, `text-success-text`, `text-warning-text`.
 - Charts: `var(--chart-1..6)`, grid `var(--chart-grid)`, axis `var(--chart-axis)`.
 - The default Tailwind palette is disabled. `bg-blue-500` does not exist; never use hex in class names.
@@ -44,7 +45,7 @@ Source of truth: `packages/shared/src/design/tokens.ts` (palettes), `packages/sh
 - Keyboard: everything reachable and operable; visible focus (`focus-ring` utility or kit components). Drag and drop always has a menu alternative ("Move to stage...").
 - Icon-only buttons need `aria-label`. Forms use `<FormField>` (label, hint, error, aria wiring).
 - Dialogs: always a `DialogTitle`. Toasts are announcements, not the only feedback for errors in forms.
-- Touch targets in the Employee panel: at least 44x44 px.
+- Touch targets in the Employee panel: at least 44x44 px (`Button size="touch" | "icon-touch"`, `LeadQuickActions size="touch"`).
 - Charts and the 3D floor have a text equivalent (table or list).
 
 ## Layout

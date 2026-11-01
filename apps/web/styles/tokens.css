@@ -10,6 +10,7 @@
   --surface-3: #F1F5F9;
   --border: #E5E7EB;
   --border-strong: #D1D5DB;
+  --input-border: #868FA0;
   --fg: #0F172A;
   --fg-secondary: #334155;
   --muted: #64748B;
@@ -72,6 +73,7 @@
   --surface-3: #222733;
   --border: #262A33;
   --border-strong: #343A46;
+  --input-border: #626B7C;
   --fg: #E8ECF6;
   --fg-secondary: #C3CADB;
   --muted: #8B96B3;

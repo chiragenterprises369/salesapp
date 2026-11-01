@@ -5258,6 +5258,7 @@
                     "leads.delete",
                     "leads.assign",
                     "leads.bulk",
+                    "leads.merge",
                     "leads.import",
                     "leads.export",
                     "pipeline.read",
@@ -5329,6 +5330,7 @@
                 "leads.delete",
                 "leads.assign",
                 "leads.bulk",
+                "leads.merge",
                 "leads.import",
                 "leads.export",
                 "pipeline.read",
@@ -7246,6 +7248,227 @@
         }
       }
     },
+    "/api/v1/users/options": {
+      "get": {
+        "operationId": "userOptions",
+        "summary": "Assignable users for pickers (owner dropdown, reassign); respects data scope",
+        "description": "Requires permission `leads.read`. Owner: backend-core. Phase 1.",
+        "tags": [
+          "team"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/UserSummary"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/today": {
+      "get": {
+        "operationId": "myToday",
+        "summary": "Employee Home: tasks due, follow-ups, calls to make, new leads, targets, today stats (own scope)",
+        "description": "Owner: backend-core. Phase 2.",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tasksDue": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Task"
+                      }
+                    },
+                    "followUps": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LeadListItem"
+                      },
+                      "description": "Leads with nextFollowUpAt today or overdue"
+                    },
+                    "callsToMake": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Task"
+                      },
+                      "description": "Open call tasks due today or overdue"
+                    },
+                    "newAssigned": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LeadListItem"
+                      },
+                      "description": "Assigned to me in the last 24 h"
+                    },
+                    "targets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "metric": {
+                            "type": "string",
+                            "enum": [
+                              "revenue_inr",
+                              "deals_won",
+                              "calls",
+                              "leads_converted"
+                            ]
+                          },
+                          "period": {
+                            "type": "string",
+                            "description": "YYYY-MM"
+                          },
+                          "target": {
+                            "type": "integer"
+                          },
+                          "achieved": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "metric",
+                          "period",
+                          "target",
+                          "achieved"
+                        ]
+                      }
+                    },
+                    "stats": {
+                      "type": "object",
+                      "properties": {
+                        "callsToday": {
+                          "type": "integer"
+                        },
+                        "talkSecToday": {
+                          "type": "integer"
+                        },
+                        "leadsContactedToday": {
+                          "type": "integer"
+                        },
+                        "wonInrThisMonth": {
+                          "type": "integer"
+                        },
+                        "rank": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "description": "null when the company hides ranks (Workspace.showEmployeeRank)"
+                        }
+                      },
+                      "required": [
+                        "callsToday",
+                        "talkSecToday",
+                        "leadsContactedToday",
+                        "wonInrThisMonth",
+                        "rank"
+                      ]
+                    },
+                    "generatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "tasksDue",
+                    "followUps",
+                    "callsToMake",
+                    "newAssigned",
+                    "targets",
+                    "stats",
+                    "generatedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/teams": {
       "get": {
         "operationId": "teamList",
@@ -7509,6 +7732,7 @@
                                 "leads.delete",
                                 "leads.assign",
                                 "leads.bulk",
+                                "leads.merge",
                                 "leads.import",
                                 "leads.export",
                                 "pipeline.read",
@@ -7649,6 +7873,7 @@
                         "leads.delete",
                         "leads.assign",
                         "leads.bulk",
+                        "leads.merge",
                         "leads.import",
                         "leads.export",
                         "pipeline.read",
@@ -7747,6 +7972,7 @@
                           "leads.delete",
                           "leads.assign",
                           "leads.bulk",
+                          "leads.merge",
                           "leads.import",
                           "leads.export",
                           "pipeline.read",
@@ -7894,6 +8120,7 @@
                         "leads.delete",
                         "leads.assign",
                         "leads.bulk",
+                        "leads.merge",
                         "leads.import",
                         "leads.export",
                         "pipeline.read",
@@ -7986,6 +8213,7 @@
                           "leads.delete",
                           "leads.assign",
                           "leads.bulk",
+                          "leads.merge",
                           "leads.import",
                           "leads.export",
                           "pipeline.read",
@@ -8560,18 +8788,15 @@
                           "light",
                           "dark",
                           "scheduled"
-                        ],
-                        "default": "system"
+                        ]
                       },
                       "darkFrom": {
                         "type": "string",
-                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
-                        "default": "19:00"
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                       },
                       "darkTo": {
                         "type": "string",
-                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
-                        "default": "07:00"
+                        "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
                       }
                     }
                   },
@@ -8581,19 +8806,16 @@
                       "auto",
                       "3d",
                       "flat"
-                    ],
-                    "default": "auto"
+                    ]
                   },
                   "notifications": {
                     "type": "object",
                     "properties": {
                       "inApp": {
-                        "type": "boolean",
-                        "default": true
+                        "type": "boolean"
                       },
                       "push": {
-                        "type": "boolean",
-                        "default": true
+                        "type": "boolean"
                       },
                       "emailDigest": {
                         "type": "string",
@@ -8601,15 +8823,13 @@
                           "off",
                           "daily",
                           "weekly"
-                        ],
-                        "default": "daily"
+                        ]
                       },
                       "muted": {
                         "type": "array",
                         "items": {
                           "type": "string"
-                        },
-                        "default": []
+                        }
                       }
                     }
                   },
@@ -8619,8 +8839,7 @@
                       "system",
                       "on",
                       "off"
-                    ],
-                    "default": "system"
+                    ]
                   },
                   "leadsViewMode": {
                     "type": [
@@ -8631,8 +8850,7 @@
                       "board",
                       "table",
                       null
-                    ],
-                    "default": null
+                    ]
                   }
                 }
               }
@@ -9278,7 +9496,7 @@
       },
       "patch": {
         "operationId": "leadUpdate",
-        "summary": "Update a lead",
+        "summary": "Update a lead (changing ownerId also requires leads.assign)",
         "description": "Requires permission `leads.update`. Owner: backend-core. Phase 2.",
         "tags": [
           "leads"
@@ -9357,8 +9575,7 @@
                   "valueInr": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 2000000000,
-                    "default": 0
+                    "maximum": 2000000000
                   },
                   "tags": {
                     "type": "array",
@@ -9366,8 +9583,7 @@
                       "type": "string",
                       "maxLength": 40
                     },
-                    "maxItems": 30,
-                    "default": []
+                    "maxItems": 30
                   },
                   "customFields": {
                     "type": "object",
@@ -9386,8 +9602,7 @@
                           "type": "null"
                         }
                       ]
-                    },
-                    "default": {}
+                    }
                   },
                   "nextFollowUpAt": {
                     "type": [
@@ -10569,8 +10784,8 @@
     "/api/v1/leads/merge": {
       "post": {
         "operationId": "leadMerge",
-        "summary": "Merge duplicates into a primary lead",
-        "description": "Requires permission `leads.update`. Owner: backend-core. Phase 2.",
+        "summary": "Merge duplicates into a primary lead (duplicates are soft-deleted)",
+        "description": "Requires permission `leads.merge`. Owner: backend-core. Phase 2.",
         "tags": [
           "leads"
         ],
@@ -12083,8 +12298,7 @@
                       "follow_up",
                       "meeting",
                       "email"
-                    ],
-                    "default": "todo"
+                    ]
                   },
                   "title": {
                     "type": "string",
@@ -12102,8 +12316,7 @@
                       "normal",
                       "high",
                       "urgent"
-                    ],
-                    "default": "normal"
+                    ]
                   },
                   "leadId": {
                     "type": "string",
@@ -13422,8 +13635,7 @@
                       "open",
                       "won",
                       "lost"
-                    ],
-                    "default": "open"
+                    ]
                   },
                   "color": {
                     "type": [
@@ -13435,8 +13647,7 @@
                   "probability": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 100,
-                    "default": 10
+                    "maximum": 100
                   }
                 }
               }
@@ -15281,20 +15492,21 @@
                     "minLength": 1,
                     "maxLength": 80
                   },
-                  "sourceKey": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9-]{3,40}$"
+                  "isActive": {
+                    "type": "boolean"
                   },
                   "action": {
                     "type": "string",
                     "enum": [
                       "create_lead",
                       "start_workflow"
-                    ],
-                    "default": "create_lead"
+                    ]
                   },
                   "workflowId": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "format": "uuid"
                   },
                   "mapping": {
@@ -15363,9 +15575,6 @@
                       ]
                     },
                     "minItems": 1
-                  },
-                  "isActive": {
-                    "type": "boolean"
                   }
                 }
               }

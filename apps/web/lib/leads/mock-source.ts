@@ -80,9 +80,21 @@ export const mockLeadsSource: LeadsSource = {
     if (!lead) throw new Error('Lead not found');
     const column = leads.filter((l) => l.stageId === move.stageId && l.id !== leadId).sort((a, b) => (a.position < b.position ? -1 : 1));
     const before = move.beforeLeadId ? column.find((l) => l.id === move.beforeLeadId) : undefined;
-    const beforeIdx = before ? column.indexOf(before) : -1;
-    const after = move.afterLeadId ? column.find((l) => l.id === move.afterLeadId) : column[beforeIdx + 1];
-    const position = generateKeyBetween(before?.position ?? (after ? (column[column.indexOf(after) - 1]?.position ?? null) : (column.at(-1)?.position ?? null)), after?.position ?? null);
+    const after = move.afterLeadId ? column.find((l) => l.id === move.afterLeadId) : undefined;
+    let lower: string | null;
+    let upper: string | null;
+    if (before) {
+      lower = before.position;
+      upper = column[column.indexOf(before) + 1]?.position ?? null;
+    } else if (after) {
+      lower = column[column.indexOf(after) - 1]?.position ?? null;
+      upper = after.position;
+    } else {
+      // No neighbours = end of column (LeadMoveSchema).
+      lower = column.at(-1)?.position ?? null;
+      upper = null;
+    }
+    const position = generateKeyBetween(lower, upper);
     const saved: LeadListItem = { ...lead, stageId: move.stageId, position, version: lead.version + 1, updatedAt: new Date().toISOString() };
     leads = leads.map((l) => (l.id === leadId ? saved : l));
     return saved;

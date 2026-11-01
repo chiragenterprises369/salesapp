@@ -2,7 +2,7 @@
 
 import type { LeadListItem } from '@vistar/shared';
 import { MessageCircle, Phone, StickyNote } from 'lucide-react';
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
@@ -39,22 +39,31 @@ export function useLeadActions(): LeadActions {
   return useContext(LeadActionsContext);
 }
 
-/** Hover/focus quick actions: call, WhatsApp, note. Icon buttons with accessible names. */
-export function LeadQuickActions({ lead, className }: { lead: LeadListItem; className?: string }) {
+/**
+ * Hover/focus quick actions: call, WhatsApp, note. Icon buttons with accessible names.
+ * `size="touch"` gives 44x44 targets (Employee panel, mobile cards).
+ */
+export function LeadQuickActions({ lead, className, size = 'sm' }: { lead: LeadListItem; className?: string; size?: 'sm' | 'touch' }) {
   const actions = useLeadActions();
-  const stop = (fn: () => void) => (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    fn();
-  };
+  const btn = size === 'touch' ? 'icon-touch' : 'icon-sm';
+  // Stop clicks and key presses from reaching the card/row behind (open, drag, select handlers).
+  const guard = (fn: () => void) => ({
+    onClick: (e: MouseEvent) => {
+      e.stopPropagation();
+      fn();
+    },
+    onKeyDown: (e: KeyboardEvent) => e.stopPropagation(),
+    onPointerDown: (e: PointerEvent) => e.stopPropagation(),
+  });
   return (
     <div className={cn('flex items-center gap-0.5', className)} role="group" aria-label={`Quick actions for ${lead.name}`}>
-      <Button size="icon-sm" variant="ghost" aria-label={`Call ${lead.name}`} disabled={!lead.phone} onClick={stop(() => actions.call(lead))}>
+      <Button size={btn} variant="ghost" aria-label={`Call ${lead.name}`} disabled={!lead.phone} {...guard(() => actions.call(lead))}>
         <Phone aria-hidden />
       </Button>
-      <Button size="icon-sm" variant="ghost" aria-label={`WhatsApp ${lead.name}`} disabled={!lead.phone} onClick={stop(() => actions.whatsapp(lead))}>
+      <Button size={btn} variant="ghost" aria-label={`WhatsApp ${lead.name}`} disabled={!lead.phone} {...guard(() => actions.whatsapp(lead))}>
         <MessageCircle aria-hidden />
       </Button>
-      <Button size="icon-sm" variant="ghost" aria-label={`Add note for ${lead.name}`} onClick={stop(() => actions.note(lead))}>
+      <Button size={btn} variant="ghost" aria-label={`Add note for ${lead.name}`} {...guard(() => actions.note(lead))}>
         <StickyNote aria-hidden />
       </Button>
     </div>

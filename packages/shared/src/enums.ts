@@ -192,3 +192,8 @@ export type TeamFloorMode = z.infer<typeof TeamFloorModeSchema>;
 export const LEADS_VIEW_MODES = ['board', 'table'] as const;
 export const LeadsViewModeSchema = z.enum(LEADS_VIEW_MODES);
 export type LeadsViewMode = z.infer<typeof LeadsViewModeSchema>;
+
+/** Targets (monthly). Prisma enum TargetMetric must match. */
+export const TARGET_METRICS = ['revenue_inr', 'deals_won', 'calls', 'leads_converted'] as const;
+export const TargetMetricSchema = z.enum(TARGET_METRICS);
+export type TargetMetric = z.infer<typeof TargetMetricSchema>;

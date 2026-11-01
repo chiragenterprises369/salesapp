@@ -24,22 +24,29 @@ export const PipelineSchema = z.object({
 });
 export type Pipeline = z.infer<typeof PipelineSchema>;
 
-export const StageCreateSchema = z.object({
+const StageInputFields = z.object({
   name: z.string().trim().min(1).max(40),
-  type: StageTypeSchema.default('open'),
+  type: StageTypeSchema,
   color: HexColorSchema.nullable().optional(),
+  probability: z.number().int().min(0).max(100),
+});
+
+export const StageCreateSchema = StageInputFields.extend({
+  type: StageTypeSchema.default('open'),
   probability: z.number().int().min(0).max(100).default(10),
   afterStageId: IdSchema.nullable().optional().describe('Insert after this stage; null = first'),
 });
 export type StageCreate = z.infer<typeof StageCreateSchema>;
 
-export const StageUpdateSchema = StageCreateSchema.omit({ afterStageId: true }).partial();
+/** Built from the default-free base (Zod 4 `.partial()` keeps defaults). */
+export const StageUpdateSchema = StageInputFields.partial();
 export type StageUpdate = z.infer<typeof StageUpdateSchema>;
 
 export const StageReorderSchema = z.object({ stageIds: z.array(IdSchema).min(1) });
 
 /**
  * Move a lead on the board. The server computes `position` between the neighbours.
+ * No neighbours given = END of the target column (e.g. Table inline stage change).
  * Clients apply the move optimistically and roll back on error.
  */
 export const LeadMoveSchema = z.object({

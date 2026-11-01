@@ -62,7 +62,13 @@ export class AppExceptionFilter implements ExceptionFilter {
 
     if (status >= 500) {
       const err = exception instanceof Error ? exception : new Error(String(exception));
-      this.logger.error(`${req?.method} ${req?.route?.path ?? req?.path} failed [${requestId}]: ${err.message}`, err.stack);
+      const where = `${req?.method} ${req?.route?.path ?? req?.path} [${requestId}]`;
+      // Prisma messages embed query arguments (phones, emails): log only the error class and code.
+      if (err.name.startsWith('PrismaClient') || err.name.startsWith('DriverAdapter')) {
+        this.logger.error(`${where} failed: ${err.name}${(err as { code?: string }).code ? ` ${(err as { code?: string }).code}` : ''}`);
+      } else {
+        this.logger.error(`${where} failed: ${err.message}`, err.stack);
+      }
     }
     res.status(status).json({ error: body } satisfies ApiError);
   }

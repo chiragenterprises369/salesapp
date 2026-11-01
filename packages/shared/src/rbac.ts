@@ -11,7 +11,7 @@ import type { DataScope, RoleKind } from './enums.js';
  */
 export const PERMISSION_MATRIX = {
   dashboard: ['read'],
-  leads: ['read', 'create', 'update', 'delete', 'assign', 'bulk', 'import', 'export'],
+  leads: ['read', 'create', 'update', 'delete', 'assign', 'bulk', 'merge', 'import', 'export'],
   pipeline: ['read', 'manage'],
   tasks: ['read', 'create', 'update', 'delete'],
   calls: ['read', 'make', 'recordings'],
@@ -49,7 +49,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKind, Permission[]> = {
   company_admin: ALL,
   manager: [
     'dashboard.read',
-    'leads.read', 'leads.create', 'leads.update', 'leads.assign', 'leads.bulk', 'leads.export',
+    'leads.read', 'leads.create', 'leads.update', 'leads.assign', 'leads.bulk', 'leads.merge', 'leads.export',
     'pipeline.read',
     'tasks.read', 'tasks.create', 'tasks.update', 'tasks.delete',
     'calls.read', 'calls.make', 'calls.recordings',

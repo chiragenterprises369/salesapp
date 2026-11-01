@@ -1198,6 +1198,8 @@ model Target {
   workspaceId String       @db.Uuid
   userId      String?      @db.Uuid
   teamId      String?      @db.Uuid
+  /// "user:<id>" | "team:<id>" | "workspace" (non-null so the unique key works)
+  subjectKey  String
   metric      TargetMetric
   /// YYYY-MM in workspace timezone
   period      String
@@ -1209,7 +1211,7 @@ model Target {
   user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   team      Team?     @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
-  @@unique([workspaceId, userId, teamId, metric, period])
+  @@unique([workspaceId, subjectKey, metric, period])
   @@index([workspaceId, period])
 }
 
@@ -1291,6 +1293,8 @@ model PlatformAdmin {
   /// AES-256-GCM encrypted base32 TOTP secret; 2FA is mandatory
   totpSecretEncrypted String?
   mfaEnabledAt        DateTime?
+  /// Last accepted TOTP time step (replay protection)
+  totpLastStep        Int?
   /// PlatformPermission strings
   permissions         String[]
   /// Exact IPs or CIDRs; empty = any

@@ -1,8 +1,9 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { EVENT_BUS_CHANNEL, type DomainEvent, type EventActor, type EventName, type EventPayload } from '@vistar/shared';
+import { EVENT_BUS_CHANNEL, parseDomainEvent, type DomainEvent, type EventActor, type EventName, type EventPayload } from '@vistar/shared';
 import type { Redis } from 'ioredis';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
+import { getEnv } from '../../config/env.js';
 import { createRedis } from '../redis/redis.module.js';
 
 export type EventHandler = (event: DomainEvent) => void | Promise<void>;
@@ -22,6 +23,8 @@ export class EventBus implements OnModuleInit, OnModuleDestroy {
   private readonly local = new EventEmitter().setMaxListeners(100);
   private pub: Redis | null = null;
   private sub: Redis | null = null;
+  /** Outside production every event is validated against the shared contract. */
+  private readonly validate = getEnv().NODE_ENV !== 'production';
 
   async onModuleInit(): Promise<void> {
     this.pub = createRedis('pubsub');
@@ -34,7 +37,8 @@ export class EventBus implements OnModuleInit, OnModuleDestroy {
     this.sub.on('message', (channel, raw) => {
       if (channel !== EVENT_BUS_CHANNEL) return;
       try {
-        this.local.emit('event', JSON.parse(raw) as DomainEvent);
+        const parsed: unknown = JSON.parse(raw);
+        this.local.emit('event', this.validate ? parseDomainEvent(parsed) : (parsed as DomainEvent));
       } catch (err) {
         this.logger.error(`Dropped malformed event: ${(err as Error).message}`);
       }
@@ -60,6 +64,7 @@ export class EventBus implements OnModuleInit, OnModuleDestroy {
       userId: opts.userId ?? null,
       payload,
     };
+    if (this.validate) parseDomainEvent(event); // throws on contract violations (caller bug)
     if (this.pub) await this.pub.publish(EVENT_BUS_CHANNEL, JSON.stringify(event));
     else this.local.emit('event', event);
     return event;

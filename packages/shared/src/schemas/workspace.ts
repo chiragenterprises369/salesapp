@@ -212,7 +212,21 @@ export const UserSettingsSchema = z.object({
   leadsViewMode: LeadsViewModeSchema.nullable().default(null),
 });
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
-export const UserSettingsUpdateSchema = UserSettingsSchema.partial();
+/**
+ * PATCH body: every field optional with NO defaults (Zod 4 `.partial()` would re-apply defaults and
+ * overwrite unrelated settings). Nested objects merge server-side.
+ */
+export const UserSettingsUpdateSchema = z
+  .object({
+    theme: z.object({ mode: ThemeModeSchema, darkFrom: HhMmSchema, darkTo: HhMmSchema }).partial(),
+    teamFloorMode: TeamFloorModeSchema,
+    notifications: z
+      .object({ inApp: z.boolean(), push: z.boolean(), emailDigest: z.enum(['off', 'daily', 'weekly']), muted: z.array(z.string()) })
+      .partial(),
+    reducedMotion: z.enum(['system', 'on', 'off']),
+    leadsViewMode: LeadsViewModeSchema.nullable(),
+  })
+  .partial();
 export type UserSettingsUpdate = z.infer<typeof UserSettingsUpdateSchema>;
 
 /** Present when a Super Admin is impersonating; drives the persistent banner. */

@@ -77,13 +77,26 @@ export const InboundEndpointCreateSchema = z.object({
   workflowId: IdSchema.optional(),
   mapping: PayloadMappingSchema.optional(),
 });
+const httpsUrl = z.string().url().refine((u) => u.startsWith('https://') || u.startsWith('http://localhost'), {
+  error: 'Must be https',
+});
 export const OutboundEndpointCreateSchema = z.object({
   name: z.string().trim().min(1).max(80),
-  url: z.string().url().refine((u) => u.startsWith('https://') || u.startsWith('http://localhost'), {
-    error: 'Must be https',
-  }),
+  url: httpsUrl,
   events: z.array(OutboundEventSchema).min(1),
 });
+/** PATCH body without defaults (Zod 4 `.partial()` keeps defaults). */
+export const WebhookEndpointUpdateSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    isActive: z.boolean(),
+    action: InboundWebhookActionSchema,
+    workflowId: IdSchema.nullable(),
+    mapping: PayloadMappingSchema,
+    url: httpsUrl,
+    events: z.array(OutboundEventSchema).min(1),
+  })
+  .partial();
 
 /** Returned once at creation / rotation. */
 export const WebhookSecretSchema = z.object({ secret: z.string() });

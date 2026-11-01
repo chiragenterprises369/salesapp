@@ -51,6 +51,11 @@ const EnvSchema = z.object({
 
   TELEPHONY_PROVIDER: z.string().default('mock'),
   FEATURE_AI_NODE: bool,
+  /** Express "trust proxy" (e.g. "loopback", "1", "10.0.0.0/8"). Needed for real client IPs behind a load balancer. */
+  TRUST_PROXY: z.string().optional(),
+}).refine((e) => e.SUPER_JWT_SECRET !== e.JWT_ACCESS_SECRET && e.SUPER_JWT_SECRET !== e.JWT_REFRESH_SECRET, {
+  message: 'SUPER_JWT_SECRET must differ from the workspace JWT secrets',
+  path: ['SUPER_JWT_SECRET'],
 });
 
 export type Env = z.infer<typeof EnvSchema>;

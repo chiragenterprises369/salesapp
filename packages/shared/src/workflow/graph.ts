@@ -131,7 +131,7 @@ export function validateGraph(graph: WorkflowGraph, opts: { aiEnabled?: boolean 
     for (const next of outgoing.get(id) ?? []) {
       const c = color.get(next) ?? 0;
       if (c === 1) {
-        const cycle = [...stack.slice(stack.indexOf(next)), id];
+        const cycle = next === id ? [id] : [...stack.slice(stack.indexOf(next)), id];
         if (!cycle.some((cid) => byId.get(cid)?.type === 'logic.loop_limit')) err('Loops need a Loop limit step', next);
       } else if (c === 0) visit(next, [...stack, id]);
     }

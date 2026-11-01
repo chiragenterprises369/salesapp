@@ -1,6 +1,8 @@
 import { z } from 'zod';
-import { EmployeeStatusSchema, LeadSourceSchema } from '../enums.js';
+import { EmployeeStatusSchema, LeadSourceSchema, TARGET_METRICS } from '../enums.js';
 import { IdSchema, IsoDateTimeSchema } from './common.js';
+import { LeadListItemSchema } from './lead.js';
+import { TaskSchema } from './task.js';
 import { UserSummarySchema } from './workspace.js';
 
 export const DashboardQuerySchema = z.object({
@@ -113,3 +115,28 @@ export const TeamFloorSnapshotSchema = z.object({
   generatedAt: IsoDateTimeSchema,
 });
 export type TeamFloorSnapshot = z.infer<typeof TeamFloorSnapshotSchema>;
+
+/** Employee panel Home ("today view"), always own scope. */
+export const MyTodaySchema = z.object({
+  tasksDue: z.array(TaskSchema),
+  followUps: z.array(LeadListItemSchema).describe('Leads with nextFollowUpAt today or overdue'),
+  callsToMake: z.array(TaskSchema).describe('Open call tasks due today or overdue'),
+  newAssigned: z.array(LeadListItemSchema).describe('Assigned to me in the last 24 h'),
+  targets: z.array(
+    z.object({
+      metric: z.enum(TARGET_METRICS),
+      period: z.string().describe('YYYY-MM'),
+      target: z.number().int(),
+      achieved: z.number().int(),
+    }),
+  ),
+  stats: z.object({
+    callsToday: z.number().int(),
+    talkSecToday: z.number().int(),
+    leadsContactedToday: z.number().int(),
+    wonInrThisMonth: z.number().int(),
+    rank: z.number().int().nullable().describe('null when the company hides ranks (Workspace.showEmployeeRank)'),
+  }),
+  generatedAt: IsoDateTimeSchema,
+});
+export type MyToday = z.infer<typeof MyTodaySchema>;

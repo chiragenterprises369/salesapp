@@ -54,14 +54,22 @@ export function totpCode(secret: string, atMs = Date.now(), stepSec = 30, digits
   return String(bin).padStart(digits, '0');
 }
 
-/** Accepts the current step and +/- `window` steps for clock drift. */
-export function verifyTotp(secret: string, code: string, window = 1, atMs = Date.now()): boolean {
-  if (!/^\d{6}$/.test(code)) return false;
+/**
+ * Verify a code. Accepts the current step and +/- `window` steps for clock drift.
+ * Returns the matched time step, or null. Replay protection: the caller stores the step
+ * (PlatformAdmin.totpLastStep) and passes it as `lastUsedStep`; a step <= lastUsedStep is rejected.
+ */
+export function verifyTotp(secret: string, code: string, opts: { window?: number; atMs?: number; lastUsedStep?: number | null } = {}): number | null {
+  const { window = 1, atMs = Date.now(), lastUsedStep = null } = opts;
+  if (!/^\d{6}$/.test(code)) return null;
+  const current = Math.floor(atMs / 30_000);
   for (let i = -window; i <= window; i++) {
-    const expected = totpCode(secret, atMs + i * 30_000);
-    if (timingSafeEqual(Buffer.from(expected), Buffer.from(code))) return true;
+    const step = current + i;
+    if (lastUsedStep !== null && step <= lastUsedStep) continue;
+    const expected = totpCode(secret, step * 30_000);
+    if (timingSafeEqual(Buffer.from(expected), Buffer.from(code))) return step;
   }
-  return false;
+  return null;
 }
 
 export function otpauthUrl(accountEmail: string, secret: string, issuer = 'Vistar Super Admin'): string {

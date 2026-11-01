@@ -59,26 +59,38 @@ export const LeadSchema = LeadListItemSchema.extend({
 });
 export type Lead = z.infer<typeof LeadSchema>;
 
-export const LeadCreateSchema = z.object({
+/**
+ * Lead input fields WITHOUT defaults. Zod 4 `.partial()` keeps `.default()`, so Update schemas must be
+ * built from this base; only Create adds defaults.
+ */
+const LeadInputFields = z.object({
   name: z.string().trim().min(1).max(120),
   companyName: z.string().trim().max(160).optional(),
   phone: PhoneSchema.optional(),
   email: z.email().optional(),
   city: z.string().max(80).optional(),
   state: z.string().max(80).optional(),
-  source: LeadSourceSchema.default('manual'),
+  source: LeadSourceSchema,
   sourceRef: z.string().max(120).optional(),
   productInterest: z.string().max(200).optional(),
   requirement: z.string().max(4000).optional(),
   ownerId: IdSchema.optional(),
   stageId: IdSchema.optional().describe('Defaults to first stage of default pipeline'),
+  valueInr: InrSchema,
+  tags: z.array(z.string().max(40)).max(30),
+  customFields: CustomFieldValuesSchema,
+});
+
+export const LeadCreateSchema = LeadInputFields.extend({
+  source: LeadSourceSchema.default('manual'),
   valueInr: InrSchema.default(0),
   tags: z.array(z.string().max(40)).max(30).default([]),
   customFields: CustomFieldValuesSchema.default({}),
 });
 export type LeadCreate = z.infer<typeof LeadCreateSchema>;
 
-export const LeadUpdateSchema = LeadCreateSchema.omit({ source: true, sourceRef: true })
+/** Changing `ownerId` additionally requires `leads.assign` (checked in the service). */
+export const LeadUpdateSchema = LeadInputFields.omit({ source: true, sourceRef: true })
   .partial()
   .extend({
     nextFollowUpAt: IsoDateTimeSchema.nullable().optional(),
@@ -121,11 +133,12 @@ export type LeadListQuery = z.infer<typeof LeadListQuerySchema>;
 /**
  * Leads page views. Default is "board" (kanban). Resolution order (resolveLeadsViewMode):
  *   1. URL param ?view=board|table (wins for that visit; NOT persisted unless the user toggles)
- *   2. User setting `leads.viewMode` (server, follows the user across devices)
- *   3. localStorage `vistar.leads.viewMode` (instant fallback before settings load)
- *   4. Workspace setting `leads.defaultViewMode` (set by admins)
- *   5. "board"
- * When the user toggles: write localStorage immediately, then PATCH /me/settings { leadsViewMode }.
+ *   2. The choice the user made in this session (instant, survives a failed PATCH)
+ *   3. User setting `leads.viewMode` (server, follows the user across devices)
+ *   4. localStorage `vistar.leads.viewMode` (instant fallback before settings load)
+ *   5. Workspace setting `leads.defaultViewMode` (set by admins)
+ *   6. "board"
+ * When the user toggles: set the session choice + localStorage immediately, then PATCH /me/settings { leadsViewMode }.
  */
 export const DEFAULT_LEADS_VIEW_MODE: LeadsViewMode = 'board';
 export const LEADS_VIEW_QUERY_PARAM = 'view';
@@ -138,12 +151,15 @@ export function parseLeadsViewMode(value: unknown): LeadsViewMode | null {
 
 export function resolveLeadsViewMode(input: {
   urlParam?: string | null;
+  /** Choice made in this session (toggle). Beats the server value until it round-trips. */
+  sessionChoice?: LeadsViewMode | null;
   userSetting?: LeadsViewMode | null;
   localStorageValue?: string | null;
   workspaceDefault?: LeadsViewMode | null;
 }): LeadsViewMode {
   return (
     parseLeadsViewMode(input.urlParam) ??
+    input.sessionChoice ??
     input.userSetting ??
     parseLeadsViewMode(input.localStorageValue) ??
     input.workspaceDefault ??

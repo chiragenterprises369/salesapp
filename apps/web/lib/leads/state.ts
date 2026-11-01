@@ -85,13 +85,21 @@ export function filtersToSearchParams(filters: LeadFilters, base?: URLSearchPara
   return params;
 }
 
-/** URLSearchParams -> filters (invalid values are dropped). */
+/** URLSearchParams -> filters. Each key is parsed on its own so one bad value never drops the rest. */
 export function searchParamsToFilters(params: URLSearchParams): LeadFilters {
-  const raw: Record<string, string> = {};
-  for (const key of Object.keys(LeadFiltersSchema.shape)) {
-    const v = params.get(key);
-    if (v) raw[key] = v;
+  const out: Record<string, unknown> = {};
+  const shape = LeadFiltersSchema.shape as Record<string, { safeParse: (v: unknown) => { success: boolean; data?: unknown } }>;
+  for (const key of Object.keys(shape)) {
+    let v: string | null = params.get(key);
+    if (!v) continue;
+    // Accept date-only values for date filters (start of that day, local time).
+    if ((key === 'createdFrom' || key === 'createdTo') && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      const d = new Date(`${v}T00:00:00`);
+      if (key === 'createdTo') d.setHours(23, 59, 59, 999);
+      v = d.toISOString();
+    }
+    const parsed = shape[key]!.safeParse(v);
+    if (parsed.success && parsed.data !== undefined) out[key] = parsed.data;
   }
-  const parsed = LeadFiltersSchema.safeParse(raw);
-  return parsed.success ? compact(parsed.data) : EMPTY_FILTERS;
+  return compact(out as LeadFilters);
 }

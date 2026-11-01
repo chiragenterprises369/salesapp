@@ -24,19 +24,25 @@ export const TaskSchema = z.object({
 });
 export type Task = z.infer<typeof TaskSchema>;
 
-export const TaskCreateSchema = z.object({
-  type: TaskTypeSchema.default('todo'),
+const TaskInputFields = z.object({
+  type: TaskTypeSchema,
   title: z.string().trim().min(1).max(200),
   notes: z.string().max(5000).optional(),
-  priority: TaskPrioritySchema.default('normal'),
+  priority: TaskPrioritySchema,
   leadId: IdSchema.optional(),
   assigneeId: IdSchema.optional().describe('Defaults to the current user'),
   dueAt: IsoDateTimeSchema.optional(),
   remindAt: IsoDateTimeSchema.optional(),
 });
+
+export const TaskCreateSchema = TaskInputFields.extend({
+  type: TaskTypeSchema.default('todo'),
+  priority: TaskPrioritySchema.default('normal'),
+});
 export type TaskCreate = z.infer<typeof TaskCreateSchema>;
 
-export const TaskUpdateSchema = TaskCreateSchema.partial().extend({
+/** Built from the default-free base (Zod 4 `.partial()` keeps defaults). */
+export const TaskUpdateSchema = TaskInputFields.partial().extend({
   status: TaskStatusSchema.optional(),
 });
 export type TaskUpdate = z.infer<typeof TaskUpdateSchema>;

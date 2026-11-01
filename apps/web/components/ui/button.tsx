@@ -26,6 +26,9 @@ export const buttonVariants = cva(
         lg: 'h-10 px-4 text-base',
         icon: 'size-8 text-sm',
         'icon-sm': 'size-7 text-xs [&_svg]:size-3.5',
+        /** Employee panel / touch: 44x44 minimum target. */
+        touch: 'h-11 min-w-11 px-3 text-base [&_svg]:size-5',
+        'icon-touch': 'size-11 [&_svg]:size-5',
       },
     },
     defaultVariants: { variant: 'secondary', size: 'md' },

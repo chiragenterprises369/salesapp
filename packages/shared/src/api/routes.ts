@@ -39,7 +39,7 @@ import {
   QuickReplySchema,
   TemplateSchema,
 } from '../schemas/conversation.js';
-import { DashboardQuerySchema, DashboardSummarySchema, TeamFloorSnapshotSchema } from '../schemas/dashboard.js';
+import { DashboardQuerySchema, DashboardSummarySchema, MyTodaySchema, TeamFloorSnapshotSchema } from '../schemas/dashboard.js';
 import {
   ApiKeyCreatedSchema,
   ApiKeyCreateSchema,
@@ -54,6 +54,7 @@ import {
   WebhookDeliveryQuerySchema,
   WebhookDeliverySchema,
   WebhookEndpointSchema,
+  WebhookEndpointUpdateSchema,
   WebhookSecretSchema,
 } from '../schemas/integration.js';
 import {
@@ -119,6 +120,7 @@ import {
   UserSchema,
   UserSettingsSchema,
   UserSettingsUpdateSchema,
+  UserSummarySchema,
   UserUpdateSchema,
   WorkspaceSchema,
   WorkspaceUpdateSchema,
@@ -202,6 +204,8 @@ export const API_ROUTES = {
   workspaceTheme: route({ method: 'put', path: '/workspace/theme', summary: 'Set the workspace default theme (automation hook)', tag: 'workspace', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'settings.manage', body: z.object({ mode: ThemeModeSchema }), response: WorkspaceSchema }),
   userList: route({ method: 'get', path: '/users', summary: 'Team members', tag: 'team', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'team.read', query: z.object({ q: z.string().optional(), teamId: IdSchema.optional(), includeInactive: z.coerce.boolean().optional() }), response: listOf(UserSchema) }),
   userUpdate: route({ method: 'patch', path: '/users/{id}', summary: 'Update a member (role, team, active)', tag: 'team', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'team.manage', params: IdParamSchema, body: UserUpdateSchema, response: UserSchema }),
+  userOptions: route({ method: 'get', path: '/users/options', summary: 'Assignable users for pickers (owner dropdown, reassign); respects data scope', tag: 'team', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'leads.read', query: z.object({ q: z.string().optional() }), response: listOf(UserSummarySchema) }),
+  myToday: route({ method: 'get', path: '/me/today', summary: 'Employee Home: tasks due, follow-ups, calls to make, new leads, targets, today stats (own scope)', tag: 'settings', owner: 'backend-core', phase: 2, auth: 'jwt', permission: null, response: MyTodaySchema }),
   teamList: route({ method: 'get', path: '/teams', summary: 'Teams', tag: 'team', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'team.read', response: listOf(TeamSchema) }),
   teamCreate: route({ method: 'post', path: '/teams', summary: 'Create a team', tag: 'team', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'team.manage', body: z.object({ name: z.string().min(1).max(60), managerId: IdSchema.nullable().optional(), memberIds: z.array(IdSchema).default([]) }), response: TeamSchema, status: 201 }),
   roleList: route({ method: 'get', path: '/roles', summary: 'Roles and permission matrix', tag: 'team', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'team.read', response: listOf(RoleSchema) }),
@@ -218,7 +222,7 @@ export const API_ROUTES = {
   leadList: route({ method: 'get', path: '/leads', summary: 'List leads with filters, search and sort', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt_or_api_key', permission: 'leads.read', query: LeadListQuerySchema, response: pageOf(LeadListItemSchema) }),
   leadCreate: route({ method: 'post', path: '/leads', summary: 'Create a lead', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt_or_api_key', permission: 'leads.create', body: LeadCreateSchema, response: LeadSchema, status: 201 }),
   leadGet: route({ method: 'get', path: '/leads/{id}', summary: 'Lead detail', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt_or_api_key', permission: 'leads.read', params: IdParamSchema, response: LeadSchema }),
-  leadUpdate: route({ method: 'patch', path: '/leads/{id}', summary: 'Update a lead', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt_or_api_key', permission: 'leads.update', params: IdParamSchema, body: LeadUpdateSchema, response: LeadSchema }),
+  leadUpdate: route({ method: 'patch', path: '/leads/{id}', summary: 'Update a lead (changing ownerId also requires leads.assign)', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt_or_api_key', permission: 'leads.update', params: IdParamSchema, body: LeadUpdateSchema, response: LeadSchema }),
   leadDelete: route({ method: 'delete', path: '/leads/{id}', summary: 'Delete a lead (soft delete)', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.delete', params: IdParamSchema, response: OkResponseSchema }),
   leadBulk: route({ method: 'post', path: '/leads/bulk', summary: 'Bulk assign, stage, tag, delete or WhatsApp template', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.bulk', body: LeadBulkActionSchema, response: BulkResultSchema }),
   leadImportPreview: route({ method: 'post', path: '/leads/import', summary: 'Upload CSV/XLSX (field "file") and get a mapping preview', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.import', bodyContentType: 'multipart/form-data', response: ImportPreviewResponseSchema, status: 201 }),
@@ -226,7 +230,7 @@ export const API_ROUTES = {
   leadImportGet: route({ method: 'get', path: '/leads/import/{id}', summary: 'Import job status', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.import', params: IdParamSchema, response: ImportJobSchema }),
   leadExport: route({ method: 'get', path: '/leads/export', summary: 'Export leads matching filters', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.export', query: LeadListQuerySchema.omit({ cursor: true, limit: true }).extend({ format: z.enum(['csv', 'xlsx']).default('csv') }), response: null, responseContentType: 'text/csv' }),
   leadDuplicates: route({ method: 'get', path: '/leads/{id}/duplicates', summary: 'Possible duplicates (phone, email, name+company)', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.read', params: IdParamSchema, response: listOf(LeadListItemSchema) }),
-  leadMerge: route({ method: 'post', path: '/leads/merge', summary: 'Merge duplicates into a primary lead', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.update', body: LeadMergeSchema, response: LeadSchema }),
+  leadMerge: route({ method: 'post', path: '/leads/merge', summary: 'Merge duplicates into a primary lead (duplicates are soft-deleted)', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.merge', body: LeadMergeSchema, response: LeadSchema }),
   leadTimeline: route({ method: 'get', path: '/leads/{id}/timeline', summary: 'Unified timeline', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.read', params: IdParamSchema, query: CursorPaginationQuerySchema, response: pageOf(ActivitySchema) }),
   leadNoteCreate: route({ method: 'post', path: '/leads/{id}/notes', summary: 'Add a note', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.update', params: IdParamSchema, body: NoteCreateSchema, response: ActivitySchema, status: 201 }),
   viewList: route({ method: 'get', path: '/views', summary: 'Saved views', tag: 'leads', owner: 'backend-core', phase: 2, auth: 'jwt', permission: 'leads.read', response: listOf(SavedViewSchema) }),
@@ -269,7 +273,7 @@ export const API_ROUTES = {
   webhookEndpointList: route({ method: 'get', path: '/webhooks/endpoints', summary: 'Inbound and outbound endpoints', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', response: listOf(WebhookEndpointSchema) }),
   webhookInboundCreate: route({ method: 'post', path: '/webhooks/endpoints/inbound', summary: 'Create an inbound source URL (secret returned once)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', body: InboundEndpointCreateSchema, response: WebhookEndpointSchema.extend(WebhookSecretSchema.shape), status: 201 }),
   webhookOutboundCreate: route({ method: 'post', path: '/webhooks/endpoints/outbound', summary: 'Subscribe a URL to events (secret returned once)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', body: OutboundEndpointCreateSchema, response: WebhookEndpointSchema.extend(WebhookSecretSchema.shape), status: 201 }),
-  webhookEndpointUpdate: route({ method: 'patch', path: '/webhooks/endpoints/{id}', summary: 'Update an endpoint', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, body: InboundEndpointCreateSchema.partial().extend(OutboundEndpointCreateSchema.partial().shape).extend({ isActive: z.boolean().optional() }), response: WebhookEndpointSchema }),
+  webhookEndpointUpdate: route({ method: 'patch', path: '/webhooks/endpoints/{id}', summary: 'Update an endpoint', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, body: WebhookEndpointUpdateSchema, response: WebhookEndpointSchema }),
   webhookEndpointDelete: route({ method: 'delete', path: '/webhooks/endpoints/{id}', summary: 'Delete an endpoint', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, response: OkResponseSchema }),
   webhookRotateSecret: route({ method: 'post', path: '/webhooks/endpoints/{id}/rotate-secret', summary: 'Rotate signing secret (returned once)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, response: WebhookSecretSchema }),
   webhookMappingPreview: route({ method: 'post', path: '/webhooks/mapping/preview', summary: 'Preview mapping on a sample payload', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', body: MappingPreviewRequestSchema, response: MappingPreviewResponseSchema }),

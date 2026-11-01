@@ -23,6 +23,7 @@
   --color-surface-3: var(--surface-3);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-input: var(--input-border);
   --color-fg: var(--fg);
   --color-fg-secondary: var(--fg-secondary);
   --color-muted: var(--muted);
@@ -129,10 +130,11 @@
     opacity: 0;
   }
 }
+/* Centering uses the separate `translate` property (Tailwind v4), so animate `transform` only. */
 @keyframes dialog-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -48%) scale(0.98);
+    transform: translateY(1%) scale(0.98);
   }
 }
 @keyframes pulse {

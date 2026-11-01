@@ -19,9 +19,10 @@ const leads = mockLeads(8);
 const stageName = new Map(mockPipeline().stages.map((s) => [s.id, s.name]));
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
+  const id = `kit-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
   return (
-    <section aria-labelledby={`kit-${title}`} className="flex flex-col gap-3">
-      <h2 id={`kit-${title}`} className="text-xs font-semibold tracking-wide text-muted-strong uppercase">
+    <section aria-labelledby={id} className="flex flex-col gap-3">
+      <h2 id={id} className="text-xs font-semibold tracking-wide text-muted-strong uppercase">
         {title}
       </h2>
       {children}

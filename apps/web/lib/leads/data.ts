@@ -55,61 +55,108 @@ export function useLeadsBoard(pipelineId: string, filters: LeadFilters) {
 
 type Snapshot = Array<[QueryKey, unknown]>;
 
-/** Apply a move to a cached board (pure; used by optimistic updates and realtime stage.changed). */
-export function applyMoveToBoard(board: Board, lead: LeadListItem, toStageId: string, beforeId?: string | null, afterId?: string | null): Board {
-  const columns = board.columns.map((c) => ({ ...c, leads: c.leads.filter((l) => l.id !== lead.id) }));
-  const from = board.columns.find((c) => c.leads.some((l) => l.id === lead.id));
-  const target = columns.find((c) => c.stage.id === toStageId);
-  if (!target) return board;
-  const moved: LeadListItem = { ...lead, stageId: toStageId };
-  let index = target.leads.length;
-  if (beforeId) index = target.leads.findIndex((l) => l.id === beforeId) + 1;
-  else if (afterId) index = Math.max(0, target.leads.findIndex((l) => l.id === afterId));
-  target.leads.splice(index, 0, moved);
+export interface BoardMove {
+  /** The moved lead (any stageId; fields are copied onto the card). */
+  lead: LeadListItem;
+  fromStageId: string | null;
+  toStageId: string;
+  beforeId?: string | null;
+  afterId?: string | null;
+  /** Fractional position in the target stage; used to place the card when no neighbours are given. */
+  position?: string | null;
+}
+
+/**
+ * Apply a move to a cached board (pure). Used by optimistic updates, rollback and realtime
+ * `stage.changed` (pass `fromStageId` from the event so counts stay right even when the card is
+ * not loaded in the source column). Placement: after `beforeId`, before `afterId`, else by
+ * `position`, else at the end of the column.
+ */
+export function applyMoveToBoard(board: Board, move: BoardMove): Board {
+  const { lead, fromStageId, toStageId, beforeId, afterId, position } = move;
+  if (!board.columns.some((c) => c.stage.id === toStageId)) return board;
+  const moved: LeadListItem = { ...lead, stageId: toStageId, ...(position ? { position } : {}) };
+  const sameStage = fromStageId === toStageId;
+
   return {
     ...board,
-    columns: columns.map((c) => {
-      const wasFrom = from && c.stage.id === from.stage.id;
+    columns: board.columns.map((c) => {
+      const isSource = c.stage.id === fromStageId;
       const isTarget = c.stage.id === toStageId;
-      if (wasFrom && isTarget) return c;
-      if (wasFrom) return { ...c, count: c.count - 1, totalValueInr: c.totalValueInr - lead.valueInr };
-      if (isTarget) return { ...c, count: c.count + 1, totalValueInr: c.totalValueInr + lead.valueInr };
-      return c;
+      if (!isSource && !isTarget) return c;
+      let leads = c.leads.filter((l) => l.id !== lead.id);
+      let { count, totalValueInr } = c;
+      if (isSource && !sameStage) {
+        count = Math.max(0, count - 1);
+        totalValueInr = Math.max(0, totalValueInr - lead.valueInr);
+      }
+      if (isTarget) {
+        let index = leads.length;
+        if (beforeId && leads.some((l) => l.id === beforeId)) index = leads.findIndex((l) => l.id === beforeId) + 1;
+        else if (afterId && leads.some((l) => l.id === afterId)) index = leads.findIndex((l) => l.id === afterId);
+        else if (moved.position) {
+          const at = leads.findIndex((l) => l.position > moved.position);
+          index = at === -1 ? leads.length : at;
+        }
+        // A card that belongs beyond the loaded page stays unloaded (count still changes).
+        const beyondPage = index === leads.length && c.nextCursor !== null && !beforeId && !afterId;
+        if (!beyondPage) leads = [...leads.slice(0, index), moved, ...leads.slice(index)];
+        if (!sameStage) {
+          count += 1;
+          totalValueInr += lead.valueInr;
+        }
+      }
+      return { ...c, leads, count, totalValueInr };
     }),
   };
 }
 
-/** Optimistic lead move with rollback. Updates every cached board and list. */
+/**
+ * Optimistic lead move with per-lead rollback. Updates every cached board and list.
+ * No neighbours = end of the target column (matches LeadMoveSchema).
+ */
 export function useMoveLead(pipelineId: string) {
   const qc = useQueryClient();
+  const boardKey = ['board', pipelineId] as const;
   return useMutation({
     mutationFn: ({ lead, move }: { lead: LeadListItem; move: LeadMove }) => getLeadsSource().move(lead.id, move),
     onMutate: async ({ lead, move }) => {
-      await qc.cancelQueries({ queryKey: ['board', pipelineId] });
-      const snapshot: Snapshot = [...qc.getQueriesData({ queryKey: ['board', pipelineId] }), ...qc.getQueriesData({ queryKey: leadKeys.lists() })];
-      qc.setQueriesData<Board>({ queryKey: ['board', pipelineId] }, (b) =>
-        b ? applyMoveToBoard(b, lead, move.stageId, move.beforeLeadId, move.afterLeadId) : b,
+      await Promise.all([qc.cancelQueries({ queryKey: boardKey }), qc.cancelQueries({ queryKey: leadKeys.lists() })]);
+      qc.setQueriesData<Board>({ queryKey: boardKey }, (b) =>
+        b ? applyMoveToBoard(b, { lead, fromStageId: lead.stageId, toStageId: move.stageId, beforeId: move.beforeLeadId, afterId: move.afterLeadId }) : b,
       );
       patchListItem(qc, { ...lead, stageId: move.stageId });
-      return { snapshot };
+      return { original: lead };
     },
-    onError: (_err, _vars, ctx) => {
-      ctx?.snapshot.forEach(([key, data]) => qc.setQueryData(key, data));
-      toast.error('Could not move the lead. It is back in its original stage.');
+    onError: (_err, { move }, ctx) => {
+      if (!ctx) return;
+      const { original } = ctx;
+      // Roll back ONLY this lead so other in-flight moves survive.
+      qc.setQueriesData<Board>({ queryKey: boardKey }, (b) =>
+        b ? applyMoveToBoard(b, { lead: original, fromStageId: move.stageId, toStageId: original.stageId, position: original.position }) : b,
+      );
+      patchListItem(qc, original);
+      toast.error(`Could not move ${original.name}. It is back in its original stage.`);
     },
-    onSuccess: (saved) => {
-      qc.setQueriesData<Board>({ queryKey: ['board', pipelineId] }, (b) =>
-        b ? { ...b, columns: b.columns.map((c) => ({ ...c, leads: c.leads.map((l) => (l.id === saved.id ? saved : l)) })) } : b,
+    onSuccess: (saved, { move }) => {
+      qc.setQueriesData<Board>({ queryKey: boardKey }, (b) =>
+        b ? { ...b, columns: b.columns.map((c) => (c.stage.id === move.stageId ? { ...c, leads: c.leads.map((l) => (l.id === saved.id ? saved : l)) } : c)) } : b,
       );
       patchListItem(qc, saved);
     },
   });
 }
 
-function patchListItem(qc: ReturnType<typeof useQueryClient>, lead: LeadListItem) {
+/** Exported for realtime updaters: replace a lead in every cached list page. */
+export function patchListItem(qc: ReturnType<typeof useQueryClient>, lead: LeadListItem) {
   qc.setQueriesData<{ pages: Page<LeadListItem>[]; pageParams: unknown[] }>({ queryKey: leadKeys.lists() }, (data) =>
     data ? { ...data, pages: data.pages.map((p) => ({ ...p, items: p.items.map((l) => (l.id === lead.id ? { ...l, ...lead } : l)) })) } : data,
   );
+}
+
+/** For rare cases that need a full snapshot (e.g. bulk actions). */
+export function snapshotLeadCaches(qc: ReturnType<typeof useQueryClient>, pipelineId: string): Snapshot {
+  return [...qc.getQueriesData({ queryKey: ['board', pipelineId] }), ...qc.getQueriesData({ queryKey: leadKeys.lists() })];
 }
 
 /** Position between two neighbours (server does the same; exported for mocks/tests). */
