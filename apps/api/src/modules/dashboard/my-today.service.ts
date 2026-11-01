@@ -5,7 +5,7 @@ import { AppException } from '../../common/errors/app-exception.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { LEAD_LIST_INCLUDE, toLeadListItem } from '../leads/lead.mapper.js';
 import { startOfNextZonedMonth, startOfZonedMonth, zonedMonthKey, zonedToday } from '../leads/lib/tz.js';
-import { TASK_INCLUDE, toTask } from '../tasks/task.mapper.js';
+import { TASK_INCLUDE, taskMappers } from '../tasks/task.mapper.js';
 import { workspaceTimezone } from '../tasks/tasks.service.js';
 import { DashboardSql } from './dashboard.sql.js';
 
@@ -82,11 +82,12 @@ export class MyTodayService {
       leads_converted: convertedMonth,
     };
     const contacted = new Set([...contactedCalls.map((c) => c.leadId), ...contactedActs.map((a) => a.leadId)].filter(Boolean));
+    const { view } = await taskMappers(db, auth);
 
     return {
-      tasksDue: tasksDue.map(toTask),
+      tasksDue: tasksDue.map(view),
       followUps: followUps.map(toLeadListItem),
-      callsToMake: callsToMake.map(toTask),
+      callsToMake: callsToMake.map(view),
       newAssigned: newAssigned.map(toLeadListItem),
       targets: targets.map((t) => ({ metric: t.metric, period: t.period, target: t.value, achieved: achieved[t.metric] })),
       stats: {

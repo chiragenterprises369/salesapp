@@ -72,16 +72,46 @@ export const parseSource = (raw: string): LeadSource | null => {
   return (LEAD_SOURCES as readonly string[]).includes(v) ? (v as LeadSource) : null;
 };
 
-export function parseCustomValue(type: string, raw: string): { ok: true; value: string | number | boolean } | { ok: false } {
-  if (type === 'number') {
-    const n = Number(raw.replace(/,/g, ''));
-    return Number.isFinite(n) ? { ok: true, value: n } : { ok: false };
+/** Coerce a CSV cell to the shape `validateCustomValues` expects for the field type (invalid input is passed through for a readable error). */
+export function coerceCustomValue(def: { type: string; config: Record<string, unknown> }, raw: string): unknown {
+  const v = raw.trim();
+  const options = (def.config.options as Array<{ value: string; label: string }> | undefined) ?? [];
+  const option = (s: string) => {
+    const t = s.trim().toLowerCase();
+    return options.find((o) => o.value === t || o.label.toLowerCase() === t)?.value ?? s.trim();
+  };
+  switch (def.type) {
+    case 'number': {
+      const n = Number(v.replace(/,/g, ''));
+      return Number.isFinite(n) ? n : v;
+    }
+    case 'money':
+      return parseRupees(v) ?? v;
+    case 'boolean': {
+      const b = v.toLowerCase();
+      if (['true', 'yes', 'y', '1'].includes(b)) return true;
+      if (['false', 'no', 'n', '0'].includes(b)) return false;
+      return v;
+    }
+    case 'select':
+      return option(v);
+    case 'multi_select':
+      return v.split(/[,;|]/).map((s) => s.trim()).filter(Boolean).map(option);
+    case 'date': {
+      // 25/12/2026 or 25-12-2026 (Indian order) -> 2026-12-25
+      const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(v);
+      const iso = m ? `${m[3]}-${m[2]!.padStart(2, '0')}-${m[1]!.padStart(2, '0')}` : v;
+      if ((def.config as { withTime?: boolean }).withTime) {
+        const d = new Date(iso);
+        return Number.isNaN(d.getTime()) ? v : d.toISOString();
+      }
+      return iso;
+    }
+    case 'geo_point': {
+      const parts = v.split(',').map((p) => Number(p.trim()));
+      return parts.length === 2 && parts.every(Number.isFinite) ? { lat: parts[0], lng: parts[1] } : v;
+    }
+    default:
+      return v;
   }
-  if (type === 'boolean') {
-    const v = raw.trim().toLowerCase();
-    if (['true', 'yes', 'y', '1'].includes(v)) return { ok: true, value: true };
-    if (['false', 'no', 'n', '0'].includes(v)) return { ok: true, value: false };
-    return { ok: false };
-  }
-  return { ok: true, value: raw.slice(0, 500) };
 }

@@ -123,10 +123,11 @@ export class DashboardService {
 
   /** Current pipeline snapshot (default pipeline), scoped. */
   private async funnel(db: TenantDb, leadScope: Prisma.LeadWhereInput): Promise<DashboardSummary['funnel']> {
-    const pipeline = (await db.pipeline.findFirst({ where: { isDefault: true } })) ?? (await db.pipeline.findFirst({ orderBy: { createdAt: 'asc' } }));
+    const pipeline =
+      (await db.pipeline.findFirst({ where: { isDefault: true, archivedAt: null } })) ?? (await db.pipeline.findFirst({ where: { archivedAt: null }, orderBy: { createdAt: 'asc' } }));
     if (!pipeline) return [];
     const [stages, groups] = await Promise.all([
-      db.stage.findMany({ where: { pipelineId: pipeline.id }, orderBy: { order: 'asc' } }),
+      db.stage.findMany({ where: { pipelineId: pipeline.id, archivedAt: null }, orderBy: { order: 'asc' } }),
       db.lead.groupBy({ by: ['stageId'], where: { ...leadScope, pipelineId: pipeline.id }, _count: { _all: true }, _sum: { valueInr: true } }),
     ]);
     const byStage = new Map(groups.map((g) => [g.stageId, g]));

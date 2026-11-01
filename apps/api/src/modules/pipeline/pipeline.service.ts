@@ -12,7 +12,7 @@ import { ActivityService } from '../leads/activity.service.js';
 import { LEAD_LIST_INCLUDE, toLeadListItem } from '../leads/lead.mapper.js';
 import { positionBetween } from '../leads/lead-position.js';
 import { buildLeadWhere } from '../leads/lead-query.js';
-import { stageDates, syncDealsForStage } from '../leads/lead-stage.js';
+import { activeStageOrThrow, stageDates, syncDealsForStage } from '../leads/lead-stage.js';
 import { LeadsService } from '../leads/leads.service.js';
 import { publishSafe, requestActor, type TenantDb } from '../leads/lib/context.js';
 import { decodeCursor, encodeCursor, isUuid } from '../leads/lib/cursor.js';
@@ -40,15 +40,18 @@ export class PipelineService {
     private readonly leads: LeadsService,
   ) {}
 
+  /** Pipeline with its ACTIVE stages (archived stages only keep the leads already in them). */
   private async loadPipeline(db: TenantDb, id: string) {
-    const pipeline = await db.pipeline.findUnique({ where: { id }, include: { stages: { orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] } } });
+    const pipeline = await db.pipeline.findUnique({ where: { id }, include: { stages: { where: { archivedAt: null }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] } } });
     if (!pipeline) throw notFound('Pipeline');
     return pipeline;
   }
 
+  /** Archived pipelines are hidden from lists and pickers. */
   async list(auth: AuthContext): Promise<{ items: Pipeline[] }> {
     const rows = await this.prisma.forTenant(auth.workspaceId).pipeline.findMany({
-      include: { stages: true },
+      where: { archivedAt: null },
+      include: { stages: { where: { archivedAt: null } } },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
     return { items: rows.map(toPipeline) };
@@ -88,6 +91,7 @@ export class PipelineService {
     const db = this.prisma.forTenant(auth.workspaceId);
     const stage = await db.stage.findFirst({ where: { id: stageId, pipelineId: id } });
     if (!stage) throw notFound('Stage');
+    if (stage.archivedAt) throw new AppException('STAGE_NOT_IN_PIPELINE', 'This stage is archived and is no longer on the board');
     const and: Prisma.LeadWhereInput[] = [await buildLeadWhere(auth, this.scope, q), { pipelineId: id, stageId }];
     if (q.cursor) {
       const c = decodeCursor(q.cursor, isColumnCursor);
@@ -112,7 +116,9 @@ export class PipelineService {
       if (idx < 0) throw new AppException('STAGE_NOT_IN_PIPELINE', 'That stage is not in this pipeline');
       insertAt = idx + 1;
     }
-    const key = stageKey(body.name, new Set(stages.map((s) => s.key)));
+    // Keys are unique per pipeline, archived stages included.
+    const allKeys = await db.stage.findMany({ where: { pipelineId }, select: { key: true } });
+    const key = stageKey(body.name, new Set(allKeys.map((s) => s.key)));
     const created = await db.$transaction(async (tx) => {
       const stage = await tx.stage.create({
         data: { workspaceId: auth.workspaceId, pipelineId, key, name: body.name.trim(), type: body.type, color: body.color ?? null, probability: body.probability, order: insertAt },
@@ -147,6 +153,7 @@ export class PipelineService {
     const db = this.prisma.forTenant(auth.workspaceId);
     const stage = await db.stage.findUnique({ where: { id } });
     if (!stage) throw notFound('Stage');
+    if (stage.archivedAt) throw new AppException('STAGE_NOT_IN_PIPELINE', 'This stage is archived');
     const updated = await db.stage.update({
       where: { id },
       data: {
@@ -167,7 +174,7 @@ export class PipelineService {
     if (await db.lead.count({ where: { stageId: id, deletedAt: null } })) {
       throw new AppException('STAGE_IN_USE', 'Move the leads in this stage to another stage first');
     }
-    const siblings = await db.stage.findMany({ where: { pipelineId: stage.pipelineId, id: { not: id } }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] });
+    const siblings = await db.stage.findMany({ where: { pipelineId: stage.pipelineId, id: { not: id }, archivedAt: null }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] });
     if (!siblings.length) throw new AppException('VALIDATION_FAILED', 'A pipeline needs at least one stage');
     await db.$transaction(async (tx) => {
       // Soft-deleted leads still reference the stage (FK): park them on the first remaining stage.
@@ -187,8 +194,7 @@ export class PipelineService {
     const db = this.prisma.forTenant(wid);
     const lead = await this.leads.loadVisible(db, auth, leadId);
     if (body.expectedVersion !== undefined && body.expectedVersion !== lead.version) throw versionConflict();
-    const stage = await db.stage.findUnique({ where: { id: body.stageId } });
-    if (!stage) throw notFound('Stage');
+    const stage = await activeStageOrThrow(db, body.stageId);
     const actor = await requestActor(db, auth);
     const now = new Date();
     const stageChanged = stage.id !== lead.stageId;

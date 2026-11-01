@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { API_ROUTES, formatFieldValue, type FieldType } from '@vistar/shared';
+import { API_ROUTES, formatFieldValue } from '@vistar/shared';
 import ExcelJS from 'exceljs';
 import type { Request, Response } from 'express';
 import Papa from 'papaparse';
@@ -8,6 +8,7 @@ import { AuditService } from '../../../common/audit/audit.service.js';
 import type { AuthContext } from '../../../common/auth/auth-context.js';
 import { ScopeService } from '../../../common/auth/scope.service.js';
 import { PrismaService } from '../../../infra/prisma/prisma.service.js';
+import { loadFieldDefs, roleKeyOf, visibleDefs } from '../../customization/custom-values.js';
 import { parseCustomFields, type LeadListRow } from '../lead.mapper.js';
 import { buildLeadWhere } from '../lead-query.js';
 import { LeadsService } from '../leads.service.js';
@@ -44,12 +45,15 @@ export class LeadExportService {
     const q = await this.leads.resolveView(auth, query, raw, LeadExportQuerySchema);
     const db = this.prisma.forTenant(auth.workspaceId);
     const base = await buildLeadWhere(auth, this.scope, q);
-    const [stages, users, customFields, actor] = await Promise.all([
+    const [stages, users, defs, roleKey, actor] = await Promise.all([
       db.stage.findMany({ select: { id: true, name: true } }),
       db.user.findMany({ select: { id: true, name: true, email: true } }),
-      db.customField.findMany({ where: { target: 'lead', archivedAt: null }, orderBy: { order: 'asc' }, select: { key: true, label: true, type: true, config: true } }),
+      loadFieldDefs(db, 'lead'),
+      roleKeyOf(db, auth),
       requestActor(db, auth),
     ]);
+    // Only custom fields the caller may see are exported.
+    const customFields = visibleDefs(defs, roleKey);
     const stageName = new Map(stages.map((s) => [s.id, s.name]));
     const userById = new Map(users.map((u) => [u.id, u]));
 
@@ -80,7 +84,7 @@ export class LeadExportService {
         width: 18,
         value: (l: LeadListRow) => {
           const v = parseCustomFields(l.customFields)[f.key];
-          return v === undefined || v === null ? null : formatFieldValue({ type: f.type as FieldType, config: f.config as Record<string, unknown> }, v);
+          return v === undefined || v === null ? null : formatFieldValue(f, v);
         },
       })),
     ];

@@ -1,6 +1,17 @@
 import { generateNKeysBetween } from 'fractional-indexing';
 import { Injectable, Logger } from '@nestjs/common';
-import type { ImportCommitRequest, ImportJob, ImportPreviewResponse, LeadSource, StageType } from '@vistar/shared';
+import {
+  fieldAccessFor,
+  validateCustomValues,
+  type CustomFieldValues,
+  type FieldDefinition,
+  type FieldError,
+  type ImportCommitRequest,
+  type ImportJob,
+  type ImportPreviewResponse,
+  type LeadSource,
+  type StageType,
+} from '@vistar/shared';
 import type { Request } from 'express';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -14,6 +25,7 @@ import type { ImportJob as ImportJobRow, Lead as LeadRow, Prisma } from '../../.
 import { EventBus } from '../../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../../infra/prisma/prisma.service.js';
 import type { TenantPrisma } from '../../../infra/prisma/tenant.js';
+import { loadFieldDefs, referenceErrors, roleKeyOf } from '../../customization/custom-values.js';
 import { NotificationsService } from '../../notifications/notifications.service.js';
 import { ActivityService } from '../activity.service.js';
 import { endOfColumn, firstPosition } from '../lead-position.js';
@@ -21,7 +33,7 @@ import { scoreLead } from '../lead-score.js';
 import { stageDates, syncDealsForStage } from '../lead-stage.js';
 import { LeadsService, normalizeTags } from '../leads.service.js';
 import { can, publishSafe, requestActor, type RequestActor, type TenantDb } from '../lib/context.js';
-import { isEmail, normalizePhone, parseCustomValue, parseRupees, parseSource, suggestMapping, type MappingTarget } from './mapping.js';
+import { coerceCustomValue, isEmail, normalizePhone, parseRupees, parseSource, suggestMapping, type MappingTarget } from './mapping.js';
 import { IMPORT_MAX_BYTES, parseTable, type Table } from './table.js';
 
 /** Minimal multer file shape (memory storage). */
@@ -54,7 +66,23 @@ interface PreparedRow {
   tags: string[];
   ownerId: string | undefined;
   stage: StageRef | undefined;
-  customFields: Record<string, string | number | boolean>;
+  customFields: CustomFieldValues;
+}
+
+interface CustomCtx {
+  /** All lead field definitions (archived included). */
+  defs: FieldDefinition[];
+  /** Mapped, writable definitions. */
+  mapped: FieldDefinition[];
+  roleKey: string | null;
+}
+
+/** "GST number: Enter a valid 15-character GSTIN" (first error of the row). */
+function customError(defs: readonly FieldDefinition[], errors: FieldError[]): string {
+  const e = errors[0]!;
+  const key = e.path.split('.').at(-1);
+  const label = defs.find((d) => d.key === key)?.label ?? key;
+  return `${label}: ${e.message}`;
 }
 
 interface Ctx {
@@ -64,7 +92,7 @@ interface Ctx {
   importId: string;
   strategy: ImportCommitRequest['duplicateStrategy'];
   columnFor: Map<MappingTarget, string>;
-  customTypes: Map<string, string>;
+  custom: CustomCtx;
   stagesByName: Map<string, StageRef>;
   defaultStage: StageRef;
   usersByEmail: Map<string, string>;
@@ -117,7 +145,9 @@ export class LeadImportService {
     const table = await parseTable(fileName, file.buffer);
 
     const db = this.prisma.forTenant(auth.workspaceId);
-    const customFields = await db.customField.findMany({ where: { target: 'lead', archivedAt: null }, select: { key: true, label: true } });
+    // Suggest only custom fields the caller can write.
+    const [defs, roleKey] = await Promise.all([loadFieldDefs(db, 'lead'), roleKeyOf(db, auth)]);
+    const customFields = defs.filter((d) => !d.archivedAt && fieldAccessFor(d, roleKey) === 'write').map((d) => ({ key: d.key, label: d.label }));
     const id = randomUUID();
     await mkdir(IMPORT_DIR, { recursive: true });
     await writeFile(path.join(IMPORT_DIR, id), file.buffer);
@@ -192,16 +222,18 @@ export class LeadImportService {
     const job = await this.loadJob(db, auth, id);
     if (job.status !== 'previewed') throw new AppException('CONFLICT', 'This import has already run');
 
-    // mapping
-    const customTypes = new Map((await db.customField.findMany({ where: { target: 'lead', archivedAt: null }, select: { key: true, type: true } })).map((f) => [f.key, f.type]));
+    // mapping (custom.<key> must be an active lead field the caller can write)
+    const [customDefs, roleKey] = await Promise.all([loadFieldDefs(db, 'lead'), roleKeyOf(db, auth)]);
+    const writable = new Map(customDefs.filter((d) => !d.archivedAt && fieldAccessFor(d, roleKey) === 'write').map((d) => [d.key, d]));
     const columnFor = new Map<MappingTarget, string>();
     for (const [column, target] of Object.entries(body.mapping)) {
       if (!job.columns.includes(column)) throw new AppException('IMPORT_MAPPING_INVALID', 'The mapping refers to a column that is not in the file');
       if (target === null) continue;
       if (columnFor.has(target as MappingTarget)) throw new AppException('IMPORT_MAPPING_INVALID', 'Map each lead field to one column only');
-      if (target.startsWith('custom.') && !customTypes.has(target.slice(7))) throw new AppException('IMPORT_MAPPING_INVALID', 'A mapped custom field does not exist');
+      if (target.startsWith('custom.') && !writable.has(target.slice(7))) throw new AppException('IMPORT_MAPPING_INVALID', 'A mapped custom field does not exist or you cannot change it');
       columnFor.set(target as MappingTarget, column);
     }
+    const custom: CustomCtx = { defs: customDefs, mapped: [...writable.values()].filter((d) => columnFor.has(`custom.${d.key}`)), roleKey };
     if (!columnFor.has('name')) throw new AppException('IMPORT_MAPPING_INVALID', 'Map a column to the lead name');
 
     const canAssign = can(auth, 'leads.assign');
@@ -226,7 +258,7 @@ export class LeadImportService {
         throw new AppException('IMPORT_INVALID_FILE', 'The uploaded file is no longer available. Upload it again.');
       }
       const table = await parseTable(job.fileName, buffer);
-      ctx = await this.buildContext(db, auth, actor, id, body, columnFor, customTypes, canAssign);
+      ctx = await this.buildContext(db, auth, actor, id, body, columnFor, custom, canAssign);
       await this.run(db, ctx, table);
     } catch (err) {
       failed = true;
@@ -284,11 +316,11 @@ export class LeadImportService {
     importId: string,
     body: ImportCommitRequest,
     columnFor: Map<MappingTarget, string>,
-    customTypes: Map<string, string>,
+    custom: CustomCtx,
     canAssign: boolean,
   ): Promise<Ctx> {
     const def = await this.leads.defaultStage(db);
-    const stages = await db.stage.findMany({ where: { pipelineId: def.pipelineId }, select: { id: true, pipelineId: true, type: true, name: true, key: true } });
+    const stages = await db.stage.findMany({ where: { pipelineId: def.pipelineId, archivedAt: null }, select: { id: true, pipelineId: true, type: true, name: true, key: true } });
     const stagesByName = new Map<string, StageRef>();
     for (const s of stages) {
       const ref = { id: s.id, pipelineId: s.pipelineId, type: s.type };
@@ -303,7 +335,7 @@ export class LeadImportService {
       importId,
       strategy: body.duplicateStrategy,
       columnFor,
-      customTypes,
+      custom,
       stagesByName,
       defaultStage: { id: def.id, pipelineId: def.pipelineId, type: def.type },
       usersByEmail: new Map(users.map((u) => [u.email.toLowerCase(), u.id])),
@@ -373,14 +405,15 @@ export class LeadImportService {
       stage = ctx.stagesByName.get(stageName);
       if (!stage) return fail('Stage does not match a stage in the default pipeline');
     }
-    const customFields: PreparedRow['customFields'] = {};
-    for (const [key, type] of ctx.customTypes) {
-      const v = get(`custom.${key}`);
-      if (!v) continue;
-      const parsed = parseCustomValue(type, v);
-      if (!parsed.ok) return fail(`Custom field ${key} has an invalid value`);
-      customFields[key] = parsed.value;
+    const typed: Record<string, unknown> = {};
+    for (const def of ctx.custom.mapped) {
+      const v = get(`custom.${def.key}`);
+      if (v) typed[def.key] = coerceCustomValue(def, v);
     }
+    // Same rules as the API (types, options, patterns, field permissions). Required fields are checked for new leads in processChunk.
+    const checked = validateCustomValues(ctx.custom.defs, typed, { mode: 'update', roleKey: ctx.custom.roleKey, pathPrefix: 'custom' });
+    if (!checked.ok) return fail(customError(ctx.custom.defs, checked.errors));
+    const customFields = checked.values;
     const tags = normalizeTags(get('tags').split(/[,;|]/).map((t) => t.slice(0, 40)));
     return {
       rowNo,
@@ -449,7 +482,7 @@ export class LeadImportService {
           ctx.counts.skipped++;
         } else if (!(await this.scope.canSee(ctx.auth, match.ownerId))) {
           this.rowError(ctx, row.rowNo, 'Matches a lead you do not have access to');
-        } else {
+        } else if (await this.customOk(db, ctx, row, 'update')) {
           ctx.touched.add(match.id);
           toUpdate.push({ row, lead: match });
         }
@@ -463,7 +496,7 @@ export class LeadImportService {
         this.rowError(ctx, row.rowNo, 'A lead with this source reference already exists');
         continue;
       }
-      toCreate.push(row);
+      if (await this.customOk(db, ctx, row, 'create')) toCreate.push(row);
     }
 
     await db.$transaction(
@@ -475,6 +508,29 @@ export class LeadImportService {
     );
     ctx.counts.created += toCreate.length;
     ctx.counts.updated += toUpdate.length;
+  }
+
+  /**
+   * Custom values of a row that is about to be written: new leads need every required field (that the caller
+   * can write); linked ids (user / relation / file fields) must exist in this workspace. Records a row error.
+   */
+  private async customOk(db: TenantDb, ctx: Ctx, row: PreparedRow, mode: 'create' | 'update'): Promise<boolean> {
+    const { defs, roleKey, mapped } = ctx.custom;
+    if (mode === 'create') {
+      const r = validateCustomValues(defs, row.customFields, { mode: 'create', roleKey, pathPrefix: 'custom' });
+      if (!r.ok) {
+        this.rowError(ctx, row.rowNo, customError(defs, r.errors));
+        return false;
+      }
+    }
+    if (mapped.some((d) => (d.type === 'user' || d.type === 'relation' || d.type === 'file') && row.customFields[d.key] != null)) {
+      const errors = await referenceErrors(db, defs, row.customFields, 'custom');
+      if (errors.length) {
+        this.rowError(ctx, row.rowNo, customError(defs, errors));
+        return false;
+      }
+    }
+    return true;
   }
 
   private async allRefsTaken(db: TenantDb, rows: PreparedRow[]): Promise<Set<string>> {

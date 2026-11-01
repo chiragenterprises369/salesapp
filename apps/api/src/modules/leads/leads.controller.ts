@@ -2,7 +2,6 @@ import { Body, Controller, Param, Query, Req } from '@nestjs/common';
 import {
   API_ROUTES,
   CursorPaginationQuerySchema,
-  FieldListQuerySchema,
   IdParamSchema,
   LeadBulkActionSchema,
   LeadCreateSchema,
@@ -21,7 +20,6 @@ import {
   type SavedViewCreate,
 } from '@vistar/shared';
 import type { Request } from 'express';
-import type { z } from 'zod';
 import { type AuthContext, CurrentAuth } from '../../common/auth/auth-context.js';
 import { ApiRoute } from '../../common/http/api-route.decorator.js';
 import { ZodPipe } from '../../common/validation/zod.pipe.js';
@@ -93,7 +91,7 @@ export class LeadsController {
     return this.leads.addNote(auth, id, body);
   }
 
-  // ---------------------------------------------------------------- saved views, tags, custom fields
+  // ---------------------------------------------------------------- saved views, tags
 
   @ApiRoute(API_ROUTES.viewList)
   listViews(@CurrentAuth() auth: AuthContext) {
@@ -113,10 +111,5 @@ export class LeadsController {
   @ApiRoute(API_ROUTES.tagList)
   tags(@CurrentAuth() auth: AuthContext) {
     return this.meta.listTags(auth);
-  }
-
-  @ApiRoute(API_ROUTES.fieldList)
-  fields(@CurrentAuth() auth: AuthContext, @Query(new ZodPipe(FieldListQuerySchema)) query: z.infer<typeof FieldListQuerySchema>) {
-    return this.meta.listFields(auth, query);
   }
 }

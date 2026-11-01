@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { Page, Task, TaskCreate, TaskListQuery, TaskUpdate } from '@vistar/shared';
+import type { CustomFieldValues, FieldDefinition, Page, Task, TaskCreate, TaskListQuery, TaskUpdate } from '@vistar/shared';
 import type { AuthContext } from '../../common/auth/auth-context.js';
 import { ScopeService } from '../../common/auth/scope.service.js';
 import { AppException, notFound } from '../../common/errors/app-exception.js';
@@ -7,12 +7,15 @@ import type { Activity as ActivityRow, Prisma, Task as TaskRowPlain } from '../.
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { assertInTenant } from '../../infra/prisma/tenant.js';
+import { applyPatch, changedKeys, validateValues } from '../customization/custom-values.js';
+import { entityUniqueErrors, lockUnique, uniqueDefsIn } from '../customization/unique.js';
 import { ActivityService } from '../leads/activity.service.js';
+import { parseCustomFields } from '../leads/lead.mapper.js';
 import { LeadsService } from '../leads/leads.service.js';
 import { publishSafe, requestActor, requirePermission, type TenantDb } from '../leads/lib/context.js';
 import { decodeCursor, encodeCursor, isUuid } from '../leads/lib/cursor.js';
 import { safeTimezone, zonedToday } from '../leads/lib/tz.js';
-import { overdueAttentionId, overdueWhere, TASK_INCLUDE, toTask } from './task.mapper.js';
+import { overdueAttentionId, overdueWhere, TASK_INCLUDE, taskMappers } from './task.mapper.js';
 
 interface TaskCursor extends Record<string, unknown> {
   t: string | null;
@@ -92,7 +95,16 @@ export class TasksService {
     const rows = found.slice(0, q.limit);
     const last = rows.at(-1);
     const nextCursor = found.length > q.limit && last ? encodeCursor({ t: last.dueAt?.toISOString() ?? null, id: last.id }) : null;
-    return { items: rows.map(toTask), nextCursor, total };
+    const { view } = await taskMappers(db, auth);
+    return { items: rows.map(view), nextCursor, total };
+  }
+
+  /** Unique task custom fields (inside the write transaction, serialised per workspace). */
+  private async assertUniqueCustom(tx: TenantDb, workspaceId: string, defs: FieldDefinition[], values: CustomFieldValues, opts: { excludeId?: string; keys?: string[] } = {}): Promise<void> {
+    if (!uniqueDefsIn(defs, values, opts.keys).length) return;
+    await lockUnique(tx, `task-unique:${workspaceId}`);
+    const errors = await entityUniqueErrors(tx, 'task', defs, values, { ...opts, pathPrefix: 'customFields' });
+    if (errors.length) throw new AppException('FIELD_VALUE_NOT_UNIQUE', 'Another task already uses one of these values', { details: errors });
   }
 
   async create(auth: AuthContext, body: TaskCreate): Promise<Task> {
@@ -102,10 +114,13 @@ export class TasksService {
     await assertInTenant(db, { lead: body.leadId, user: assigneeId });
     if (assigneeId) await this.checkAssignee(db, auth, assigneeId);
     if (body.leadId) await this.leads.loadVisible(db, auth, body.leadId);
+    const mappers = await taskMappers(db, auth);
+    const customFields = applyPatch({}, await validateValues(db, auth, mappers.defs, body.customFields ?? {}, { mode: 'create', pathPrefix: 'customFields' }));
     const actor = await requestActor(db, auth);
     const now = new Date();
 
     const { task, rows } = await db.$transaction(async (tx) => {
+      await this.assertUniqueCustom(tx, wid, mappers.defs, customFields);
       const task = await tx.task.create({
         data: {
           workspaceId: wid,
@@ -119,6 +134,7 @@ export class TasksService {
           dueAt: body.dueAt ? new Date(body.dueAt) : null,
           remindAt: body.remindAt ? new Date(body.remindAt) : null,
           source: 'manual',
+          customFields: customFields as Prisma.InputJsonObject,
         },
         include: TASK_INCLUDE,
       });
@@ -126,10 +142,9 @@ export class TasksService {
       return { task, rows };
     });
 
-    const dto = toTask(task);
-    await publishSafe(this.events, this.logger, 'task.created', wid, { task: dto }, { actor: actor.event });
+    await publishSafe(this.events, this.logger, 'task.created', wid, { task: mappers.broadcast(task) }, { actor: actor.event });
     await this.activities.publishCreated(db, wid, rows, actor);
-    return dto;
+    return mappers.view(task);
   }
 
   async update(auth: AuthContext, id: string, body: TaskUpdate): Promise<Task> {
@@ -164,9 +179,21 @@ export class TasksService {
       data.completedAt = body.status === 'done' ? now : null;
       if (body.status === 'open') data.overdueNotifiedAt = null;
     }
+    const mappers = await taskMappers(db, auth);
+    let custom: { next: CustomFieldValues; keys: string[] } | null = null;
+    if (body.customFields !== undefined) {
+      const prev = parseCustomFields(current.customFields);
+      const next = applyPatch(prev, await validateValues(db, auth, mappers.defs, body.customFields, { mode: 'update', pathPrefix: 'customFields' }));
+      const keys = changedKeys(prev, next);
+      if (keys.length) {
+        custom = { next, keys };
+        data.customFields = next as Prisma.InputJsonObject;
+      }
+    }
 
     const actor = await requestActor(db, auth);
     const { task, rows } = await db.$transaction(async (tx) => {
+      if (custom) await this.assertUniqueCustom(tx, wid, mappers.defs, custom.next, { excludeId: id, keys: custom.keys });
       const task = await tx.task.update({ where: { id }, data, include: TASK_INCLUDE });
       const rows: ActivityRow[] = [];
       if (completing && task.leadId) {
@@ -176,11 +203,10 @@ export class TasksService {
       return { task, rows };
     });
 
-    const dto = toTask(task);
-    await publishSafe(this.events, this.logger, 'task.updated', wid, { task: dto }, { actor: actor.event });
+    await publishSafe(this.events, this.logger, 'task.updated', wid, { task: mappers.broadcast(task) }, { actor: actor.event });
     await this.activities.publishCreated(db, wid, rows, actor);
     await this.resolveAttention(wid, current, task.status !== 'open' || data.overdueNotifiedAt === null);
-    return dto;
+    return mappers.view(task);
   }
 
   async snooze(auth: AuthContext, id: string, until: string): Promise<Task> {
@@ -191,10 +217,10 @@ export class TasksService {
     if (at.getTime() <= Date.now()) throw new AppException('VALIDATION_FAILED', 'Pick a time in the future', { details: [{ path: 'until', message: 'Must be in the future' }] });
     const task = await db.task.update({ where: { id }, data: { snoozedUntil: at, overdueNotifiedAt: null }, include: TASK_INCLUDE });
     const actor = await requestActor(db, auth);
-    const dto = toTask(task);
-    await publishSafe(this.events, this.logger, 'task.updated', wid, { task: dto }, { actor: actor.event });
+    const mappers = await taskMappers(db, auth);
+    await publishSafe(this.events, this.logger, 'task.updated', wid, { task: mappers.broadcast(task) }, { actor: actor.event });
     await this.resolveAttention(wid, current, true);
-    return dto;
+    return mappers.view(task);
   }
 
   async remove(auth: AuthContext, id: string): Promise<{ ok: true }> {
@@ -204,7 +230,8 @@ export class TasksService {
     // Soft delete; status becomes cancelled so `task.updated` subscribers drop it from open lists.
     const task = await db.task.update({ where: { id }, data: { deletedAt: new Date(), status: current.status === 'open' ? 'cancelled' : current.status }, include: TASK_INCLUDE });
     const actor = await requestActor(db, auth);
-    await publishSafe(this.events, this.logger, 'task.updated', wid, { task: toTask(task) }, { actor: actor.event });
+    const { broadcast } = await taskMappers(db, null);
+    await publishSafe(this.events, this.logger, 'task.updated', wid, { task: broadcast(task) }, { actor: actor.event });
     await this.resolveAttention(wid, current, true);
     return { ok: true };
   }
