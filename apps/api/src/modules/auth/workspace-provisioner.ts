@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   DEFAULT_BUSINESS_HOURS,
   DEFAULT_PIPELINE_KEY,
@@ -14,6 +14,8 @@ import { WHATSAPP_TEMPLATE_FIXTURES } from '@vistar/shared/fixtures';
 import { randomBytes } from 'node:crypto';
 import { AppException } from '../../common/errors/app-exception.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { installPack, SYSTEM_PACK_ACTOR } from '../packs/pack-installer.js';
+import { ensurePackRegistered } from '../packs/pack-registry.js';
 import { slugify } from '../workspace/util.js';
 
 export interface ProvisionInput {
@@ -35,10 +37,13 @@ function isUniqueViolation(err: unknown): boolean {
  * Creates a new tenant in ONE transaction: workspace (trial on the free plan), the four system roles,
  * the default pipeline with DEFAULT_STAGES, approved WhatsApp templates, and the owner as
  * company_admin. Runs on the root client because the tenant client cannot create workspaces;
- * every row sets workspaceId explicitly.
+ * every row sets workspaceId explicitly. Afterwards the core pack generic-sales is installed: it adopts
+ * the pipeline and templates created here and adds its lead fields (WorkspacePack row + install log).
  */
 @Injectable()
 export class WorkspaceProvisioner {
+  private readonly logger = new Logger(WorkspaceProvisioner.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async provision(input: ProvisionInput): Promise<{ workspaceId: string; userId: string }> {
@@ -49,17 +54,33 @@ export class WorkspaceProvisioner {
     for (let attempt = 0; attempt < 5; attempt++) {
       const slug = attempt === 0 ? base : `${base.slice(0, 40)}-${randomBytes(3).toString('hex')}`;
       if (await this.prisma.workspace.count({ where: { slug } })) continue;
+      let created: { workspaceId: string; userId: string };
       try {
-        return await this.create(input, slug, trialDays);
+        created = await this.create(input, slug, trialDays);
       } catch (err) {
         if (!isUniqueViolation(err)) throw err;
         if (await this.prisma.user.count({ where: { email: input.email } })) {
           throw new AppException('AUTH_EMAIL_TAKEN', 'An account with this email already exists. Sign in instead');
         }
-        // Slug race: try another suffix.
+        continue; // Slug race: try another suffix.
       }
+      await this.installCorePacks(created.workspaceId);
+      return created;
     }
     throw new AppException('CONFLICT', 'Could not create the workspace. Try a different name');
+  }
+
+  /**
+   * Install generic-sales (registers it first when the registry is empty). A failure does not block signup:
+   * it is recorded on the WorkspacePack row and `pnpm packs:sync` repairs it.
+   */
+  async installCorePacks(workspaceId: string): Promise<void> {
+    try {
+      await ensurePackRegistered(this.prisma, GENERIC_SALES_PACK_KEY);
+      await installPack(this.prisma, workspaceId, GENERIC_SALES_PACK_KEY, { action: 'install', actor: SYSTEM_PACK_ACTOR, onError: (m) => this.logger.error(m) });
+    } catch (err) {
+      this.logger.error(`Core pack install failed for workspace ${workspaceId}: ${(err as Error).name}. Run pnpm packs:sync to repair.`);
+    }
   }
 
   private create(input: ProvisionInput, slug: string, trialDays: number) {
