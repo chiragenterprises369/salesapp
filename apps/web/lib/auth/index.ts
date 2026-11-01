@@ -2,4 +2,4 @@
 export * from './demo-accounts';
 export * from './mock-auth';
 export * from './redirect';
-export { useReadOnly, useRedirectWhenSignedIn } from './use-auth';
+export { isAuthTransition, useReadOnly, useRedirectWhenSignedIn, useSignOut, useSwitchPersona } from './use-auth';
