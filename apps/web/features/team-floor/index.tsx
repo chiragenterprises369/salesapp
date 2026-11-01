@@ -84,11 +84,14 @@ export function TeamFloorFlat(props: Omit<TeamFloorProps, 'mode'>) {
 
 const NEXT_TIER: Record<QualityTier, QualityTier> = { high: 'medium', medium: 'low', low: 'low' };
 
-function TeamFloorClient({ mode: modeProp = 'auto', readOnly = false, userIds = null, lockMode }: TeamFloorProps & { lockMode?: FloorViewMode }) {
+function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = false, userIds = null, lockMode }: TeamFloorProps & { lockMode?: FloorViewMode }) {
   const me = useMe();
   const { updateSettings } = useSessionActions();
   const canRecordings = useCan('calls.recordings');
   const canAssign = useCan('leads.assign');
+  const canSeeTeam = useCan('team.read');
+  // Employees (no team or assignment rights) always get the read-only floor.
+  const readOnly = readOnlyProp || !(canAssign || canSeeTeam);
   const theme = useDocumentTheme();
   const reducedMotion = useReducedMotion();
   const coarse = useMediaQuery('(pointer: coarse)');
@@ -242,6 +245,8 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly = false, userIds = 
             </div>
           ) : view === '3d' ? (
             <>
+              {/* Text equivalent first in tab order; it appears as an overlay while focused. */}
+              <EmployeeList state={state} attention={byUser} selectedId={selectedId} onOpen={open} variant="hidden" idPrefix={idPrefix} />
               <SceneBoundary onError={onContextLost}>
                 <FloorScene
                   state={state}
@@ -258,7 +263,6 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly = false, userIds = 
                   className="absolute inset-0"
                 />
               </SceneBoundary>
-              <EmployeeList state={state} attention={byUser} selectedId={selectedId} onOpen={open} variant="hidden" idPrefix={idPrefix} />
               <Legend />
             </>
           ) : (

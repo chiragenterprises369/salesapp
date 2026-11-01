@@ -260,7 +260,7 @@ export function buildEnvironment(layout: FloorLayout, mats: MaterialSet): Enviro
   const cabin = layout.rooms.find((r) => r.id === 'cabin');
   const lounge = layout.rooms.find((r) => r.id === 'lounge');
   const calling = layout.rooms.find((r) => r.id === 'calling');
-  if (cabin) roomLabel('cabin', 5.4, cabin.d - 1.3);
+  if (cabin) roomLabel('cabin', 5.8, 1.15);
   if (lounge) roomLabel('lounge', 6.0, lounge.z + lounge.d - 1.7);
   if (calling) roomLabel('calling', calling.x + 1.05, calling.d / 2 + 3.2, Math.PI / 2);
   roomLabel('hub', hub.x + 0.3, hub.z + hub.r + 0.8);

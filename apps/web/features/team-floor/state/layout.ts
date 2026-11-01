@@ -287,7 +287,7 @@ export function buildLayout(deskCount: number): FloorLayout {
   const cabinSeat: Spot = { x: 4.2, z: cabinDeskZ - 0.85, facing: 0, seated: true };
   furniture.push({ kind: 'cabinDesk', x: 4.2, z: cabinDeskZ, w: 2.0, d: 0.9, h: 0.66, y: 0, block: true });
   monitors.push({ x: 4.2, z: cabinDeskZ + 0.18, facing: Math.PI, y: 0.66 });
-  furniture.push({ kind: 'shelf', x: 0.35, z: zc / 2, w: 0.45, d: Math.max(2, zc - 2.6), h: 1.25, y: 0, block: true });
+  furniture.push({ kind: 'shelf', x: 0.35, z: zc / 2, w: 0.45, d: Math.max(2, zc - 2.6), h: 0.95, y: 0, block: true });
   const spareChairs: Spot[] = [
     { x: 3.6, z: cabinDeskZ + 0.95, facing: Math.PI, seated: true },
     { x: 4.8, z: cabinDeskZ + 0.95, facing: Math.PI, seated: true },

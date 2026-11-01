@@ -1,6 +1,5 @@
 'use client';
 
-import { Html } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import type { ResolvedTheme } from '@vistar/shared';
 import { formatDuration } from '@vistar/shared';
@@ -52,6 +51,7 @@ function signature(state: FloorState) {
 export default function FloorScene(props: FloorSceneProps) {
   const { state, tier, initialTier, className } = props;
   const engineRef = useRef<FloorEngine | null>(null);
+  const tagEls = useRef(new Map<string, HTMLElement>());
   const callbacksRef = useRef<EngineCallbacks>({ onSelect: () => {}, onBubble: () => {}, onLod: () => {}, onTierDrop: () => {} });
   const [lod, setLod] = useState<{ level: LodLevel; tags: boolean }>({ level: 'near', tags: true });
 
@@ -68,12 +68,17 @@ export default function FloorScene(props: FloorSceneProps) {
   const onEngine = useCallback((engine: FloorEngine | null) => {
     engineRef.current = engine;
     if (engine) {
+      for (const [id, el] of tagEls.current) engine.registerTag(id, el);
       const { level, tagsVisible } = engine.currentLod;
       setLod({ level, tags: tagsVisible });
     }
   }, []);
 
-  const register = useCallback((id: string, obj: THREE.Object3D | null) => engineRef.current?.registerAnchor(id, obj), []);
+  const registerTag = useCallback((id: string, el: HTMLElement | null) => {
+    if (el) tagEls.current.set(id, el);
+    else tagEls.current.delete(id);
+    engineRef.current?.registerTag(id, el);
+  }, []);
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const engine = engineRef.current;
@@ -96,16 +101,17 @@ export default function FloorScene(props: FloorSceneProps) {
     }
   };
 
-  const shadows = initialTier === 'high' ? 'soft' : initialTier === 'medium' ? 'percentage' : false;
+  // three 0.187 removed PCFSoftShadowMap: high tier uses PCF with a blur radius (soft), medium plain PCF.
+  const shadows = initialTier === 'low' ? false : 'percentage';
   const dpr: number | [number, number] = tier === 'high' ? [1, 2] : tier === 'medium' ? [1, 1.5] : 1;
   const key = signature(state);
 
   return (
-    <div className={cn('relative h-full w-full overflow-hidden', className)}>
+    <div className={cn('relative h-full w-full overflow-hidden', className)} data-tier={tier} data-lod={lod.level}>
       <div
         tabIndex={0}
         role="region"
-        aria-label="3D team floor. Arrow keys pan, plus and minus zoom, 0 resets the view. The employee list after this has the same information."
+        aria-label="3D team floor. Arrow keys pan, plus and minus zoom, 0 resets the view. The employee list just before this has the same information as text."
         onKeyDown={onKeyDown}
         className="focus-ring absolute inset-0 rounded-lg"
       >
@@ -121,20 +127,12 @@ export default function FloorScene(props: FloorSceneProps) {
           fallback={<p className="p-4 text-sm text-muted">The 3D view needs WebGL. Switch to Flat to see the floor plan.</p>}
         >
           <EngineBridge key={key} {...props} callbacksRef={callbacksRef} onEngine={onEngine} />
-          {/* Html tags stay mounted for the scene's lifetime (unmounting drei Html roots mid-render races
-              in React 19); they hide via CSS when the tier drops or the zoom is too far out. */}
-          {initialTier === 'high' && (
-            <TagLayer
-              key={`tags:${key}`}
-              employees={state.employees}
-              enabled={tier === 'high'}
-              visible={lod.tags}
-              selectedId={props.selectedId}
-              register={register}
-            />
-          )}
         </Canvas>
       </div>
+
+      {initialTier === 'high' && (
+        <TagLayer employees={state.employees} enabled={tier === 'high'} visible={lod.tags} selectedId={props.selectedId} register={registerTag} />
+      )}
 
       <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
         <div className="pointer-events-auto flex gap-1 rounded-md border border-border bg-surface p-1 shadow-card">
@@ -184,6 +182,8 @@ function EngineBridge({ state, theme, tier, reducedMotion, selectedId, focusRequ
     });
     engineRef.current = engine;
     onEngine(engine);
+    // Dev-only handle for QA scripts (tier, LOD, agents).
+    if (process.env.NODE_ENV !== 'production') (window as unknown as { __vistarFloor?: FloorEngine }).__vistarFloor = engine;
     return () => {
       onEngine(null);
       engineRef.current = null;
@@ -218,6 +218,10 @@ function EngineBridge({ state, theme, tier, reducedMotion, selectedId, focusRequ
   return null;
 }
 
+/**
+ * High-tier name tags: one DOM overlay (single React tree). The engine writes each tag's transform
+ * in its frame loop, only when it changes. Medium/low tiers use canvas-texture sprites instead.
+ */
 function TagLayer({
   employees,
   enabled,
@@ -229,24 +233,23 @@ function TagLayer({
   enabled: boolean;
   visible: boolean;
   selectedId: string | null;
-  register: (id: string, obj: THREE.Object3D | null) => void;
+  register: (id: string, el: HTMLElement | null) => void;
 }) {
   return (
-    <>
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       {employees.map((e) => (
-        <group
+        <div
           key={e.id}
-          ref={(obj) => {
-            register(e.id, obj);
+          ref={(el) => {
+            register(e.id, el);
             return () => register(e.id, null);
           }}
+          className="invisible absolute top-0 left-0 will-change-transform"
         >
-          <Html zIndexRange={[20, 0]} pointerEvents="none">
-            <NameTag employee={e} selected={e.id === selectedId} hidden={!enabled || e.status === 'offline' || (!visible && e.id !== selectedId)} />
-          </Html>
-        </group>
+          <NameTag employee={e} selected={e.id === selectedId} hidden={!enabled || e.status === 'offline' || (!visible && e.id !== selectedId)} />
+        </div>
       ))}
-    </>
+    </div>
   );
 }
 

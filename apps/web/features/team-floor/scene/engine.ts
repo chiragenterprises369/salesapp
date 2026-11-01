@@ -59,7 +59,7 @@ export class FloorEngine {
   private readonly sun: THREE.DirectionalLight;
   private readonly lamps: THREE.PointLight[] = [];
   private readonly selectRing: THREE.Mesh<THREE.RingGeometry, THREE.Material>;
-  private readonly anchors = new Map<string, THREE.Object3D>();
+  private readonly tags = new Map<string, { el: HTMLElement; x: number; y: number; shown: boolean }>();
   private readonly seenWaves = new Set<string>();
   private readonly raycaster = new THREE.Raycaster();
   private readonly ndc = new THREE.Vector2();
@@ -189,6 +189,7 @@ export class FloorEngine {
     const shadows = tier !== 'low' && this.o.gl.shadowMap.enabled;
     this.sun.castShadow = shadows;
     const size = tier === 'high' ? 1024 : 512;
+    this.sun.shadow.radius = tier === 'high' ? 3 : 1;
     if (this.sun.shadow.mapSize.x !== size) {
       this.sun.shadow.mapSize.set(size, size);
       this.sun.shadow.map?.dispose();
@@ -246,9 +247,9 @@ export class FloorEngine {
     this.afterCamera();
   }
 
-  registerAnchor(id: string, obj: THREE.Object3D | null) {
-    if (obj) this.anchors.set(id, obj);
-    else this.anchors.delete(id);
+  registerTag(id: string, el: HTMLElement | null) {
+    if (el) this.tags.set(id, { el, x: Number.NaN, y: Number.NaN, shown: false });
+    else this.tags.delete(id);
   }
 
   get currentLod() {
@@ -260,8 +261,10 @@ export class FloorEngine {
   /** One frame. Returns true when another frame should follow immediately. */
   frame(rawDt: number): boolean {
     if (this.disposed) return false;
-    const gap = rawDt > 0.25;
-    const dt = Math.min(rawDt, 0.1);
+    // Frames requested while animating continuously are measured, however slow; only a resume
+    // after a hidden tab (rAF paused for seconds) is ignored.
+    const resumed = rawDt > 2;
+    const dt = Math.min(rawDt, 0.25);
     this.elapsed += dt;
     let moving = this.cam.update(dt);
     if (moving) this.afterCamera(false);
@@ -276,7 +279,7 @@ export class FloorEngine {
     moving = this.agents.moving || moving;
     moving = this.effects.update(dt, this.cam.zoom, Date.now()) || moving;
 
-    // Selection ring and Html tag anchors follow the characters.
+    // Selection ring and DOM tags follow the characters.
     const sel = this.selectedId ? this.agents.positionOf(this.selectedId) : null;
     if (sel && sel.visible) {
       const pulse = this.reducedMotion ? 1 : 1 + 0.06 * Math.sin(this.elapsed * 4);
@@ -286,18 +289,36 @@ export class FloorEngine {
     } else {
       this.selectRing.visible = false;
     }
-    for (const [id, obj] of this.anchors) {
-      const head = this.agents.headOf(id, this.tmp);
-      if (head) {
-        obj.position.copy(head);
-        obj.visible = true;
-      } else {
-        obj.visible = false;
+    // DOM name tags (high tier) follow the heads; transforms are written only when they change.
+    if (this.tags.size) {
+      const { width, height } = this.cam.size;
+      const cam = this.o.camera;
+      cam.updateMatrixWorld();
+      for (const [id, tag] of this.tags) {
+        const head = this.agents.headOf(id, this.tmp);
+        if (!head) {
+          if (tag.shown) {
+            tag.el.style.visibility = 'hidden';
+            tag.shown = false;
+          }
+          continue;
+        }
+        head.project(cam);
+        const x = Math.round((head.x + 1) * width) / 2;
+        const y = Math.round((1 - head.y) * height) / 2;
+        if (x !== tag.x || y !== tag.y) {
+          tag.el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+          tag.x = x;
+          tag.y = y;
+        }
+        if (!tag.shown) {
+          tag.el.style.visibility = 'visible';
+          tag.shown = true;
+        }
       }
-      obj.updateMatrixWorld();
     }
 
-    this.sampleFps(rawDt, this.continuous && !gap);
+    this.sampleFps(rawDt, this.continuous && !resumed);
     this.continuous = moving;
     return moving;
   }

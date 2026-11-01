@@ -219,6 +219,7 @@ export class EffectsSystem {
           this.palette.font,
         );
         label.sprite.center.set(0.5, 0);
+        label.sprite.renderOrder = 13;
         this.group.add(label.sprite);
         this.popups.push({ label, userId: e.userId, t: 0 });
         return;
@@ -352,6 +353,7 @@ export class EffectsSystem {
       if (!b) {
         const label = new PillLabel();
         label.sprite.center.set(0.5, 0);
+        label.sprite.renderOrder = 12;
         label.sprite.userData.bubbleKey = key;
         this.group.add(label.sprite);
         b = { label, items, tone: 'amber' };
@@ -557,7 +559,7 @@ export class EffectsSystem {
         const head = this.agents.headOf(key, tmpV);
         if (head) {
           x = head.x;
-          y = head.y + (this.tagsVisible ? 0.42 : 0.12);
+          y = head.y + (this.tagsVisible ? 0.62 : 0.12);
           z = head.z;
         } else {
           const emp = state?.employees[state.index[key] ?? -1];
@@ -592,7 +594,7 @@ export class EffectsSystem {
         continue;
       }
       const rise = rm ? 0 : Math.min(1, p.t / 3) * 0.45;
-      p.label.sprite.position.set(head.x, head.y + 0.75 + rise, head.z);
+      p.label.sprite.position.set(head.x, head.y + 1.05 + rise, head.z);
       p.label.material.opacity = rm ? 1 : Math.min(1, p.t / 0.2, (3.2 - p.t) / 0.5);
       p.label.fit(zoom);
       p.label.sprite.visible = true;

@@ -190,9 +190,9 @@ export function sceneLook(theme: ResolvedTheme): Look {
     // Evening: cool moonlit ambient from the indigo scale, warm lamps do the rest.
     hemiSky: c(dark ? p['status-indigo-fg'] : p.surface),
     hemiGround: c(dark ? p.surface : p.border),
-    hemiIntensity: dark ? 0.85 : 2.0,
+    hemiIntensity: dark ? 0.85 : 1.7,
     sun: c(dark ? p['status-indigo-fg'] : p['surface-2']),
-    sunIntensity: dark ? 0.7 : 2.2,
+    sunIntensity: dark ? 0.7 : 2.6,
     lamp: c(p['status-amber-fg']),
     lampIntensity: dark ? 7 : 0,
     glassOpacity: dark ? 0.4 : 0.32,

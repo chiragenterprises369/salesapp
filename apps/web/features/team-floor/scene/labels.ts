@@ -60,6 +60,8 @@ export class PillLabel {
     const lead = spec.badge ? 18 : spec.dot ? 12 : 0;
     const w = Math.ceil(8 + lead + textW + trailW + 8);
     const h = HEIGHT;
+    // GPU storage is immutable in size: a resized canvas needs a fresh texture upload.
+    if (w !== this.width && this.width !== 0) this.texture.dispose();
     this.width = w;
     this.height = h;
     this.canvas.width = w * SCALE;
@@ -158,6 +160,7 @@ export class FloorText {
     const px = 64;
     ctx.font = `600 ${px}px ${labels.font}`;
     const w = Math.ceil(ctx.measureText(this.text.toUpperCase()).width + px);
+    if (this.canvas.width !== w) this.texture.dispose();
     this.canvas.width = w;
     this.canvas.height = px * 1.6;
     ctx.font = `600 ${px}px ${labels.font}`;
