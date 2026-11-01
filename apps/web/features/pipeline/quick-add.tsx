@@ -106,16 +106,13 @@ export function QuickAdd({ stage, touch, onClose }: { stage: Stage; touch: boole
           {error.message}
         </p>
       )}
-      <div className="flex items-center justify-between gap-2">
-        {touch ? <span /> : <span className="text-2xs text-muted">Enter to add · Esc to close</span>}
-        <div className="flex items-center gap-1.5">
-          <Button size={touch ? 'touch' : 'sm'} variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button size={touch ? 'touch' : 'sm'} type="submit" loading={create.isPending}>
-            Add lead
-          </Button>
-        </div>
+      <div className="flex items-center justify-end gap-1.5">
+        <Button size={touch ? 'touch' : 'sm'} variant="ghost" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button size={touch ? 'touch' : 'sm'} type="submit" loading={create.isPending}>
+          Add lead
+        </Button>
       </div>
     </form>
   );

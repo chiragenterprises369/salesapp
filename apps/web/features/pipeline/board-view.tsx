@@ -140,13 +140,14 @@ export function BoardView({ pipelineId, density = 'default' }: LeadsBoardViewPro
     el.scrollLeft = useLeadsViewState.getState().scroll.board.left;
   }, [hasBoard]);
 
-  // Columns scroll on their own: cap the board at the viewport bottom when the parent is unbounded.
+  // Columns scroll on their own, so the board fills the viewport down to its bottom edge.
+  // `max-h-full` keeps it inside a parent that has a definite height (the page shell).
   useLayoutEffect(() => {
     const el = rootRef.current;
     if (!el) return;
     const fit = () => {
       const top = el.getBoundingClientRect().top + window.scrollY;
-      el.style.maxHeight = `${Math.max(360, window.innerHeight - top - 16)}px`;
+      el.style.height = `${Math.max(360, window.innerHeight - top - 16)}px`;
     };
     fit();
     window.addEventListener('resize', fit);
@@ -161,7 +162,7 @@ export function BoardView({ pipelineId, density = 'default' }: LeadsBoardViewPro
 
   return (
     <BoardControllerProvider value={controller}>
-      <div ref={rootRef} className="flex h-full min-h-0 w-full min-w-0 flex-col" aria-busy={query.isFetching && query.isPlaceholderData}>
+      <div ref={rootRef} className="flex max-h-full min-h-0 w-full min-w-0 flex-col" aria-busy={query.isFetching && query.isPlaceholderData}>
         {query.isPending ? (
           <BoardSkeleton />
         ) : !display ? (
