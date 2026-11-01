@@ -26,8 +26,9 @@ export async function buildLeadWhere(auth: AuthContext, scope: ScopeService, f: 
       { requirement: contains },
       { phone: { contains: q } },
     ];
+    // Phone-like input ("98765 43210", "+91-98765") also matches the stored E.164 digits.
     const digits = q.replace(/\D/g, '');
-    if (digits.length >= 3 && digits !== q) or.push({ phone: { contains: digits } });
+    if (digits.length >= 3 && digits !== q && /^[\d\s+().-]+$/.test(q)) or.push({ phone: { contains: digits } });
     and.push({ OR: or });
   }
   if (f.source?.length) and.push({ source: { in: f.source } });
