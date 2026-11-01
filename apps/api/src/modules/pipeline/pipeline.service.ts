@@ -105,6 +105,12 @@ export class PipelineService {
 
   // ------------------------------------------------------------------ stages
 
+  /** Stage definitions changed: clients refetch pipelines (customization.changed, scope stages). */
+  private async stagesChanged(auth: AuthContext, pipelineId: string): Promise<void> {
+    const actor = await requestActor(this.prisma.forTenant(auth.workspaceId), auth);
+    await publishSafe(this.events, this.logger, 'customization.changed', auth.workspaceId, { scope: 'stages', target: pipelineId }, { actor: actor.event });
+  }
+
   async createStage(auth: AuthContext, pipelineId: string, body: StageCreate): Promise<Stage> {
     const db = this.prisma.forTenant(auth.workspaceId);
     const pipeline = await this.loadPipeline(db, pipelineId);
@@ -127,6 +133,7 @@ export class PipelineService {
       await this.writeOrder(tx, ordered);
       return tx.stage.findUniqueOrThrow({ where: { id: stage.id } });
     });
+    await this.stagesChanged(auth, pipelineId);
     return toStage(created);
   }
 
@@ -146,6 +153,7 @@ export class PipelineService {
       throw new AppException('STAGE_NOT_IN_PIPELINE', 'Send every stage of this pipeline exactly once');
     }
     await db.$transaction(async (tx) => this.writeOrder(tx, stageIds.map((sid) => current.get(sid)!)));
+    await this.stagesChanged(auth, pipelineId);
     return toPipeline(await this.loadPipeline(db, pipelineId));
   }
 
@@ -163,6 +171,7 @@ export class PipelineService {
         ...(body.probability !== undefined ? { probability: body.probability } : {}),
       },
     });
+    await this.stagesChanged(auth, stage.pipelineId);
     return toStage(updated);
   }
 
@@ -184,6 +193,7 @@ export class PipelineService {
     });
     const actor = await requestActor(db, auth);
     await this.audit.record(auth, req, { action: 'stage.delete', entityType: 'stage', entityId: id, diff: { pipelineId: stage.pipelineId, key: stage.key, name: stage.name } }, actor.summary?.name);
+    await this.stagesChanged(auth, stage.pipelineId);
     return { ok: true };
   }
 

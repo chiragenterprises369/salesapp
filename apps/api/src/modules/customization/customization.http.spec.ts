@@ -1,15 +1,18 @@
 import 'reflect-metadata';
 import { type INestApplication, VersioningType } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { CustomObjectSchema, CustomRecordSchema, MeResponseSchema, PackRuntimeSchema, type CustomRecord } from '@vistar/shared';
+import { CustomObjectSchema, CustomRecordSchema, MeResponseSchema, PackManifestSchema, PackRuntimeSchema, SuperPackSchema, type CustomRecord } from '@vistar/shared';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../app.module.js';
 import { AppExceptionFilter } from '../../common/errors/exception.filter.js';
 import type { PrismaClient } from '../../generated/prisma/client.js';
+import { encryptSecret } from '../../infra/crypto/secrets.js';
+import { generateTotpSecret, totpCode } from '../../infra/crypto/totp.js';
 import { hashPassword } from '../auth/password.js';
 import { WorkspaceProvisioner } from '../auth/workspace-provisioner.js';
+import { registerManifest } from '../packs/pack-registry.js';
 import { deleteTestWorkspace, newTestPrisma, testSuffix } from '../packs/testing.js';
 
 /**
@@ -20,11 +23,16 @@ import { deleteTestWorkspace, newTestPrisma, testSuffix } from '../packs/testing
 const sfx = testSuffix();
 const PASSWORD = `pw-${sfx}-Vistar!`;
 const emails = { adminA: `test-http-a-${sfx}@example.test`, employeeA: `test-http-e-${sfx}@example.test`, adminB: `test-http-b-${sfx}@example.test` };
+const SUPER_EMAIL = `test-super-${sfx}@example.test`;
+/** Non-core fixture pack registered for this run (removed afterwards). */
+const HFX = `test-hfx-${sfx}`;
 
 let app: INestApplication;
 let prisma: PrismaClient;
 const workspaceIds: string[] = [];
 const tokens: Record<keyof typeof emails, string> = { adminA: '', employeeA: '', adminB: '' };
+let superToken = '';
+let superAdminId = '';
 
 const api = () => request(app.getHttpServer());
 const auth = (who: keyof typeof emails) => ({ Authorization: `Bearer ${tokens[who]}` });
@@ -68,12 +76,44 @@ beforeAll(async () => {
   tokens.adminA = await login(emails.adminA);
   tokens.employeeA = await login(emails.employeeA);
   tokens.adminB = await login(emails.adminB);
+
+  await registerManifest(
+    prisma,
+    PackManifestSchema.parse({
+      schemaVersion: 1,
+      key: HFX,
+      name: 'HTTP fixture',
+      version: '1.0.0',
+      description: 'HTTP test fixture (not a real pack)',
+      industry: 'Test',
+      objects: [{ key: 'unit', labelSingular: 'Unit', labelPlural: 'Units', primaryFieldKey: 'code', showInNav: true, fields: [{ key: 'code', label: 'Code', type: 'text', required: true }] }],
+      navigation: [{ id: 'units', label: 'Units', icon: 'Building2', page: 'units', group: 'work', component: `${HFX}.UnitsPage`, anyOf: ['settings.manage'] }],
+    }),
+  );
+  // Temp Super Admin with an enrolled TOTP secret (the seeded Super Admin is never touched).
+  const secret = generateTotpSecret();
+  superAdminId = (
+    await prisma.platformAdmin.create({
+      data: { email: SUPER_EMAIL, name: 'Test super admin', passwordHash, permissions: ['platform.packs.manage'], totpSecretEncrypted: encryptSecret(secret), mfaEnabledAt: new Date() },
+    })
+  ).id;
+  const challenge = await api().post('/api/super/auth/login').send({ email: SUPER_EMAIL, password: PASSWORD });
+  const verified = await api().post('/api/super/auth/verify').send({ challengeToken: challenge.body.challengeToken, code: totpCode(secret) });
+  expect(verified.status, JSON.stringify(verified.body)).toBe(200);
+  superToken = verified.body.accessToken as string;
 }, 60_000);
 
 afterAll(async () => {
   await app?.close();
   for (const id of workspaceIds) await deleteTestWorkspace(prisma, id);
-  await prisma?.$disconnect();
+  if (prisma) {
+    await prisma.packDefinition.deleteMany({ where: { key: HFX } });
+    if (superAdminId) {
+      await prisma.platformAuditLog.deleteMany({ where: { adminId: superAdminId } });
+      await prisma.platformAdmin.deleteMany({ where: { id: superAdminId } });
+    }
+    await prisma.$disconnect();
+  }
 });
 
 describe('field definitions', () => {
@@ -193,5 +233,75 @@ describe('labels and pack runtime', () => {
     expect(rt.status).toBe(200);
     expect(PackRuntimeSchema.safeParse(rt.body).success).toBe(true);
     expect(rt.body.importMappings.map((m: { key: string }) => m.key)).toEqual(['indiamart_csv']);
+  });
+});
+
+describe('Industry Packs: entitlement, install and the Super Admin registry', () => {
+  const wsA = () => workspaceIds[0]!;
+  const superAuth = () => ({ Authorization: `Bearer ${superToken}` });
+
+  it('a non-core pack is locked on the free plan; install is refused (PACK_NOT_ENTITLED)', async () => {
+    const list = await api().get('/api/v1/packs').set(auth('adminA'));
+    expect(list.status).toBe(200);
+    expect(list.body.items.find((p: { key: string }) => p.key === HFX)).toMatchObject({ status: 'locked', entitlement: 'none' });
+    const res = await api().post(`/api/v1/packs/${HFX}/install`).set(auth('adminA')).send({});
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('PACK_NOT_ENTITLED');
+  });
+
+  it('Super Admin registry: lists packs, core plans are locked, workspace tokens are rejected', async () => {
+    const list = await api().get('/api/super/packs').set(superAuth());
+    expect(list.status).toBe(200);
+    const core = list.body.items.find((p: { key: string }) => p.key === 'generic-sales');
+    expect(SuperPackSchema.safeParse(core).success).toBe(true);
+    expect(core.plans).toEqual(['free', 'starter', 'growth', 'enterprise']);
+    const locked = await api().put('/api/super/packs/generic-sales/plans').set(superAuth()).send({ plans: ['growth'] });
+    expect(locked.status).toBe(409);
+    expect(locked.body.error.code).toBe('PACK_CORE_LOCKED');
+    expect((await api().get('/api/super/packs').set(auth('adminA'))).status).toBe(401);
+  });
+
+  it('grant for one company (reason required, audited in both logs), then the company admin installs it', async () => {
+    const noReason = await api().put(`/api/super/packs/${HFX}/companies/${wsA()}`).set(superAuth()).send({ override: 'grant' });
+    expect(noReason.status).toBe(400);
+    const grant = await api().put(`/api/super/packs/${HFX}/companies/${wsA()}`).set(superAuth()).send({ override: 'grant', reason: 'Pilot for the HTTP test' });
+    expect(grant.status, JSON.stringify(grant.body)).toBe(200);
+    expect(grant.body).toMatchObject({ entitlement: 'grant', status: 'not_installed' });
+    expect(await prisma.platformAuditLog.count({ where: { adminId: superAdminId, action: 'pack.entitlement', workspaceId: wsA() } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { workspaceId: wsA(), action: 'pack.entitlement', actorType: 'super_admin' } })).toBe(1);
+
+    const plan = await api().get(`/api/v1/packs/${HFX}/plan?action=install`).set(auth('adminA'));
+    expect(plan.body).toMatchObject({ noop: false, summary: { 'object.create': 1, 'field.create': 1 } });
+    const install = await api().post(`/api/v1/packs/${HFX}/install`).set(auth('adminA')).send({});
+    expect(install.status, JSON.stringify(install.body)).toBe(200);
+    expect(install.body).toMatchObject({ noop: false, pack: { status: 'active', entitlement: 'grant', installedVersion: '1.0.0' } });
+    const again = await api().post(`/api/v1/packs/${HFX}/install`).set(auth('adminA')).send({});
+    expect(again.body.noop).toBe(true);
+
+    const rt = await api().get('/api/v1/packs/runtime').set(auth('adminA'));
+    expect(rt.body.navigation.map((n: { id: string }) => n.id)).toEqual(['units']);
+    expect(rt.body.objects.map((o: { key: string; packKey: string | null }) => `${o.key}:${o.packKey}`)).toEqual(['supplier:null', `unit:${HFX}`]);
+    // Permission-filtered navigation: employees lack settings.manage.
+    const rtEmployee = await api().get('/api/v1/packs/runtime').set(auth('employeeA'));
+    expect(rtEmployee.body.navigation).toEqual([]);
+    const log = await api().get(`/api/v1/packs/${HFX}/log`).set(auth('adminA'));
+    expect(log.body.items.map((l: { status: string }) => l.status)).toEqual(['noop', 'success']);
+  });
+
+  it('revoke hides the pack from runtime and /auth/me but keeps its data', async () => {
+    const revoke = await api().put(`/api/super/packs/${HFX}/companies/${wsA()}`).set(superAuth()).send({ override: 'revoke', reason: 'Pilot ended for the HTTP test' });
+    expect(revoke.body).toMatchObject({ entitlement: 'revoked', status: 'active' });
+    const me = await api().get('/api/v1/auth/me').set(auth('adminA'));
+    expect(me.body.packs.map((p: { key: string }) => p.key)).toEqual(['generic-sales']);
+    const rt = await api().get('/api/v1/packs/runtime').set(auth('adminA'));
+    expect(rt.body.navigation).toEqual([]);
+    expect(await prisma.customObject.count({ where: { workspaceId: wsA(), key: 'unit', archivedAt: null } })).toBe(1);
+    const usage = await api().get(`/api/super/packs/${HFX}/usage`).set(superAuth());
+    expect(usage.status).toBe(200);
+    expect(usage.body.companies.find((c: { workspaceId: string }) => c.workspaceId === wsA())).toMatchObject({ entitlement: 'revoked', status: 'active', installedVersion: '1.0.0' });
+    // Uninstall is always allowed, even when revoked.
+    const un = await api().post(`/api/v1/packs/${HFX}/uninstall`).set(auth('adminA'));
+    expect(un.status).toBe(200);
+    expect(un.body.pack.status).toBe('uninstalled');
   });
 });
