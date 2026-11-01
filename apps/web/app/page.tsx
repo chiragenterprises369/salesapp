@@ -1,23 +1,22 @@
-import Link from 'next/link';
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
+'use client';
 
-/** Placeholder home. frontend-app replaces this with the app shell and dashboard in Wave 1. */
-export default function HomePage() {
-  return (
-    <main className="mx-auto flex min-h-dvh max-w-lg items-center px-4">
-      <Card className="w-full">
-        <CardHeader>
-          <div>
-            <CardTitle>Vistar</CardTitle>
-            <CardDescription>Foundation is running. The app shell arrives in Wave 1.</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Button variant="primary" asChild>
-            <Link href="/kit">Open UI kit</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    </main>
-  );
+import { homePathFor } from '@vistar/shared';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { ShellSkeleton } from '@/components/shell/shell-skeleton';
+import { LOGIN_PATH } from '@/lib/auth/redirect';
+import { usePrincipal, useSessionStatus } from '@/lib/session/session';
+
+/** "/": signed in -> the role's home panel, otherwise the sign-in page. */
+export default function RootPage() {
+  const router = useRouter();
+  const status = useSessionStatus();
+  const principal = usePrincipal();
+
+  useEffect(() => {
+    if (status === 'loading') return;
+    router.replace(status === 'authenticated' && principal ? homePathFor(principal) : LOGIN_PATH);
+  }, [status, principal, router]);
+
+  return <ShellSkeleton variant="plain" />;
 }
