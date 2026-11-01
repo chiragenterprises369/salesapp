@@ -24,7 +24,9 @@ import { useLeadsViewState } from '@/lib/leads/state';
 import { useCan, useMe } from '@/lib/session/session';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { findCachedLeads } from './cached-leads';
-import { KNOWN_TAGS, STAGES, TONE_DOT_CLASS, useScopedUsers } from './lead-meta';
+import { KNOWN_TAGS, TONE_DOT_CLASS, useScopedUsers } from './lead-meta';
+import { useLeadWords } from './use-lead-words';
+import { usePipelineStages } from './use-stages';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,9 +40,11 @@ import {
 } from './primitives/menu';
 import { WhatsAppDialog } from './whatsapp-dialog';
 
-const plural = (n: number, word = 'lead') => `${n} ${word}${n === 1 ? '' : 's'}`;
-
-function reportResult(message: (n: number) => string, res: BulkResult) {
+function reportResult(
+  message: (n: number) => string,
+  res: BulkResult,
+  plural: (n: number) => string,
+) {
   if (res.failed.length === 0) {
     toast.success(message(res.succeeded));
     return;
@@ -67,6 +71,9 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
   const bulk = useBulkLeads();
   const qc = useQueryClient();
   const reduced = useReducedMotion();
+  const { stages } = usePipelineStages();
+  const w = useLeadWords();
+  const plural = w.count;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const count = selectedIds.size;
@@ -79,10 +86,10 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
   ) => {
     try {
       const res = await bulk.mutateAsync(action);
-      reportResult(message, res);
+      reportResult(message, res, plural);
       after?.();
     } catch {
-      toast.error('No leads were changed. Check your connection and try again.');
+      toast.error(`No ${w.leads} were changed. Check your connection and try again.`);
     }
   };
   const ids = () => [...selectedIds];
@@ -120,7 +127,7 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
             {canAssign && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="ghost" aria-label="Assign selected leads">
+                  <Button size="sm" variant="ghost" aria-label={`Assign selected ${w.leads}`}>
                     <UserRoundPlus aria-hidden />
                     <span className="hidden sm:inline">Assign</span>
                   </Button>
@@ -163,14 +170,18 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
             {canUpdate && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="ghost" aria-label="Change stage of selected leads">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label={`Change stage of selected ${w.leads}`}
+                  >
                     <ArrowRightLeft aria-hidden />
                     <span className="hidden sm:inline">Stage</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="top" className="w-48">
                   <DropdownMenuLabel>Move to stage</DropdownMenuLabel>
-                  {STAGES.map((s) => (
+                  {stages.map((s) => (
                     <DropdownMenuItem
                       key={s.id}
                       onSelect={() =>
@@ -195,7 +206,7 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
             {canUpdate && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="ghost" aria-label="Tag selected leads">
+                  <Button size="sm" variant="ghost" aria-label={`Tag selected ${w.leads}`}>
                     <Tag aria-hidden />
                     <span className="hidden sm:inline">Tag</span>
                   </Button>
@@ -247,7 +258,7 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
               <Button
                 size="sm"
                 variant="ghost"
-                aria-label="Send WhatsApp template to selected leads"
+                aria-label={`Send WhatsApp template to selected ${w.leads}`}
                 onClick={() => setWhatsappOpen(true)}
               >
                 <MessageCircle aria-hidden />
@@ -259,7 +270,7 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
               <Button
                 size="sm"
                 variant="ghost"
-                aria-label="Delete selected leads"
+                aria-label={`Delete selected ${w.leads}`}
                 className="text-danger-text hover:text-danger-text"
                 onClick={() => setConfirmDelete(true)}
               >

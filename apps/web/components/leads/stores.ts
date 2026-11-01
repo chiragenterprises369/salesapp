@@ -8,7 +8,7 @@ import {
 } from '@vistar/shared';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { STAGES } from './lead-meta';
+import { FALLBACK_STAGES } from './use-stages';
 
 /**
  * Small client stores local to the Leads page (frontend-app). Shared Board/Table state lives in
@@ -47,7 +47,8 @@ export const useTablePrefs = create<TablePrefs>()(
 
 // ---------------------------------------------------------------- saved views (mock, local)
 
-const stageId = (key: string) => STAGES.find((s) => s.key === key)?.id;
+/** Seed views reference the default stages by key (ids match the default pipeline). */
+const stageId = (key: string) => FALLBACK_STAGES.find((s) => s.key === key)?.id;
 
 const SEED_VIEWS: SavedView[] = [
   {

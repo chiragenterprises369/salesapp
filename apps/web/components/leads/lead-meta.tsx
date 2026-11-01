@@ -6,10 +6,9 @@ import {
   type LeadSource,
   type LeadTemperature,
   type MeResponse,
-  type Stage,
   type UserSummary,
 } from '@vistar/shared';
-import { mockPipeline, mockUsers, TAGS } from '@vistar/shared/fixtures';
+import { mockUsers, TAGS } from '@vistar/shared/fixtures';
 import {
   differenceInCalendarDays,
   format,
@@ -34,20 +33,11 @@ import { useMemo } from 'react';
 import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
 import { useMe } from '@/lib/session/session';
+import { usePipelineStages } from './use-stages';
 
-/** Pipeline used by the Leads page in Wave 1 (mock). Wave 3 reads it from the board/pipeline query. */
-export const LEADS_PIPELINE = mockPipeline();
-export const STAGES: readonly Stage[] = LEADS_PIPELINE.stages;
-export const STAGE_BY_ID = new Map(STAGES.map((s) => [s.id, s]));
+/** Static default stages: FALLBACK ONLY (see ./use-stages). Read stages with `usePipelineStages()`. */
+export { FALLBACK_PIPELINE, FALLBACK_STAGES } from './use-stages';
 export const KNOWN_TAGS: readonly string[] = TAGS;
-
-/** Workspace custom fields (mock until GET /custom-fields). Keys map to `custom.<key>` in imports. */
-export const CUSTOM_FIELDS = [
-  { key: 'gst_number', label: 'GST number' },
-  { key: 'quantity', label: 'Quantity required' },
-  { key: 'preferred_language', label: 'Preferred language' },
-  { key: 'delivery_by', label: 'Delivery by' },
-] as const;
 
 export const SOURCE_LABEL: Record<LeadSource, string> = {
   indiamart: 'IndiaMART',
@@ -127,7 +117,8 @@ export function TemperatureChip({
 }
 
 export function StageChip({ stageId, className }: { stageId: string; className?: string }) {
-  const stage = STAGE_BY_ID.get(stageId);
+  const { byId } = usePipelineStages();
+  const stage = byId.get(stageId);
   if (!stage) return <Chip className={className}>Unknown stage</Chip>;
   return (
     <Chip tone={stageTone(stage)} dot className={className}>

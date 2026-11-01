@@ -2,6 +2,7 @@
 
 import {
   formatDuration,
+  labelOf,
   NoteCreateSchema,
   type Activity,
   type WorkflowStepStatus,
@@ -35,7 +36,9 @@ import { Chip } from '@/components/ui/chip';
 import { Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/cn';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
-import { SOURCE_LABEL, STAGE_BY_ID } from '@/components/leads/lead-meta';
+import { SOURCE_LABEL } from '@/components/leads/lead-meta';
+import { usePipelineStages } from '@/components/leads/use-stages';
+import { useLabels } from '@/lib/customization';
 import type { LeadSource } from '@vistar/shared';
 
 const USERS = new Map(mockUsers().map((u) => [u.id, u.name]));
@@ -104,7 +107,17 @@ function Waveform({ seed }: { seed: string }) {
   );
 }
 
-function describe(a: Activity): {
+interface DescribeContext {
+  stageName: (id: string) => string | undefined;
+  /** Configured singular label for leads ("Lead", "Enquiry"). */
+  lead: string;
+  leads: string;
+}
+
+function describe(
+  a: Activity,
+  ctx: DescribeContext,
+): {
   icon: LucideIcon;
   title: ReactNode;
   body?: ReactNode;
@@ -115,7 +128,7 @@ function describe(a: Activity): {
     case 'lead_created':
       return {
         icon: Sparkles,
-        title: `Lead created from ${SOURCE_LABEL[a.payload.source as LeadSource] ?? a.payload.source}`,
+        title: `${ctx.lead} created from ${SOURCE_LABEL[a.payload.source as LeadSource] ?? a.payload.source}`,
       };
     case 'note':
       return {
@@ -179,13 +192,13 @@ function describe(a: Activity): {
         title: `${a.payload.direction === 'outbound' ? 'Email sent' : 'Email received'}: ${a.payload.subject}`,
       };
     case 'stage_changed': {
-      const from = a.payload.fromStageId ? STAGE_BY_ID.get(a.payload.fromStageId)?.name : null;
-      const to = STAGE_BY_ID.get(a.payload.toStageId)?.name ?? 'a new stage';
+      const from = a.payload.fromStageId ? ctx.stageName(a.payload.fromStageId) : null;
+      const to = ctx.stageName(a.payload.toStageId) ?? 'a new stage';
       return {
         icon: ArrowRightLeft,
         title: from
-          ? `${who} moved the lead from ${from} to ${to}`
-          : `${who} moved the lead to ${to}`,
+          ? `${who} moved the ${ctx.lead.toLowerCase()} from ${from} to ${to}`
+          : `${who} moved the ${ctx.lead.toLowerCase()} to ${to}`,
       };
     }
     case 'assigned': {
@@ -214,7 +227,7 @@ function describe(a: Activity): {
     case 'merged':
       return {
         icon: GitMerge,
-        title: `${who} merged ${a.payload.mergedLeadIds.length} duplicate lead${a.payload.mergedLeadIds.length === 1 ? '' : 's'} into this one`,
+        title: `${who} merged ${a.payload.mergedLeadIds.length} duplicate ${a.payload.mergedLeadIds.length === 1 ? ctx.lead.toLowerCase() : ctx.leads.toLowerCase()} into this one`,
       };
   }
 }
@@ -232,6 +245,13 @@ export function Timeline({ activities, canAddNote, onAddNote, composerRef }: Tim
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const reduced = useReducedMotion();
+  const { byId } = usePipelineStages();
+  const labels = useLabels();
+  const ctx: DescribeContext = {
+    stageName: (id) => byId.get(id)?.name,
+    lead: labelOf(labels, 'lead'),
+    leads: labelOf(labels, 'lead', { plural: true }),
+  };
   const visible = activities.filter((a) => matches(a, filter));
   const groups = useMemo(() => {
     const out: Array<{ day: string; items: Activity[] }> = [];
@@ -329,7 +349,7 @@ export function Timeline({ activities, canAddNote, onAddNote, composerRef }: Tim
               <ol className="relative flex flex-col gap-3 before:absolute before:top-2 before:bottom-2 before:left-[13px] before:w-px before:bg-border">
                 <AnimatePresence initial={false}>
                   {g.items.map((a) => {
-                    const d = describe(a);
+                    const d = describe(a, ctx);
                     const Icon = d.icon;
                     return (
                       <motion.li

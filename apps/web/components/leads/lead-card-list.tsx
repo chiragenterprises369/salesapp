@@ -23,6 +23,7 @@ import { Checkbox } from './primitives/checkbox';
 import { StageSelect } from './stage-select';
 import { EmptyState, ErrorState, NoLeadsYet } from './states';
 import { useRecentLeads } from './stores';
+import { useLeadWords } from './use-lead-words';
 import { useTableRows } from './use-table-rows';
 
 /** Table view below 768px: the same fields as cards, 44px touch quick actions. */
@@ -36,6 +37,7 @@ export function LeadCardList({ onCreate }: { onCreate?: () => void }) {
   const recent = useRecentLeads((s) => s.ids);
   const sentinel = useRef<HTMLDivElement>(null);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
+  const w = useLeadWords();
 
   useEffect(() => {
     const el = sentinel.current;
@@ -52,7 +54,7 @@ export function LeadCardList({ onCreate }: { onCreate?: () => void }) {
 
   if (query.isPending) {
     return (
-      <ul aria-busy="true" aria-label="Loading leads" className="flex flex-col gap-2">
+      <ul aria-busy="true" aria-label={`Loading ${w.leads}`} className="flex flex-col gap-2">
         {Array.from({ length: 5 }, (_, i) => (
           <li key={i} className="rounded-lg border border-border bg-surface p-3">
             <Skeleton className="mb-2 h-4 w-40" />
@@ -75,14 +77,14 @@ export function LeadCardList({ onCreate }: { onCreate?: () => void }) {
       <div className="rounded-lg border border-border bg-surface">
         {hasFilters ? (
           <EmptyState
-            title="No leads match these filters"
+            title={`No ${w.leads} match these filters`}
             description="Try a wider date range or fewer filters."
             action={<Button onClick={resetFilters}>Clear filters</Button>}
           />
         ) : (
           <NoLeadsYet
             action={
-              canCreate && onCreate ? <Button onClick={onCreate}>New lead</Button> : undefined
+              canCreate && onCreate ? <Button onClick={onCreate}>New {w.lead}</Button> : undefined
             }
           />
         )}
@@ -97,7 +99,7 @@ export function LeadCardList({ onCreate }: { onCreate?: () => void }) {
         query.isPlaceholderData && 'opacity-60',
       )}
     >
-      <ul aria-label={`Leads, ${total} total`} className="flex flex-col gap-2">
+      <ul aria-label={`${w.Leads}, ${total} total`} className="flex flex-col gap-2">
         {rows.map((lead) => (
           <LeadCard
             key={lead.id}
@@ -116,14 +118,14 @@ export function LeadCardList({ onCreate }: { onCreate?: () => void }) {
         {isFetchingNextPage ? (
           <span className="inline-flex items-center gap-2">
             <Loader2 aria-hidden className="size-3.5 animate-spin" />
-            Loading more leads…
+            Loading more {w.leads}…
           </span>
         ) : hasNextPage ? (
           <Button size="touch" variant="ghost" onClick={() => void fetchNextPage()}>
             Show more ({rows.length} of {total})
           </Button>
         ) : (
-          `All ${total} leads loaded`
+          `All ${total} ${w.leads} loaded`
         )}
       </div>
       {selectedIds.size > 0 && <div aria-hidden className="h-24" />}

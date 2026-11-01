@@ -26,19 +26,20 @@ import { toast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import { useLead, useUpdateLead } from '@/lib/leads/data';
 import { useCan, useMe } from '@/lib/session/session';
+import { WidgetSlot } from '@/lib/packs';
 import {
-  CUSTOM_FIELDS,
   formatCreated,
   formatFollowUp,
   formatPhone,
   isOverdue,
   SOURCE_LABEL,
   SourceChip,
-  STAGE_BY_ID,
   TemperatureChip,
   timeAgo,
   useScopedUsers,
 } from '@/components/leads/lead-meta';
+import { useLeadWords } from '@/components/leads/use-lead-words';
+import { usePipelineStages } from '@/components/leads/use-stages';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +51,7 @@ import {
 import { EmptyState, ErrorState } from '@/components/leads/states';
 import { actorFrom, useLocalActivity } from './activity-store';
 import { DealValue } from './deal-value';
+import { LeadCustomFields } from './lead-custom-fields';
 import { MergeDialog, RunWorkflowDialog } from './lead-dialogs';
 import { mockTasks, mockTimeline } from './mock-timeline';
 import { ScoreBreakdown, ScoreRing } from './score-ring';
@@ -106,6 +108,7 @@ export interface LeadDetailProps {
 export function LeadDetail({ leadId, panel, variant, headerEnd }: LeadDetailProps) {
   const query = useLead(leadId);
   const lead = query.data;
+  const w = useLeadWords();
 
   if (query.isPending) return <LeadDetailSkeleton variant={variant} headerEnd={headerEnd} />;
   if (query.isError || !lead) {
@@ -116,17 +119,17 @@ export function LeadDetail({ leadId, panel, variant, headerEnd }: LeadDetailProp
         {notFound ? (
           <EmptyState
             icon={<UserRoundX aria-hidden />}
-            title="This lead is not available"
+            title={`This ${w.lead} is not available`}
             description="It may have been deleted or merged, or it belongs to someone outside your team."
             action={
               <Button asChild>
-                <Link href={leadsBasePath(panel)}>Back to leads</Link>
+                <Link href={leadsBasePath(panel)}>Back to {w.leads}</Link>
               </Button>
             }
           />
         ) : (
           <ErrorState
-            title="Lead did not load"
+            title={`${w.Lead} did not load`}
             onRetry={() => void query.refetch()}
             retrying={query.isRefetching}
           />
@@ -150,6 +153,8 @@ function LeadDetailBody({
 }) {
   const me = useMe();
   const users = useScopedUsers();
+  const w = useLeadWords();
+  const { byId } = usePipelineStages();
   const canUpdate = useCan('leads.update');
   const canAssign = useCan('leads.assign');
   const canMerge = useCan('leads.merge');
@@ -221,7 +226,7 @@ function LeadDetailBody({
 
   const assign = async (ownerId: string | null) => {
     const name = ownerId ? (users.find((u) => u.id === ownerId)?.name ?? 'teammate') : null;
-    await save({ ownerId }, name ? `Lead assigned to ${name}` : 'Lead unassigned');
+    await save({ ownerId }, name ? `${w.Lead} assigned to ${name}` : `${w.Lead} unassigned`);
     local.add(lead.id, {
       type: 'assigned',
       actor,
@@ -240,7 +245,7 @@ function LeadDetailBody({
   };
 
   const listItem: LeadListItem = lead;
-  const stage = STAGE_BY_ID.get(lead.stageId);
+  const stage = byId.get(lead.stageId);
   const overdue = isOverdue(lead.nextFollowUpAt);
   const isPage = variant === 'page';
 
@@ -462,26 +467,9 @@ function LeadDetailBody({
         />
       </Section>
 
-      <Section title="Custom fields">
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
-          {CUSTOM_FIELDS.map((f) => {
-            const v = lead.customFields[f.key];
-            return (
-              <div key={f.key} className="contents">
-                <dt className="text-muted">{f.label}</dt>
-                <dd
-                  className={cn(
-                    'truncate',
-                    v === undefined || v === null || v === '' ? 'text-muted' : 'text-fg',
-                  )}
-                >
-                  {v === undefined || v === null || v === '' ? 'Not set' : String(v)}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
-      </Section>
+      <LeadCustomFields lead={lead} />
+
+      <WidgetSlot slot="lead.detail" />
     </div>
   );
 
@@ -491,7 +479,7 @@ function LeadDetailBody({
       onValueChange={(v) => setTab(v as 'timeline' | 'tasks')}
       className="flex flex-col gap-3"
     >
-      <Tabs.List aria-label="Lead activity" className="flex gap-4 border-b border-border">
+      <Tabs.List aria-label={`${w.Lead} activity`} className="flex gap-4 border-b border-border">
         {(
           [
             ['timeline', 'Timeline'],
@@ -649,8 +637,9 @@ function LeadDetailSkeleton({
 }) {
   return (
     <div
+      role="status"
       aria-busy="true"
-      aria-label="Loading lead"
+      aria-label="Loading"
       className={cn('flex flex-col gap-5', variant === 'drawer' && 'px-5 py-4')}
     >
       <div className="flex items-start gap-3">

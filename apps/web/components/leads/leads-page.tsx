@@ -13,6 +13,8 @@ import { useLeadsList } from '@/lib/leads/data';
 import { useLeadsViewState } from '@/lib/leads/state';
 import { useLeadsViewMode } from '@/lib/leads/view-mode';
 import { useCan, useMe, useSessionActions, useSessionStatus } from '@/lib/session/session';
+import { useLabels } from '@/lib/customization';
+import { labelOf } from '@vistar/shared';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { LeadDrawer } from '@/components/lead-detail/lead-drawer';
 import { useLeadDrawer } from '@/components/lead-detail/use-lead-drawer';
@@ -36,6 +38,7 @@ import { EmptyState } from './states';
 import { useTablePrefs } from './stores';
 import { TableView } from './table-view';
 import { useFiltersUrlSync } from './use-filters-url-sync';
+import { usePipelineStages } from './use-stages';
 import { ViewSwitch } from './view-switch';
 
 export type LeadsPanel = 'company' | 'employee';
@@ -56,11 +59,12 @@ export function LeadsPage({ panel }: { panel: LeadsPanel }) {
 function LeadsPageGate({ panel }: { panel: LeadsPanel }) {
   const status = useSessionStatus();
   const me = useMe();
+  const labels = useLabels();
   if (status === 'loading' || (status === 'authenticated' && !me)) return <LeadsPageSkeleton />;
   if (!me) {
     return (
       <EmptyState
-        title="Sign in to see your leads"
+        title={`Sign in to see your ${labelOf(labels, 'lead', { plural: true, lower: true })}`}
         description="Your session ended. Sign in again to continue where you left off."
       />
     );
@@ -92,12 +96,19 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const { byId } = usePipelineStages();
+  const labels = useLabels();
+  const leadsTitle = labelOf(labels, 'lead', { plural: true });
+  const leadLower = labelOf(labels, 'lead', { lower: true });
+  const leadsLower = labelOf(labels, 'lead', { plural: true, lower: true });
 
   const runExport = async () => {
     setExporting(true);
     try {
-      const n = await exportLeadsCsv(filters, sort);
-      toast.success(`Exported ${n.toLocaleString('en-IN')} leads to CSV`);
+      const n = await exportLeadsCsv(filters, sort, (id) => byId.get(id)?.name);
+      toast.success(
+        `Exported ${n.toLocaleString('en-IN')} ${n === 1 ? leadLower : leadsLower} to CSV`,
+      );
     } catch {
       toast.error('Export did not finish. Try again.');
     } finally {
@@ -120,7 +131,7 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
       <div data-leads-page className="flex min-w-0 flex-col gap-3 px-4 pt-4 pb-4 md:px-6 md:pt-5">
         <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex min-w-0 items-baseline gap-2">
-            <h1 className="text-xl font-semibold">Leads</h1>
+            <h1 className="text-xl font-semibold">{leadsTitle}</h1>
             <span className="tabular text-sm text-muted-strong" aria-live="polite">
               {total === undefined ? (
                 <span
@@ -130,7 +141,7 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
               ) : (
                 total.toLocaleString('en-IN')
               )}
-              <span className="sr-only"> leads</span>
+              <span className="sr-only"> {total === 1 ? leadLower : leadsLower}</span>
             </span>
           </div>
           <ViewSwitch value={mode} onChange={setMode} />
@@ -175,15 +186,23 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
               </DropdownMenu>
             )}
             {canCreate && (
-              <Button variant="primary" onClick={() => setCreateOpen(true)} aria-label="New lead">
+              <Button
+                variant="primary"
+                onClick={() => setCreateOpen(true)}
+                aria-label={`New ${leadLower}`}
+              >
                 <Plus aria-hidden />
-                <span className="hidden sm:inline">New lead</span>
+                <span className="hidden sm:inline">New {leadLower}</span>
               </Button>
             )}
           </div>
         </header>
 
-        <div className="flex flex-wrap items-center gap-2" role="search" aria-label="Filter leads">
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="search"
+          aria-label={`Filter ${leadsLower}`}
+        >
           <LeadsSearch className="w-full sm:w-64 lg:w-80" />
           {me.role.dataScope !== 'own' && <OwnerFilter />}
           <DateRangeFilter />

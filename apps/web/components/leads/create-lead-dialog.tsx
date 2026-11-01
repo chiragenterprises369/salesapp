@@ -1,12 +1,16 @@
 'use client';
 
 import {
+  fieldAccessFor,
+  labelOf,
   LEAD_SOURCES,
   LeadCreateSchema,
   normalizeIndianPhone,
+  type CustomFieldValue,
+  type CustomFieldValues,
   type LeadCreate,
 } from '@vistar/shared';
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,10 +24,19 @@ import {
 } from '@/components/ui/dialog';
 import { FormField, Input, Textarea } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
+import { CustomFieldInput } from '@/components/customization/custom-field-input';
+import { FieldShell } from '@/components/customization/custom-fields-form';
+import {
+  fieldError,
+  isEmptyValue,
+  serverFieldErrors,
+} from '@/components/customization/field-utils';
+import { fieldErrorMap, isApiRequestError, useLabels, useVisibleFields } from '@/lib/customization';
 import { useCreateLead } from '@/lib/leads/data';
 import { useCan, useMe } from '@/lib/session/session';
 import { useLeadActions } from '@/components/leads-shared/lead-actions';
-import { SOURCE_LABEL, STAGES, useScopedUsers } from './lead-meta';
+import { SOURCE_LABEL, useScopedUsers } from './lead-meta';
+import { usePipelineStages } from './use-stages';
 import { Select } from './primitives/select';
 import { useRecentLeads } from './stores';
 
@@ -39,7 +52,7 @@ type Field =
   | 'source'
   | 'stageId'
   | 'ownerId';
-type Errors = Partial<Record<Field | 'form', string>>;
+type Errors = Partial<Record<Field | 'form', string>> & { custom?: Record<string, string> };
 
 const EMPTY = {
   name: '',
@@ -52,7 +65,10 @@ const EMPTY = {
   requirement: '',
 };
 
-/** "New lead" dialog. Validates with LeadCreateSchema (same schema the API uses) before saving. */
+/**
+ * "New lead" dialog. Validates with LeadCreateSchema (same schema the API uses) before saving.
+ * Required custom fields of leads (Settings > Fields) are asked here too, so the API accepts the lead.
+ */
 export function CreateLeadDialog({
   open,
   onOpenChange,
@@ -68,9 +84,20 @@ export function CreateLeadDialog({
   const actions = useLeadActions();
   const [form, setForm] = useState(EMPTY);
   const [source, setSource] = useState<LeadCreate['source']>('manual');
-  const [stageId, setStageId] = useState(STAGES[0]!.id);
+  const { stages } = usePipelineStages();
+  const [stagePick, setStageId] = useState<string | null>(null);
+  const stageId = stagePick && stages.some((s) => s.id === stagePick) ? stagePick : stages[0]!.id;
   const [ownerId, setOwnerId] = useState(me?.user.id ?? '');
   const [errors, setErrors] = useState<Errors>({});
+  const [custom, setCustom] = useState<CustomFieldValues>({});
+  const fieldsQuery = useVisibleFields('lead');
+  const requiredFields = (fieldsQuery.data ?? []).filter(
+    (d) => d.required && fieldAccessFor(d, me?.role.key) === 'write',
+  );
+  const fieldBase = useId();
+  const labels = useLabels();
+  const leadLabel = labelOf(labels, 'lead');
+  const leadLower = labelOf(labels, 'lead', { lower: true });
 
   const set = (k: keyof typeof EMPTY) => (e: { target: { value: string } }) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -80,9 +107,18 @@ export function CreateLeadDialog({
   const reset = () => {
     setForm(EMPTY);
     setSource('manual');
-    setStageId(STAGES[0]!.id);
+    setStageId(null);
     setOwnerId(me?.user.id ?? '');
     setErrors({});
+    setCustom({});
+  };
+
+  const setCustomValue = (key: string, v: CustomFieldValue) => {
+    setCustom((c) => ({ ...c, [key]: v }));
+    setErrors((er) => {
+      const { [key]: _gone, ...rest } = er.custom ?? {};
+      return { ...er, custom: rest, form: undefined };
+    });
   };
 
   const submit = async (e: FormEvent) => {
@@ -93,6 +129,14 @@ export function CreateLeadDialog({
       phone = normalizeIndianPhone(form.phone) ?? undefined;
       if (!phone) next.phone = 'Enter a 10-digit Indian mobile number, e.g. 98765 43210';
     }
+    const customErrors: Record<string, string> = {};
+    const customFields: CustomFieldValues = {};
+    for (const d of requiredFields) {
+      const msg = fieldError(d, custom[d.key]);
+      if (msg) customErrors[d.key] = msg;
+      else if (!isEmptyValue(custom[d.key])) customFields[d.key] = custom[d.key]!;
+    }
+    if (Object.keys(customErrors).length) next.custom = customErrors;
     const value = form.valueInr.replace(/[₹,\s]/g, '');
     if (value && !/^\d+$/.test(value)) next.valueInr = 'Enter the deal value in whole rupees';
     const input = {
@@ -110,6 +154,7 @@ export function CreateLeadDialog({
         .split(',')
         .map((t) => t.trim().toLowerCase())
         .filter(Boolean),
+      customFields,
     };
     const parsed = LeadCreateSchema.safeParse(input);
     if (!parsed.success) {
@@ -118,7 +163,7 @@ export function CreateLeadDialog({
         if (!key || next[key]) continue;
         next[key] =
           key === 'name'
-            ? 'Enter the lead name'
+            ? `Enter the ${leadLower} name`
             : key === 'email'
               ? 'Enter a valid email, e.g. rakesh@company.in'
               : key === 'tags'
@@ -135,13 +180,19 @@ export function CreateLeadDialog({
     try {
       const lead = await create.mutateAsync(parsed.data);
       markRecent([lead.id]);
-      toast.success(`Lead created: ${lead.name}`, {
+      toast.success(`${leadLabel} created: ${lead.name}`, {
         action: { label: 'Open', onClick: () => actions.open(lead) },
       });
       reset();
       onOpenChange(false);
-    } catch {
-      setErrors({ form: 'The lead was not saved. Check your connection and try again.' });
+    } catch (err) {
+      const fieldErrs = serverFieldErrors(fieldErrorMap(err));
+      setErrors({
+        ...(Object.keys(fieldErrs).length ? { custom: fieldErrs } : {}),
+        form: isApiRequestError(err)
+          ? err.message
+          : `The ${leadLower} was not saved. Check your connection and try again.`,
+      });
     }
   };
 
@@ -156,10 +207,10 @@ export function CreateLeadDialog({
       <DialogContent size="lg">
         <form onSubmit={submit} noValidate className="flex min-h-0 flex-1 flex-col">
           <DialogHeader>
-            <DialogTitle>New lead</DialogTitle>
+            <DialogTitle>New {leadLower}</DialogTitle>
             <DialogDescription>
-              Add an enquiry by hand. Leads from IndiaMART, WhatsApp and your website arrive
-              automatically.
+              Add one by hand. New {labelOf(labels, 'lead', { plural: true, lower: true })} from
+              IndiaMART, WhatsApp and your website arrive automatically.
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="grid gap-4 sm:grid-cols-2">
@@ -211,7 +262,7 @@ export function CreateLeadDialog({
               <Select
                 value={stageId}
                 onValueChange={setStageId}
-                options={STAGES.map((s) => ({ value: s.id, label: s.name }))}
+                options={stages.map((s) => ({ value: s.id, label: s.name }))}
               />
             </FormField>
             <FormField
@@ -251,6 +302,28 @@ export function CreateLeadDialog({
                 placeholder="Needs 500 m of 2 inch SS pipe, delivery to Rajkot"
               />
             </FormField>
+            {requiredFields.map((d) => (
+              <FieldShell
+                key={d.key}
+                def={d}
+                id={`${fieldBase}-cf-${d.key}`}
+                error={errors.custom?.[d.key]}
+                className="sm:col-span-2"
+              >
+                {(a) => (
+                  <CustomFieldInput
+                    def={d}
+                    value={custom[d.key]}
+                    onChange={(v) => setCustomValue(d.key, v)}
+                    id={a.id}
+                    labelId={a.labelId}
+                    describedBy={a.describedBy}
+                    invalid={a.invalid}
+                    required
+                  />
+                )}
+              </FieldShell>
+            ))}
             {errors.form && (
               <p role="alert" className="text-sm text-danger-text sm:col-span-2">
                 {errors.form}
@@ -262,7 +335,7 @@ export function CreateLeadDialog({
               <Button>Cancel</Button>
             </DialogClose>
             <Button type="submit" variant="primary" loading={create.isPending}>
-              Create lead
+              Create {leadLower}
             </Button>
           </DialogFooter>
         </form>

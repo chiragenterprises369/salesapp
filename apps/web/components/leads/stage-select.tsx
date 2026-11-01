@@ -1,14 +1,14 @@
 'use client';
 
 import { stageTone, type LeadListItem } from '@vistar/shared';
-import { MOCK_PIPELINE_ID } from '@vistar/shared/fixtures';
 import { ChevronDown } from 'lucide-react';
 import { chipVariants } from '@/components/ui/chip';
 import { toast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import { useMoveLead } from '@/lib/leads/data';
 import { useCan } from '@/lib/session/session';
-import { STAGE_BY_ID, STAGES, StageChip, TONE_DOT_CLASS } from './lead-meta';
+import { StageChip, TONE_DOT_CLASS } from './lead-meta';
+import { usePipelineStages } from './use-stages';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,8 +32,9 @@ export function StageSelect({
   size?: 'sm' | 'md';
 }) {
   const canUpdate = useCan('leads.update');
-  const move = useMoveLead(MOCK_PIPELINE_ID);
-  const stage = STAGE_BY_ID.get(lead.stageId);
+  const { pipelineId, stages, byId } = usePipelineStages();
+  const move = useMoveLead(pipelineId);
+  const stage = byId.get(lead.stageId);
   if (!canUpdate || !stage) return <StageChip stageId={lead.stageId} />;
   const tone = stageTone(stage);
 
@@ -60,7 +61,7 @@ export function StageSelect({
           value={lead.stageId}
           onValueChange={(stageId) => {
             if (stageId === lead.stageId) return;
-            const target = STAGE_BY_ID.get(stageId);
+            const target = byId.get(stageId);
             move.mutate(
               { lead, move: { stageId } },
               {
@@ -69,7 +70,7 @@ export function StageSelect({
             );
           }}
         >
-          {STAGES.map((s) => (
+          {stages.map((s) => (
             <DropdownMenuRadioItem key={s.id} value={s.id}>
               <span
                 aria-hidden

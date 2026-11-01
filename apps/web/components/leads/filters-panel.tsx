@@ -16,11 +16,11 @@ import {
   ACTIVE_FILTER_CLASS,
   KNOWN_TAGS,
   SOURCE_LABEL,
-  STAGES,
   TEMPERATURE_LABEL,
   TONE_DOT_CLASS,
   useScopedUsers,
 } from './lead-meta';
+import { usePipelineStages } from './use-stages';
 
 /** Number of active filter groups (search excluded; it has its own field). */
 export function countActiveFilters(f: LeadFilters): number {
@@ -210,6 +210,7 @@ export function FiltersPanel() {
   const me = useMe();
   const users = useScopedUsers();
   const reduced = useReducedMotion();
+  const { stages } = usePipelineStages();
   if (!open) return null;
 
   const ownerOptions: Array<{ id: string; label: string }> = [
@@ -261,7 +262,7 @@ export function FiltersPanel() {
           ))}
         </Group>
         <Group label="Stage">
-          {STAGES.map((s) => (
+          {stages.map((s) => (
             <Toggle
               key={s.id}
               pressed={!!filters.stageId?.includes(s.id)}

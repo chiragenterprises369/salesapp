@@ -4,7 +4,7 @@ import type { LeadFilters, LeadListItem } from '@vistar/shared';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { getLeadsSource } from '@/lib/leads/data';
-import { SOURCE_LABEL, STAGE_BY_ID, TEMPERATURE_LABEL } from '../lead-meta';
+import { SOURCE_LABEL, TEMPERATURE_LABEL } from '../lead-meta';
 import type { TableSort } from '../stores';
 
 /** Trigger a browser download for a text file. */
@@ -40,7 +40,11 @@ export async function fetchAllLeads(
  * Export the current filtered list as CSV (Wave 1: client-side over the mock source; Wave 3:
  * GET /leads/export, which is audited). Formula-like cells are escaped for spreadsheet safety.
  */
-export async function exportLeadsCsv(filters: LeadFilters, sort: TableSort): Promise<number> {
+export async function exportLeadsCsv(
+  filters: LeadFilters,
+  sort: TableSort,
+  stageName: (stageId: string) => string | undefined,
+): Promise<number> {
   const leads = await fetchAllLeads(filters, sort);
   const rows = leads.map((l) => ({
     Name: l.name,
@@ -49,7 +53,7 @@ export async function exportLeadsCsv(filters: LeadFilters, sort: TableSort): Pro
     Email: l.email ?? '',
     City: l.city ?? '',
     Source: SOURCE_LABEL[l.source],
-    Stage: STAGE_BY_ID.get(l.stageId)?.name ?? '',
+    Stage: stageName(l.stageId) ?? '',
     Owner: l.owner?.name ?? 'Unassigned',
     'Value (INR)': l.valueInr,
     Score: l.score,

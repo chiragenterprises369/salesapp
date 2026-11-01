@@ -1,16 +1,24 @@
+import { configOf, fieldError, type FieldDef } from '@/components/customization/field-utils';
 import {
   LEAD_IMPORT_FIELDS,
   LEAD_SOURCES,
   LeadCreateSchema,
   normalizeIndianPhone,
+  type CustomFieldValue,
   type LeadCreate,
   type LeadListItem,
   type LeadSource,
+  type Stage,
 } from '@vistar/shared';
-import { CUSTOM_FIELDS, STAGES } from '../lead-meta';
 
 /** Import column mapping helpers (client-side mock of POST /leads/import + commit). */
 export type ImportField = (typeof LEAD_IMPORT_FIELDS)[number] | `custom.${string}`;
+
+/** What the mapping needs from the workspace: live stages and the lead custom fields you can write. */
+export interface MappingContext {
+  stages: readonly Stage[];
+  customFields: readonly FieldDef[];
+}
 
 export const FIELD_LABEL: Record<(typeof LEAD_IMPORT_FIELDS)[number], string> = {
   name: 'Name',
@@ -29,15 +37,23 @@ export const FIELD_LABEL: Record<(typeof LEAD_IMPORT_FIELDS)[number], string> = 
   stageName: 'Stage',
 };
 
-export const FIELD_OPTIONS: Array<{ value: ImportField; label: string }> = [
-  ...LEAD_IMPORT_FIELDS.map((f) => ({ value: f as ImportField, label: FIELD_LABEL[f] })),
-  ...CUSTOM_FIELDS.map((f) => ({
-    value: `custom.${f.key}` as ImportField,
-    label: `${f.label} (custom)`,
-  })),
-];
+export interface FieldOption {
+  value: ImportField;
+  label: string;
+}
 
-export const fieldLabel = (f: ImportField) => FIELD_OPTIONS.find((o) => o.value === f)?.label ?? f;
+/** Core lead fields, then `custom.<key>` for every lead field definition (Settings > Fields). */
+export function fieldOptions(customFields: readonly FieldDef[]): FieldOption[] {
+  return [
+    ...LEAD_IMPORT_FIELDS.map((f) => ({ value: f as ImportField, label: FIELD_LABEL[f] })),
+    ...customFields
+      .filter((f) => f.type !== 'file')
+      .map((f) => ({ value: `custom.${f.key}` as ImportField, label: `${f.label} (custom)` })),
+  ];
+}
+
+export const fieldLabel = (f: ImportField, options: readonly FieldOption[]) =>
+  options.find((o) => o.value === f)?.label ?? f;
 
 const SYNONYMS: Array<[ImportField, RegExp]> = [
   ['email', /e-?mail/],
@@ -54,21 +70,46 @@ const SYNONYMS: Array<[ImportField, RegExp]> = [
   ['valueInr', /(value|amount|deal|budget|price|inr|₹)/],
   ['tags', /(tag|label)/],
   ['stageName', /(stage|status)/],
-  ['custom.gst_number', /gst/],
-  ['custom.quantity', /(qty|quantity)/],
-  ['custom.preferred_language', /language/],
-  ['custom.delivery_by', /delivery/],
 ];
 
-/** Suggest a field for each header (first match wins; a field is used at most once). */
-export function suggestMapping(headers: string[]): Record<string, ImportField | null> {
+/**
+ * How well a header names a custom field: exact label/key 4, contains label/key 3, acronym
+ * ("GST No") 2, starts with the first word of the label ("Delivery date") 1, else 0.
+ */
+function customScore(f: FieldDef, header: string): number {
+  const label = f.label.toLowerCase();
+  const keySpaced = f.key.replace(/_/g, ' ');
+  if (header === label || header === keySpaced || header === f.key) return 4;
+  if (header.includes(label) || header.includes(keySpaced)) return 3;
+  const first = f.label.split(/\s+/)[0] ?? '';
+  if (/^[A-Z]{2,5}$/.test(first) && new RegExp(`\\b${first.toLowerCase()}\\b`).test(header))
+    return 2;
+  if (first.length >= 4 && header.startsWith(first.toLowerCase())) return 1;
+  return 0;
+}
+
+/**
+ * Suggest a field for each header. Strong custom-field matches win, then the core synonyms, then
+ * weak custom matches. A field is used at most once.
+ */
+export function suggestMapping(
+  headers: string[],
+  customFields: readonly FieldDef[] = [],
+): Record<string, ImportField | null> {
   const used = new Set<ImportField>();
   const out: Record<string, ImportField | null> = {};
   for (const h of headers) {
     const key = h.trim().toLowerCase();
-    const hit = SYNONYMS.find(([field, re]) => !used.has(field) && re.test(key));
-    out[h] = hit ? hit[0] : null;
-    if (hit) used.add(hit[0]);
+    let best: { field: ImportField; score: number } | null = null;
+    for (const f of customFields) {
+      const field = `custom.${f.key}` as ImportField;
+      const score = used.has(field) ? 0 : customScore(f, key);
+      if (score > (best?.score ?? 0)) best = { field, score };
+    }
+    const core = SYNONYMS.find(([field, re]) => !used.has(field) && re.test(key))?.[0] ?? null;
+    const pick = best && best.score >= 2 ? best.field : (core ?? best?.field ?? null);
+    out[h] = pick;
+    if (pick) used.add(pick);
   }
   return out;
 }
@@ -91,24 +132,68 @@ function toSource(v: string): LeadSource {
       : 'import';
 }
 
-/** Apply the mapping to one CSV row and validate it with LeadCreateSchema. */
+/** Turn a CSV cell into the typed value a custom field stores (labels of choices are accepted). */
+function coerceCustom(def: FieldDef, raw: string): CustomFieldValue {
+  switch (def.type) {
+    case 'number':
+    case 'money': {
+      const n = Number(raw.replace(/[₹,\s]/g, ''));
+      return Number.isFinite(n) ? n : raw;
+    }
+    case 'boolean': {
+      const v = raw.toLowerCase();
+      if (['yes', 'y', 'true', '1', 'haan', 'ha'].includes(v)) return true;
+      if (['no', 'n', 'false', '0', 'nahi'].includes(v)) return false;
+      return raw;
+    }
+    case 'select':
+    case 'multi_select': {
+      const { options } = configOf({ type: def.type, config: def.config });
+      const match = (s: string) =>
+        options.find(
+          (o) => o.value === s.toLowerCase() || o.label.toLowerCase() === s.toLowerCase(),
+        )?.value ?? s;
+      if (def.type === 'select') return match(raw);
+      return raw
+        .split(/[;,|]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map(match);
+    }
+    case 'date': {
+      // 31/12/2026 or 31-12-2026 (Indian order) -> 2026-12-31
+      const m = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(raw);
+      return m ? `${m[3]}-${m[2]!.padStart(2, '0')}-${m[1]!.padStart(2, '0')}` : raw;
+    }
+    default:
+      return raw;
+  }
+}
+
+/** Apply the mapping to one CSV row and validate it with LeadCreateSchema and the field rules. */
 export function mapRow(
   row: Record<string, string>,
   mapping: Record<string, ImportField | null>,
   owners: Array<{ id: string; email?: string }>,
+  ctx: MappingContext,
 ): { input: LeadCreate | null; error: string | null } {
   const draft: Record<string, unknown> = {
     source: 'import',
-    customFields: {} as Record<string, string>,
+    customFields: {} as Record<string, CustomFieldValue>,
     tags: [],
   };
-  const custom = draft.customFields as Record<string, string>;
+  const custom = draft.customFields as Record<string, CustomFieldValue>;
   for (const [col, field] of Object.entries(mapping)) {
     if (!field) continue;
     const raw = (row[col] ?? '').trim();
     if (!raw) continue;
     if (field.startsWith('custom.')) {
-      custom[field.slice(7)] = raw;
+      const def = ctx.customFields.find((f) => f.key === field.slice(7));
+      if (!def) continue;
+      const value = coerceCustom(def, raw);
+      const problem = fieldError(def, value);
+      if (problem) return { input: null, error: `${def.label}: ${problem}` };
+      custom[def.key] = value;
       continue;
     }
     switch (field) {
@@ -135,7 +220,7 @@ export function mapRow(
         draft.source = toSource(raw);
         break;
       case 'stageName': {
-        const stage = STAGES.find(
+        const stage = ctx.stages.find(
           (s) => s.name.toLowerCase() === raw.toLowerCase() || s.key === raw.toLowerCase(),
         );
         if (stage) draft.stageId = stage.id;
@@ -154,6 +239,8 @@ export function mapRow(
     }
   }
   if (!draft.name) return { input: null, error: 'Name is empty' };
+  const missing = ctx.customFields.find((f) => f.required && custom[f.key] === undefined);
+  if (missing) return { input: null, error: `${missing.label} is required` };
   const parsed = LeadCreateSchema.safeParse(draft);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
@@ -163,7 +250,7 @@ export function mapRow(
       error:
         path === 'email'
           ? `Email "${String(draft.email)}" is not valid`
-          : `${fieldLabel(path as ImportField)}: ${issue?.message ?? 'invalid value'}`,
+          : `${FIELD_LABEL[path as keyof typeof FIELD_LABEL] ?? path}: ${issue?.message ?? 'invalid value'}`,
     };
   }
   return { input: parsed.data, error: null };

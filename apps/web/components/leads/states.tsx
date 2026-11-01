@@ -4,6 +4,7 @@ import { AlertTriangle, SearchX, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+import { useLeadWords } from './use-lead-words';
 
 /** Empty / error blocks shared by the Leads views, drawer and dashboard widgets. */
 export function EmptyState({
@@ -78,11 +79,12 @@ export function ErrorState({
 }
 
 export function NoLeadsYet({ action }: { action?: ReactNode }) {
+  const w = useLeadWords();
   return (
     <EmptyState
       icon={<Users aria-hidden />}
-      title="No leads yet"
-      description="New enquiries from IndiaMART, WhatsApp and your website appear here. You can also add or import leads."
+      title={`No ${w.leads} yet`}
+      description={`New ${w.leads} from IndiaMART, WhatsApp and your website appear here. You can also add or import ${w.leads}.`}
       action={action}
     />
   );
