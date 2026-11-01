@@ -90,7 +90,12 @@ export function Picker({
           <ChevronsUpDown aria-hidden className="size-4 shrink-0 text-muted" />
         </button>
       </PopoverTrigger>
-      <PopoverContent id={contentId} className="w-[min(22rem,calc(100vw-1rem))] p-0" align="start">
+      <PopoverContent
+        id={contentId}
+        aria-label={`Choose ${listLabel.toLowerCase()}`}
+        className="w-[min(22rem,calc(100vw-1rem))] p-0"
+        align="start"
+      >
         <Command label={listLabel} shouldFilter={!serverSide} loop className="flex flex-col">
           <div className="flex items-center gap-2 border-b border-border px-3">
             <Search aria-hidden className="size-4 shrink-0 text-muted" />
