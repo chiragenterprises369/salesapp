@@ -18,6 +18,7 @@ import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
 const MORE_PATHS = ['/me/more', ...NAV_EMPLOYEE_MORE.map((i) => i.href)];
+const WIDE_PATHS = ['/me/leads', '/me/team-floor'];
 
 function useActive() {
   const pathname = usePathname();
@@ -33,8 +34,11 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
   const me = useMe()!;
   const items = useMemo(() => employeeBottomNav(me), [me]);
   const isActive = useActive();
+  const pathname = usePathname();
   const [status] = useMyStatus();
   const isManager = me.role.kind === 'manager';
+  // Board columns and the floor need the full width; reading pages stay at a comfortable measure.
+  const wide = WIDE_PATHS.some((p) => isActivePath(pathname, p));
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -100,7 +104,7 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
           </header>
 
           <main id="main" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
-            <div className="mx-auto w-full max-w-5xl px-4 py-4 sm:px-6 lg:px-8 lg:py-6">{children}</div>
+            <div className={cn('mx-auto w-full px-4 py-4 sm:px-6 lg:px-8 lg:py-6', !wide && 'max-w-5xl')}>{children}</div>
           </main>
 
           <nav aria-label="Main" className="shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
