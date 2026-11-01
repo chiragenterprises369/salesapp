@@ -14,7 +14,7 @@ import { DragLayer } from './drag-layer';
 import { BoardController } from './drag/controller';
 import { BoardControllerProvider } from './drag/context';
 import type { CommitMove } from './drag/types';
-import { throttle, useIsMobile, useNow } from './hooks';
+import { throttle, useCoarsePointer, useIsMobile, useNow } from './hooks';
 import type { LeadsBoardViewProps } from './index';
 
 interface PendingMove extends CommitMove {
@@ -48,6 +48,7 @@ export function BoardView({ pipelineId, density = 'default' }: LeadsBoardViewPro
   const query = useLeadsBoard(pipelineId, filters);
   const { mutateAsync: moveLead } = useMoveLead(pipelineId);
   const isMobile = useIsMobile();
+  const coarsePointer = useCoarsePointer();
   const compact = density === 'compact' || isMobile;
   const reducedMotion = useReducedMotion();
   const now = useNow();
@@ -201,6 +202,7 @@ export function BoardView({ pipelineId, density = 'default' }: LeadsBoardViewPro
                   canCreate={canCreate}
                   selectMode={selectMode}
                   showQuick={showQuick}
+                  alwaysShowActions={compact || coarsePointer}
                   stages={stages}
                   now={now}
                   instructionsId={instructionsId}

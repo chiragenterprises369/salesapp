@@ -18,17 +18,19 @@ export function MoveMenu({
   stages,
   touch,
   onMove,
+  onOpenChange,
 }: {
   leadName: string;
   stageId: string;
   stages: readonly Stage[];
   touch: boolean;
   onMove: (stageId: string) => void;
+  onOpenChange?: (open: boolean) => void;
 }) {
   // The card is re-mounted in its new column and takes focus; do not send focus back to this trigger.
   const moved = useRef(false);
   return (
-    <DropdownMenu.Root>
+    <DropdownMenu.Root onOpenChange={onOpenChange}>
       <DropdownMenu.Trigger asChild>
         <Button size={touch ? 'icon-touch' : 'icon-sm'} variant="ghost" aria-label={`Move ${leadName} to stage`} title="Move to stage…">
           <ArrowRightLeft aria-hidden />

@@ -27,6 +27,7 @@ export interface BoardColumnProps {
   canCreate: boolean;
   selectMode: boolean;
   showQuick: boolean;
+  alwaysShowActions: boolean;
   stages: readonly Stage[];
   now: number;
   instructionsId?: string;
@@ -43,6 +44,7 @@ export const BoardColumn = memo(function BoardColumn({
   canCreate,
   selectMode,
   showQuick,
+  alwaysShowActions,
   stages,
   now,
   instructionsId,
@@ -101,6 +103,7 @@ export const BoardColumn = memo(function BoardColumn({
     canMove,
     selectMode,
     showQuick,
+    alwaysShowActions,
     stages,
     now,
     instructionsId,
@@ -114,7 +117,7 @@ export const BoardColumn = memo(function BoardColumn({
       aria-labelledby={titleId}
       data-over={isOver || undefined}
       className={cn(
-        'relative flex w-[85vw] max-w-80 shrink-0 snap-start flex-col rounded-lg border md:w-72',
+        'relative flex w-[85vw] max-w-[320px] shrink-0 snap-start flex-col rounded-lg border md:w-[288px]',
         'transition-shadow duration-150 ease-standard',
         COLUMN_TINT[tone],
         isOver && 'ring-2 ring-accent',

@@ -12,7 +12,7 @@ export function BoardSkeleton() {
     <div role="status" className="flex min-h-0 flex-1 gap-3 overflow-hidden pb-2">
       <span className="sr-only">Loading board</span>
       {SKELETON_CARDS.map((cards, i) => (
-        <div key={i} aria-hidden className="flex w-[85vw] max-w-80 shrink-0 flex-col gap-2 rounded-lg border border-border bg-surface-2 p-2 md:w-72">
+        <div key={i} aria-hidden className="flex w-[85vw] max-w-[320px] shrink-0 flex-col gap-2 rounded-lg border border-border bg-surface-2 p-2 md:w-[288px]">
           <div className="flex items-center gap-2 px-1 py-1">
             <Skeleton className="size-2 rounded-full" />
             <Skeleton className="h-4 w-24" />

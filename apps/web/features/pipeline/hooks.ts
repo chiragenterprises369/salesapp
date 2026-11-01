@@ -1,23 +1,34 @@
 'use client';
 
 import { addDays, differenceInCalendarDays, format, isSameDay } from 'date-fns';
-import { useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 // ---------------------------------------------------------------- viewport
 
 const MOBILE_QUERY = '(max-width: 767px)';
 
-function subscribeMobile(cb: () => void) {
-  const mql = window.matchMedia(MOBILE_QUERY);
-  mql.addEventListener('change', cb);
-  return () => mql.removeEventListener('change', cb);
-}
-
 /** Below 768 px the board switches to snap-scrolling columns and compact cards. */
 export function useIsMobile(): boolean {
+  return useMediaQuery(MOBILE_QUERY);
+}
+
+/** Touch-first devices have no hover, so card actions stay visible. */
+export function useCoarsePointer(): boolean {
+  return useMediaQuery('(pointer: coarse)');
+}
+
+function useMediaQuery(query: string): boolean {
+  const subscribe = useCallback(
+    (cb: () => void) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener('change', cb);
+      return () => mql.removeEventListener('change', cb);
+    },
+    [query],
+  );
   return useSyncExternalStore(
-    subscribeMobile,
-    () => window.matchMedia(MOBILE_QUERY).matches,
+    subscribe,
+    () => window.matchMedia(query).matches,
     () => false,
   );
 }

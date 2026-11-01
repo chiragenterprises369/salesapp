@@ -3,7 +3,7 @@
 import { animated, useSpringValue } from '@react-spring/web';
 import { formatInr, type LeadListItem, type Stage } from '@vistar/shared';
 import { CalendarClock, Check, UserRound } from 'lucide-react';
-import { memo, useCallback, useId, useLayoutEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
+import { memo, useCallback, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { LeadQuickActions, useLeadActions } from '@/components/leads-shared/lead-actions';
 import { Avatar } from '@/components/ui/avatar';
 import { Chip } from '@/components/ui/chip';
@@ -151,6 +151,8 @@ export interface BoardCardProps {
   selectMode: boolean;
   /** Call / WhatsApp / note quick actions. */
   showQuick: boolean;
+  /** Compact or coarse pointer: actions always visible (no hover to reveal them). */
+  alwaysShowActions: boolean;
   stages: readonly Stage[];
   now: number;
   /** Id of the hidden instructions for this mode (aria-describedby). */
@@ -174,6 +176,7 @@ export const BoardCard = memo(function BoardCard({
   canMove,
   selectMode,
   showQuick,
+  alwaysShowActions,
   stages,
   now,
   instructionsId,
@@ -187,6 +190,9 @@ export const BoardCard = memo(function BoardCard({
   const selected = useLeadsViewState((s) => s.selectedIds.has(lead.id));
   const toggleSelected = useLeadsViewState((s) => s.toggleSelected);
   const y = useSpringValue(0);
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const liRef = useRef<HTMLLIElement | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const nameId = useId();
@@ -237,9 +243,13 @@ export const BoardCard = memo(function BoardCard({
 
   const draggable = canDrag && !selectMode;
   const isPlaceholder = placeholder !== 'none';
-  const showActions = !selectMode && !isPlaceholder && (showQuick || canMove);
+  // Desktop hover actions mount on demand (hover, focus, open menu): hidden-but-mounted buttons on
+  // every card cost real paint/layerize time while dragging. Touch layouts always show them.
+  const engaged = alwaysShowActions || hovered || focused || menuOpen;
+  const showActions = engaged && !selectMode && !isPlaceholder && (showQuick || canMove);
   const actionCount = (showQuick ? 3 : 0) + (canMove ? 1 : 0);
   const virtual = virtualStart !== undefined;
+  const transform = useMemo(() => y.to((v) => (v === 0 ? 'none' : `translateY(${v}px)`)), [y]);
 
   return (
     <li
@@ -247,10 +257,21 @@ export const BoardCard = memo(function BoardCard({
       data-index={index}
       aria-setsize={virtual ? setSize : undefined}
       aria-posinset={virtual ? index + 1 : undefined}
-      className={cn('group relative', virtual && 'absolute inset-x-0 top-0')}
+      className={cn('relative', virtual && 'absolute inset-x-0 top-0')}
       style={virtual ? { transform: `translateY(${virtualStart}px)` } : undefined}
+      onPointerEnter={alwaysShowActions ? undefined : () => setHovered(true)}
+      onPointerLeave={alwaysShowActions ? undefined : () => setHovered(false)}
+      onFocus={alwaysShowActions ? undefined : () => setFocused(true)}
+      onBlur={
+        alwaysShowActions
+          ? undefined
+          : (e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
+            }
+      }
     >
-      <animated.div style={{ y }} className="relative">
+      {/* 2D translate on purpose: translate3d would promote every nudged card to its own layer. */}
+      <animated.div style={{ transform }} className="relative">
         <div
           ref={cardRef}
           role={selectMode ? 'checkbox' : 'button'}
@@ -291,13 +312,21 @@ export const BoardCard = memo(function BoardCard({
           <div
             className={cn(
               'absolute flex items-center gap-0.5 rounded-md bg-surface',
-              compact
-                ? 'right-2.5 bottom-2.5'
-                : 'right-2 bottom-2 opacity-0 transition-opacity duration-150 ease-standard group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100',
+              compact ? 'right-2.5 bottom-2.5' : 'right-2 bottom-2',
+              !alwaysShowActions && 'animate-fade-in',
             )}
           >
             {showQuick && <LeadQuickActions lead={lead} size={compact ? 'touch' : 'sm'} />}
-            {canMove && <MoveMenu leadName={lead.name} stageId={stageId} stages={stages} touch={compact} onMove={(to) => ctrl.moveToStage(lead, stageId, to)} />}
+            {canMove && (
+              <MoveMenu
+                leadName={lead.name}
+                stageId={stageId}
+                stages={stages}
+                touch={compact}
+                onOpenChange={setMenuOpen}
+                onMove={(to) => ctrl.moveToStage(lead, stageId, to)}
+              />
+            )}
           </div>
         )}
       </animated.div>

@@ -3,7 +3,7 @@
 import { animated, useSpringValue } from '@react-spring/web';
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual';
 import type { LeadListItem, Stage } from '@vistar/shared';
-import { useCallback, useLayoutEffect, useRef, type FocusEvent, type RefObject } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, type FocusEvent, type RefObject } from 'react';
 import { cn } from '@/lib/cn';
 import { SPRINGS } from './drag/controller';
 import { useBoardController, useColumnLayout, useDragState } from './drag/context';
@@ -22,6 +22,7 @@ export interface CardListProps {
   canMove: boolean;
   selectMode: boolean;
   showQuick: boolean;
+  alwaysShowActions: boolean;
   stages: readonly Stage[];
   now: number;
   instructionsId?: string;
@@ -45,6 +46,7 @@ function SlotPlaceholder({ stageId, reducedMotion }: { stageId: string; reducedM
   const top = useDragState((s) => slotTopFor(s, stageId));
   const height = useDragState((s) => s.active?.height ?? 0);
   const y = useSpringValue(0);
+  const transform = useMemo(() => y.to((v) => `translateY(${v}px)`), [y]);
   const shown = useRef(false);
 
   useLayoutEffect(() => {
@@ -62,7 +64,7 @@ function SlotPlaceholder({ stageId, reducedMotion }: { stageId: string; reducedM
     <animated.li
       aria-hidden
       className="pointer-events-none absolute inset-x-0 top-0 rounded-lg border-2 border-dashed border-accent bg-accent-soft/50"
-      style={{ y, height }}
+      style={{ transform, height }}
     />
   );
 }
