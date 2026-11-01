@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Vistar</title>
+  <rect width="512" height="512" fill="#4F46E5"/>
+  <path d="M176 196 256 328l80-132" fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="336" cy="196" r="24" fill="#FFFFFF"/>
+</svg>

@@ -1,0 +1,22 @@
+{
+  "name": "Vistar",
+  "short_name": "Vistar",
+  "description": "Your leads, calls and tasks for today.",
+  "id": "/me",
+  "start_url": "/me",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F7F9",
+  "theme_color": "#F6F7F9",
+  "lang": "en-IN",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Calls", "url": "/me/calls" },
+    { "name": "My status", "url": "/me/status" }
+  ]
+}
