@@ -29,7 +29,9 @@ export function useCommands() {
 
     const focusNodeElement = (id: string) => {
       requestAnimationFrame(() => {
-        const el = document.querySelector<HTMLElement>(`.vistar-flow .react-flow__node[data-id="${CSS.escape(id)}"]`);
+        const el = document.querySelector<HTMLElement>(
+          `.vistar-flow .react-flow__node[data-id="${CSS.escape(id)}"]`,
+        );
         el?.focus({ preventScroll: true });
       });
     };
@@ -62,10 +64,17 @@ export function useCommands() {
         const sel = selected();
         if (sel.length === 0) return;
         const prev = positions();
-        store.getState().setPositions(new Map(sel.map((n) => [n.id, { x: n.position.x + dx, y: n.position.y + dy }])), { coalesceKey: 'nudge' });
+        store
+          .getState()
+          .setPositions(
+            new Map(sel.map((n) => [n.id, { x: n.position.x + dx, y: n.position.y + dy }])),
+            { coalesceKey: 'nudge' },
+          );
         world.glide(prev);
         const dir = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up';
-        say(`Moved ${sel.length === 1 ? displayLabel(sel[0]!.type, sel[0]!.data) : `${sel.length} steps`} ${dir}`);
+        say(
+          `Moved ${sel.length === 1 ? displayLabel(sel[0]!.type, sel[0]!.data) : `${sel.length} steps`} ${dir}`,
+        );
       },
       fitView() {
         void rf.fitView({ padding: 0.15, maxZoom: 1, duration });
@@ -76,7 +85,11 @@ export function useCommands() {
         if (!n) return;
         store.getState().select([id]);
         const { w, h } = nodeSize(n.type, n.data.config);
-        if (opts.center !== false) void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, { zoom: Math.max(rf.getZoom(), 0.85), duration });
+        if (opts.center !== false)
+          void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, {
+            zoom: Math.max(rf.getZoom(), 0.85),
+            duration,
+          });
         if (opts.openSettings) store.getState().requestFocus(id);
         else focusNodeElement(id);
       },
@@ -89,8 +102,17 @@ export function useCommands() {
         const rect = el.getBoundingClientRect();
         const tl = rf.flowToScreenPosition({ x: n.position.x, y: n.position.y });
         const br = rf.flowToScreenPosition({ x: n.position.x + w, y: n.position.y + h });
-        if (tl.x >= rect.left + 24 && tl.y >= rect.top + 24 && br.x <= rect.right - 24 && br.y <= rect.bottom - 24) return;
-        void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, { zoom: rf.getZoom(), duration });
+        if (
+          tl.x >= rect.left + 24 &&
+          tl.y >= rect.top + 24 &&
+          br.x <= rect.right - 24 &&
+          br.y <= rect.bottom - 24
+        )
+          return;
+        void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, {
+          zoom: rf.getZoom(),
+          duration,
+        });
       },
       /** Keep a running test step in view at a readable zoom (pans only when it would be off screen). */
       follow(id: string) {
@@ -103,9 +125,16 @@ export function useCommands() {
         const tl = rf.flowToScreenPosition({ x: n.position.x, y: n.position.y });
         const br = rf.flowToScreenPosition({ x: n.position.x + w, y: n.position.y + h });
         const margin = 48;
-        const inside = tl.x >= rect.left + margin && tl.y >= rect.top + margin && br.x <= rect.right - margin && br.y <= rect.bottom - margin;
+        const inside =
+          tl.x >= rect.left + margin &&
+          tl.y >= rect.top + margin &&
+          br.x <= rect.right - margin &&
+          br.y <= rect.bottom - margin;
         if (inside && zoom >= 0.7) return;
-        void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2 + 90, { zoom: Math.max(zoom, 0.8), duration: env.reducedMotion ? 0 : 450 });
+        void rf.setCenter(n.position.x + w / 2, n.position.y + h / 2 + 90, {
+          zoom: Math.max(zoom, 0.8),
+          duration: env.reducedMotion ? 0 : 450,
+        });
       },
       openSettings(id?: string) {
         const target = id ?? (selected().length === 1 ? selected()[0]!.id : null);
@@ -120,14 +149,26 @@ export function useCommands() {
         const sel = selected();
         let id: string;
         if (sel.length === 1 && !isTrigger(type)) {
-          id = s.addNode(type, { x: sel[0]!.position.x, y: sel[0]!.position.y + GRID_Y }, { after: sel[0]!.id });
+          id = s.addNode(
+            type,
+            { x: sel[0]!.position.x, y: sel[0]!.position.y + GRID_Y },
+            { after: sel[0]!.id },
+          );
         } else {
           const el = document.querySelector('.vistar-flow');
           const rect = el?.getBoundingClientRect();
-          const centre = rect ? rf.screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) : { x: 0, y: 0 };
+          const centre = rect
+            ? rf.screenToFlowPosition({
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2,
+              })
+            : { x: 0, y: 0 };
           const { w, h } = nodeSize(type, defaultConfig(type));
           const top = s.nodes.length ? Math.min(...s.nodes.map((n) => n.position.y)) : 0;
-          const pos = isTrigger(type) && s.nodes.length ? { x: centre.x - w / 2, y: top - GRID_Y } : { x: centre.x - w / 2, y: centre.y - h / 2 };
+          const pos =
+            isTrigger(type) && s.nodes.length
+              ? { x: centre.x - w / 2, y: top - GRID_Y }
+              : { x: centre.x - w / 2, y: centre.y - h / 2 };
           id = s.addNode(type, pos);
         }
         say(`${NODE_CATALOG[type].label} added`);
@@ -160,7 +201,9 @@ export function useCommands() {
         if (!clipboard) return;
         pasteCount++;
         store.getState().paste(clipboard, { x: 50 * pasteCount, y: 50 * pasteCount });
-        say(`Pasted ${clipboard.nodes.length === 1 ? '1 step' : `${clipboard.nodes.length} steps`}`);
+        say(
+          `Pasted ${clipboard.nodes.length === 1 ? '1 step' : `${clipboard.nodes.length} steps`}`,
+        );
       },
       duplicate() {
         const frag = store.getState().copySelection();

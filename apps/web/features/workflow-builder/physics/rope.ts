@@ -57,7 +57,12 @@ export class Rope {
       this.reset(sx, sy, tx, ty);
       return 0;
     }
-    const endMoved = Math.max(Math.abs(sx - this.sx), Math.abs(sy - this.sy), Math.abs(tx - this.tx), Math.abs(ty - this.ty));
+    const endMoved = Math.max(
+      Math.abs(sx - this.sx),
+      Math.abs(sy - this.sy),
+      Math.abs(tx - this.tx),
+      Math.abs(ty - this.ty),
+    );
     this.sx = sx;
     this.sy = sy;
     this.tx = tx;

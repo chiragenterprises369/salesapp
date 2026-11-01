@@ -11,7 +11,19 @@ import { useBuilder, useEnv, useWorld } from '../store/context';
  * frame (React never sets `d`). Flat mode: a plain bezier from React Flow's handle positions.
  * Both modes host the run packet (dot + halo) that travels along the path.
  */
-function RopeEdgeComponent({ id, source, target, sourceHandleId, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected }: EdgeProps<FlowEdge>) {
+function RopeEdgeComponent({
+  id,
+  source,
+  target,
+  sourceHandleId,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  selected,
+}: EdgeProps<FlowEdge>) {
   const world = useWorld();
   const { physics } = useEnv();
   const mainRef = useRef<SVGPathElement>(null);
@@ -22,7 +34,14 @@ function RopeEdgeComponent({ id, source, target, sourceHandleId, sourceX, source
   const traversed = useBuilder((s) => !!s.run?.traversed.includes(id));
   const handle = sourceHandleId ?? 'out';
 
-  const [flatPath] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+  const [flatPath] = getBezierPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  });
 
   useLayoutEffect(() => {
     if (!physics) return;
@@ -45,10 +64,31 @@ function RopeEdgeComponent({ id, source, target, sourceHandleId, sourceX, source
 
   const d = physics ? undefined : flatPath;
   return (
-    <g className={cn('wf-edge', selected && 'is-selected', traversed && 'is-traversed', physics ? 'is-rope' : 'is-flat')}>
-      <path ref={shadowRef} className="wf-edge-shadow" d={d} transform="translate(0 3)" fill="none" />
+    <g
+      className={cn(
+        'wf-edge',
+        selected && 'is-selected',
+        traversed && 'is-traversed',
+        physics ? 'is-rope' : 'is-flat',
+      )}
+    >
+      <path
+        ref={shadowRef}
+        className="wf-edge-shadow"
+        d={d}
+        transform="translate(0 3)"
+        fill="none"
+      />
       <path ref={mainRef} className="wf-edge-path" d={d} fill="none" />
-      <path ref={hitRef} className="react-flow__edge-interaction" d={d} fill="none" stroke="currentColor" strokeOpacity={0} strokeWidth={18} />
+      <path
+        ref={hitRef}
+        className="react-flow__edge-interaction"
+        d={d}
+        fill="none"
+        stroke="currentColor"
+        strokeOpacity={0}
+        strokeWidth={18}
+      />
       <circle ref={haloRef} r={11} className="wf-packet-halo" style={{ opacity: 0 }} />
       <circle ref={dotRef} r={5.5} className="wf-packet" style={{ opacity: 0 }} />
     </g>
@@ -57,8 +97,22 @@ function RopeEdgeComponent({ id, source, target, sourceHandleId, sourceX, source
 
 export const RopeEdge = memo(RopeEdgeComponent);
 
-export function ConnectionLine({ fromX, fromY, toX, toY, fromPosition, toPosition }: ConnectionLineComponentProps) {
-  const [path] = getBezierPath({ sourceX: fromX, sourceY: fromY, sourcePosition: fromPosition, targetX: toX, targetY: toY, targetPosition: toPosition });
+export function ConnectionLine({
+  fromX,
+  fromY,
+  toX,
+  toY,
+  fromPosition,
+  toPosition,
+}: ConnectionLineComponentProps) {
+  const [path] = getBezierPath({
+    sourceX: fromX,
+    sourceY: fromY,
+    sourcePosition: fromPosition,
+    targetX: toX,
+    targetY: toY,
+    targetPosition: toPosition,
+  });
   return (
     <g>
       <path d={path} className="wf-connection-line" fill="none" />

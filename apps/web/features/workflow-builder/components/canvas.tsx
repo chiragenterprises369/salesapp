@@ -30,7 +30,9 @@ import { WorkflowNodeComponent } from './workflow-node';
 
 export const PALETTE_MIME = 'application/vistar-node';
 
-const nodeTypes = Object.fromEntries(NODE_TYPES.map((t) => [t, WorkflowNodeComponent])) as NodeTypes;
+const nodeTypes = Object.fromEntries(
+  NODE_TYPES.map((t) => [t, WorkflowNodeComponent]),
+) as NodeTypes;
 const edgeTypes = { rope: RopeEdge } as EdgeTypes;
 
 export function Canvas({ commands }: { commands: Commands }) {
@@ -63,8 +65,14 @@ export function Canvas({ commands }: { commands: Commands }) {
     },
     [store, world],
   );
-  const onNodeDragStart: OnNodeDrag<FlowNode> = useCallback((_e, _n, dragged) => dragStart(dragged), [dragStart]);
-  const onNodeDragStop: OnNodeDrag<FlowNode> = useCallback((_e, _n, dragged) => dragStop(dragged), [dragStop]);
+  const onNodeDragStart: OnNodeDrag<FlowNode> = useCallback(
+    (_e, _n, dragged) => dragStart(dragged),
+    [dragStart],
+  );
+  const onNodeDragStop: OnNodeDrag<FlowNode> = useCallback(
+    (_e, _n, dragged) => dragStop(dragged),
+    [dragStop],
+  );
 
   const isValidConnection: IsValidConnection<FlowEdge> = useCallback(
     (c) => {
@@ -114,7 +122,14 @@ export function Canvas({ commands }: { commands: Commands }) {
   );
 
   return (
-    <div ref={wrapperRef} className="vistar-flow relative h-full min-h-0 w-full overflow-clip" data-physics="idle" onDragOver={onDragOver} onDrop={onDrop} onFocusCapture={onFocusCapture}>
+    <div
+      ref={wrapperRef}
+      className="vistar-flow relative h-full min-h-0 w-full overflow-clip"
+      data-physics="idle"
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onFocusCapture={onFocusCapture}
+    >
       <ReactFlow<FlowNode, FlowEdge>
         nodes={nodes}
         edges={edges}
@@ -153,7 +168,13 @@ export function Canvas({ commands }: { commands: Commands }) {
         attributionPosition="top-right"
         aria-label="Workflow canvas"
       >
-        <Background variant={BackgroundVariant.Dots} gap={SNAP} size={1.6} color="var(--border-strong)" bgColor="var(--bg)" />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={SNAP}
+          size={1.6}
+          color="var(--border-strong)"
+          bgColor="var(--bg)"
+        />
         <MiniMap<FlowNode>
           pannable
           zoomable
@@ -182,17 +203,38 @@ function ZoomControls({ onFit }: { onFit: () => void }) {
   const duration = env.reducedMotion ? 0 : 200;
   return (
     <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface p-0.5 shadow-raised">
-      <Button size="icon-sm" variant="ghost" aria-label="Zoom out" title="Zoom out (-)" onClick={() => void rf.zoomOut({ duration })}>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label="Zoom out"
+        title="Zoom out (-)"
+        onClick={() => void rf.zoomOut({ duration })}
+      >
         <Minus aria-hidden />
       </Button>
-      <span className="w-11 text-center text-2xs font-medium text-fg-secondary tabular" aria-live="off">
+      <span
+        className="w-11 text-center text-2xs font-medium text-fg-secondary tabular"
+        aria-live="off"
+      >
         {Math.round(zoom * 100)}%
       </span>
-      <Button size="icon-sm" variant="ghost" aria-label="Zoom in" title="Zoom in (+)" onClick={() => void rf.zoomIn({ duration })}>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label="Zoom in"
+        title="Zoom in (+)"
+        onClick={() => void rf.zoomIn({ duration })}
+      >
         <Plus aria-hidden />
       </Button>
       <span aria-hidden className="mx-0.5 h-4 w-px bg-border" />
-      <Button size="icon-sm" variant="ghost" aria-label="Fit view" title="Fit view (F)" onClick={onFit}>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label="Fit view"
+        title="Fit view (F)"
+        onClick={onFit}
+      >
         <Maximize aria-hidden />
       </Button>
     </div>

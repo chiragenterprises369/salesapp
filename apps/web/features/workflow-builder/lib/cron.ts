@@ -1,7 +1,20 @@
 /** Minimal 5-field cron parser for previews ("0 11 * * 1" -> "Every Monday at 11:00"). */
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
 const RANGES: Array<[number, number]> = [
   [0, 59],
   [0, 23],
@@ -47,13 +60,15 @@ function parseField(src: string, [min, max]: [number, number]): Field | null {
     if (stepStr) step = st;
     for (let v = lo; v <= hi; v += st) values.add(v);
   }
-  if (src.startsWith('*/') && step) return { all: false, values: [...values].sort((a, b) => a - b), step };
+  if (src.startsWith('*/') && step)
+    return { all: false, values: [...values].sort((a, b) => a - b), step };
   return { all: false, values: [...values].sort((a, b) => a - b), step: null };
 }
 
 export function validateCron(cron: string): string | null {
   const parts = cron.trim().split(/\s+/);
-  if (parts.length !== 5) return 'Use 5 fields: minute hour day month weekday, for example 0 10 * * 1-6';
+  if (parts.length !== 5)
+    return 'Use 5 fields: minute hour day month weekday, for example 0 10 * * 1-6';
   for (let i = 0; i < 5; i++) {
     if (!parseField(parts[i]!, RANGES[i]!)) return `Check the ${FIELD_NAMES[i]} field`;
   }
@@ -91,14 +106,20 @@ const ordinal = (n: number) => {
 /** Human sentence for a cron expression, or null when invalid. */
 export function describeCron(cron: string): string | null {
   if (validateCron(cron)) return null;
-  const [mi, ho, dom, mo, dow] = cron.trim().split(/\s+/).map((p, i) => parseField(p, RANGES[i]!)!) as [Field, Field, Field, Field, Field];
+  const [mi, ho, dom, mo, dow] = cron
+    .trim()
+    .split(/\s+/)
+    .map((p, i) => parseField(p, RANGES[i]!)!) as [Field, Field, Field, Field, Field];
 
   let time: string;
   if (mi.step && ho.all) time = `Every ${mi.step} minutes`;
   else if (mi.all && ho.all) time = 'Every minute';
-  else if (ho.all && mi.values.length === 1) time = mi.values[0] === 0 ? 'Every hour' : `Every hour at ${pad(mi.values[0]!)} minutes past`;
-  else if (ho.step && mi.values.length === 1) time = `Every ${ho.step} hours at ${pad(mi.values[0]!)} minutes past`;
-  else if (mi.values.length === 1 && ho.values.length >= 1) time = `At ${listJoin(ho.values.map((h) => `${pad(h)}:${pad(mi.values[0]!)}`))}`;
+  else if (ho.all && mi.values.length === 1)
+    time = mi.values[0] === 0 ? 'Every hour' : `Every hour at ${pad(mi.values[0]!)} minutes past`;
+  else if (ho.step && mi.values.length === 1)
+    time = `Every ${ho.step} hours at ${pad(mi.values[0]!)} minutes past`;
+  else if (mi.values.length === 1 && ho.values.length >= 1)
+    time = `At ${listJoin(ho.values.map((h) => `${pad(h)}:${pad(mi.values[0]!)}`))}`;
   else time = 'At the listed minutes';
 
   const parts: string[] = [time];

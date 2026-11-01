@@ -1,4 +1,11 @@
-import { NODE_CATALOG, NODE_TYPES, type ChipTone, type NodeCategory, type NodeDefinition, type NodeType } from '@vistar/shared';
+import {
+  NODE_CATALOG,
+  NODE_TYPES,
+  type ChipTone,
+  type NodeCategory,
+  type NodeDefinition,
+  type NodeType,
+} from '@vistar/shared';
 import {
   Box,
   CalendarClock,
@@ -68,7 +75,10 @@ export function nodeIcon(type: NodeType): LucideIcon {
 
 export const CATEGORY_ORDER: readonly NodeCategory[] = ['trigger', 'action', 'logic', 'ai'];
 
-export const CATEGORY_META: Record<NodeCategory, { label: string; plural: string; tone: ChipTone }> = {
+export const CATEGORY_META: Record<
+  NodeCategory,
+  { label: string; plural: string; tone: ChipTone }
+> = {
   trigger: { label: 'Trigger', plural: 'Triggers', tone: 'indigo' },
   action: { label: 'Action', plural: 'Actions', tone: 'blue' },
   logic: { label: 'Logic', plural: 'Logic', tone: 'amber' },
@@ -118,15 +128,23 @@ export function outputsOf(type: NodeType, config: Record<string, unknown>): stri
 
 /** Palette entries, optionally hiding feature-flagged (AI) nodes. */
 export function paletteDefinitions(aiEnabled: boolean): NodeDefinition[] {
-  return NODE_TYPES.map((t) => NODE_CATALOG[t]).filter((d) => aiEnabled || d.featureFlag !== 'FEATURE_AI_NODE');
+  return NODE_TYPES.map((t) => NODE_CATALOG[t]).filter(
+    (d) => aiEnabled || d.featureFlag !== 'FEATURE_AI_NODE',
+  );
 }
 
 /** Human label for an output handle given the node config. */
-export function handleLabel(type: NodeType, config: Record<string, unknown>, handle: string): string {
+export function handleLabel(
+  type: NodeType,
+  config: Record<string, unknown>,
+  handle: string,
+): string {
   if (handle === 'out') return 'Next';
   if (handle === 'default') return 'Default';
   if (type === 'logic.switch') {
-    const c = (config.cases as Array<{ key: string; label?: string }> | undefined)?.find((x) => x.key === handle);
+    const c = (config.cases as Array<{ key: string; label?: string }> | undefined)?.find(
+      (x) => x.key === handle,
+    );
     if (c?.label) return c.label;
   }
   const known: Record<string, string> = {

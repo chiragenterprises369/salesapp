@@ -3,7 +3,15 @@
 import { renderTemplate, WORKFLOW_VARIABLES } from '@vistar/shared';
 import { Braces, Plus, Search, X } from 'lucide-react';
 import { Popover } from 'radix-ui';
-import { useId, useMemo, useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { FormField, Input, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/cn';
@@ -41,8 +49,14 @@ export function SelectField({
 }) {
   return (
     <FormField label={label} error={error} hint={hint} required={required} className={className}>
-      <select className={selectClass} value={value ?? ''} onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}>
-        {(placeholder !== undefined || !value) && <option value="">{placeholder ?? 'Choose…'}</option>}
+      <select
+        className={selectClass}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
+      >
+        {(placeholder !== undefined || !value) && (
+          <option value="">{placeholder ?? 'Choose…'}</option>
+        )}
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -76,7 +90,13 @@ export function TextField({
 }) {
   return (
     <FormField label={label} error={error} hint={hint} required={required}>
-      <Input type={type} value={value ?? ''} placeholder={placeholder} maxLength={maxLength} onChange={(e) => onChange(e.target.value)} />
+      <Input
+        type={type}
+        value={value ?? ''}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </FormField>
   );
 }
@@ -125,7 +145,19 @@ export function NumberField({
   );
 }
 
-export function CheckboxField({ label, hint, checked, onChange, className }: { label: ReactNode; hint?: ReactNode; checked: boolean; onChange: (v: boolean) => void; className?: string }) {
+export function CheckboxField({
+  label,
+  hint,
+  checked,
+  onChange,
+  className,
+}: {
+  label: ReactNode;
+  hint?: ReactNode;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  className?: string;
+}) {
   const id = useId();
   return (
     <div className={cn('flex items-start gap-2', className)}>
@@ -166,7 +198,11 @@ export function MultiCheckField({
 }) {
   const id = useId();
   return (
-    <fieldset className="flex flex-col gap-1.5" aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined} aria-invalid={error ? true : undefined}>
+    <fieldset
+      className="flex flex-col gap-1.5"
+      aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined}
+      aria-invalid={error ? true : undefined}
+    >
       <legend className="mb-1.5 text-xs font-medium text-fg-secondary">{legend}</legend>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
         {options.map((o) => (
@@ -174,7 +210,9 @@ export function MultiCheckField({
             key={o.value}
             label={o.label}
             checked={value.includes(o.value)}
-            onChange={(on) => onChange(on ? [...value, o.value] : value.filter((v) => v !== o.value))}
+            onChange={(on) =>
+              onChange(on ? [...value, o.value] : value.filter((v) => v !== o.value))
+            }
           />
         ))}
       </div>
@@ -237,7 +275,13 @@ export function TagsField({
   return (
     <div className="flex flex-col gap-1.5">
       <FormField label={label} error={error} hint={hint} required={required}>
-        <Input value={draft} placeholder={placeholder} onChange={(e) => setDraft(e.target.value)} onKeyDown={onKeyDown} onBlur={() => draft.trim() && add(draft)} />
+        <Input
+          value={draft}
+          placeholder={placeholder}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onKeyDown}
+          onBlur={() => draft.trim() && add(draft)}
+        />
       </FormField>
       {value.length > 0 && (
         <ul className="flex flex-wrap gap-1" aria-label="Added">
@@ -245,7 +289,12 @@ export function TagsField({
             <li key={v}>
               <span className="inline-flex h-6 items-center gap-1 rounded-full border border-border bg-surface-2 pr-0.5 pl-2 text-xs text-fg">
                 {v}
-                <button type="button" onClick={() => onChange(value.filter((x) => x !== v))} aria-label={`Remove ${v}`} className="focus-ring inline-flex size-5 items-center justify-center rounded-full text-muted hover:bg-surface-3 hover:text-fg">
+                <button
+                  type="button"
+                  onClick={() => onChange(value.filter((x) => x !== v))}
+                  aria-label={`Remove ${v}`}
+                  className="focus-ring inline-flex size-5 items-center justify-center rounded-full text-muted hover:bg-surface-3 hover:text-fg"
+                >
                   <X className="size-3" aria-hidden />
                 </button>
               </span>
@@ -257,7 +306,12 @@ export function TagsField({
         <div className="flex flex-wrap items-center gap-1">
           <span className="text-2xs text-muted">Suggestions:</span>
           {remaining.slice(0, 8).map((s) => (
-            <button key={s} type="button" onClick={() => onChange([...value, s])} className="focus-ring inline-flex h-5 items-center gap-0.5 rounded-full border border-dashed border-border-strong px-1.5 text-2xs text-fg-secondary hover:border-accent-text hover:text-accent-text">
+            <button
+              key={s}
+              type="button"
+              onClick={() => onChange([...value, s])}
+              className="focus-ring inline-flex h-5 items-center gap-0.5 rounded-full border border-dashed border-border-strong px-1.5 text-2xs text-fg-secondary hover:border-accent-text hover:text-accent-text"
+            >
               <Plus className="size-2.5" aria-hidden />
               {s}
             </button>
@@ -268,7 +322,19 @@ export function TagsField({
   );
 }
 
-export function KeyValueField({ label, value, onChange, keyPlaceholder = 'Header', valuePlaceholder = 'Value' }: { label: ReactNode; value: Record<string, string>; onChange: (v: Record<string, string>) => void; keyPlaceholder?: string; valuePlaceholder?: string }) {
+export function KeyValueField({
+  label,
+  value,
+  onChange,
+  keyPlaceholder = 'Header',
+  valuePlaceholder = 'Value',
+}: {
+  label: ReactNode;
+  value: Record<string, string>;
+  onChange: (v: Record<string, string>) => void;
+  keyPlaceholder?: string;
+  valuePlaceholder?: string;
+}) {
   const rows = Object.entries(value);
   const setRow = (i: number, k: string, v: string) => {
     const next = rows.map((r, j) => (j === i ? ([k, v] as [string, string]) : r));
@@ -279,14 +345,41 @@ export function KeyValueField({ label, value, onChange, keyPlaceholder = 'Header
       <legend className="mb-1.5 text-xs font-medium text-fg-secondary">{label}</legend>
       {rows.map(([k, v], i) => (
         <div key={i} className="flex items-center gap-1.5">
-          <Input size="sm" aria-label={`${keyPlaceholder} ${i + 1}`} placeholder={keyPlaceholder} value={k} onChange={(e) => setRow(i, e.target.value, v)} />
-          <Input size="sm" aria-label={`${valuePlaceholder} ${i + 1}`} placeholder={valuePlaceholder} value={v} onChange={(e) => setRow(i, k, e.target.value)} />
-          <Button size="icon-sm" variant="ghost" aria-label={`Remove row ${i + 1}`} onClick={() => onChange(Object.fromEntries(rows.filter((_, j) => j !== i)))}>
+          <Input
+            size="sm"
+            aria-label={`${keyPlaceholder} ${i + 1}`}
+            placeholder={keyPlaceholder}
+            value={k}
+            onChange={(e) => setRow(i, e.target.value, v)}
+          />
+          <Input
+            size="sm"
+            aria-label={`${valuePlaceholder} ${i + 1}`}
+            placeholder={valuePlaceholder}
+            value={v}
+            onChange={(e) => setRow(i, k, e.target.value)}
+          />
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Remove row ${i + 1}`}
+            onClick={() => onChange(Object.fromEntries(rows.filter((_, j) => j !== i)))}
+          >
             <X aria-hidden />
           </Button>
         </div>
       ))}
-      <Button size="sm" variant="ghost" className="self-start" onClick={() => onChange({ ...value, [rows.some(([k]) => k === '') ? `header_${rows.length + 1}` : '']: '' })}>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="self-start"
+        onClick={() =>
+          onChange({
+            ...value,
+            [rows.some(([k]) => k === '') ? `header_${rows.length + 1}` : '']: '',
+          })
+        }
+      >
         <Plus aria-hidden />
         Add {keyPlaceholder.toLowerCase()}
       </Button>
@@ -295,7 +388,13 @@ export function KeyValueField({ label, value, onChange, keyPlaceholder = 'Header
 }
 
 /** Popover listing WORKFLOW_VARIABLES; picks insert `{{key}}`. */
-export function VariablePicker({ onPick, label = 'Insert variable' }: { onPick: (token: string) => void; label?: string }) {
+export function VariablePicker({
+  onPick,
+  label = 'Insert variable',
+}: {
+  onPick: (token: string) => void;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const picked = useRef(false);
@@ -331,8 +430,18 @@ export function VariablePicker({ onPick, label = 'Insert variable' }: { onPick: 
         >
           <label className="relative mb-1 block">
             <span className="sr-only">Search variables</span>
-            <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted" />
-            <Input size="sm" autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search variables" className="pl-7" />
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted"
+            />
+            <Input
+              size="sm"
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search variables"
+              className="pl-7"
+            />
           </label>
           <ul className="max-h-64 overflow-y-auto" role="listbox" aria-label="Variables">
             {items.map((v) => (
@@ -350,11 +459,15 @@ export function VariablePicker({ onPick, label = 'Insert variable' }: { onPick: 
                     <span className="block text-xs font-medium text-fg">{v.label}</span>
                     <span className="block truncate font-mono text-2xs text-muted">{`{{${v.key}}}`}</span>
                   </span>
-                  <span className="max-w-24 shrink-0 truncate text-2xs text-muted">{v.example}</span>
+                  <span className="max-w-24 shrink-0 truncate text-2xs text-muted">
+                    {v.example}
+                  </span>
                 </button>
               </li>
             ))}
-            {items.length === 0 && <li className="px-2 py-3 text-center text-xs text-muted">No variables match.</li>}
+            {items.length === 0 && (
+              <li className="px-2 py-3 text-center text-xs text-muted">No variables match.</li>
+            )}
           </ul>
         </Popover.Content>
       </Popover.Portal>
@@ -414,9 +527,23 @@ export function TemplateTextField({
       </div>
       <FormField label={label} error={error} hint={hint} required={required}>
         {multiline ? (
-          <Textarea ref={areaRef} rows={rows} value={value} maxLength={maxLength} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="resize-y" />
+          <Textarea
+            ref={areaRef}
+            rows={rows}
+            value={value}
+            maxLength={maxLength}
+            placeholder={placeholder}
+            onChange={(e) => onChange(e.target.value)}
+            className="resize-y"
+          />
         ) : (
-          <Input ref={inputRef} value={value} maxLength={maxLength} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+          <Input
+            ref={inputRef}
+            value={value}
+            maxLength={maxLength}
+            placeholder={placeholder}
+            onChange={(e) => onChange(e.target.value)}
+          />
         )}
       </FormField>
       {counter && <p className="text-right text-2xs text-muted tabular">{counter(value)}</p>}
@@ -429,7 +556,15 @@ export function TemplateTextField({
   );
 }
 
-export function Section({ title, children, action }: { title: ReactNode; children: ReactNode; action?: ReactNode }) {
+export function Section({
+  title,
+  children,
+  action,
+}: {
+  title: ReactNode;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-3 border-t border-border px-4 py-4 first:border-t-0">
       <div className="flex items-center justify-between gap-2">
@@ -442,11 +577,19 @@ export function Section({ title, children, action }: { title: ReactNode; childre
 }
 
 /** Rendered message with example data. */
-export function MessagePreview({ text, title = 'Preview with sample data' }: { text: string | null; title?: string }) {
+export function MessagePreview({
+  text,
+  title = 'Preview with sample data',
+}: {
+  text: string | null;
+  title?: string;
+}) {
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-xs font-medium text-fg-secondary">{title}</p>
-      <div className="rounded-lg rounded-tl-xs border border-border bg-surface-2 px-3 py-2 text-sm whitespace-pre-wrap text-fg">{text?.trim() ? text : <span className="text-muted">Nothing to preview yet.</span>}</div>
+      <div className="rounded-lg rounded-tl-xs border border-border bg-surface-2 px-3 py-2 text-sm whitespace-pre-wrap text-fg">
+        {text?.trim() ? text : <span className="text-muted">Nothing to preview yet.</span>}
+      </div>
     </div>
   );
 }

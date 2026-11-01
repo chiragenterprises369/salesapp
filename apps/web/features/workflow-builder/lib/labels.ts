@@ -76,7 +76,10 @@ export const FIELD_HINTS: Record<string, string> = {
 
 export function fieldLabel(key: string): string {
   if (FIELD_LABELS[key]) return FIELD_LABELS[key];
-  const s = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').toLowerCase();
+  const s = key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g, ' ')
+    .toLowerCase();
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -84,8 +87,10 @@ export function fieldLabel(key: string): string {
 export function pathLabel(path: string | null): string | null {
   if (!path) return null;
   const parts = path.split('.');
-  if (parts[0] === 'cases' && parts.length >= 2) return `Case ${Number(parts[1]) + 1}${parts[2] ? ` ${fieldLabel(parts[2]).toLowerCase()}` : ''}`;
-  if (parts[0] === 'rules' && parts.length >= 2) return `Rule ${Number(parts[1]) + 1}${parts[2] ? ` ${fieldLabel(parts[2]).toLowerCase()}` : ''}`;
+  if (parts[0] === 'cases' && parts.length >= 2)
+    return `Case ${Number(parts[1]) + 1}${parts[2] ? ` ${fieldLabel(parts[2]).toLowerCase()}` : ''}`;
+  if (parts[0] === 'rules' && parts.length >= 2)
+    return `Rule ${Number(parts[1]) + 1}${parts[2] ? ` ${fieldLabel(parts[2]).toLowerCase()}` : ''}`;
   const last = [...parts].reverse().find((p) => Number.isNaN(Number(p))) ?? parts[0]!;
   return fieldLabel(last);
 }

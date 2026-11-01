@@ -42,7 +42,10 @@
   border-radius: 9999px;
   border: 2px solid var(--input-border);
   background: var(--surface);
-  transition: background-color 150ms var(--easing), border-color 150ms var(--easing), transform 150ms var(--easing);
+  transition:
+    background-color 150ms var(--easing),
+    border-color 150ms var(--easing),
+    transform 150ms var(--easing);
 }
 .vistar-flow .react-flow__handle.wf-handle.connectionindicator:hover,
 .vistar-flow .react-flow__handle.wf-handle.connectingfrom,
@@ -62,7 +65,9 @@
   stroke: var(--input-border);
   stroke-width: 1.75;
   stroke-linecap: round;
-  transition: stroke 150ms var(--easing), stroke-width 150ms var(--easing);
+  transition:
+    stroke 150ms var(--easing),
+    stroke-width 150ms var(--easing);
 }
 .vistar-flow .wf-edge-shadow {
   stroke: var(--fg);

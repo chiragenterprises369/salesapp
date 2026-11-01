@@ -3,8 +3,25 @@
 import { LEAD_SOURCES, type NodeType } from '@vistar/shared';
 import { mockUsers, TAGS } from '@vistar/shared/fixtures';
 import type { ReactNode } from 'react';
-import { enumLabel, FIELD_HINTS, fieldLabel, LANGUAGE_OPTIONS, SOURCE_LABELS, STAGE_OPTIONS } from '../../lib/labels';
-import { CheckboxField, KeyValueField, MultiCheckField, NumberField, SelectField, TagsField, TemplateTextField, TextField, type Option } from './fields';
+import {
+  enumLabel,
+  FIELD_HINTS,
+  fieldLabel,
+  LANGUAGE_OPTIONS,
+  SOURCE_LABELS,
+  STAGE_OPTIONS,
+} from '../../lib/labels';
+import {
+  CheckboxField,
+  KeyValueField,
+  MultiCheckField,
+  NumberField,
+  SelectField,
+  TagsField,
+  TemplateTextField,
+  TextField,
+  type Option,
+} from './fields';
 
 /** Minimal view of zod 4 schemas used for form generation (avoids `any`). */
 export interface ZodLike {
@@ -20,7 +37,16 @@ export interface ZodLike {
 }
 
 export interface FieldDesc {
-  kind: 'string' | 'number' | 'boolean' | 'enum' | 'stringArray' | 'enumArray' | 'record' | 'object' | 'other';
+  kind:
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'enum'
+    | 'stringArray'
+    | 'enumArray'
+    | 'record'
+    | 'object'
+    | 'other';
   optional: boolean;
   nullable: boolean;
   hasDefault: boolean;
@@ -53,14 +79,21 @@ export function describeField(schema: ZodLike): FieldDesc {
     case 'string':
       return { ...base, kind: 'string', maxLength: s.maxLength ?? undefined, format: s.format };
     case 'number':
-      return { ...base, kind: 'number', min: s.minValue ?? undefined, max: s.maxValue ?? undefined };
+      return {
+        ...base,
+        kind: 'number',
+        min: s.minValue ?? undefined,
+        max: s.maxValue ?? undefined,
+      };
     case 'boolean':
       return { ...base, kind: 'boolean' };
     case 'enum':
       return { ...base, kind: 'enum', options: (s.options ?? []).map(String) };
     case 'array': {
       const el = describeField(s.def.element!);
-      return el.kind === 'enum' ? { ...base, kind: 'enumArray', options: el.options } : { ...base, kind: 'stringArray' };
+      return el.kind === 'enum'
+        ? { ...base, kind: 'enumArray', options: el.options }
+        : { ...base, kind: 'stringArray' };
     }
     case 'record':
       return { ...base, kind: 'record' };
@@ -72,16 +105,20 @@ export function describeField(schema: ZodLike): FieldDesc {
 }
 
 const USERS = mockUsers();
-export const USER_OPTIONS: Option[] = USERS.filter((u) => u.role !== 'viewer').map((u) => ({ value: u.id, label: u.name }));
+export const USER_OPTIONS: Option[] = USERS.filter((u) => u.role !== 'viewer').map((u) => ({
+  value: u.id,
+  label: u.name,
+}));
 
 const TEMPLATED_FIELDS = new Set(['title', 'body', 'subject', 'bodyTemplate', 'notes']);
 const MULTILINE_FIELDS = new Set(['body', 'bodyTemplate', 'notes']);
 
 /** Field visibility rules per node type. */
-const VISIBLE: Partial<Record<NodeType, Record<string, (c: Record<string, unknown>) => boolean>>> = {
-  'action.create_task': { userId: (c) => c.assignTo === 'user' },
-  'action.upsert_contact': { dealValueInr: (c) => c.createDeal !== false },
-};
+const VISIBLE: Partial<Record<NodeType, Record<string, (c: Record<string, unknown>) => boolean>>> =
+  {
+    'action.create_task': { userId: (c) => c.assignTo === 'user' },
+    'action.upsert_contact': { dealValueInr: (c) => c.createDeal !== false },
+  };
 
 export interface SchemaFieldsProps {
   type: NodeType;
@@ -97,7 +134,16 @@ export interface SchemaFieldsProps {
   render?: Partial<Record<string, () => ReactNode>>;
 }
 
-export function SchemaFields({ type, shape, value, onChange, errors, prefix = '', skip = [], render = {} }: SchemaFieldsProps) {
+export function SchemaFields({
+  type,
+  shape,
+  value,
+  onChange,
+  errors,
+  prefix = '',
+  skip = [],
+  render = {},
+}: SchemaFieldsProps) {
   const set = (key: string, v: unknown) => {
     const next = { ...value };
     if (v === undefined) delete next[key];
@@ -116,10 +162,28 @@ export function SchemaFields({ type, shape, value, onChange, errors, prefix = ''
         const path = `${prefix}${key}`;
         const error = errors[path];
         const label = fieldLabel(key);
-        const hint = FIELD_HINTS[key] ?? (desc.description && desc.description.length < 90 ? desc.description : undefined);
+        const hint =
+          FIELD_HINTS[key] ??
+          (desc.description && desc.description.length < 90 ? desc.description : undefined);
         const required = !desc.optional && !desc.hasDefault && !desc.nullable;
         const v = value[key];
-        return <div key={key}>{renderField({ key, type, desc, v, set, error, label, hint, required, errors, prefix: path })}</div>;
+        return (
+          <div key={key}>
+            {renderField({
+              key,
+              type,
+              desc,
+              v,
+              set,
+              error,
+              label,
+              hint,
+              required,
+              errors,
+              prefix: path,
+            })}
+          </div>
+        );
       })}
     </>
   );
@@ -144,25 +208,92 @@ function renderField(a: {
 
   // Key-based widgets first.
   if (key === 'stageKey' || key === 'fromStageKey' || key === 'toStageKey') {
-    return <SelectField label={label} value={str || undefined} options={STAGE_OPTIONS} onChange={(x) => set(key, x)} error={error} hint={hint} required={required} placeholder={desc.optional ? 'Any stage' : 'Choose a stage'} />;
+    return (
+      <SelectField
+        label={label}
+        value={str || undefined}
+        options={STAGE_OPTIONS}
+        onChange={(x) => set(key, x)}
+        error={error}
+        hint={hint}
+        required={required}
+        placeholder={desc.optional ? 'Any stage' : 'Choose a stage'}
+      />
+    );
   }
   if (key === 'userId') {
-    return <SelectField label={label} value={str || undefined} options={USER_OPTIONS} onChange={(x) => set(key, x)} error={error} required placeholder="Choose a person" />;
+    return (
+      <SelectField
+        label={label}
+        value={str || undefined}
+        options={USER_OPTIONS}
+        onChange={(x) => set(key, x)}
+        error={error}
+        required
+        placeholder="Choose a person"
+      />
+    );
   }
   if (key === 'userIds') {
-    return <MultiCheckField legend={label} options={USER_OPTIONS} value={arr} onChange={(x) => set(key, x)} error={error} hint={hint} />;
+    return (
+      <MultiCheckField
+        legend={label}
+        options={USER_OPTIONS}
+        value={arr}
+        onChange={(x) => set(key, x)}
+        error={error}
+        hint={hint}
+      />
+    );
   }
   if (key === 'stageKeys') {
-    return <MultiCheckField legend={label} options={STAGE_OPTIONS} value={arr} onChange={(x) => set(key, x)} error={error} hint="Leave empty for every stage." />;
+    return (
+      <MultiCheckField
+        legend={label}
+        options={STAGE_OPTIONS}
+        value={arr}
+        onChange={(x) => set(key, x)}
+        error={error}
+        hint="Leave empty for every stage."
+      />
+    );
   }
   if (key === 'sources') {
-    return <MultiCheckField legend={label} options={LEAD_SOURCES.map((s) => ({ value: s, label: SOURCE_LABELS[s] }))} value={arr} onChange={(x) => set(key, x)} error={error} hint={hint} />;
+    return (
+      <MultiCheckField
+        legend={label}
+        options={LEAD_SOURCES.map((s) => ({ value: s, label: SOURCE_LABELS[s] }))}
+        value={arr}
+        onChange={(x) => set(key, x)}
+        error={error}
+        hint={hint}
+      />
+    );
   }
   if (key === 'language') {
-    return <SelectField label={label} value={str || 'en'} options={LANGUAGE_OPTIONS} onChange={(x) => set(key, x ?? 'en')} error={error} />;
+    return (
+      <SelectField
+        label={label}
+        value={str || 'en'}
+        options={LANGUAGE_OPTIONS}
+        onChange={(x) => set(key, x ?? 'en')}
+        error={error}
+      />
+    );
   }
   if (key === 'tags') {
-    return <TagsField label={label} value={arr} onChange={(x) => set(key, x)} error={error} hint={hint} required={required} suggestions={TAGS} normalise={(s) => s.toLowerCase().replace(/\s+/g, '-')} />;
+    return (
+      <TagsField
+        label={label}
+        value={arr}
+        onChange={(x) => set(key, x)}
+        error={error}
+        hint={hint}
+        required={required}
+        suggestions={TAGS}
+        normalise={(s) => s.toLowerCase().replace(/\s+/g, '-')}
+      />
+    );
   }
   if (key === 'labels') {
     return (
@@ -225,7 +356,14 @@ function renderField(a: {
         />
       );
     case 'boolean':
-      return <CheckboxField label={label} hint={hint} checked={v === true} onChange={(x) => set(key, x)} />;
+      return (
+        <CheckboxField
+          label={label}
+          hint={hint}
+          checked={v === true}
+          onChange={(x) => set(key, x)}
+        />
+      );
     case 'enum':
       return (
         <SelectField
@@ -239,11 +377,35 @@ function renderField(a: {
         />
       );
     case 'enumArray':
-      return <MultiCheckField legend={label} options={desc.options.map((o) => ({ value: o, label: enumLabel(o) }))} value={arr} onChange={(x) => set(key, x)} error={error} hint={hint} />;
+      return (
+        <MultiCheckField
+          legend={label}
+          options={desc.options.map((o) => ({ value: o, label: enumLabel(o) }))}
+          value={arr}
+          onChange={(x) => set(key, x)}
+          error={error}
+          hint={hint}
+        />
+      );
     case 'stringArray':
-      return <TagsField label={label} value={arr} onChange={(x) => set(key, x)} error={error} hint={hint} required={required} />;
+      return (
+        <TagsField
+          label={label}
+          value={arr}
+          onChange={(x) => set(key, x)}
+          error={error}
+          hint={hint}
+          required={required}
+        />
+      );
     case 'record':
-      return <KeyValueField label={label} value={(v as Record<string, string>) ?? {}} onChange={(x) => set(key, x)} />;
+      return (
+        <KeyValueField
+          label={label}
+          value={(v as Record<string, string>) ?? {}}
+          onChange={(x) => set(key, x)}
+        />
+      );
     case 'object':
       return (
         <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-3">

@@ -1,6 +1,18 @@
 'use client';
 
-import { CircleAlert, Copy, FileClock, Keyboard, LayoutGrid, Maximize, Play, Redo2, Save, Spline, Undo2 } from 'lucide-react';
+import {
+  CircleAlert,
+  Copy,
+  FileClock,
+  Keyboard,
+  LayoutGrid,
+  Maximize,
+  Play,
+  Redo2,
+  Save,
+  Spline,
+  Undo2,
+} from 'lucide-react';
 import { useId, type ComponentProps, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
@@ -26,9 +38,23 @@ export interface ToolbarProps {
   onShowShortcuts: () => void;
 }
 
-function Tool({ label, shortcut, children, ...props }: { label: string; shortcut?: string; children: ReactNode } & Omit<ComponentProps<typeof Button>, 'children'>) {
+function Tool({
+  label,
+  shortcut,
+  children,
+  ...props
+}: { label: string; shortcut?: string; children: ReactNode } & Omit<
+  ComponentProps<typeof Button>,
+  'children'
+>) {
   return (
-    <Button size="icon" variant="ghost" aria-label={label} title={shortcut ? `${label} (${shortcut})` : label} {...props}>
+    <Button
+      size="icon"
+      variant="ghost"
+      aria-label={label}
+      title={shortcut ? `${label} (${shortcut})` : label}
+      {...props}
+    >
       {children}
     </Button>
   );
@@ -46,8 +72,14 @@ export function Toolbar(p: ToolbarProps) {
   const { errors } = issueCounts(useBuilder((s) => s.issues));
   const nameId = useId();
 
-  const activateBlocked = errors > 0 ? `Fix ${errors} ${errors === 1 ? 'error' : 'errors'} to activate` : !env.canPublish ? 'You need publish access to activate' : null;
-  const statusLabel = status === 'active' ? `Active${activeVersion ? ` · v${activeVersion}` : ''}` : 'Draft';
+  const activateBlocked =
+    errors > 0
+      ? `Fix ${errors} ${errors === 1 ? 'error' : 'errors'} to activate`
+      : !env.canPublish
+        ? 'You need publish access to activate'
+        : null;
+  const statusLabel =
+    status === 'active' ? `Active${activeVersion ? ` · v${activeVersion}` : ''}` : 'Draft';
 
   return (
     <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-surface px-3 py-1.5">
@@ -70,7 +102,12 @@ export function Toolbar(p: ToolbarProps) {
           </h2>
         )}
         {env.canEdit && !p.narrow ? (
-          <StatusSwitch status={status} blocked={activateBlocked} onActivate={p.onActivate} onDeactivate={p.onDeactivate} />
+          <StatusSwitch
+            status={status}
+            blocked={activateBlocked}
+            onActivate={p.onActivate}
+            onDeactivate={p.onDeactivate}
+          />
         ) : (
           <Chip tone={status === 'active' ? 'green' : 'neutral'} dot size="md">
             {statusLabel}
@@ -90,7 +127,12 @@ export function Toolbar(p: ToolbarProps) {
             <Tool label="Undo" shortcut="Ctrl+Z" onClick={p.commands.undo} disabled={!canUndo}>
               <Undo2 aria-hidden />
             </Tool>
-            <Tool label="Redo" shortcut="Ctrl+Shift+Z" onClick={p.commands.redo} disabled={!canRedo}>
+            <Tool
+              label="Redo"
+              shortcut="Ctrl+Shift+Z"
+              onClick={p.commands.redo}
+              disabled={!canRedo}
+            >
               <Redo2 aria-hidden />
             </Tool>
             <Tool label="Auto-layout" shortcut="Shift+L" onClick={p.commands.autoLayout}>
@@ -129,11 +171,27 @@ export function Toolbar(p: ToolbarProps) {
               <Copy aria-hidden />
               Duplicate
             </Button>
-            <Button size="sm" variant="secondary" onClick={p.onTestRun} disabled={errors > 0 || p.running} title={errors > 0 ? `Fix ${errors} ${errors === 1 ? 'error' : 'errors'} to run a test` : 'Run the draft with a test lead'}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={p.onTestRun}
+              disabled={errors > 0 || p.running}
+              title={
+                errors > 0
+                  ? `Fix ${errors} ${errors === 1 ? 'error' : 'errors'} to run a test`
+                  : 'Run the draft with a test lead'
+              }
+            >
               <Play aria-hidden />
               {p.running ? 'Running…' : 'Test run'}
             </Button>
-            <Button size="sm" variant="primary" onClick={p.onSave} loading={p.saving} title="Save (Ctrl+S)">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={p.onSave}
+              loading={p.saving}
+              title="Save (Ctrl+S)"
+            >
               <Save aria-hidden />
               Save
             </Button>
@@ -144,7 +202,17 @@ export function Toolbar(p: ToolbarProps) {
   );
 }
 
-function StatusSwitch({ status, blocked, onActivate, onDeactivate }: { status: 'draft' | 'active'; blocked: string | null; onActivate: () => void; onDeactivate: () => void }) {
+function StatusSwitch({
+  status,
+  blocked,
+  onActivate,
+  onDeactivate,
+}: {
+  status: 'draft' | 'active';
+  blocked: string | null;
+  onActivate: () => void;
+  onDeactivate: () => void;
+}) {
   const reasonId = useId();
   const name = useId();
   const options = [
@@ -153,11 +221,19 @@ function StatusSwitch({ status, blocked, onActivate, onDeactivate }: { status: '
   ] as const;
   return (
     <div className="flex items-center gap-2">
-      <div role="radiogroup" aria-label="Workflow status" aria-describedby={blocked ? reasonId : undefined} className="flex rounded-md border border-input bg-surface-2 p-0.5">
+      <div
+        role="radiogroup"
+        aria-label="Workflow status"
+        aria-describedby={blocked ? reasonId : undefined}
+        className="flex rounded-md border border-input bg-surface-2 p-0.5"
+      >
         {options.map((o) => {
           const disabled = o.value === 'active' && status !== 'active' && !!blocked;
           return (
-            <label key={o.value} className={cn('relative', disabled ? 'cursor-not-allowed' : 'cursor-pointer')}>
+            <label
+              key={o.value}
+              className={cn('relative', disabled ? 'cursor-not-allowed' : 'cursor-pointer')}
+            >
               <input
                 type="radio"
                 name={name}
@@ -174,7 +250,15 @@ function StatusSwitch({ status, blocked, onActivate, onDeactivate }: { status: '
                   disabled && 'opacity-50',
                 )}
               >
-                {o.value === 'active' && <span aria-hidden className={cn('size-1.5 rounded-full', status === 'active' ? 'bg-success' : 'bg-border-strong')} />}
+                {o.value === 'active' && (
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'size-1.5 rounded-full',
+                      status === 'active' ? 'bg-success' : 'bg-border-strong',
+                    )}
+                  />
+                )}
                 {o.label}
               </span>
             </label>

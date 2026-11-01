@@ -19,7 +19,9 @@ function nest(flat: Record<string, string>): TemplateContext {
 
 /** Context from WORKFLOW_VARIABLES examples, with optional overrides (dummy lead, reply, workspace). */
 export function previewContext(overrides: Record<string, string> = {}): TemplateContext {
-  const flat: Record<string, string> = Object.fromEntries(WORKFLOW_VARIABLES.map((v) => [v.key, v.example]));
+  const flat: Record<string, string> = Object.fromEntries(
+    WORKFLOW_VARIABLES.map((v) => [v.key, v.example]),
+  );
   return nest({ ...flat, ...overrides });
 }
 
@@ -28,7 +30,11 @@ export function approvedTemplate(name: string) {
 }
 
 /** Fill template slots ({{1}}, {{2}}) from the node's slot -> text mapping, rendered with ctx. */
-export function renderWhatsAppTemplate(name: string, variables: Record<string, string>, ctx: TemplateContext): string | null {
+export function renderWhatsAppTemplate(
+  name: string,
+  variables: Record<string, string>,
+  ctx: TemplateContext,
+): string | null {
   const tpl = approvedTemplate(name);
   if (!tpl) return null;
   const slots: Record<string, string> = {};
@@ -40,11 +46,19 @@ export function renderWhatsAppTemplate(name: string, variables: Record<string, s
 }
 
 /** Message text a messaging node would send, rendered with ctx (null for non-messaging nodes). */
-export function renderNodeMessage(type: NodeType, config: Record<string, unknown>, ctx: TemplateContext): string | null {
+export function renderNodeMessage(
+  type: NodeType,
+  config: Record<string, unknown>,
+  ctx: TemplateContext,
+): string | null {
   const s = (v: unknown) => (typeof v === 'string' ? v : '');
   switch (type) {
     case 'action.send_whatsapp_template':
-      return renderWhatsAppTemplate(s(config.templateName), (config.variables as Record<string, string>) ?? {}, ctx);
+      return renderWhatsAppTemplate(
+        s(config.templateName),
+        (config.variables as Record<string, string>) ?? {},
+        ctx,
+      );
     case 'action.send_whatsapp_text':
     case 'action.send_sms':
       return renderTemplate(s(config.body), ctx);

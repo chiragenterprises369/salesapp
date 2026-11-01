@@ -17,11 +17,16 @@ export function friendlyZodMessage(issue: ZodIssue): string {
   switch (issue.code) {
     case 'invalid_type':
       if (String(issue.message).includes('received undefined')) return 'Required';
-      return i.expected === 'number' ? 'Enter a number' : i.expected === 'array' ? 'Add at least one value' : 'Enter a valid value';
+      return i.expected === 'number'
+        ? 'Enter a number'
+        : i.expected === 'array'
+          ? 'Add at least one value'
+          : 'Enter a valid value';
     case 'too_small': {
       const min = Number(i.minimum);
       if (i.origin === 'string') return min <= 1 ? 'Required' : `Use at least ${min} characters`;
-      if (i.origin === 'array' || i.origin === 'set') return min <= 1 ? 'Add at least one' : `Add at least ${min}`;
+      if (i.origin === 'array' || i.origin === 'set')
+        return min <= 1 ? 'Add at least one' : `Add at least ${min}`;
       return `Must be at least ${min}`;
     }
     case 'too_big': {
@@ -31,7 +36,8 @@ export function friendlyZodMessage(issue: ZodIssue): string {
       return `Must be ${max} or less`;
     }
     case 'invalid_format':
-      if (i.format === 'url') return 'Enter a full URL, for example https://example.com/hooks/vistar';
+      if (i.format === 'url')
+        return 'Enter a full URL, for example https://example.com/hooks/vistar';
       if (i.format === 'regex') return 'Use lowercase letters, numbers and underscores only';
       return 'Check the format';
     case 'invalid_value':
@@ -44,7 +50,10 @@ export function friendlyZodMessage(issue: ZodIssue): string {
 }
 
 /** Field path -> friendly error for one node config. */
-export function configErrors(type: NodeType, config: Record<string, unknown>): Record<string, string> {
+export function configErrors(
+  type: NodeType,
+  config: Record<string, unknown>,
+): Record<string, string> {
   const parsed = nodeConfigSchemas[type].safeParse(config);
   const out: Record<string, string> = {};
   if (parsed.success) return out;
@@ -56,7 +65,11 @@ export function configErrors(type: NodeType, config: Record<string, unknown>): R
 }
 
 /** validateGraph + friendly config messages (contract validation stays the source of truth). */
-export function computeIssues(nodes: FlowNode[], edges: FlowEdge[], aiEnabled: boolean): BuilderIssue[] {
+export function computeIssues(
+  nodes: FlowNode[],
+  edges: FlowEdge[],
+  aiEnabled: boolean,
+): BuilderIssue[] {
   const graph = toGraph(nodes, edges);
   const raw = validateGraph(graph, { aiEnabled });
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -75,7 +88,12 @@ export function computeIssues(nodes: FlowNode[], edges: FlowEdge[], aiEnabled: b
     const field = issue.path !== null ? pathLabel(issue.path || null) : null;
     const where = node ? displayLabel(node.type, node.data) : null;
     const text = [where, field ? `${field}: ${message}` : message].filter(Boolean).join(' · ');
-    return { ...issue, message, text, key: `${idx}:${issue.nodeId ?? ''}:${issue.edgeId ?? ''}:${issue.path ?? ''}` };
+    return {
+      ...issue,
+      message,
+      text,
+      key: `${idx}:${issue.nodeId ?? ''}:${issue.edgeId ?? ''}:${issue.path ?? ''}`,
+    };
   });
 }
 

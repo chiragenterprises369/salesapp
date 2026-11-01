@@ -7,7 +7,13 @@ import {
   type WorkflowStepStatus,
   type NodeType,
 } from '@vistar/shared';
-import { applyEdgeChanges, applyNodeChanges, type Connection, type EdgeChange, type NodeChange } from '@xyflow/react';
+import {
+  applyEdgeChanges,
+  applyNodeChanges,
+  type Connection,
+  type EdgeChange,
+  type NodeChange,
+} from '@xyflow/react';
 import { createStore } from 'zustand/vanilla';
 import { isTrigger, outputsOf } from '../lib/catalog';
 import { GRID_X, GRID_Y, snap } from '../lib/geometry';
@@ -106,12 +112,23 @@ export interface BuilderState {
   onEdgesChange: (changes: EdgeChange<FlowEdge>[]) => void;
   setAiEnabled: (v: boolean) => void;
   connect: (c: Connection) => void;
-  addNode: (type: NodeType, position: { x: number; y: number }, opts?: { after?: string }) => string;
+  addNode: (
+    type: NodeType,
+    position: { x: number; y: number },
+    opts?: { after?: string },
+  ) => string;
   deleteSelection: () => number;
   deleteEdge: (id: string) => void;
   updateNodeData: (id: string, patch: Partial<Pick<FlowNodeData, 'label' | 'notes'>>) => void;
-  updateConfig: (id: string, update: (config: Record<string, unknown>) => Record<string, unknown>, opts?: { coalesceKey?: string; renameHandles?: Record<string, string> }) => void;
-  setPositions: (positions: Map<string, { x: number; y: number }>, opts?: { coalesceKey?: string; checkpoint?: boolean }) => void;
+  updateConfig: (
+    id: string,
+    update: (config: Record<string, unknown>) => Record<string, unknown>,
+    opts?: { coalesceKey?: string; renameHandles?: Record<string, string> },
+  ) => void;
+  setPositions: (
+    positions: Map<string, { x: number; y: number }>,
+    opts?: { coalesceKey?: string; checkpoint?: boolean },
+  ) => void;
   beginDrag: () => void;
   endDrag: (finals: Map<string, { x: number; y: number }>) => void;
   undo: () => boolean;
@@ -154,7 +171,11 @@ function fromSnapshot(s: Snapshot, current: FlowNode[]): { nodes: FlowNode[]; ed
 }
 
 function freePosition(nodes: FlowNode[], want: { x: number; y: number }): { x: number; y: number } {
-  const taken = (p: { x: number; y: number }) => nodes.some((n) => Math.abs(n.position.x - p.x) < GRID_X * 0.8 && Math.abs(n.position.y - p.y) < GRID_Y * 0.6);
+  const taken = (p: { x: number; y: number }) =>
+    nodes.some(
+      (n) =>
+        Math.abs(n.position.x - p.x) < GRID_X * 0.8 && Math.abs(n.position.y - p.y) < GRID_Y * 0.6,
+    );
   let p = { x: snap(want.x), y: snap(want.y) };
   for (let i = 0; i < 12 && taken(p); i++) p = { x: p.x + GRID_X, y: p.y };
   return p;
@@ -204,7 +225,12 @@ export function createBuilderStore(init: {
     /** Commit a structural change: history, issues, revision. */
     const commit = (nodes: FlowNode[], edges: FlowEdge[], key?: string, record = true) => {
       if (record) checkpoint(key);
-      set((s) => ({ nodes, edges, issues: computeIssues(nodes, edges, s.aiEnabled), revision: s.revision + 1 }));
+      set((s) => ({
+        nodes,
+        edges,
+        issues: computeIssues(nodes, edges, s.aiEnabled),
+        revision: s.revision + 1,
+      }));
     };
 
     return {
@@ -231,7 +257,9 @@ export function createBuilderStore(init: {
 
       announce: (text) => set((s) => ({ announcement: { text, n: s.announcement.n + 1 } })),
       onNodesChange: (changes) => {
-        const relevant = changes.filter((c) => c.type !== 'remove' && c.type !== 'add' && c.type !== 'replace');
+        const relevant = changes.filter(
+          (c) => c.type !== 'remove' && c.type !== 'add' && c.type !== 'replace',
+        );
         if (relevant.length === 0) return;
         set((s) => ({ nodes: applyNodeChanges(relevant, s.nodes) }));
       },
@@ -242,7 +270,10 @@ export function createBuilderStore(init: {
         set((s) => ({ edges: applyEdgeChanges(relevant, s.edges) }));
       },
 
-      setAiEnabled: (v) => set((s) => (s.aiEnabled === v ? s : { aiEnabled: v, issues: computeIssues(s.nodes, s.edges, v) })),
+      setAiEnabled: (v) =>
+        set((s) =>
+          s.aiEnabled === v ? s : { aiEnabled: v, issues: computeIssues(s.nodes, s.edges, v) },
+        ),
 
       connect: (c) => {
         const { nodes, edges } = get();
@@ -251,8 +282,17 @@ export function createBuilderStore(init: {
         if (!target || isTrigger(target.type)) return;
         const handle = c.sourceHandle ?? 'out';
         const id = edgeId(c.source, handle, c.target);
-        const kept = edges.filter((e) => !(e.source === c.source && (e.sourceHandle ?? 'out') === handle));
-        const edge: FlowEdge = { id, source: c.source, target: c.target, sourceHandle: handle, targetHandle: 'in', type: 'rope' };
+        const kept = edges.filter(
+          (e) => !(e.source === c.source && (e.sourceHandle ?? 'out') === handle),
+        );
+        const edge: FlowEdge = {
+          id,
+          source: c.source,
+          target: c.target,
+          sourceHandle: handle,
+          targetHandle: 'in',
+          type: 'rope',
+        };
         commit(nodes, [...kept, edge]);
       },
 
@@ -267,30 +307,75 @@ export function createBuilderStore(init: {
         const after = opts.after ? nodes.find((n) => n.id === opts.after) : undefined;
         if (after && !isTrigger(type)) {
           const outs = outputsOf(after.type, after.data.config);
-          const used = new Set(edges.filter((e) => e.source === after.id).map((e) => e.sourceHandle ?? 'out'));
+          const used = new Set(
+            edges.filter((e) => e.source === after.id).map((e) => e.sourceHandle ?? 'out'),
+          );
           const free = outs.find((h) => !used.has(h));
           const below = { x: after.position.x, y: after.position.y + GRID_Y };
           if (free) {
-            pos = freePosition(nextNodes, { x: below.x + (outs.length > 1 ? (outs.indexOf(free) - (outs.length - 1) / 2) * GRID_X : 0), y: below.y });
-            nextEdges = [...nextEdges, { id: edgeId(after.id, free, id), source: after.id, target: id, sourceHandle: free, targetHandle: 'in', type: 'rope' }];
+            pos = freePosition(nextNodes, {
+              x:
+                below.x +
+                (outs.length > 1 ? (outs.indexOf(free) - (outs.length - 1) / 2) * GRID_X : 0),
+              y: below.y,
+            });
+            nextEdges = [
+              ...nextEdges,
+              {
+                id: edgeId(after.id, free, id),
+                source: after.id,
+                target: id,
+                sourceHandle: free,
+                targetHandle: 'in',
+                type: 'rope',
+              },
+            ];
           } else if (outs.length > 0) {
             // Insert between the step and what follows its first output; push the rest down a row.
             const handle = outs[0]!;
-            const old = edges.find((e) => e.source === after.id && (e.sourceHandle ?? 'out') === handle);
+            const old = edges.find(
+              (e) => e.source === after.id && (e.sourceHandle ?? 'out') === handle,
+            );
             pos = below;
             if (old) {
               const shift = downstream(old.target, edges);
-              nextNodes = nextNodes.map((n) => (shift.has(n.id) ? { ...n, position: { x: n.position.x, y: n.position.y + GRID_Y } } : n));
+              nextNodes = nextNodes.map((n) =>
+                shift.has(n.id)
+                  ? { ...n, position: { x: n.position.x, y: n.position.y + GRID_Y } }
+                  : n,
+              );
               const newOuts = outputsOf(type, data.config);
               nextEdges = nextEdges.filter((e) => e.id !== old.id);
-              nextEdges.push({ id: edgeId(after.id, handle, id), source: after.id, target: id, sourceHandle: handle, targetHandle: 'in', type: 'rope' });
-              if (newOuts[0]) nextEdges.push({ id: edgeId(id, newOuts[0], old.target), source: id, target: old.target, sourceHandle: newOuts[0], targetHandle: 'in', type: 'rope' });
+              nextEdges.push({
+                id: edgeId(after.id, handle, id),
+                source: after.id,
+                target: id,
+                sourceHandle: handle,
+                targetHandle: 'in',
+                type: 'rope',
+              });
+              if (newOuts[0])
+                nextEdges.push({
+                  id: edgeId(id, newOuts[0], old.target),
+                  source: id,
+                  target: old.target,
+                  sourceHandle: newOuts[0],
+                  targetHandle: 'in',
+                  type: 'rope',
+                });
             }
           } else {
             pos = freePosition(nextNodes, below);
           }
         }
-        const node: FlowNode = { id, type, position: pos, data, selected: true, ariaLabel: nodeAriaLabel(type, data) };
+        const node: FlowNode = {
+          id,
+          type,
+          position: pos,
+          data,
+          selected: true,
+          ariaLabel: nodeAriaLabel(type, data),
+        };
         commit([...nextNodes, node], nextEdges);
         return id;
       },
@@ -309,7 +394,10 @@ export function createBuilderStore(init: {
 
       deleteEdge: (id) => {
         const { nodes, edges } = get();
-        commit(nodes, edges.filter((e) => e.id !== id));
+        commit(
+          nodes,
+          edges.filter((e) => e.id !== id),
+        );
       },
 
       updateNodeData: (id, patch) => {
@@ -327,7 +415,9 @@ export function createBuilderStore(init: {
         const node = nodes.find((n) => n.id === id);
         if (!node) return;
         const config = update(node.data.config);
-        const nextNodes = nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, config } } : n));
+        const nextNodes = nodes.map((n) =>
+          n.id === id ? { ...n, data: { ...n.data, config } } : n,
+        );
         const renames = opts.renameHandles ?? {};
         const outs = new Set(outputsOf(node.type, config));
         const seen = new Set<string>();
@@ -341,7 +431,11 @@ export function createBuilderStore(init: {
           // Drop connections whose output no longer exists (or became a duplicate).
           if (!outs.has(handle) || seen.has(handle)) continue;
           seen.add(handle);
-          nextEdges.push(handle === e.sourceHandle ? e : { ...e, sourceHandle: handle, id: edgeId(e.source, handle, e.target) });
+          nextEdges.push(
+            handle === e.sourceHandle
+              ? e
+              : { ...e, sourceHandle: handle, id: edgeId(e.source, handle, e.target) },
+          );
         }
         commit(nextNodes, nextEdges, opts.coalesceKey ?? `config:${id}`);
       },
@@ -350,7 +444,9 @@ export function createBuilderStore(init: {
         const { nodes, edges } = get();
         const next = nodes.map((n) => {
           const p = positions.get(n.id);
-          return p && (p.x !== n.position.x || p.y !== n.position.y) ? { ...n, position: { x: p.x, y: p.y } } : n;
+          return p && (p.x !== n.position.x || p.y !== n.position.y)
+            ? { ...n, position: { x: p.x, y: p.y } }
+            : n;
         });
         if (opts.checkpoint !== false) checkpoint(opts.coalesceKey);
         set((s) => ({ nodes: next, edges, revision: s.revision + 1 }));
@@ -367,13 +463,22 @@ export function createBuilderStore(init: {
           const p = finals.get(n.id);
           return p ? { ...n, position: { x: p.x, y: p.y }, dragging: false } : n;
         });
-        const before = dragSnapshot ? new Map(dragSnapshot.nodes.map((n) => [n.id, n.position])) : null;
-        const changed = !before || next.some((n) => {
-          const b = before.get(n.id);
-          return !b || b.x !== n.position.x || b.y !== n.position.y;
-        });
+        const before = dragSnapshot
+          ? new Map(dragSnapshot.nodes.map((n) => [n.id, n.position]))
+          : null;
+        const changed =
+          !before ||
+          next.some((n) => {
+            const b = before.get(n.id);
+            return !b || b.x !== n.position.x || b.y !== n.position.y;
+          });
         if (changed && dragSnapshot) {
-          set((s) => ({ past: [...s.past, dragSnapshot].slice(-HISTORY_LIMIT), future: [], coalesce: null, revision: s.revision + 1 }));
+          set((s) => ({
+            past: [...s.past, dragSnapshot].slice(-HISTORY_LIMIT),
+            future: [],
+            coalesce: null,
+            revision: s.revision + 1,
+          }));
         }
         set({ nodes: next, dragSnapshot: null });
       },
@@ -414,12 +519,17 @@ export function createBuilderStore(init: {
         const ns = new Set(nodeIds);
         const es = new Set(edgeIds);
         set((s) => ({
-          nodes: s.nodes.map((n) => (!!n.selected === ns.has(n.id) ? n : { ...n, selected: ns.has(n.id) })),
-          edges: s.edges.map((e) => (!!e.selected === es.has(e.id) ? e : { ...e, selected: es.has(e.id) })),
+          nodes: s.nodes.map((n) =>
+            !!n.selected === ns.has(n.id) ? n : { ...n, selected: ns.has(n.id) },
+          ),
+          edges: s.edges.map((e) =>
+            !!e.selected === es.has(e.id) ? e : { ...e, selected: es.has(e.id) },
+          ),
         }));
       },
 
-      selectAll: () => set((s) => ({ nodes: s.nodes.map((n) => (n.selected ? n : { ...n, selected: true })) })),
+      selectAll: () =>
+        set((s) => ({ nodes: s.nodes.map((n) => (n.selected ? n : { ...n, selected: true })) })),
 
       copySelection: () => {
         const { nodes, edges } = get();
@@ -443,7 +553,11 @@ export function createBuilderStore(init: {
           const id = newNodeId(n.type, taken);
           taken.add(id);
           remap.set(n.id, id);
-          const f = toFlowNode({ ...n, id, position: { x: snap(n.position.x + offset.x), y: snap(n.position.y + offset.y) } });
+          const f = toFlowNode({
+            ...n,
+            id,
+            position: { x: snap(n.position.x + offset.x), y: snap(n.position.y + offset.y) },
+          });
           added.push({ ...f, selected: true });
         }
         if (added.length === 0) return;
@@ -452,7 +566,14 @@ export function createBuilderStore(init: {
           .map((e) => {
             const source = remap.get(e.source)!;
             const target = remap.get(e.target)!;
-            return { id: edgeId(source, e.sourceHandle ?? 'out', target), source, target, sourceHandle: e.sourceHandle ?? 'out', targetHandle: 'in', type: 'rope' };
+            return {
+              id: edgeId(source, e.sourceHandle ?? 'out', target),
+              source,
+              target,
+              sourceHandle: e.sourceHandle ?? 'out',
+              targetHandle: 'in',
+              type: 'rope',
+            };
           });
         commit(
           [...nodes.map((n) => (n.selected ? { ...n, selected: false } : n)), ...added],
@@ -471,7 +592,10 @@ export function createBuilderStore(init: {
 
       markSaved: (version, opts = {}) =>
         set((s) => ({
-          versions: [version, ...s.versions.filter((v) => v.version !== version.version)].slice(0, 30),
+          versions: [version, ...s.versions.filter((v) => v.version !== version.version)].slice(
+            0,
+            30,
+          ),
           savedRevision: s.revision,
           activeVersion: opts.activate ? version.version : s.activeVersion,
           status: opts.activate ? 'active' : s.status,
@@ -483,7 +607,17 @@ export function createBuilderStore(init: {
 
       startRun: (id, leadName) =>
         set({
-          run: { id, status: 'running', leadName, startedAt: new Date().toISOString(), finishedAt: null, steps: {}, log: [], traversed: [], activeEdgeId: null },
+          run: {
+            id,
+            status: 'running',
+            leadName,
+            startedAt: new Date().toISOString(),
+            finishedAt: null,
+            steps: {},
+            log: [],
+            traversed: [],
+            activeEdgeId: null,
+          },
           dock: 'run',
         }),
 
@@ -491,8 +625,20 @@ export function createBuilderStore(init: {
         set((s) => {
           if (!s.run) return s;
           const prev = s.run.steps[step.nodeId];
-          const visit = prev && prev.status !== 'running' && step.status === 'running' ? prev.visit + 1 : (prev?.visit ?? 1);
-          const steps = { ...s.run.steps, [step.nodeId]: { status: step.status, branch: step.branch, summary: step.summary, error: step.error, visit } };
+          const visit =
+            prev && prev.status !== 'running' && step.status === 'running'
+              ? prev.visit + 1
+              : (prev?.visit ?? 1);
+          const steps = {
+            ...s.run.steps,
+            [step.nodeId]: {
+              status: step.status,
+              branch: step.branch,
+              summary: step.summary,
+              error: step.error,
+              visit,
+            },
+          };
           const final = step.status !== 'running';
           const log = final
             ? [
@@ -509,11 +655,29 @@ export function createBuilderStore(init: {
                 },
               ]
             : s.run.log;
-          const traversed = nextEdgeId && !s.run.traversed.includes(nextEdgeId) ? [...s.run.traversed, nextEdgeId] : s.run.traversed;
-          return { run: { ...s.run, steps, log, traversed, activeEdgeId: nextEdgeId ?? s.run.activeEdgeId } };
+          const traversed =
+            nextEdgeId && !s.run.traversed.includes(nextEdgeId)
+              ? [...s.run.traversed, nextEdgeId]
+              : s.run.traversed;
+          return {
+            run: {
+              ...s.run,
+              steps,
+              log,
+              traversed,
+              activeEdgeId: nextEdgeId ?? s.run.activeEdgeId,
+            },
+          };
         }),
 
-      finishRun: (status) => set((s) => (s.run ? { run: { ...s.run, status, finishedAt: new Date().toISOString(), activeEdgeId: null } } : s)),
+      finishRun: (status) =>
+        set((s) =>
+          s.run
+            ? {
+                run: { ...s.run, status, finishedAt: new Date().toISOString(), activeEdgeId: null },
+              }
+            : s,
+        ),
       clearRun: () => set((s) => ({ run: null, dock: s.dock === 'run' ? null : s.dock })),
     };
   });
@@ -521,6 +685,10 @@ export function createBuilderStore(init: {
 
 export type BuilderStore = ReturnType<typeof createBuilderStore>;
 
-export function graphFromState(s: Pick<BuilderState, 'nodes' | 'edges'>, version = 0, normalise = false): WorkflowGraph {
+export function graphFromState(
+  s: Pick<BuilderState, 'nodes' | 'edges'>,
+  version = 0,
+  normalise = false,
+): WorkflowGraph {
   return toGraph(s.nodes, s.edges, version, normalise);
 }

@@ -55,10 +55,17 @@ interface StepResult {
 }
 
 const USERS = mockUsers();
-const uuid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+const uuid = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
 const iso = () => new Date().toISOString();
 
-export function runContext(input: TestRunInput, workspaceName: string, ownerName: string | null): TemplateContext {
+export function runContext(
+  input: TestRunInput,
+  workspaceName: string,
+  ownerName: string | null,
+): TemplateContext {
   const first = input.lead.name.trim().split(/\s+/)[0] ?? '';
   return previewContext({
     'lead.name': input.lead.name,
@@ -72,12 +79,20 @@ export function runContext(input: TestRunInput, workspaceName: string, ownerName
 }
 
 function get(ctx: TemplateContext, path: string): unknown {
-  return path.split('.').reduce<unknown>((acc, k) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[k] : undefined), ctx);
+  return path
+    .split('.')
+    .reduce<unknown>(
+      (acc, k) =>
+        acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[k] : undefined,
+      ctx,
+    );
 }
 
 export function compare(actual: unknown, op: CompareOp, expected: unknown): boolean {
   const a = typeof actual === 'string' ? actual.toLowerCase() : actual;
-  const list = (Array.isArray(expected) ? expected : [expected]).map((v) => (typeof v === 'string' ? v.toLowerCase() : v));
+  const list = (Array.isArray(expected) ? expected : [expected]).map((v) =>
+    typeof v === 'string' ? v.toLowerCase() : v,
+  );
   const num = (v: unknown) => (typeof v === 'number' ? v : Number(v));
   switch (op) {
     case 'exists':
@@ -89,7 +104,10 @@ export function compare(actual: unknown, op: CompareOp, expected: unknown): bool
     case 'in':
       return list.some((v) => String(v) === String(a));
     case 'contains':
-      return typeof a === 'string' && list.some((v) => typeof v === 'string' && v.length > 0 && a.includes(v));
+      return (
+        typeof a === 'string' &&
+        list.some((v) => typeof v === 'string' && v.length > 0 && a.includes(v))
+      );
     case 'gt':
       return num(a) > num(list[0]);
     case 'gte':
@@ -104,13 +122,25 @@ export function compare(actual: unknown, op: CompareOp, expected: unknown): bool
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 /** Is `now` inside business hours in the workspace timezone? Returns the next opening if not. */
-export function businessHoursState(hours: BusinessHours, timeZone: string, now = new Date()): { open: boolean; nextOpening: string | null } {
-  const fmt = new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+export function businessHoursState(
+  hours: BusinessHours,
+  timeZone: string,
+  now = new Date(),
+): { open: boolean; nextOpening: string | null } {
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
   const parts = Object.fromEntries(fmt.formatToParts(now).map((p) => [p.type, p.value]));
   const day = WEEKDAYS.findIndex((d) => d === String(parts.weekday).slice(0, 3).toLowerCase());
   const hhmm = `${parts.hour === '24' ? '00' : parts.hour}:${parts.minute}`;
-  const slots = (d: number) => (hours as Record<string, Array<{ start: string; end: string }>>)[WEEKDAYS[d]!] ?? [];
-  if (slots(day).some((s) => hhmm >= s.start && hhmm < s.end)) return { open: true, nextOpening: null };
+  const slots = (d: number) =>
+    (hours as Record<string, Array<{ start: string; end: string }>>)[WEEKDAYS[d]!] ?? [];
+  if (slots(day).some((s) => hhmm >= s.start && hhmm < s.end))
+    return { open: true, nextOpening: null };
   for (let i = 0; i < 8; i++) {
     const d = (day + i) % 7;
     const next = slots(d).find((s) => i > 0 || s.start > hhmm);
@@ -148,8 +178,18 @@ export function startMockRun(opts: {
   const ctx = () => runContext(input, opts.workspaceName, state.owner);
   const first = input.lead.name.trim().split(/\s+/)[0] || 'The lead';
 
-  const envelope = <E extends RunEvent['type']>(type: E, payload: Extract<RunEvent, { type: E }>['payload']) =>
-    ({ id: uuid(), type, workspaceId: opts.workspaceId, occurredAt: iso(), actor: { type: 'workflow', id: opts.workflowId, name: 'Test run' }, payload }) as Extract<RunEvent, { type: E }>;
+  const envelope = <E extends RunEvent['type']>(
+    type: E,
+    payload: Extract<RunEvent, { type: E }>['payload'],
+  ) =>
+    ({
+      id: uuid(),
+      type,
+      workspaceId: opts.workspaceId,
+      occurredAt: iso(),
+      actor: { type: 'workflow', id: opts.workflowId, name: 'Test run' },
+      payload,
+    }) as Extract<RunEvent, { type: E }>;
 
   const later = (ms: number, fn: () => void) => {
     timers.push(
@@ -160,13 +200,25 @@ export function startMockRun(opts: {
   };
 
   const runUpdated = (status: WorkflowRunStatus) =>
-    opts.onEvent(envelope('workflow.run_updated', { runId, workflowId: opts.workflowId, leadId: null, status, isTest: true }));
+    opts.onEvent(
+      envelope('workflow.run_updated', {
+        runId,
+        workflowId: opts.workflowId,
+        leadId: null,
+        status,
+        isTest: true,
+      }),
+    );
 
   const stepEvent = (step: WorkflowRunStep, nextEdgeId: string | null) =>
-    opts.onEvent(envelope('workflow.step_updated', { runId, workflowId: opts.workflowId, step, nextEdgeId }));
+    opts.onEvent(
+      envelope('workflow.step_updated', { runId, workflowId: opts.workflowId, step, nextEdgeId }),
+    );
 
   const edgeFor = (node: WorkflowNode, handle: string | null): WorkflowEdge | null =>
-    graph.edges.find((e) => e.source === node.id && (e.sourceHandle ?? 'out') === (handle ?? 'out')) ?? null;
+    graph.edges.find(
+      (e) => e.source === node.id && (e.sourceHandle ?? 'out') === (handle ?? 'out'),
+    ) ?? null;
 
   const replyArrives = () => {
     if (reply && state.inboundAt === null) state.inboundAt = Date.now();
@@ -174,14 +226,25 @@ export function startMockRun(opts: {
 
   const guard = (node: WorkflowNode): StepResult | null => {
     if (input.optedOut)
-      return { status: 'skipped', branch: 'out', summary: `Skipped: ${first} opted out of messages (DND). The run continues.`, error: 'CONSENT_OPTED_OUT' };
+      return {
+        status: 'skipped',
+        branch: 'out',
+        summary: `Skipped: ${first} opted out of messages (DND). The run continues.`,
+        error: 'CONSENT_OPTED_OUT',
+      };
     if (node.type === 'action.send_whatsapp_template') {
       const name = String((node.data.config as Record<string, unknown>).templateName ?? '');
       if (!approvedTemplate(name))
-        return { status: 'failed', branch: null, summary: `Template "${name || 'none'}" is not approved. Pick an approved template.`, error: 'WHATSAPP_TEMPLATE_NOT_APPROVED' };
+        return {
+          status: 'failed',
+          branch: null,
+          summary: `Template "${name || 'none'}" is not approved. Pick an approved template.`,
+          error: 'WHATSAPP_TEMPLATE_NOT_APPROVED',
+        };
     }
     if (node.type === 'action.send_whatsapp_text') {
-      const open = state.inboundAt !== null && Date.now() - state.inboundAt < WHATSAPP_WINDOW_HOURS * 3600_000;
+      const open =
+        state.inboundAt !== null && Date.now() - state.inboundAt < WHATSAPP_WINDOW_HOURS * 3600_000;
       if (!open)
         return {
           status: 'skipped',
@@ -195,13 +258,20 @@ export function startMockRun(opts: {
 
   const quietNote = () => {
     const bh = businessHoursState(opts.businessHours, opts.timeZone);
-    return bh.open ? '' : ` Outside business hours: a live run would send ${bh.nextOpening ?? 'at the next opening'}.`;
+    return bh.open
+      ? ''
+      : ` Outside business hours: a live run would send ${bh.nextOpening ?? 'at the next opening'}.`;
   };
 
   const execute = (node: WorkflowNode, visit: number): StepResult => {
     const c = node.data.config as Record<string, unknown>;
     const def = NODE_CATALOG[node.type];
-    const ok = (summary: string, branch: string | null = 'out'): StepResult => ({ status: 'succeeded', branch, summary, error: null });
+    const ok = (summary: string, branch: string | null = 'out'): StepResult => ({
+      status: 'succeeded',
+      branch,
+      summary,
+      error: null,
+    });
 
     if (def.sendsMessage) {
       const blocked = guard(node);
@@ -210,11 +280,15 @@ export function startMockRun(opts: {
       const note = quietNote();
       switch (node.type) {
         case 'action.send_whatsapp_template':
-          return ok(`Sent template ${String(c.templateName)} to ${input.lead.phone} (dry run).${note}`);
+          return ok(
+            `Sent template ${String(c.templateName)} to ${input.lead.phone} (dry run).${note}`,
+          );
         case 'action.send_whatsapp_text':
           return ok(`Sent WhatsApp message to ${input.lead.phone} (dry run).${note}`);
         case 'action.send_email':
-          return ok(`Sent email "${renderTemplate(String(c.subject ?? ''), ctx())}" (dry run).${note}`);
+          return ok(
+            `Sent email "${renderTemplate(String(c.subject ?? ''), ctx())}" (dry run).${note}`,
+          );
         default:
           return ok(`Sent SMS to ${input.lead.phone} (dry run).${note}`);
       }
@@ -230,23 +304,42 @@ export function startMockRun(opts: {
       case 'trigger.schedule':
         return ok(`Scheduled run picked ${input.lead.name}`);
       case 'trigger.stage_changed':
-        return ok(`${input.lead.name} moved to ${stageName(String(c.toStageKey ?? '')) || 'a new stage'}`);
+        return ok(
+          `${input.lead.name} moved to ${stageName(String(c.toStageKey ?? '')) || 'a new stage'}`,
+        );
       case 'action.upsert_contact':
-        return ok(c.createDeal === false ? `Created contact ${input.lead.name}` : `Created contact ${input.lead.name} and a deal`);
+        return ok(
+          c.createDeal === false
+            ? `Created contact ${input.lead.name}`
+            : `Created contact ${input.lead.name} and a deal`,
+        );
       case 'action.assign_owner': {
-        const pool = (c.userIds as string[] | undefined)?.length ? (c.userIds as string[]) : USERS.filter((u) => u.role === 'employee').map((u) => u.id);
+        const pool = (c.userIds as string[] | undefined)?.length
+          ? (c.userIds as string[])
+          : USERS.filter((u) => u.role === 'employee').map((u) => u.id);
         const strategy = String(c.strategy ?? 'round_robin');
         const pick = strategy === 'least_busy' ? pool[pool.length > 2 ? 2 : 0] : pool[0];
         const user = USERS.find((u) => u.id === pick);
         state.owner = user?.name ?? null;
-        return ok(user ? `Assigned to ${user.name} (${enumLabel(strategy).toLowerCase()})` : 'No one available to assign; owner unchanged');
+        return ok(
+          user
+            ? `Assigned to ${user.name} (${enumLabel(strategy).toLowerCase()})`
+            : 'No one available to assign; owner unchanged',
+        );
       }
       case 'action.create_task': {
-        const who = c.assignTo === 'user' ? USERS.find((u) => u.id === c.userId)?.name ?? 'the chosen user' : (state.owner ?? 'the lead owner');
-        return ok(`Created task "${renderTemplate(String(c.title ?? ''), ctx())}" for ${who}, due in ${dueText(Number(c.dueInMinutes ?? 60))}`);
+        const who =
+          c.assignTo === 'user'
+            ? (USERS.find((u) => u.id === c.userId)?.name ?? 'the chosen user')
+            : (state.owner ?? 'the lead owner');
+        return ok(
+          `Created task "${renderTemplate(String(c.title ?? ''), ctx())}" for ${who}, due in ${dueText(Number(c.dueInMinutes ?? 60))}`,
+        );
       }
       case 'action.create_call_task':
-        return ok(`Created call task "${renderTemplate(String(c.title ?? ''), ctx())}", due in ${dueText(Number(c.dueInMinutes ?? 30))}`);
+        return ok(
+          `Created call task "${renderTemplate(String(c.title ?? ''), ctx())}", due in ${dueText(Number(c.dueInMinutes ?? 30))}`,
+        );
       case 'action.add_tag':
         return ok(`Added tags ${((c.tags as string[]) ?? []).join(', ')}`);
       case 'action.change_stage':
@@ -271,7 +364,14 @@ export function startMockRun(opts: {
           return ok(`${first} replied, so the ${label} wait ended early`);
         }
         const hold = Math.round(Math.max(0, Math.min(1, input.waitScale)) * MAX_WAIT_HOLD_MS);
-        return { ...ok(hold ? `Waited ${label} (shortened for the test)` : `Skipped a ${label} wait (test run)`), holdMs: hold };
+        return {
+          ...ok(
+            hold
+              ? `Waited ${label} (shortened for the test)`
+              : `Skipped a ${label} wait (test run)`,
+          ),
+          holdMs: hold,
+        };
       }
       case 'logic.condition': {
         if (c.kind === 'replied') {
@@ -284,34 +384,66 @@ export function startMockRun(opts: {
         if (c.kind === 'keyword') {
           const words = ((c.keywords as string[]) ?? []).map((w) => w.toLowerCase());
           const text = reply.toLowerCase();
-          const hit = c.matchAll ? words.every((w) => text.includes(w)) : words.some((w) => text.includes(w));
-          return ok(hit ? `Reply matched ${words.filter((w) => text.includes(w)).join(', ')}` : 'No keyword matched', hit ? 'yes' : 'no');
+          const hit = c.matchAll
+            ? words.every((w) => text.includes(w))
+            : words.some((w) => text.includes(w));
+          return ok(
+            hit
+              ? `Reply matched ${words.filter((w) => text.includes(w)).join(', ')}`
+              : 'No keyword matched',
+            hit ? 'yes' : 'no',
+          );
         }
         const rule = (c.rule ?? {}) as { field?: string; op?: CompareOp; value?: unknown };
         const pass = compare(get(ctx(), rule.field ?? ''), rule.op ?? 'eq', rule.value);
-        return ok(`${rule.field ?? 'Field'} check: ${pass ? 'matched' : 'did not match'}`, pass ? 'yes' : 'no');
+        return ok(
+          `${rule.field ?? 'Field'} check: ${pass ? 'matched' : 'did not match'}`,
+          pass ? 'yes' : 'no',
+        );
       }
       case 'logic.switch': {
         const on = String(c.on ?? 'reply_keyword');
         const actual =
-          on === 'reply_keyword' ? reply : on === 'source' ? input.lead.source : on === 'city' ? get(ctx(), 'lead.city') : on === 'valueInr' ? Number(get(ctx(), 'lead.valueInr')) : get(ctx(), String(c.field ?? ''));
-        const cases = (c.cases as Array<{ key: string; label: string; op: CompareOp; value: unknown }>) ?? [];
+          on === 'reply_keyword'
+            ? reply
+            : on === 'source'
+              ? input.lead.source
+              : on === 'city'
+                ? get(ctx(), 'lead.city')
+                : on === 'valueInr'
+                  ? Number(get(ctx(), 'lead.valueInr'))
+                  : get(ctx(), String(c.field ?? ''));
+        const cases =
+          (c.cases as Array<{ key: string; label: string; op: CompareOp; value: unknown }>) ?? [];
         const hit = cases.find((k) => compare(actual, k.op, k.value));
-        if (hit) return ok(`Matched ${hit.label || hit.key}${on === 'reply_keyword' ? ` in "${reply}"` : ''}`, hit.key);
-        return ok(on === 'reply_keyword' && !reply ? 'No reply text, took Default' : 'No case matched, took Default', 'default');
+        if (hit)
+          return ok(
+            `Matched ${hit.label || hit.key}${on === 'reply_keyword' ? ` in "${reply}"` : ''}`,
+            hit.key,
+          );
+        return ok(
+          on === 'reply_keyword' && !reply
+            ? 'No reply text, took Default'
+            : 'No case matched, took Default',
+          'default',
+        );
       }
       case 'logic.dedupe':
         return ok(`No matching lead in the last ${Number(c.withinDays ?? 90)} days`, 'unique');
       case 'logic.loop_limit': {
         const max = Number(c.max ?? 1);
-        return visit > max ? ok(`Limit of ${max} passes reached`, 'exceeded') : ok(`Pass ${visit} of ${max}`, 'out');
+        return visit > max
+          ? ok(`Limit of ${max} passes reached`, 'exceeded')
+          : ok(`Pass ${visit} of ${max}`, 'out');
       }
       case 'logic.stop':
         return { ...ok(`Run stopped${c.reason ? `: ${String(c.reason)}` : ''}`, null), stop: true };
       case 'ai.classify_intent': {
         const labels = (c.labels as string[]) ?? [];
         const text = reply.toLowerCase();
-        const guess = labels.find((l) => l !== 'other' && text.includes(l.replace(/_/g, ' '))) ?? (labels.includes('other') ? 'other' : labels[0]);
+        const guess =
+          labels.find((l) => l !== 'other' && text.includes(l.replace(/_/g, ' '))) ??
+          (labels.includes('other') ? 'other' : labels[0]);
         return ok(`Intent: ${guess ?? 'unknown'}`, guess ?? null);
       }
       default:
@@ -347,15 +479,35 @@ export function startMockRun(opts: {
     later(RUN_STEP_MS, () => {
       const res = execute(node, visit);
       const complete = () => {
-        const valid = res.branch === null || outputsOf(node.type, node.data.config as Record<string, unknown>).includes(res.branch);
-        const edge = res.status === 'failed' || res.stop || !valid ? null : edgeFor(node, res.branch);
-        stepEvent({ ...base, status: res.status, branch: res.branch, summary: res.summary, error: res.error, finishedAt: iso() }, edge?.id ?? null);
+        const valid =
+          res.branch === null ||
+          outputsOf(node.type, node.data.config as Record<string, unknown>).includes(res.branch);
+        const edge =
+          res.status === 'failed' || res.stop || !valid ? null : edgeFor(node, res.branch);
+        stepEvent(
+          {
+            ...base,
+            status: res.status,
+            branch: res.branch,
+            summary: res.summary,
+            error: res.error,
+            finishedAt: iso(),
+          },
+          edge?.id ?? null,
+        );
         if (res.status === 'failed') return finish('failed');
         if (!edge) return finish('completed');
         later(PACKET_MS, () => visitNode(edge.target));
       };
       if (res.holdMs) {
-        stepEvent({ ...base, status: 'waiting', scheduledFor: new Date(Date.now() + res.holdMs).toISOString() }, null);
+        stepEvent(
+          {
+            ...base,
+            status: 'waiting',
+            scheduledFor: new Date(Date.now() + res.holdMs).toISOString(),
+          },
+          null,
+        );
         later(res.holdMs, complete);
       } else complete();
     });

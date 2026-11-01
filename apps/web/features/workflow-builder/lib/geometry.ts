@@ -28,7 +28,11 @@ export function nodeSize(type: NodeType, config: Record<string, unknown>): Size 
 }
 
 /** Local (card-relative) centre of an output handle. Outputs fan left to right in catalogue order. */
-export function sourceHandlePoint(type: NodeType, config: Record<string, unknown>, handle: string | null | undefined): { x: number; y: number } {
+export function sourceHandlePoint(
+  type: NodeType,
+  config: Record<string, unknown>,
+  handle: string | null | undefined,
+): { x: number; y: number } {
   const { w, h } = nodeSize(type, config);
   const outs = outputsOf(type, config);
   const i = Math.max(0, outs.indexOf(handle ?? 'out'));
@@ -40,7 +44,10 @@ export function sourceHandleFraction(index: number, count: number): number {
   return (index + 0.5) / Math.max(1, count);
 }
 
-export function targetHandlePoint(type: NodeType, config: Record<string, unknown>): { x: number; y: number } | null {
+export function targetHandlePoint(
+  type: NodeType,
+  config: Record<string, unknown>,
+): { x: number; y: number } | null {
   if (isTrigger(type)) return null;
   const { w } = nodeSize(type, config);
   return { x: w / 2, y: 0 };

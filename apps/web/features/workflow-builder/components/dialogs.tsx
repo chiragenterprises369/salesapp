@@ -6,7 +6,15 @@ import { RotateCcw } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
-import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { FormField, Input } from '@/components/ui/input';
 import { SOURCE_LABELS } from '../lib/labels';
 import type { TestRunInput } from '../lib/mock-runner';
@@ -31,42 +39,94 @@ export const DEFAULT_TEST_INPUT: TestRunInput = {
   recentInbound: false,
 };
 
-export function TestRunDialog({ open, onOpenChange, initial, onStart }: { open: boolean; onOpenChange: (o: boolean) => void; initial: TestRunInput; onStart: (input: TestRunInput) => void }) {
+export function TestRunDialog({
+  open,
+  onOpenChange,
+  initial,
+  onStart,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  initial: TestRunInput;
+  onStart: (input: TestRunInput) => void;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="lg">{open && <TestRunForm initial={initial} onStart={onStart} onCancel={() => onOpenChange(false)} />}</DialogContent>
+      <DialogContent size="lg">
+        {open && (
+          <TestRunForm initial={initial} onStart={onStart} onCancel={() => onOpenChange(false)} />
+        )}
+      </DialogContent>
     </Dialog>
   );
 }
 
-function TestRunForm({ initial, onStart, onCancel }: { initial: TestRunInput; onStart: (i: TestRunInput) => void; onCancel: () => void }) {
+function TestRunForm({
+  initial,
+  onStart,
+  onCancel,
+}: {
+  initial: TestRunInput;
+  onStart: (i: TestRunInput) => void;
+  onCancel: () => void;
+}) {
   const [input, setInput] = useState<TestRunInput>(initial);
   const [touched, setTouched] = useState(false);
   const phoneOk = normalizeIndianPhone(input.lead.phone) !== null;
   const nameOk = input.lead.name.trim().length > 0;
-  const setLead = (patch: Partial<TestRunInput['lead']>) => setInput((s) => ({ ...s, lead: { ...s.lead, ...patch } }));
+  const setLead = (patch: Partial<TestRunInput['lead']>) =>
+    setInput((s) => ({ ...s, lead: { ...s.lead, ...patch } }));
   const submit = (e: FormEvent) => {
     e.preventDefault();
     setTouched(true);
     if (!phoneOk || !nameOk) return;
-    onStart({ ...input, lead: { ...input.lead, name: input.lead.name.trim(), phone: normalizeIndianPhone(input.lead.phone)! } });
+    onStart({
+      ...input,
+      lead: {
+        ...input.lead,
+        name: input.lead.name.trim(),
+        phone: normalizeIndianPhone(input.lead.phone)!,
+      },
+    });
   };
   return (
     <form onSubmit={submit} className="flex min-h-0 flex-col" noValidate>
       <DialogHeader>
         <DialogTitle>Test run</DialogTitle>
-        <DialogDescription>Runs the current draft with a test lead. Dry run: no messages are sent.</DialogDescription>
+        <DialogDescription>
+          Runs the current draft with a test lead. Dry run: no messages are sent.
+        </DialogDescription>
       </DialogHeader>
       <DialogBody className="flex flex-col gap-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <FormField label="Lead name" required error={touched && !nameOk ? 'Enter a name' : undefined}>
-            <Input value={input.lead.name} onChange={(e) => setLead({ name: e.target.value })} autoFocus />
+          <FormField
+            label="Lead name"
+            required
+            error={touched && !nameOk ? 'Enter a name' : undefined}
+          >
+            <Input
+              value={input.lead.name}
+              onChange={(e) => setLead({ name: e.target.value })}
+              autoFocus
+            />
           </FormField>
-          <FormField label="Phone" required error={touched && !phoneOk ? 'Enter a 10-digit Indian mobile number' : undefined}>
-            <Input value={input.lead.phone} inputMode="tel" onChange={(e) => setLead({ phone: e.target.value })} />
+          <FormField
+            label="Phone"
+            required
+            error={touched && !phoneOk ? 'Enter a 10-digit Indian mobile number' : undefined}
+          >
+            <Input
+              value={input.lead.phone}
+              inputMode="tel"
+              onChange={(e) => setLead({ phone: e.target.value })}
+            />
           </FormField>
           <FormField label="Source">
-            <select className={selectClass} value={input.lead.source} onChange={(e) => setLead({ source: e.target.value as LeadSource })}>
+            <select
+              className={selectClass}
+              value={input.lead.source}
+              onChange={(e) => setLead({ source: e.target.value as LeadSource })}
+            >
               {LEAD_SOURCES.map((s) => (
                 <option key={s} value={s}>
                   {SOURCE_LABELS[s]}
@@ -76,8 +136,16 @@ function TestRunForm({ initial, onStart, onCancel }: { initial: TestRunInput; on
           </FormField>
         </div>
         <div className="flex flex-col gap-2">
-          <FormField label="Simulate reply" hint="What the lead replies after our first message. Leave empty for no reply.">
-            <Input value={input.simulateReply} placeholder="No reply" maxLength={500} onChange={(e) => setInput((s) => ({ ...s, simulateReply: e.target.value }))} />
+          <FormField
+            label="Simulate reply"
+            hint="What the lead replies after our first message. Leave empty for no reply."
+          >
+            <Input
+              value={input.simulateReply}
+              placeholder="No reply"
+              maxLength={500}
+              onChange={(e) => setInput((s) => ({ ...s, simulateReply: e.target.value }))}
+            />
           </FormField>
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick replies">
             {QUICK_REPLIES.map((q) => (
@@ -93,7 +161,10 @@ function TestRunForm({ initial, onStart, onCancel }: { initial: TestRunInput; on
             ))}
           </div>
         </div>
-        <FormField label={`Wait scale: ${input.waitScale === 0 ? 'skip waits' : `${Math.round(input.waitScale * 100)}%`}`} hint="0 skips waits. Higher values pause on each wait (up to 2.4 s in a test).">
+        <FormField
+          label={`Wait scale: ${input.waitScale === 0 ? 'skip waits' : `${Math.round(input.waitScale * 100)}%`}`}
+          hint="0 skips waits. Higher values pause on each wait (up to 2.4 s in a test)."
+        >
           <input
             type="range"
             min={0}
@@ -106,7 +177,12 @@ function TestRunForm({ initial, onStart, onCancel }: { initial: TestRunInput; on
         </FormField>
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2 p-3">
           <p className="text-xs font-medium text-fg-secondary">Compliance checks</p>
-          <CheckboxField label="Lead opted out (DND)" hint="Messaging steps are skipped with CONSENT_OPTED_OUT." checked={input.optedOut} onChange={(v) => setInput((s) => ({ ...s, optedOut: v }))} />
+          <CheckboxField
+            label="Lead opted out (DND)"
+            hint="Messaging steps are skipped with CONSENT_OPTED_OUT."
+            checked={input.optedOut}
+            onChange={(v) => setInput((s) => ({ ...s, optedOut: v }))}
+          />
           <CheckboxField
             label="Lead messaged us in the last 24 hours"
             hint="Opens the WhatsApp window for free-form messages. Off: they are skipped with WHATSAPP_WINDOW_CLOSED."
@@ -129,7 +205,15 @@ function TestRunForm({ initial, onStart, onCancel }: { initial: TestRunInput; on
 
 // ---------------------------------------------------------------------------- versions
 
-export function VersionsDialog({ open, onOpenChange, onRestore }: { open: boolean; onOpenChange: (o: boolean) => void; onRestore: (v: LocalVersion) => void }) {
+export function VersionsDialog({
+  open,
+  onOpenChange,
+  onRestore,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onRestore: (v: LocalVersion) => void;
+}) {
   const versions = useBuilder((s) => s.versions);
   const activeVersion = useBuilder((s) => s.activeVersion);
   const env = useEnv();
@@ -138,7 +222,10 @@ export function VersionsDialog({ open, onOpenChange, onRestore }: { open: boolea
       <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Version history</DialogTitle>
-          <DialogDescription>Every save creates a version. Restore one to load it into the editor, then save to keep it.</DialogDescription>
+          <DialogDescription>
+            Every save creates a version. Restore one to load it into the editor, then save to keep
+            it.
+          </DialogDescription>
         </DialogHeader>
         <DialogBody>
           {versions.length === 0 ? (
@@ -149,7 +236,9 @@ export function VersionsDialog({ open, onOpenChange, onRestore }: { open: boolea
             <ol className="flex flex-col divide-y divide-border rounded-lg border border-border">
               {versions.map((v) => (
                 <li key={v.version} className="flex items-center gap-3 px-3 py-2.5">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-3 text-xs font-semibold text-fg tabular">v{v.version}</span>
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-3 text-xs font-semibold text-fg tabular">
+                    v{v.version}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1.5 text-sm font-medium text-fg">
                       <span className="truncate">{v.name}</span>
@@ -218,7 +307,13 @@ const SHORTCUTS: Array<{ group: string; items: Array<[string, string]> }> = [
   },
 ];
 
-export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function ShortcutsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="xl">
@@ -236,7 +331,10 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
                     <dt className="text-xs text-fg-secondary">{label}</dt>
                     <dd className="shrink-0">
                       {k.split(' ').map((part, i) => (
-                        <kbd key={i} className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-xs border border-border-strong bg-surface-2 px-1 font-sans text-2xs font-medium text-fg">
+                        <kbd
+                          key={i}
+                          className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-xs border border-border-strong bg-surface-2 px-1 font-sans text-2xs font-medium text-fg"
+                        >
                           {part}
                         </kbd>
                       ))}

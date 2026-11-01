@@ -29,7 +29,13 @@ export function toFlowNode(n: WorkflowNode): FlowNode {
   const data: FlowNodeData = { config: { ...(n.data.config as Record<string, unknown>) } };
   if (n.data.label) data.label = n.data.label;
   if (n.data.notes) data.notes = n.data.notes;
-  return { id: n.id, type: n.type, position: { x: n.position.x, y: n.position.y }, data, ariaLabel: nodeAriaLabel(n.type, data) };
+  return {
+    id: n.id,
+    type: n.type,
+    position: { x: n.position.x, y: n.position.y },
+    data,
+    ariaLabel: nodeAriaLabel(n.type, data),
+  };
 }
 
 export function edgeId(source: string, sourceHandle: string, target: string): string {
@@ -37,7 +43,14 @@ export function edgeId(source: string, sourceHandle: string, target: string): st
 }
 
 export function toFlowEdge(e: WorkflowEdge): FlowEdge {
-  return { id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? 'out', targetHandle: 'in', type: 'rope' };
+  return {
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    sourceHandle: e.sourceHandle ?? 'out',
+    targetHandle: 'in',
+    type: 'rope',
+  };
 }
 
 export function toFlow(graph: WorkflowGraph): { nodes: FlowNode[]; edges: FlowEdge[] } {
@@ -56,14 +69,30 @@ export function toWorkflowNode(n: FlowNode, normalise = false): WorkflowNode {
   const notes = n.data.notes?.trim();
   if (label) data.label = label.slice(0, 80);
   if (notes) data.notes = notes.slice(0, 500);
-  return { id: n.id, type: n.type, position: { x: Math.round(n.position.x), y: Math.round(n.position.y) }, data };
+  return {
+    id: n.id,
+    type: n.type,
+    position: { x: Math.round(n.position.x), y: Math.round(n.position.y) },
+    data,
+  };
 }
 
 export function toWorkflowEdge(e: FlowEdge): WorkflowEdge {
-  return { id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? 'out', targetHandle: 'in' };
+  return {
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    sourceHandle: e.sourceHandle ?? 'out',
+    targetHandle: 'in',
+  };
 }
 
-export function toGraph(nodes: FlowNode[], edges: FlowEdge[], version = 0, normalise = false): WorkflowGraph {
+export function toGraph(
+  nodes: FlowNode[],
+  edges: FlowEdge[],
+  version = 0,
+  normalise = false,
+): WorkflowGraph {
   return {
     schemaVersion: GRAPH_SCHEMA_VERSION,
     version,
@@ -73,11 +102,23 @@ export function toGraph(nodes: FlowNode[], edges: FlowEdge[], version = 0, norma
 }
 
 /** initialGraph > template whose key matches workflowId > empty graph. */
-export function resolveInitialGraph(workflowId: string, initialGraph?: WorkflowGraph): { graph: WorkflowGraph; name: string; templateKey: string | null } {
+export function resolveInitialGraph(
+  workflowId: string,
+  initialGraph?: WorkflowGraph,
+): { graph: WorkflowGraph; name: string; templateKey: string | null } {
   const tpl = WORKFLOW_TEMPLATES.find((t) => t.key === workflowId);
-  if (initialGraph) return { graph: initialGraph, name: tpl?.name ?? 'Untitled workflow', templateKey: tpl?.key ?? null };
+  if (initialGraph)
+    return {
+      graph: initialGraph,
+      name: tpl?.name ?? 'Untitled workflow',
+      templateKey: tpl?.key ?? null,
+    };
   if (tpl) return { graph: tpl.graph, name: tpl.name, templateKey: tpl.key };
-  return { graph: emptyGraph(), name: workflowId === 'new' ? 'New workflow' : 'Untitled workflow', templateKey: null };
+  return {
+    graph: emptyGraph(),
+    name: workflowId === 'new' ? 'New workflow' : 'Untitled workflow',
+    templateKey: null,
+  };
 }
 
 const rand = () => Math.random().toString(36).slice(2, 6);
@@ -98,8 +139,18 @@ export function defaultConfig(type: NodeType): Record<string, unknown> {
     'action.send_whatsapp_text': { body: 'Hi {{lead.firstName}}, ' },
     'action.send_email': { subject: '', body: 'Hi {{lead.firstName}},\n\n' },
     'action.send_sms': { body: '' },
-    'action.create_task': { title: 'Follow up with {{lead.name}}', dueInMinutes: 60, priority: 'normal', assignTo: 'owner' },
-    'action.assign_owner': { strategy: 'round_robin', userIds: [], rules: [], onlyIfUnassigned: true },
+    'action.create_task': {
+      title: 'Follow up with {{lead.name}}',
+      dueInMinutes: 60,
+      priority: 'normal',
+      assignTo: 'owner',
+    },
+    'action.assign_owner': {
+      strategy: 'round_robin',
+      userIds: [],
+      rules: [],
+      onlyIfUnassigned: true,
+    },
     'action.add_tag': { tags: [] },
     'action.change_stage': { stageKey: '' },
     'action.update_field': { field: 'temperature', value: 'warm' },

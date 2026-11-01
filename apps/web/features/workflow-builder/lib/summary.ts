@@ -27,9 +27,15 @@ export function configSummary(type: NodeType, c: Cfg): string {
     case 'trigger.inbound_webhook':
       return str(c.endpointId) ? `Endpoint ${str(c.endpointId)}` : 'Choose an endpoint';
     case 'trigger.whatsapp_message':
-      return arr(c.keywords).length ? `Keywords: ${arr(c.keywords).join(', ')}` : 'Any WhatsApp message';
+      return arr(c.keywords).length
+        ? `Keywords: ${arr(c.keywords).join(', ')}`
+        : 'Any WhatsApp message';
     case 'trigger.contact_created':
-      return arr(c.sources).length ? `From ${arr(c.sources).map((s) => SOURCE_LABELS[s as keyof typeof SOURCE_LABELS] ?? s).join(', ')}` : 'Any source';
+      return arr(c.sources).length
+        ? `From ${arr(c.sources)
+            .map((s) => SOURCE_LABELS[s as keyof typeof SOURCE_LABELS] ?? s)
+            .join(', ')}`
+        : 'Any source';
     case 'trigger.stage_changed':
       return `${stageName(str(c.fromStageKey)) || 'Any stage'} → ${stageName(str(c.toStageKey)) || 'any stage'}`;
     case 'trigger.call_missed':
@@ -39,7 +45,9 @@ export function configSummary(type: NodeType, c: Cfg): string {
 
     case 'action.upsert_contact':
       if (!c.createDeal) return 'Contact only';
-      return typeof c.dealValueInr === 'number' ? `Contact + deal ${formatInr(c.dealValueInr)}` : 'Contact + deal at lead value';
+      return typeof c.dealValueInr === 'number'
+        ? `Contact + deal ${formatInr(c.dealValueInr)}`
+        : 'Contact + deal at lead value';
     case 'action.send_whatsapp_template':
       return str(c.templateName) ? `Template ${str(c.templateName)}` : 'Choose a template';
     case 'action.send_whatsapp_text':
@@ -77,12 +85,26 @@ export function configSummary(type: NodeType, c: Cfg): string {
     case 'logic.wait': {
       const amount = typeof c.amount === 'number' ? c.amount : 0;
       const unit = str(c.unit) || 'hours';
-      const base = amount ? `${amount} ${amount === 1 ? unit.replace(/s$/, '') : unit}` : 'Set a duration';
-      return [base, c.businessHoursOnly ? 'business hours' : null, c.resumeOnReply ? 'ends on reply' : null].filter(Boolean).join(' · ');
+      const base = amount
+        ? `${amount} ${amount === 1 ? unit.replace(/s$/, '') : unit}`
+        : 'Set a duration';
+      return [
+        base,
+        c.businessHoursOnly ? 'business hours' : null,
+        c.resumeOnReply ? 'ends on reply' : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
     }
     case 'logic.condition': {
-      if (c.kind === 'replied') return c.since === 'run_start' ? 'Lead replied since the run started' : 'Lead replied to our last message';
-      if (c.kind === 'keyword') return arr(c.keywords).length ? `Reply has ${arr(c.keywords).join(c.matchAll ? ' + ' : ' / ')}` : 'Add keywords';
+      if (c.kind === 'replied')
+        return c.since === 'run_start'
+          ? 'Lead replied since the run started'
+          : 'Lead replied to our last message';
+      if (c.kind === 'keyword')
+        return arr(c.keywords).length
+          ? `Reply has ${arr(c.keywords).join(c.matchAll ? ' + ' : ' / ')}`
+          : 'Add keywords';
       if (c.kind === 'field') {
         const r = (c.rule ?? {}) as Cfg;
         return `${str(r.field) || 'field'} ${OP_LABELS[str(r.op) as keyof typeof OP_LABELS] ?? str(r.op)} ${r.op === 'exists' ? '' : valueText(r.value)}`.trim();
@@ -92,7 +114,11 @@ export function configSummary(type: NodeType, c: Cfg): string {
     case 'logic.switch':
       return `${enumLabel(str(c.on) || 'reply_keyword')} · ${plural(arr(c.cases).length, 'case')} + default`;
     case 'logic.dedupe':
-      return `${arr(c.matchBy).map((m) => enumLabel(String(m)).split(' (')[0]).join(', ') || 'Match by'} · ${typeof c.withinDays === 'number' ? c.withinDays : 90} days`;
+      return `${
+        arr(c.matchBy)
+          .map((m) => enumLabel(String(m)).split(' (')[0])
+          .join(', ') || 'Match by'
+      } · ${typeof c.withinDays === 'number' ? c.withinDays : 90} days`;
     case 'logic.loop_limit':
       return typeof c.max === 'number' ? `Up to ${plural(c.max, 'pass', 'passes')}` : 'Set a limit';
     case 'logic.stop':

@@ -15,6 +15,7 @@ const STEP = 1 / 60;
 const MAX_TILT = 8;
 const LIFT_PX = 6;
 const HOVER_PX = 2;
+const HOVER_TILT = 2.5;
 const LIFT_SCALE = 0.03;
 const REPEL_MARGIN = 36;
 const REPEL_MAX = 26;
@@ -23,7 +24,9 @@ const THROW_MAX = 140;
 
 interface NodeSource {
   getState(): { nodes: FlowNode[] };
-  subscribe(listener: (state: { nodes: FlowNode[] }, prev: { nodes: FlowNode[] }) => void): () => void;
+  subscribe(
+    listener: (state: { nodes: FlowNode[] }, prev: { nodes: FlowNode[] }) => void,
+  ): () => void;
 }
 
 export interface BodyElements {
@@ -141,7 +144,13 @@ export class PhysicsWorld {
     const next = new Map<string, FlowNode>();
     for (const n of list) {
       const old = this.nodes.get(n.id);
-      if (!old || old.position.x !== n.position.x || old.position.y !== n.position.y || old.data.config !== n.data.config) moved = true;
+      if (
+        !old ||
+        old.position.x !== n.position.x ||
+        old.position.y !== n.position.y ||
+        old.data.config !== n.data.config
+      )
+        moved = true;
       next.set(n.id, n);
     }
     if (next.size !== this.nodes.size) moved = true;
@@ -174,8 +183,21 @@ export class PhysicsWorld {
     if (!b) return;
     b.hover.target = hovered ? 1 : 0;
     if (!this.motion) b.hover.set(b.hover.target);
+    if (!hovered && !b.dragging) {
+      b.rx.target = 0;
+      b.ry.target = 0;
+    }
     b.dirty = true;
     this.renderBody(b);
+    this.wake();
+  }
+
+  /** Subtle perspective while hovering: the card leans toward the pointer (nx, ny in -1..1). */
+  setPointer(id: string, nx: number, ny: number) {
+    const b = this.bodies.get(id);
+    if (!b || b.dragging || !this.physics) return;
+    b.rx.target = -ny * HOVER_TILT;
+    b.ry.target = nx * HOVER_TILT;
     this.wake();
   }
 
@@ -278,7 +300,11 @@ export class PhysicsWorld {
 
   // ---------------------------------------------------------------- ropes
 
-  registerRope(id: string, meta: { source: string; target: string; sourceHandle: string }, els: RopeEntry['els']) {
+  registerRope(
+    id: string,
+    meta: { source: string; target: string; sourceHandle: string },
+    els: RopeEntry['els'],
+  ) {
     const entry: RopeEntry = { ...meta, rope: new Rope(), els, needsReset: true, drawn: false };
     this.ropes.set(id, entry);
     this.resetRope(entry);
@@ -316,7 +342,10 @@ export class PhysicsWorld {
     const t = this.nodes.get(r.target);
     if (!s || !t) return null;
     const sp = sourceHandlePoint(s.type, s.data.config, r.sourceHandle);
-    const tp = targetHandlePoint(t.type, t.data.config) ?? { x: nodeSize(t.type, t.data.config).w / 2, y: 0 };
+    const tp = targetHandlePoint(t.type, t.data.config) ?? {
+      x: nodeSize(t.type, t.data.config).w / 2,
+      y: 0,
+    };
     const a = this.visualPoint(s, sp.x, sp.y);
     const b = this.visualPoint(t, tp.x, tp.y);
     return [a.x, a.y, b.x, b.y];
@@ -329,7 +358,13 @@ export class PhysicsWorld {
     const s = 1 + b.lift.x * LIFT_SCALE;
     return {
       x: n.position.x + w / 2 + (lx - w / 2) * s + b.ox.x,
-      y: n.position.y + h / 2 + (ly - h / 2) * s + b.oy.x - b.lift.x * LIFT_PX - b.hover.x * HOVER_PX,
+      y:
+        n.position.y +
+        h / 2 +
+        (ly - h / 2) * s +
+        b.oy.x -
+        b.lift.x * LIFT_PX -
+        b.hover.x * HOVER_PX,
     };
   }
 
@@ -417,7 +452,9 @@ export class PhysicsWorld {
     if (steps === 4) this.acc = 0;
     if (steps === 0) {
       // Frame faster than the fixed step: still report activity so the loop keeps going.
-      bodiesActive = [...this.bodies.values()].some((b) => b.dragging || b.springs().some((s) => !s.resting));
+      bodiesActive = [...this.bodies.values()].some(
+        (b) => b.dragging || b.springs().some((s) => !s.resting),
+      );
       ropesActive = [...this.ropes.values()].some((r) => !r.rope.atRest || r.needsReset);
     }
 
@@ -503,7 +540,12 @@ export class PhysicsWorld {
       if (!ends) continue;
       // Endpoint teleports (undo, paste) re-seat the rope instead of whipping it across the canvas.
       const c = r.rope.cur;
-      const jump = Math.max(Math.abs(c[0]! - ends[0]), Math.abs(c[1]! - ends[1]), Math.abs(c[22]! - ends[2]), Math.abs(c[23]! - ends[3]));
+      const jump = Math.max(
+        Math.abs(c[0]! - ends[0]),
+        Math.abs(c[1]! - ends[1]),
+        Math.abs(c[22]! - ends[2]),
+        Math.abs(c[23]! - ends[3]),
+      );
       if (jump > 400) {
         r.rope.reset(ends[0], ends[1], ends[2], ends[3]);
         r.drawn = false;
@@ -527,11 +569,20 @@ export class PhysicsWorld {
     const rx = b.rx.x;
     const ry = b.ry.x;
     const rz = b.rz.x;
-    const identity = Math.abs(ox) < 0.01 && Math.abs(ty) < 0.01 && Math.abs(rx) < 0.01 && Math.abs(ry) < 0.01 && Math.abs(rz) < 0.01 && lift < 0.001;
+    const identity =
+      Math.abs(ox) < 0.01 &&
+      Math.abs(ty) < 0.01 &&
+      Math.abs(rx) < 0.01 &&
+      Math.abs(ry) < 0.01 &&
+      Math.abs(rz) < 0.01 &&
+      lift < 0.001;
     els.body.style.transform = identity
       ? ''
       : `translate3d(${ox.toFixed(2)}px,${ty.toFixed(2)}px,0) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg) scale(${(1 + lift * LIFT_SCALE).toFixed(4)})`;
-    els.shadow.style.transform = Math.abs(ox) < 0.01 && Math.abs(oy) < 0.01 ? '' : `translate3d(${ox.toFixed(2)}px,${oy.toFixed(2)}px,0)`;
+    els.shadow.style.transform =
+      Math.abs(ox) < 0.01 && Math.abs(oy) < 0.01
+        ? ''
+        : `translate3d(${ox.toFixed(2)}px,${oy.toFixed(2)}px,0)`;
     els.raised.style.opacity = (hov * (1 - lift)).toFixed(3);
     els.lifted.style.opacity = lift.toFixed(3);
   }

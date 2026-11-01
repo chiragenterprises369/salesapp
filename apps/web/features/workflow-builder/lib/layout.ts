@@ -24,7 +24,9 @@ export function autoLayout(nodes: FlowNode[], edges: FlowEdge[]): Map<string, Po
   const children = new Map<string, string[]>();
   const incoming = new Map<string, number>();
   for (const n of nodes) children.set(n.id, []);
-  const sorted = [...edges].filter((e) => byId.has(e.source) && byId.has(e.target)).sort((a, b) => handleRank(a) - handleRank(b));
+  const sorted = [...edges]
+    .filter((e) => byId.has(e.source) && byId.has(e.target))
+    .sort((a, b) => handleRank(a) - handleRank(b));
   for (const e of sorted) {
     children.get(e.source)!.push(e.target);
     incoming.set(e.target, (incoming.get(e.target) ?? 0) + 1);
@@ -50,7 +52,8 @@ export function autoLayout(nodes: FlowNode[], edges: FlowEdge[]): Map<string, Po
     };
     dfs(root);
     const reach = [...state.keys()];
-    const fwd = (id: string) => (children.get(id) ?? []).filter((c) => state.has(c) && !back.has(`${id}>${c}`));
+    const fwd = (id: string) =>
+      (children.get(id) ?? []).filter((c) => state.has(c) && !back.has(`${id}>${c}`));
 
     // Rows: longest path (Kahn over the forward DAG).
     const indeg = new Map<string, number>(reach.map((id) => [id, 0]));
@@ -89,7 +92,8 @@ export function autoLayout(nodes: FlowNode[], edges: FlowEdge[]): Map<string, Po
     const rowOf = (id: string) => row.get(id) ?? 0;
     const place = (id: string): { cols: Map<string, number>; contour: Contour } => {
       const kids = treeKids.get(id) ?? [];
-      if (kids.length === 0) return { cols: new Map([[id, 0]]), contour: new Map([[rowOf(id), [0, 0]]]) };
+      if (kids.length === 0)
+        return { cols: new Map([[id, 0]]), contour: new Map([[rowOf(id), [0, 0]]]) };
       const cols = new Map<string, number>();
       const contour: Contour = new Map();
       const kidCols: number[] = [];
@@ -107,7 +111,12 @@ export function autoLayout(nodes: FlowNode[], edges: FlowEdge[]): Map<string, Po
         for (const [nid, c] of sub.cols) cols.set(nid, c + offset);
         for (const [r, [min, max]] of sub.contour) {
           const cur = contour.get(r);
-          contour.set(r, cur ? [Math.min(cur[0], min + offset), Math.max(cur[1], max + offset)] : [min + offset, max + offset]);
+          contour.set(
+            r,
+            cur
+              ? [Math.min(cur[0], min + offset), Math.max(cur[1], max + offset)]
+              : [min + offset, max + offset],
+          );
         }
         kidCols.push(cols.get(k)!);
       }
@@ -148,7 +157,10 @@ export function autoLayout(nodes: FlowNode[], edges: FlowEdge[]): Map<string, Po
   }
 
   // Unreached steps: roots first (no incoming edges), then whatever remains (cycles).
-  const remaining = () => nodes.filter((n) => !placed.has(n.id)).sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x);
+  const remaining = () =>
+    nodes
+      .filter((n) => !placed.has(n.id))
+      .sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x);
   let rest = remaining();
   while (rest.length) {
     const root = rest.find((n) => (incoming.get(n.id) ?? 0) === 0) ?? rest[0]!;
@@ -156,7 +168,8 @@ export function autoLayout(nodes: FlowNode[], edges: FlowEdge[]): Map<string, Po
     const w = layoutFrom(root.id, nextLeft);
     // Ensure the new tree starts at nextLeft.
     let minCol = Infinity;
-    for (const [id, p] of result) if (!before.has(id)) minCol = Math.min(minCol, Math.round(p.x / GRID_X));
+    for (const [id, p] of result)
+      if (!before.has(id)) minCol = Math.min(minCol, Math.round(p.x / GRID_X));
     const dx = (nextLeft - minCol) * GRID_X;
     for (const [id, p] of result) if (!before.has(id)) result.set(id, { x: p.x + dx, y: p.y });
     nextLeft += w;
