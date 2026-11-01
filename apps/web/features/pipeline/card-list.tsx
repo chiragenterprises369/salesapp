@@ -4,14 +4,15 @@ import { animated, useSpringValue } from '@react-spring/web';
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual';
 import type { LeadListItem, Stage } from '@vistar/shared';
 import { useCallback, useLayoutEffect, useMemo, useRef, type FocusEvent, type RefObject } from 'react';
+import { springConfig } from '@/features/shared/physics';
 import { cn } from '@/lib/cn';
-import { SPRINGS } from './drag/controller';
 import { useBoardController, useColumnLayout, useDragState } from './drag/context';
 import type { CardHandle, ColumnGeometry, DragState } from './drag/types';
 import { BoardCard } from './lead-card';
+import { useBoardWords } from './words';
 
-/** Columns with more cards than this render through @tanstack/react-virtual. */
-export const VIRTUALIZE_OVER = 60;
+/** Entrance: cards after this index share the last card's delay (keeps the wave short). */
+const ENTRANCE_CARDS = 5;
 
 export interface CardListProps {
   stageId: string;
@@ -26,11 +27,16 @@ export interface CardListProps {
   stages: readonly Stage[];
   now: number;
   instructionsId?: string;
-  reducedMotion: boolean;
+  /** First-load entrance: this column's delay and the per-card stagger (ms); undefined = no entrance. */
+  enter?: { base: number; step: number };
 }
 
 function gapOf(compact: boolean) {
   return compact ? 6 : 8;
+}
+
+function enterDelay(enter: CardListProps['enter'], i: number): number | undefined {
+  return enter ? enter.base + Math.min(i, ENTRANCE_CARDS) * enter.step : undefined;
 }
 
 /** Top of the hovered slot when this column shows a gap there, else null. */
@@ -42,7 +48,8 @@ function slotTopFor(s: DragState, stageId: string): number | null {
 }
 
 /** Dashed slot where the card will land; glides between slots. */
-function SlotPlaceholder({ stageId, reducedMotion }: { stageId: string; reducedMotion: boolean }) {
+function SlotPlaceholder({ stageId }: { stageId: string }) {
+  const ctrl = useBoardController();
   const top = useDragState((s) => slotTopFor(s, stageId));
   const height = useDragState((s) => s.active?.height ?? 0);
   const y = useSpringValue(0);
@@ -54,10 +61,10 @@ function SlotPlaceholder({ stageId, reducedMotion }: { stageId: string; reducedM
       shown.current = false;
       return;
     }
-    if (!shown.current || reducedMotion) y.set(top);
-    else y.start(top, { config: SPRINGS.nudge });
+    if (!shown.current || !ctrl.profile.springs) y.set(top);
+    else y.start(top, { config: springConfig(ctrl.physics.gap, { timeScale: ctrl.timeScale(), precision: 0.3 }) });
     shown.current = true;
-  }, [top, y, reducedMotion]);
+  }, [top, y, ctrl]);
 
   if (top === null) return null;
   return (
@@ -77,9 +84,10 @@ function useLeadsRef(leads: readonly LeadListItem[]) {
   return ref;
 }
 
-/** Plain list (up to VIRTUALIZE_OVER cards): geometry from the DOM. */
-export function StaticCardList({ stageId, stageName, leads, reducedMotion, ...cardProps }: CardListProps) {
+/** Plain list (up to the virtualisation threshold): geometry from the DOM. */
+export function StaticCardList({ stageId, stageName, leads, enter, ...cardProps }: CardListProps) {
   const ctrl = useBoardController();
+  const words = useBoardWords();
   const listRef = useRef<HTMLUListElement>(null);
   const leadsRef = useLeadsRef(leads);
 
@@ -101,11 +109,11 @@ export function StaticCardList({ stageId, stageName, leads, reducedMotion, ...ca
   useColumnLayout(stageId, leads, measure);
 
   return (
-    <ul ref={listRef} aria-label={`${stageName} leads`} className={cn('relative flex flex-col', cardProps.compact ? 'gap-1.5' : 'gap-2')}>
+    <ul ref={listRef} aria-label={`${stageName} ${words.manyLower}`} className={cn('relative flex flex-col', cardProps.compact ? 'gap-1.5' : 'gap-2')}>
       {leads.map((lead, i) => (
-        <BoardCard key={lead.id} lead={lead} stageId={stageId} index={i} {...cardProps} />
+        <BoardCard key={lead.id} lead={lead} stageId={stageId} index={i} enterDelay={enterDelay(enter, i)} {...cardProps} />
       ))}
-      <SlotPlaceholder stageId={stageId} reducedMotion={reducedMotion} />
+      <SlotPlaceholder stageId={stageId} />
     </ul>
   );
 }
@@ -115,12 +123,13 @@ export function VirtualCardList({
   stageId,
   stageName,
   leads,
-  reducedMotion,
+  enter,
   scrollRef,
   initialOffset,
   ...cardProps
 }: CardListProps & { scrollRef: RefObject<HTMLDivElement | null>; initialOffset: number | (() => number) }) {
   const ctrl = useBoardController();
+  const words = useBoardWords();
   const listRef = useRef<HTMLUListElement>(null);
   const leadsRef = useLeadsRef(leads);
   const focusIndex = useRef(-1);
@@ -191,7 +200,7 @@ export function VirtualCardList({
   };
 
   return (
-    <ul ref={listRef} aria-label={`${stageName} leads`} onFocus={onFocus} className="relative" style={{ height: virtualizer.getTotalSize() }}>
+    <ul ref={listRef} aria-label={`${stageName} ${words.manyLower}`} onFocus={onFocus} className="relative" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map((item) => {
         const lead = leads[item.index];
         if (!lead) return null;
@@ -204,11 +213,12 @@ export function VirtualCardList({
             virtualStart={item.start}
             measure={virtualizer.measureElement}
             setSize={leads.length}
+            enterDelay={enterDelay(enter, item.index)}
             {...cardProps}
           />
         );
       })}
-      <SlotPlaceholder stageId={stageId} reducedMotion={reducedMotion} />
+      <SlotPlaceholder stageId={stageId} />
     </ul>
   );
 }

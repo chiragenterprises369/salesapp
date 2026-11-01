@@ -1,6 +1,23 @@
 import type { LeadListItem } from '@vistar/shared';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { createStore, type StoreApi } from 'zustand/vanilla';
+import {
+  capVelocity,
+  EdgeAutoScroller,
+  PointerPickup,
+  resolveMotionProfile,
+  springConfig,
+  tiltFromVelocity,
+  trackPointerSession,
+  VelocityTracker,
+  type MotionProfile,
+  type PickupActivation,
+  type QualityMonitor,
+  type ScrollTarget,
+  type SpringParams,
+} from '@/features/shared/physics';
+import { DEFAULT_BOARD_PHYSICS, type BoardPhysicsConfig } from '../board-physics.config';
+import { dropIn, fadeIn, pulseRing } from './effects';
 import type { ActiveDrag, CardHandle, ColumnGeometry, ColumnHandle, CommitMove, DragState, DropTarget, OverlayHandle, Rect } from './types';
 
 /**
@@ -8,62 +25,46 @@ import type { ActiveDrag, CardHandle, ColumnGeometry, ColumnHandle, CommitMove, 
  * through React. The store only changes when the drop slot changes, so a drag re-renders a handful
  * of components (the two placeholders and two column frames), never the cards.
  *
+ * Physics come from features/shared/physics (pick-up, pointer session, velocity + tilt, auto-scroll,
+ * quality tier, motion profile); every constant comes from board-physics.config.ts.
+ *
  * Layout model while dragging: the origin card stays in place as a dashed placeholder; the hovered
- * column opens a gap (cards after the slot translate down by the card height). Everything is
- * transforms, so geometry is measured once at pick-up and hit testing reads cached rest positions.
- * After a drop the board renders the move at once (see BoardView) and each column runs a FLIP pass
- * from the old visual positions, so the gap at the origin closes with a spring.
+ * column opens a gap (cards after the slot translate down by the card height, in a short wave).
+ * Everything is transforms, so geometry is measured once at pick-up and hit testing reads cached
+ * rest positions. After a drop the board renders the move at once (see BoardView) and each column
+ * runs a FLIP pass from the old visual positions, so the gap at the origin closes with a spring.
+ * Cards that change column without a local drag (realtime, menu, deck, rollback) fly along an arc.
  */
 
-export const LIFT_SCALE = 1.03;
-const MAX_TILT_DEG = 8;
-/** deg per (px/ms) of smoothed horizontal pointer velocity. */
-const TILT_GAIN = 9;
-/** Low-pass time constant for pointer velocity (ms). */
-const VELOCITY_TAU = 70;
-const LONG_PRESS_MS = 200;
-const MOUSE_SLOP = 4;
-const TOUCH_SLOP = 8;
-const BOARD_EDGE = 72;
-const COLUMN_EDGE = 56;
-const MAX_SCROLL_PER_FRAME = 18;
 const DEPARTURE_TTL = 1500;
+const ROLLBACK_TTL = 4000;
+const REFLOW_MS = 1200;
 
-export const SPRINGS = {
-  lift: { tension: 420, friction: 26 },
-  tilt: { tension: 320, friction: 22 },
-  /** Damping ratio ~0.66: lands with a slight overshoot. */
-  land: { tension: 520, friction: 30, precision: 0.3 },
-  settle: { tension: 420, friction: 30 },
-  /** Keyboard moves follow the slot. */
-  slot: { tension: 560, friction: 36, precision: 0.3 },
-  /** Neighbours making room / closing gaps. */
-  nudge: { tension: 520, friction: 40, precision: 0.3 },
-  /** Card springing to a new place (rollback, realtime, menu move). */
-  flight: { tension: 300, friction: 24, precision: 0.3 },
-} as const;
+/** Lower-case display words for announcements (configurable labels). */
+export interface BoardWords {
+  lead: string;
+  leads: string;
+}
 
 export interface BoardConfig {
   canDrag: boolean;
-  reducedMotion: boolean;
+  /** Select mode: dragging a selected card carries every selected card as a deck. */
+  selectMode: boolean;
+  selectedIds: () => ReadonlySet<string>;
+  profile: MotionProfile;
+  physics: BoardPhysicsConfig;
+  timeScale: number;
   /** Gap between cards in a column (px). */
   gap: number;
   stageOrder: readonly string[];
   stageNames: ReadonlyMap<string, string>;
   /** Total leads per stage (BoardColumn.count), for "position 2 of 7". */
   counts: ReadonlyMap<string, number>;
-  commit: (move: CommitMove) => void;
-}
-
-interface Pending {
-  pointerId: number;
-  type: string;
-  x0: number;
-  y0: number;
-  lead: LeadListItem;
-  stageId: string;
-  card: HTMLElement;
-  timer: number;
+  words: BoardWords;
+  commit: (moves: CommitMove[]) => void;
+  /** Touch press-and-release (long-press without moving): open the card's actions sheet. */
+  openActions: (lead: LeadListItem, stageId: string) => void;
+  quality: QualityMonitor | null;
 }
 
 interface Slot {
@@ -89,20 +90,14 @@ interface Landing {
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
-/** Auto-scroll speed (px/frame) for a pointer `dist` px inside an edge band. */
-function edgeSpeed(dist: number, band: number): number {
-  if (dist >= band) return 0;
-  const t = clamp((band - dist) / band, 0, 1);
-  return MAX_SCROLL_PER_FRAME * t * t;
-}
-
-function step(v: number): number {
-  if (v === 0) return 0;
-  return Math.sign(v) * Math.max(1, Math.round(Math.abs(v)));
-}
-
 function intersectsViewport(r: Rect): boolean {
   return r.x + r.width > 0 && r.y + r.height > 0 && r.x < window.innerWidth && r.y < window.innerHeight;
+}
+
+/** Same stiffness, at least critically damped: lands without overshoot. */
+function noOvershoot(p: SpringParams): SpringParams {
+  const m = p.mass ?? 1;
+  return { ...p, damping: Math.max(p.damping, 2 * Math.sqrt(p.stiffness * m)) };
 }
 
 export class BoardController {
@@ -116,39 +111,78 @@ export class BoardController {
 
   private cfg: BoardConfig = {
     canDrag: false,
-    reducedMotion: false,
+    selectMode: false,
+    selectedIds: () => new Set(),
+    profile: resolveMotionProfile({ reducedMotion: false }),
+    physics: DEFAULT_BOARD_PHYSICS,
+    timeScale: 1,
     gap: 8,
     stageOrder: [],
     stageNames: new Map(),
     counts: new Map(),
+    words: { lead: 'lead', leads: 'leads' },
     commit: () => undefined,
+    openActions: () => undefined,
+    quality: null,
   };
   private columns = new Map<string, ColumnHandle>();
   private geometries = new Map<string, ColumnGeometry>();
   private slotCache = new Map<string, Slot[]>();
   private indexCache = new Map<string, Map<string, number>>();
 
-  private pending: Pending | null = null;
-  private pointerId = -1;
+  private press: { lead: LeadListItem; stageId: string } | null = null;
+  private readonly pickup = new PointerPickup({
+    onActivate: (a) => this.activatePointer(a),
+    onAbort: () => {
+      this.press = null;
+    },
+  });
+  private stopSession: (() => void) | null = null;
+  private releaseQuality: (() => void) | null = null;
+  private releaseFlightQuality: (() => void) | null = null;
+  private readonly vel = new VelocityTracker(DEFAULT_BOARD_PHYSICS.velocityTauMs);
+  private readonly scroller = new EdgeAutoScroller({ edge: 72, maxSpeed: 18, rampMs: 350, curve: 2 });
   private ptr = { x: 0, y: 0 };
   private pos = { x: 0, y: 0 };
-  private vel = { x: 0, y: 0 };
+  private pointerStart = { x: 0, y: 0 };
+  private travel = 0;
   private lastTick = 0;
   private raf = 0;
   private suppressClickUntil = 0;
-  private bodyStyle: { cursor: string; userSelect: string } | null = null;
 
   private landing: Landing | null = null;
   private landToken = 0;
   private landTimer = 0;
+  /** Id of the card that is landing on a new slot (confirmation ring when it settles). */
+  private landedMove: string | null = null;
   private focusAfter: { id: string; scroll: boolean; t: number } | null = null;
   private departures = new Map<string, Departure>();
   private arrivals = new Set<string>();
+  private rollbacks = new Map<string, number>();
+  private reflowUntil = 0;
   private flightSeq = 0;
   private liveFlip = false;
 
   configure(patch: Partial<BoardConfig>) {
     Object.assign(this.cfg, patch);
+    if (patch.physics) {
+      const p = patch.physics;
+      this.vel.tauMs = p.velocityTauMs;
+      this.scroller.configure({ maxSpeed: p.autoScroll.maxSpeed, rampMs: p.autoScroll.rampMs, curve: p.autoScroll.curve, edge: p.autoScroll.boardEdge });
+    }
+  }
+
+  get profile(): MotionProfile {
+    return this.cfg.profile;
+  }
+
+  get physics(): BoardPhysicsConfig {
+    return this.cfg.physics;
+  }
+
+  /** Current physics time scale (slow motion on the demo page). */
+  timeScale(): number {
+    return this.cfg.timeScale;
   }
 
   /** Board scroller + live region (BoardView). Returns a detach function. */
@@ -167,6 +201,15 @@ export class BoardController {
     return () => {
       if (this.overlay === handle) this.overlay = null;
     };
+  }
+
+  private spring(p: SpringParams, velocity?: number) {
+    return springConfig(p, { timeScale: this.cfg.timeScale, velocity, precision: 0.3 });
+  }
+
+  /** Real-time duration stretched by slow motion. */
+  private ms(duration: number) {
+    return duration / this.cfg.timeScale;
   }
 
   // ------------------------------------------------------------------ registry
@@ -196,6 +239,7 @@ export class BoardController {
   }
 
   unregisterCard(h: CardHandle) {
+    window.clearTimeout(h.shiftTimer);
     if (this.cards.get(h.id) === h) this.cards.delete(h.id);
     // No layout reads here (mass unmounts must stay cheap): keep what is needed to rebuild the rect.
     this.departures.set(h.id, { list: h.list, top: h.restTop, height: h.height, y: h.y.get(), t: performance.now() });
@@ -211,6 +255,23 @@ export class BoardController {
     this.arrivals.add(id);
   }
 
+  /** A save failed and the data layer is rolling this card back: its return trip is a rollback. */
+  noteRollback(id: string) {
+    this.rollbacks.set(id, performance.now());
+  }
+
+  /** Filters changed: cards that appear now fade in (no "new lead" drop). */
+  beginReflow() {
+    this.reflowUntil = performance.now() + REFLOW_MS;
+  }
+
+  private takeRollback(id: string, now: number): boolean {
+    const t = this.rollbacks.get(id);
+    if (t === undefined) return false;
+    this.rollbacks.delete(id);
+    return now - t < ROLLBACK_TTL;
+  }
+
   /**
    * Column layout pass for one card: record its rest geometry and FLIP it when its rest position
    * moved (stay where it was on screen, then spring to the new place plus any drag nudge).
@@ -222,7 +283,7 @@ export class BoardController {
     const target = this.shiftFor(h.stageId, h.id);
     h.shift = target;
     const s = this.store.getState();
-    if (this.cfg.reducedMotion || s.active?.lead.id === h.id) {
+    if (!this.cfg.profile.springs || s.active?.lead.id === h.id) {
       h.y.set(target);
       return;
     }
@@ -232,7 +293,7 @@ export class BoardController {
       return;
     }
     h.y.set(delta);
-    h.y.start(target, { config: SPRINGS.nudge });
+    h.y.start(target, { config: this.spring(this.cfg.physics.gap) });
   }
 
   /** Virtual rows report their rest top as they render. */
@@ -272,15 +333,32 @@ export class BoardController {
 
     if (this.arrivals.size) {
       const s = this.store.getState();
+      const { profile, physics } = this.cfg;
+      const reflow = now < this.reflowUntil;
       for (const id of this.arrivals) {
         if (s.active?.lead.id === id && s.phase !== 'idle') continue;
-        const d = this.departures.get(id);
         const h = this.cards.get(id);
-        if (!d || !h || now - d.t > DEPARTURE_TTL || !d.list.isConnected || this.cfg.reducedMotion) continue;
-        const lr = d.list.getBoundingClientRect();
-        const from: Rect = { x: lr.left, y: lr.top + d.top + d.y, width: lr.width, height: d.height };
-        const lead = this.leadsOf(h.stageId).find((l) => l.id === id);
-        if (lead) this.fly(lead, from, this.restRect(h), h);
+        if (!h) continue;
+        const d = this.departures.get(id);
+        const rolled = this.takeRollback(id, now);
+        if (d && now - d.t <= DEPARTURE_TTL && d.list.isConnected) {
+          // Known card that changed place without a local drag: fly it over (arc).
+          if (!profile.springs) {
+            fadeIn(h.li, 150);
+            if (rolled) pulseRing(h.ring, 'danger', physics.ringPulseMs, false);
+            continue;
+          }
+          const lr = d.list.getBoundingClientRect();
+          const from: Rect = { x: lr.left, y: lr.top + d.top + d.y, width: lr.width, height: d.height };
+          const lead = this.leadsOf(h.stageId).find((l) => l.id === id);
+          if (lead) this.fly(lead, from, this.restRect(h), h, rolled ? 'rollback' : 'move');
+          continue;
+        }
+        // Never seen here: a new lead at the top of its column drops in; reflows and pages fade in.
+        if (!reflow && this.indexOf(h.stageId, id) === 0) {
+          dropIn(h.li, this.ms(520), profile.springs);
+          pulseRing(h.ring, 'accent', this.ms(900), profile.pulses);
+        } else if (profile.springs) fadeIn(h.li, this.ms(200), true);
       }
       this.arrivals.clear();
     }
@@ -294,9 +372,17 @@ export class BoardController {
     const { flights } = this.store.getState();
     const f = flights.find((x) => x.key === key);
     if (!f) return;
-    this.store.setState({ flights: flights.filter((x) => x.key !== key) });
+    const rest = flights.filter((x) => x.key !== key);
+    this.store.setState({ flights: rest });
     const h = this.cards.get(f.lead.id);
-    if (h) h.li.style.opacity = '';
+    if (h) {
+      h.li.style.opacity = '';
+      pulseRing(h.ring, f.kind === 'rollback' ? 'danger' : 'stage', this.ms(this.cfg.physics.ringPulseMs), this.cfg.profile.pulses);
+    }
+    if (rest.length === 0) {
+      this.releaseFlightQuality?.();
+      this.releaseFlightQuality = null;
+    }
   }
 
   // ------------------------------------------------------------------ geometry
@@ -383,14 +469,33 @@ export class BoardController {
     return idx >= over.index ? H : 0;
   }
 
+  /** Move neighbours to their nudge targets. Opening a gap runs as a short wave from the slot. */
   private applyShifts() {
-    const reduced = this.cfg.reducedMotion;
+    const { profile, physics } = this.cfg;
+    const s = this.store.getState();
+    const over = s.over;
+    const config = { config: this.spring(physics.gap) };
     for (const h of this.cards.values()) {
       const target = this.shiftFor(h.stageId, h.id);
       if (target === h.shift) continue;
       h.shift = target;
-      if (reduced) h.y.set(target);
-      else h.y.start(target, { config: SPRINGS.nudge });
+      window.clearTimeout(h.shiftTimer);
+      h.shiftTimer = 0;
+      if (!profile.springs) {
+        h.y.set(target);
+        continue;
+      }
+      let delay = 0;
+      if (profile.stagger && over && s.phase === 'dragging' && h.stageId === over.stageId) {
+        delay = this.ms(Math.min(6, Math.abs(this.indexOf(h.stageId, h.id) - over.index)) * physics.gapStaggerMs);
+      }
+      if (delay < 1) h.y.start(target, config);
+      else {
+        h.shiftTimer = window.setTimeout(() => {
+          h.shiftTimer = 0;
+          if (h.shift === target) h.y.start(target, config);
+        }, delay);
+      }
     }
   }
 
@@ -465,21 +570,13 @@ export class BoardController {
   // ------------------------------------------------------------------ pointer
 
   pointerDown(e: ReactPointerEvent<HTMLElement>, lead: LeadListItem, stageId: string) {
-    if (!this.cfg.canDrag || e.button !== 0 || !e.isPrimary) return;
+    if (!this.cfg.canDrag) return;
     const phase = this.store.getState().phase;
     if (phase === 'dragging') return;
     if (phase === 'dropping') this.endDrop();
-    this.clearPending();
-    this.pending = { pointerId: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, lead, stageId, card: e.currentTarget, timer: 0 };
-    this.ptr = { x: e.clientX, y: e.clientY };
-    window.addEventListener('pointermove', this.onPendingMove, { passive: true });
-    window.addEventListener('pointerup', this.onPendingEnd);
-    window.addEventListener('pointercancel', this.onPendingEnd);
-    if (e.pointerType === 'touch') {
-      // Long-press picks up; a quick swipe still scrolls (we only block touchmove once dragging).
-      window.addEventListener('touchmove', this.onTouchMove, { passive: false });
-      this.pending.timer = window.setTimeout(this.activatePointer, LONG_PRESS_MS);
-    }
+    const p = this.cfg.physics;
+    this.press = { lead, stageId };
+    this.pickup.begin(e, { mouseSlop: p.mouseSlop, touchSlop: p.touchSlop, longPressMs: p.longPressMs, hapticMs: 8 });
   }
 
   /** True once after a drag ended, so the trailing click does not open the lead. */
@@ -491,143 +588,96 @@ export class BoardController {
     return false;
   }
 
-  private onPendingMove = (e: PointerEvent) => {
-    const p = this.pending;
-    if (!p || e.pointerId !== p.pointerId) return;
-    this.ptr = { x: e.clientX, y: e.clientY };
-    const d = Math.hypot(e.clientX - p.x0, e.clientY - p.y0);
-    if (p.type === 'touch') {
-      if (d > TOUCH_SLOP) this.clearPending();
-      return;
-    }
-    if (d > MOUSE_SLOP) this.activatePointer();
-  };
-
-  private onPendingEnd = (e: PointerEvent) => {
-    if (this.pending && e.pointerId === this.pending.pointerId) this.clearPending();
-  };
-
-  private onTouchMove = (e: TouchEvent) => {
-    const s = this.store.getState();
-    if (s.phase === 'dragging' && s.active?.mode === 'pointer' && e.cancelable) e.preventDefault();
-  };
-
-  private preventContextMenu = (e: Event) => e.preventDefault();
-
-  private clearPending() {
-    const p = this.pending;
-    if (!p) return;
-    window.clearTimeout(p.timer);
-    window.removeEventListener('pointermove', this.onPendingMove);
-    window.removeEventListener('pointerup', this.onPendingEnd);
-    window.removeEventListener('pointercancel', this.onPendingEnd);
-    this.pending = null;
-    if (this.store.getState().phase !== 'dragging') window.removeEventListener('touchmove', this.onTouchMove);
+  /** Select mode: the other selected cards that travel with `lead` (board order, loaded cards only). */
+  private deckFor(lead: LeadListItem): LeadListItem[] {
+    if (!this.cfg.selectMode) return [];
+    const selected = this.cfg.selectedIds();
+    if (!selected.has(lead.id) || selected.size < 2) return [];
+    const out: LeadListItem[] = [];
+    for (const stageId of this.cfg.stageOrder) for (const l of this.leadsOf(stageId)) if (l.id !== lead.id && selected.has(l.id)) out.push(l);
+    return out;
   }
 
-  private activatePointer = () => {
-    const p = this.pending;
-    if (!p) return;
-    const { lead, stageId, card, pointerId } = p;
-    this.pending = null;
-    window.clearTimeout(p.timer);
-    window.removeEventListener('pointermove', this.onPendingMove);
-    window.removeEventListener('pointerup', this.onPendingEnd);
-    window.removeEventListener('pointercancel', this.onPendingEnd);
+  private activatePointer(a: PickupActivation) {
+    const press = this.press;
+    this.press = null;
+    if (!press) return;
+    const { lead, stageId } = press;
+    const card = a.target;
     this.refreshGeometry();
     const originIndex = this.indexOf(stageId, lead.id);
-    if (originIndex < 0 || !card.isConnected) {
-      window.removeEventListener('touchmove', this.onTouchMove);
-      return;
-    }
+    if (originIndex < 0 || !card.isConnected) return;
     const r = card.getBoundingClientRect();
+    const deck = this.deckFor(lead);
     const active: ActiveDrag = {
       lead,
+      deck,
+      deckIds: new Set(deck.map((l) => l.id)),
       fromStageId: stageId,
       originIndex,
       width: r.width,
       height: r.height,
-      grabX: clamp(this.ptr.x - r.left, 0, r.width),
-      grabY: clamp(this.ptr.y - r.top, 0, r.height),
+      grabX: clamp(a.x0 - r.left, 0, r.width),
+      grabY: clamp(a.y0 - r.top, 0, r.height),
       mode: 'pointer',
+      viaLongPress: a.viaLongPress,
     };
-    this.pointerId = pointerId;
+    this.ptr = { x: a.x, y: a.y };
+    this.pointerStart = { x: a.x, y: a.y };
+    this.travel = 0;
     this.pos = { x: r.left, y: r.top };
-    this.ptr = { x: r.left + active.grabX, y: r.top + active.grabY };
-    this.vel = { x: 0, y: 0 };
+    this.vel.reset(r.left, r.top);
     this.lastTick = performance.now();
     this.liftOverlay(r);
     this.store.setState({ phase: 'dragging', active, over: { stageId, index: originIndex, top: this.slotTop(stageId, originIndex, active) } });
     this.applyShifts();
-
-    window.addEventListener('pointermove', this.onDragMove, { passive: true });
-    window.addEventListener('pointerup', this.onDragEnd);
-    window.addEventListener('pointercancel', this.onDragCancel);
-    window.addEventListener('keydown', this.onDragKey, true);
-    window.addEventListener('contextmenu', this.preventContextMenu);
-    window.addEventListener('blur', this.onWindowBlur);
-    const body = document.body.style;
-    this.bodyStyle = { cursor: body.cursor, userSelect: body.userSelect };
-    body.cursor = 'grabbing';
-    body.userSelect = 'none';
+    this.stopSession = trackPointerSession(a.pointerId, {
+      onMove: (x, y) => {
+        this.ptr = { x, y };
+        this.travel = Math.max(this.travel, Math.hypot(x - this.pointerStart.x, y - this.pointerStart.y));
+      },
+      onEnd: (x, y) => {
+        this.ptr = { x, y };
+        this.tick(performance.now(), false);
+        this.finishSession();
+        const s = this.store.getState();
+        if (s.active?.viaLongPress && this.travel <= this.cfg.physics.touchSlop) {
+          // Touch press-and-release without moving: the actions sheet, not a move.
+          const { lead: l, fromStageId } = s.active;
+          this.returnHome('silent');
+          this.cfg.openActions(l, fromStageId);
+          return;
+        }
+        this.drop();
+      },
+      onCancel: () => {
+        this.finishSession();
+        this.returnHome('cancel');
+      },
+    });
     this.board?.setAttribute('data-dragging', 'true');
+    this.acquireQuality();
     this.raf = requestAnimationFrame(this.tick);
-    this.announce(`Picked up ${lead.name} from ${this.name(stageId)}, position ${originIndex + 1} of ${this.total(stageId, active)}.`);
-  };
+    const more = deck.length ? ` and ${deck.length} more ${deck.length === 1 ? this.cfg.words.lead : this.cfg.words.leads}` : '';
+    this.announce(`Picked up ${lead.name}${more} from ${this.name(stageId)}, position ${originIndex + 1} of ${this.total(stageId, active)}.`);
+  }
 
-  private onDragMove = (e: PointerEvent) => {
-    if (e.pointerId !== this.pointerId) return;
-    this.ptr = { x: e.clientX, y: e.clientY };
-  };
+  private acquireQuality() {
+    this.releaseQuality?.();
+    this.releaseQuality = this.cfg.quality?.acquire() ?? null;
+  }
 
-  private onDragEnd = (e: PointerEvent) => {
-    if (e.pointerId !== this.pointerId) return;
-    this.ptr = { x: e.clientX, y: e.clientY };
-    this.tick(performance.now(), false);
-    this.stopTracking();
-    this.drop();
-  };
-
-  private onDragCancel = (e: PointerEvent) => {
-    if (e.pointerId !== this.pointerId) return;
-    this.stopTracking();
-    this.returnHome('cancel');
-  };
-
-  private onDragKey = (e: KeyboardEvent) => {
-    if (e.key !== 'Escape') return;
-    e.preventDefault();
-    e.stopPropagation();
-    this.stopTracking();
-    this.returnHome('cancel');
-  };
-
-  private onWindowBlur = () => {
-    this.stopTracking();
-    this.returnHome('cancel');
-  };
-
-  private stopTracking() {
+  private finishSession() {
     cancelAnimationFrame(this.raf);
     this.raf = 0;
-    window.removeEventListener('pointermove', this.onDragMove);
-    window.removeEventListener('pointerup', this.onDragEnd);
-    window.removeEventListener('pointercancel', this.onDragCancel);
-    window.removeEventListener('keydown', this.onDragKey, true);
-    window.removeEventListener('contextmenu', this.preventContextMenu);
-    window.removeEventListener('blur', this.onWindowBlur);
-    window.removeEventListener('touchmove', this.onTouchMove);
-    if (this.bodyStyle) {
-      document.body.style.cursor = this.bodyStyle.cursor;
-      document.body.style.userSelect = this.bodyStyle.userSelect;
-      this.bodyStyle = null;
-    }
+    this.stopSession?.();
+    this.stopSession = null;
     this.board?.removeAttribute('data-dragging');
-    this.pointerId = -1;
+    this.scroller.reset();
     this.suppressClickUntil = performance.now() + 400;
   }
 
-  /** One frame: auto-scroll, follow the pointer, filter velocity into tilt, hit test. */
+  /** One frame: auto-scroll, follow the pointer with a light spring lag, tilt from velocity, hit test. */
   private tick = (now: number, schedule = true) => {
     if (schedule) this.raf = requestAnimationFrame(this.tick);
     const s = this.store.getState();
@@ -635,54 +685,52 @@ export class BoardController {
     if (!active || s.phase !== 'dragging') return;
     const dt = clamp(now - this.lastTick, 1, 64);
     this.lastTick = now;
-    const scrolled = schedule ? this.autoScroll(dt) : false;
+    const scrolled = schedule ? this.autoScroll(dt, now) : false;
     const x = this.ptr.x - active.grabX;
     const y = this.ptr.y - active.grabY;
-    const a = 1 - Math.exp(-dt / VELOCITY_TAU);
-    this.vel.x += ((x - this.pos.x) / dt - this.vel.x) * a;
-    this.vel.y += ((y - this.pos.y) / dt - this.vel.y) * a;
+    this.vel.sample(x, y, now);
     const moved = x !== this.pos.x || y !== this.pos.y;
     this.pos = { x, y };
     const o = this.overlay;
     if (o) {
+      const { profile, physics } = this.cfg;
       if (moved) {
-        o.x.set(x);
-        o.y.set(y);
+        if (profile.springs) {
+          const follow = { config: this.spring(physics.follow) };
+          o.x.start(x, follow);
+          o.y.start(y, follow);
+        } else {
+          o.x.set(x);
+          o.y.set(y);
+        }
       }
-      if (!this.cfg.reducedMotion) o.rot.start(clamp(this.vel.x * TILT_GAIN, -MAX_TILT_DEG, MAX_TILT_DEG), { config: SPRINGS.tilt });
+      if (profile.tilt > 0) {
+        const t = tiltFromVelocity(this.vel.vx, this.vel.vy, { max: physics.tiltMax, gain: physics.tiltGain, zGain: physics.tiltGain / 2, amount: profile.tilt });
+        const tilt = { config: this.spring(physics.tilt) };
+        if (Math.abs(o.rx.goal - t.rx) > 0.01) o.rx.start(t.rx, tilt);
+        if (Math.abs(o.ry.goal - t.ry) > 0.01) o.ry.start(t.ry, tilt);
+        if (Math.abs(o.rz.goal - t.rz) > 0.01) o.rz.start(t.rz, tilt);
+      }
+      if (profile.depth === 'full') {
+        const cap = physics.shadowShift * 3;
+        const sx = clamp(-this.vel.vx * physics.shadowShift, -cap, cap);
+        const sy = clamp(-this.vel.vy * physics.shadowShift, -cap, cap);
+        const tilt = { config: this.spring(physics.tilt) };
+        if (Math.abs(o.sx.goal - sx) > 0.05) o.sx.start(sx, tilt);
+        if (Math.abs(o.sy.goal - sy) > 0.05) o.sy.start(sy, tilt);
+      }
     }
     if (moved || scrolled) this.hitTest();
   };
 
-  private autoScroll(dt: number): boolean {
-    const board = this.board;
-    if (!board) return false;
-    const f = dt / 16.7;
-    const { x, y } = this.ptr;
-    let scrolled = false;
-    const br = board.getBoundingClientRect();
-    if (y >= br.top - 48 && y <= br.bottom + 48) {
-      const dx = step((edgeSpeed(br.right - x, BOARD_EDGE) - edgeSpeed(x - br.left, BOARD_EDGE)) * f);
-      if (dx) {
-        const before = board.scrollLeft;
-        board.scrollLeft += dx;
-        scrolled = board.scrollLeft !== before;
-      }
-    }
+  private autoScroll(dt: number, now: number): boolean {
+    const { autoScroll } = this.cfg.physics;
+    const targets: ScrollTarget[] = [];
+    if (this.board) targets.push({ key: 'board', el: this.board, axis: 'x', edge: autoScroll.boardEdge, slack: 48, mainSlack: 48 });
     const over = this.store.getState().over;
     const col = over ? this.columns.get(over.stageId) : undefined;
-    if (col) {
-      const r = col.scroll.getBoundingClientRect();
-      if (x >= r.left && x <= r.right && y >= r.top - 80 && y <= r.bottom + 80) {
-        const dy = step((edgeSpeed(r.bottom - y, COLUMN_EDGE) - edgeSpeed(y - r.top, COLUMN_EDGE)) * f);
-        if (dy) {
-          const before = col.scroll.scrollTop;
-          col.scroll.scrollTop += dy;
-          scrolled = scrolled || col.scroll.scrollTop !== before;
-        }
-      }
-    }
-    return scrolled;
+    if (col) targets.push({ key: `col:${col.stageId}`, el: col.scroll, axis: 'y', edge: autoScroll.columnEdge, slack: 0, mainSlack: 80 });
+    return this.scroller.step(this.ptr, targets, dt, now, this.cfg.timeScale);
   }
 
   // ------------------------------------------------------------------ keyboard
@@ -741,14 +789,27 @@ export class BoardController {
     const originIndex = this.indexOf(stageId, lead.id);
     if (originIndex < 0) return;
     const r = card.getBoundingClientRect();
-    const active: ActiveDrag = { lead, fromStageId: stageId, originIndex, width: r.width, height: r.height, grabX: r.width / 2, grabY: r.height / 2, mode: 'keyboard' };
+    const active: ActiveDrag = {
+      lead,
+      deck: [],
+      deckIds: new Set(),
+      fromStageId: stageId,
+      originIndex,
+      width: r.width,
+      height: r.height,
+      grabX: r.width / 2,
+      grabY: r.height / 2,
+      mode: 'keyboard',
+      viaLongPress: false,
+    };
     this.pos = { x: r.left, y: r.top };
-    this.vel = { x: 0, y: 0 };
+    this.vel.reset(r.left, r.top);
     this.liftOverlay(r);
     this.store.setState({ phase: 'dragging', active, over: { stageId, index: originIndex, top: this.slotTop(stageId, originIndex, active) } });
     this.applyShifts();
+    this.acquireQuality();
     this.announce(
-      `Picked up ${lead.name}. ${this.name(stageId)}, position ${originIndex + 1} of ${this.total(stageId, active)}. Use the arrow keys to move, Enter to drop, Escape to cancel.`,
+      `Picked up ${lead.name}. ${this.name(stageId)}, position ${originIndex + 1} of ${this.total(stageId, active)}. Use the arrow keys to move, Space to drop, Escape to cancel.`,
     );
   }
 
@@ -841,22 +902,38 @@ export class BoardController {
       this.returnHome(over ? 'same' : 'cancel');
       return;
     }
+    // Neighbours of the slot, skipping cards that travel in the deck.
     const others = this.leadsOf(over.stageId).filter((l) => l.id !== active.lead.id);
-    const beforeLeadId = others[over.index - 1]?.id ?? null;
-    const afterLeadId = others[over.index]?.id ?? null;
-    this.landing = { id: active.lead.id, vx: this.vel.x, vy: this.vel.y, fallback: this.slotRect(over.stageId, over.top, active) };
+    let b = over.index - 1;
+    while (b >= 0 && active.deckIds.has(others[b]!.id)) b--;
+    let a = over.index;
+    while (a < others.length && active.deckIds.has(others[a]!.id)) a++;
+    const beforeLeadId = b >= 0 ? others[b]!.id : null;
+    const afterLeadId = others[a]?.id ?? null;
+    const moves: CommitMove[] = [];
+    let prev = beforeLeadId;
+    for (const lead of [active.lead, ...active.deck]) {
+      moves.push({ lead, fromStageId: lead.id === active.lead.id ? active.fromStageId : lead.stageId, toStageId: over.stageId, beforeLeadId: prev, afterLeadId });
+      prev = lead.id;
+    }
+    const { vx, vy } = capVelocity(this.vel.vx, this.vel.vy, this.cfg.physics.maxThrowSpeed);
+    this.landing = { id: active.lead.id, vx, vy, fallback: this.slotRect(over.stageId, over.top, active) };
+    this.landedMove = active.lead.id;
     if (active.mode === 'keyboard') this.focusAfter = { id: active.lead.id, scroll: false, t: performance.now() };
     this.store.setState({ phase: 'dropping', over: null });
     this.applyShifts();
-    this.cfg.commit({ lead: active.lead, fromStageId: active.fromStageId, toStageId: over.stageId, beforeLeadId, afterLeadId });
-    this.announce(`${active.lead.name} moved to ${this.name(over.stageId)}, position ${over.index + 1} of ${this.total(over.stageId, active)}.`);
+    this.cfg.commit(moves);
+    const where = `${this.name(over.stageId)}, position ${over.index + 1} of ${this.total(over.stageId, active)}`;
+    if (active.deck.length) this.announce(`Moved ${moves.length} ${this.cfg.words.leads} to ${where}.`);
+    else this.announce(`Moved ${active.lead.name} to ${where}.`);
     // Safety net: if no board commit follows (nothing re-rendered), land on the slot anyway.
     requestAnimationFrame(() => {
       if (this.landing) this.startLanding();
     });
   }
 
-  private returnHome(reason: 'cancel' | 'same') {
+  /** Back to the origin: 'cancel' bounces (dropped outside / Escape), 'same' settles, 'silent' says nothing. */
+  private returnHome(reason: 'cancel' | 'same' | 'silent') {
     const s = this.store.getState();
     const active = s.active;
     if (!active || s.phase !== 'dragging') return;
@@ -867,7 +944,9 @@ export class BoardController {
     this.applyShifts();
     const h = this.cards.get(active.lead.id);
     const to = h ? this.restRect(h) : { x: this.pos.x, y: this.pos.y, width: active.width, height: active.height };
-    this.land(to, this.vel.x, this.vel.y, () => this.endDrop());
+    const { vx, vy } = capVelocity(this.vel.vx, this.vel.vy, this.cfg.physics.maxThrowSpeed);
+    this.land(to, vx, vy, reason === 'cancel' ? this.cfg.physics.springBack : this.cfg.physics.land, () => this.endDrop());
+    if (reason === 'silent') return;
     const where = `${this.name(active.fromStageId)}, position ${active.originIndex + 1}`;
     this.announce(reason === 'cancel' ? `Move cancelled. ${active.lead.name} is back in ${where}.` : `${active.lead.name} stays in ${where}.`);
   }
@@ -877,35 +956,45 @@ export class BoardController {
     this.landing = null;
     if (!L || !this.store.getState().active) return;
     const h = this.cards.get(L.id);
-    this.land(h ? this.restRect(h) : L.fallback, L.vx, L.vy, () => this.endDrop());
+    this.land(h ? this.restRect(h) : L.fallback, L.vx, L.vy, this.cfg.physics.land, () => this.endDrop());
   }
 
   private liftOverlay(r: DOMRect) {
     const o = this.overlay;
     if (!o) return;
+    const { profile, physics } = this.cfg;
     this.landToken++;
     o.x.set(r.left);
     o.y.set(r.top);
-    o.rot.set(0);
+    for (const v of [o.rx, o.ry, o.rz, o.sx, o.sy]) v.set(0);
     o.scale.set(1);
-    if (this.cfg.reducedMotion) o.scale.set(LIFT_SCALE);
-    else o.scale.start(LIFT_SCALE, { config: SPRINGS.lift });
+    o.lift.set(0);
+    const scale = profile.depth === 'none' ? 1 + (physics.liftScale - 1) / 2 : physics.liftScale;
+    if (!profile.springs) {
+      o.scale.set(scale);
+      o.lift.set(1);
+      return;
+    }
+    const lift = { config: this.spring(physics.spring) };
+    o.scale.start(scale, lift);
+    o.lift.start(1, lift);
   }
 
   private moveOverlay(x: number, y: number) {
     const o = this.overlay;
     if (!o) return;
-    if (this.cfg.reducedMotion) {
+    if (!this.cfg.profile.springs) {
       o.x.set(x);
       o.y.set(y);
       return;
     }
-    o.x.start(x, { config: SPRINGS.slot });
-    o.y.start(y, { config: SPRINGS.slot });
+    const follow = { config: this.spring(this.cfg.physics.follow) };
+    o.x.start(x, follow);
+    o.y.start(y, follow);
   }
 
-  /** Release: keep the pointer's momentum, then snap into the slot with a slight overshoot. */
-  private land(to: Rect, vx: number, vy: number, done: () => void) {
+  /** Release: keep the pointer's momentum, then snap into place (overshoot unless the tier forbids it). */
+  private land(to: Rect, vx: number, vy: number, params: SpringParams, done: () => void) {
     const o = this.overlay;
     const token = ++this.landToken;
     const finish = () => {
@@ -915,21 +1004,24 @@ export class BoardController {
       done();
     };
     if (!o) return finish();
-    if (this.cfg.reducedMotion) {
+    const { profile, physics } = this.cfg;
+    if (!profile.springs) {
       o.x.set(to.x);
       o.y.set(to.y);
-      o.rot.set(0);
+      for (const v of [o.rx, o.ry, o.rz, o.sx, o.sy]) v.set(0);
       o.scale.set(1);
+      o.lift.set(0);
       return finish();
     }
-    o.rot.start(0, { config: SPRINGS.tilt });
-    o.scale.start(1, { config: SPRINGS.settle });
-    void Promise.all([
-      o.x.start(to.x, { config: { ...SPRINGS.land, velocity: vx } }),
-      o.y.start(to.y, { config: { ...SPRINGS.land, velocity: vy } }),
-    ]).then(finish);
+    const p = profile.overshoot ? params : noOvershoot(params);
+    const level = { config: this.spring(physics.tilt) };
+    for (const v of [o.rx, o.ry, o.rz, o.sx, o.sy]) v.start(0, level);
+    const settle = { config: this.spring(physics.spring) };
+    o.scale.start(1, settle);
+    o.lift.start(0, settle);
+    void Promise.all([o.x.start(to.x, { config: this.spring(p, vx) }), o.y.start(to.y, { config: this.spring(p, vy) })]).then(finish);
     window.clearTimeout(this.landTimer);
-    this.landTimer = window.setTimeout(finish, 900);
+    this.landTimer = window.setTimeout(finish, this.ms(1100));
   }
 
   private endDrop() {
@@ -938,40 +1030,57 @@ export class BoardController {
     window.clearTimeout(this.landTimer);
     const s = this.store.getState();
     const active = s.active;
+    const landed = this.landedMove;
+    this.landedMove = null;
+    this.releaseQuality?.();
+    this.releaseQuality = null;
     if (!active) return;
     const o = this.overlay;
     const ghost: Rect | null = o ? { x: o.x.get(), y: o.y.get(), width: active.width, height: active.height } : null;
     this.store.setState({ phase: 'idle', active: null, over: null });
     this.applyShifts();
-    // Rolled back (or interrupted) while landing: spring the card from where the ghost let go.
     const h = this.cards.get(active.lead.id);
-    if (ghost && h && !this.cfg.reducedMotion) {
+    if (!h) return;
+    const { profile, physics } = this.cfg;
+    const rolled = this.takeRollback(active.lead.id, performance.now());
+    // Rolled back (or interrupted) while landing: spring the card from where the ghost let go.
+    if (ghost && profile.springs) {
       const r = this.restRect(h);
       if (Math.abs(r.x - ghost.x) + Math.abs(r.y - ghost.y) > 6) {
         const lead = this.leadsOf(h.stageId).find((l) => l.id === active.lead.id) ?? active.lead;
-        this.fly(lead, ghost, r, h);
+        this.fly(lead, ghost, r, h, rolled ? 'rollback' : 'move');
+        return;
       }
+    }
+    if (rolled) pulseRing(h.ring, 'danger', this.ms(physics.ringPulseMs), profile.pulses);
+    else if (landed === active.lead.id) {
+      pulseRing(h.ring, 'stage', this.ms(physics.ringPulseMs), profile.pulses);
+      if (!profile.springs) fadeIn(h.li, 150);
     }
   }
 
-  private fly(lead: LeadListItem, from: Rect, to: Rect, h: CardHandle) {
-    if (!intersectsViewport(from) && !intersectsViewport(to)) return;
+  private fly(lead: LeadListItem, from: Rect, to: Rect, h: CardHandle, kind: 'move' | 'rollback') {
+    if (!intersectsViewport(from) && !intersectsViewport(to)) {
+      if (kind === 'rollback') pulseRing(h.ring, 'danger', this.ms(this.cfg.physics.ringPulseMs), this.cfg.profile.pulses);
+      return;
+    }
     // Opacity, not visibility: the card may hold focus while its ghost flies in.
     h.li.style.opacity = '0';
     const key = `${lead.id}:${++this.flightSeq}`;
-    this.store.setState((s) => ({ flights: [...s.flights.filter((f) => f.lead.id !== lead.id), { key, lead, from, to }] }));
+    this.store.setState((s) => ({ flights: [...s.flights.filter((f) => f.lead.id !== lead.id), { key, lead, from, to, kind }] }));
+    if (!this.releaseFlightQuality) this.releaseFlightQuality = this.cfg.quality?.acquire() ?? null;
   }
 
   // ------------------------------------------------------------------ menu move
 
-  /** "Move to stage..." menu: puts the card at the top of the target column. */
+  /** "Move to stage..." menu and actions sheet: puts the card at the top of the target column. */
   moveToStage(lead: LeadListItem, fromStageId: string, toStageId: string) {
     if (fromStageId === toStageId) return;
     const first = this.leadsOf(toStageId).find((l) => l.id !== lead.id);
     this.focusAfter = { id: lead.id, scroll: true, t: performance.now() };
-    this.cfg.commit({ lead, fromStageId, toStageId, beforeLeadId: null, afterLeadId: first?.id ?? null });
+    this.cfg.commit([{ lead, fromStageId, toStageId, beforeLeadId: null, afterLeadId: first?.id ?? null }]);
     const count = (this.cfg.counts.get(toStageId) ?? 0) + 1;
-    this.announce(`${lead.name} moved to ${this.name(toStageId)}, position 1 of ${count}.`);
+    this.announce(`Moved ${lead.name} to ${this.name(toStageId)}, position 1 of ${count}.`);
   }
 
   // ------------------------------------------------------------------ misc
@@ -985,10 +1094,16 @@ export class BoardController {
   }
 
   dispose() {
-    this.clearPending();
-    if (this.store.getState().phase === 'dragging') this.stopTracking();
+    this.pickup.cancel();
+    this.press = null;
+    if (this.store.getState().phase === 'dragging') this.finishSession();
     this.landToken++;
     window.clearTimeout(this.landTimer);
+    this.releaseQuality?.();
+    this.releaseQuality = null;
+    this.releaseFlightQuality?.();
+    this.releaseFlightQuality = null;
+    for (const h of this.cards.values()) window.clearTimeout(h.shiftTimer);
     this.store.setState({ phase: 'idle', active: null, over: null, flights: [] });
   }
 }

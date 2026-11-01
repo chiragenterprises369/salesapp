@@ -1,14 +1,15 @@
 'use client';
 
 import { formatInr, formatNumber } from '@vistar/shared';
-import { ListChecks, RotateCw } from 'lucide-react';
+import { Layers, ListChecks, RotateCw, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { useLeadsViewState } from '@/lib/leads/state';
+import { countOf, useBoardWords } from './words';
 
 /**
- * Small board toolbar: totals, refresh state and the "Select" toggle. The bulk actions bar itself
- * belongs to the Leads page shell and reads the same selection store.
+ * Small board toolbar: totals, refresh state, Flat mode and the "Select" toggle. The bulk actions
+ * bar itself belongs to the Leads page shell and reads the same selection store.
  */
 export function BoardToolbar({
   totalCount,
@@ -18,6 +19,9 @@ export function BoardToolbar({
   onRetry,
   canSelect,
   filtersActive,
+  touch,
+  flat,
+  onToggleFlat,
 }: {
   totalCount: number;
   totalValue: number;
@@ -26,28 +30,34 @@ export function BoardToolbar({
   onRetry: () => void;
   canSelect: boolean;
   filtersActive: boolean;
+  /** 44 px targets (compact density, coarse pointers). */
+  touch: boolean;
+  flat: boolean;
+  onToggleFlat: () => void;
 }) {
+  const words = useBoardWords();
   const selectMode = useLeadsViewState((s) => s.boardSelectMode);
   const selectedCount = useLeadsViewState((s) => s.selectedIds.size);
   const setBoardSelectMode = useLeadsViewState((s) => s.setBoardSelectMode);
   const setSelected = useLeadsViewState((s) => s.setSelected);
   const resetFilters = useLeadsViewState((s) => s.resetFilters);
   const noMatches = filtersActive && totalCount === 0;
+  const size = touch ? 'touch' : 'sm';
 
   return (
     <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 pb-2">
       <p className="text-xs text-muted-strong tabular">
         {noMatches ? (
-          'No leads match these filters.'
+          `No ${words.manyLower} match these filters.`
         ) : (
           <>
-            <span className="font-medium text-fg-secondary">{formatNumber(totalCount)}</span> {totalCount === 1 ? 'lead' : 'leads'} ·{' '}
+            <span className="font-medium text-fg-secondary">{formatNumber(totalCount)}</span> {countOf(totalCount, words)} ·{' '}
             <span className="font-medium text-fg-secondary">{formatInr(totalValue, { compact: true })}</span> total
           </>
         )}
       </p>
       {noMatches && (
-        <Button size="sm" variant="ghost" onClick={resetFilters}>
+        <Button size={size} variant="ghost" onClick={resetFilters}>
           Clear filters
         </Button>
       )}
@@ -59,28 +69,39 @@ export function BoardToolbar({
       {refreshFailed && (
         <span role="alert" className="flex items-center gap-1 text-xs text-danger-text">
           Could not refresh the board.
-          <Button size="sm" variant="ghost" onClick={onRetry}>
+          <Button size={size} variant="ghost" onClick={onRetry}>
             <RotateCw aria-hidden />
             Retry
           </Button>
         </span>
       )}
-      {canSelect && (
-        <div className="ml-auto flex items-center gap-2">
-          {selectMode && (
-            <>
-              <span role="status" className="text-xs font-medium text-fg-secondary tabular">
-                {selectedCount === 0 ? 'Select leads' : `${formatNumber(selectedCount)} selected`}
-              </span>
-              {selectedCount > 0 && (
-                <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
-                  Clear
-                </Button>
-              )}
-            </>
-          )}
+      <div className="ml-auto flex items-center gap-2">
+        {canSelect && selectMode && (
+          <>
+            <span role="status" className="text-xs font-medium text-fg-secondary tabular">
+              {selectedCount === 0 ? `Select ${words.manyLower}` : `${formatNumber(selectedCount)} selected`}
+            </span>
+            {selectedCount > 0 && (
+              <Button size={size} variant="ghost" onClick={() => setSelected([])}>
+                Clear
+              </Button>
+            )}
+          </>
+        )}
+        <Button
+          size={touch ? 'icon-touch' : 'icon-sm'}
+          variant="ghost"
+          aria-pressed={flat}
+          aria-label="Flat mode"
+          title={flat ? 'Flat mode is on: plain cards, no physics' : 'Flat mode: plain cards, no physics'}
+          onClick={onToggleFlat}
+          className={cn(flat && 'bg-surface-3 text-fg')}
+        >
+          {flat ? <Square aria-hidden /> : <Layers aria-hidden />}
+        </Button>
+        {canSelect && (
           <Button
-            size="sm"
+            size={size}
             aria-pressed={selectMode}
             onClick={() => setBoardSelectMode(!selectMode)}
             className={cn(selectMode && 'border-status-indigo-border bg-accent-soft text-accent-soft-fg hover:bg-accent-soft')}
@@ -88,8 +109,8 @@ export function BoardToolbar({
             <ListChecks aria-hidden />
             Select
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
