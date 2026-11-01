@@ -19,13 +19,15 @@ import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
 function ConsoleHeader({ expanded }: { expanded: boolean }) {
+  // Expanded: visible text names the link (WCAG 2.5.3). Icon rail: aria-label.
   return (
-    <Link href="/super-admin" aria-label="Platform overview" className={cn('focus-ring flex min-w-0 items-center gap-2 rounded-md', !expanded && 'mx-auto')}>
+    <Link href="/super-admin" aria-label={expanded ? undefined : 'Platform overview'} className={cn('focus-ring flex min-w-0 items-center gap-2 rounded-md', !expanded && 'mx-auto')}>
       <LogoMark className="size-6" />
       {expanded && (
         <>
           <span className="text-sm font-semibold">Vistar</span>
           <Chip tone="indigo">Platform</Chip>
+          <span className="sr-only">overview</span>
         </>
       )}
     </Link>

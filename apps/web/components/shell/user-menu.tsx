@@ -1,5 +1,6 @@
 'use client';
 
+import { initials } from '@vistar/shared';
 import { Building2, FlaskConical, LogOut, Smartphone, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
@@ -55,7 +56,8 @@ export function UserMenu({ panel, triggerClassName }: { panel: 'company' | 'empl
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={`Account menu for ${name}`}
+        // Starts with the visible initials so voice users can say what they see (WCAG 2.5.3).
+        aria-label={`${initials(name)}, account menu for ${name}`}
         className={cn('focus-ring inline-flex size-9 shrink-0 items-center justify-center rounded-full hover:bg-surface-3', triggerClassName)}
       >
         <Avatar name={name} size="md" status={panel === 'super-admin' ? undefined : status} aria-hidden />

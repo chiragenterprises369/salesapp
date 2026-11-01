@@ -1,6 +1,6 @@
 'use client';
 
-import type { MeResponse } from '@vistar/shared';
+import { NAV_COMPANY, type MeResponse } from '@vistar/shared';
 import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, type ReactNode } from 'react';
@@ -9,6 +9,7 @@ import { Tooltip } from '@/components/common/tooltip';
 import { useMediaQuery } from '@/components/common/use-media-query';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
+import { useNavExtensions } from '@/lib/packs';
 import { useMe } from '@/lib/session/session';
 import { CommandMenu, SearchTrigger } from './command-menu';
 import { ImpersonationBanner } from './impersonation-banner';
@@ -24,13 +25,15 @@ import { UserMenu } from './user-menu';
 const PLAN_LABEL: Record<MeResponse['workspace']['plan'], string> = { free: 'Free', starter: 'Starter', growth: 'Growth', enterprise: 'Enterprise' };
 
 function WorkspaceHeader({ me, expanded }: { me: MeResponse; expanded: boolean }) {
+  // Expanded: the visible name is the link text (WCAG 2.5.3 label in name). Icon rail: aria-label.
   return (
-    <Link href="/app" className={cn('focus-ring flex min-w-0 items-center gap-2 rounded-md', !expanded && 'mx-auto')} aria-label={`${me.workspace.name} dashboard`}>
+    <Link href="/app" className={cn('focus-ring flex min-w-0 items-center gap-2 rounded-md', !expanded && 'mx-auto')} aria-label={expanded ? undefined : `${me.workspace.name} dashboard`}>
       <LogoMark />
       {expanded && (
         <span className="min-w-0">
           <span className="block truncate text-sm font-semibold text-fg">{me.workspace.name}</span>
           <span className="block text-2xs text-muted">{PLAN_LABEL[me.workspace.plan]} plan</span>
+          <span className="sr-only">, dashboard</span>
         </span>
       )}
     </Link>
@@ -44,7 +47,9 @@ function WorkspaceHeader({ me, expanded }: { me: MeResponse; expanded: boolean }
  */
 export function CompanyShell({ children }: { children: ReactNode }) {
   const me = useMe()!;
-  const groups = useMemo(() => companyNav(me), [me]);
+  const { company } = useNavExtensions();
+  // Compose custom objects, pack pages and configurable labels first, then filter for this user.
+  const groups = useMemo(() => companyNav(me, company(NAV_COMPANY)), [me, company]);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const collapsed = useShellStore((s) => s.collapsed);
   const toggleCollapsed = useShellStore((s) => s.toggleCollapsed);
