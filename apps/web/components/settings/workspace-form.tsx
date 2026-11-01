@@ -61,10 +61,10 @@ export function WorkspaceForm() {
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Company name" error={error ?? undefined} required>
-            <Input value={values.name} maxLength={80} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} />
+            <Input value={values.name} maxLength={80} disabled={!!reason} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} />
           </FormField>
           <FormField label="Timezone" hint="Business hours, reports and scheduled themes use this timezone">
-            <NativeSelect value={values.timezone} onChange={(e) => setValues((v) => ({ ...v, timezone: e.target.value }))}>
+            <NativeSelect value={values.timezone} disabled={!!reason} onChange={(e) => setValues((v) => ({ ...v, timezone: e.target.value }))}>
               {zones.map((z) => (
                 <option key={z} value={z}>
                   {z.replaceAll('_', ' ')}
@@ -94,6 +94,7 @@ export function WorkspaceForm() {
             id="show-rank"
             aria-describedby="show-rank-hint"
             checked={values.showEmployeeRank}
+            disabled={!!reason}
             onCheckedChange={(checked) => setValues((v) => ({ ...v, showEmployeeRank: checked }))}
           />
         </div>
