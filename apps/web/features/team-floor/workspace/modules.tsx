@@ -24,16 +24,15 @@ function ModuleSkeleton() {
   );
 }
 
-const opts = { ssr: false, loading: () => <ModuleSkeleton /> } as const;
-
-const LeadsPage = dynamic(() => import('@/components/leads/leads-page').then((m) => m.LeadsPage), opts);
-const InboxPage = dynamic(() => import('@/components/inbox/inbox-page').then((m) => m.InboxPage), opts);
-const TasksPage = dynamic(() => import('@/components/tasks/tasks-page').then((m) => m.TasksPage), opts);
-const CallsPage = dynamic(() => import('@/components/calls/calls-page').then((m) => m.CallsPage), opts);
-const DashboardPage = dynamic(() => import('@/components/dashboard/dashboard-page').then((m) => m.DashboardPage), opts);
-const TodayView = dynamic(() => import('@/components/employee/today-view').then((m) => m.TodayView), opts);
-const TasksView = dynamic(() => import('@/components/employee/tasks-view').then((m) => m.TasksView), opts);
-const CallsView = dynamic(() => import('@/components/employee/calls-view').then((m) => m.CallsView), opts);
+// next/dynamic needs the options as an object literal at each call (Turbopack build).
+const LeadsPage = dynamic(() => import('@/components/leads/leads-page').then((m) => m.LeadsPage), { ssr: false, loading: () => <ModuleSkeleton /> });
+const InboxPage = dynamic(() => import('@/components/inbox/inbox-page').then((m) => m.InboxPage), { ssr: false, loading: () => <ModuleSkeleton /> });
+const TasksPage = dynamic(() => import('@/components/tasks/tasks-page').then((m) => m.TasksPage), { ssr: false, loading: () => <ModuleSkeleton /> });
+const CallsPage = dynamic(() => import('@/components/calls/calls-page').then((m) => m.CallsPage), { ssr: false, loading: () => <ModuleSkeleton /> });
+const DashboardPage = dynamic(() => import('@/components/dashboard/dashboard-page').then((m) => m.DashboardPage), { ssr: false, loading: () => <ModuleSkeleton /> });
+const TodayView = dynamic(() => import('@/components/employee/today-view').then((m) => m.TodayView), { ssr: false, loading: () => <ModuleSkeleton /> });
+const TasksView = dynamic(() => import('@/components/employee/tasks-view').then((m) => m.TasksView), { ssr: false, loading: () => <ModuleSkeleton /> });
+const CallsView = dynamic(() => import('@/components/employee/calls-view').then((m) => m.CallsView), { ssr: false, loading: () => <ModuleSkeleton /> });
 
 export interface ModuleDef {
   id: ModuleId;
