@@ -22,6 +22,12 @@ import { StorageModule } from './modules/storage/storage.module.js';
 import { SuperadminModule } from './modules/superadmin/superadmin.module.js';
 import { PlatformConfigModule } from './modules/platform-config/platform-config.module.js';
 import { FloorsModule } from './modules/floors/floors.module.js';
+import { CalendarModule } from './modules/calendar/calendar.module.js';
+import { CaptureModule } from './modules/capture/capture.module.js';
+import { CatalogModule } from './modules/catalog/catalog.module.js';
+import { CrmModule } from './modules/crm/crm.module.js';
+import { DocumentsModule } from './modules/documents/documents.module.js';
+import { RoutingModule } from './modules/routing/routing.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 import { WebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module.js';
@@ -54,6 +60,13 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     // change #19 PLATFORM stream
     PlatformConfigModule,
     FloorsModule,
+    // change #19 wave B CRM-API stream (SPEC 29.9)
+    CatalogModule,
+    CrmModule,
+    DocumentsModule,
+    CalendarModule,
+    RoutingModule,
+    CaptureModule,
     // realtime-integrations
     RealtimeModule,
     WebhooksModule,

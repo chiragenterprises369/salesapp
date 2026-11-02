@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { Board, LeadFilters, LeadListItem, LeadMove, Page, Pipeline, Stage, StageCreate, StageUpdate } from '@vistar/shared';
+import type { Board, LeadFilters, LeadListItem, LeadMove, Page, Pipeline, PipelineEntity, Stage, StageCreate, StageUpdate } from '@vistar/shared';
 import type { Request } from 'express';
 import { AuditService } from '../../common/audit/audit.service.js';
 import type { AuthContext } from '../../common/auth/auth-context.js';
@@ -13,6 +13,7 @@ import { LEAD_LIST_INCLUDE, toLeadListItem } from '../leads/lead.mapper.js';
 import { positionBetween } from '../leads/lead-position.js';
 import { buildLeadWhere } from '../leads/lead-query.js';
 import { activeStageOrThrow, stageDates, syncDealsForStage } from '../leads/lead-stage.js';
+import { DealsService } from '../crm/deals.service.js';
 import { LeadsService } from '../leads/leads.service.js';
 import { publishSafe, requestActor, type TenantDb } from '../leads/lib/context.js';
 import { decodeCursor, encodeCursor, isUuid } from '../leads/lib/cursor.js';
@@ -38,6 +39,7 @@ export class PipelineService {
     private readonly audit: AuditService,
     private readonly activities: ActivityService,
     private readonly leads: LeadsService,
+    private readonly deals: DealsService,
   ) {}
 
   /** Pipeline with its ACTIVE stages (archived stages only keep the leads already in them). */
@@ -47,10 +49,11 @@ export class PipelineService {
     return pipeline;
   }
 
-  /** Archived pipelines are hidden from lists and pickers. */
-  async list(auth: AuthContext): Promise<{ items: Pipeline[] }> {
+  /** Archived pipelines are hidden from lists and pickers. entity deal = deal pipelines (default one created on first use). */
+  async list(auth: AuthContext, entity: PipelineEntity = 'lead'): Promise<{ items: Pipeline[] }> {
+    if (entity === 'deal') return this.deals.pipelines(auth.workspaceId);
     const rows = await this.prisma.forTenant(auth.workspaceId).pipeline.findMany({
-      where: { archivedAt: null },
+      where: { archivedAt: null, entity: 'lead' },
       include: { stages: { where: { archivedAt: null } } },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
