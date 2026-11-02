@@ -139,4 +139,26 @@ describe('mock DB v1 -> v2 upgrade', () => {
     expect(JSON.parse(storage.get('vistar.mock.db.v2')!).v).toBe(2);
     expect(storage.has('vistar.mock.db.v1')).toBe(true);
   });
+
+  it('an object installed by a pack gets valid sample records once; hand-made objects stay empty', async () => {
+    vi.resetModules();
+    const { readMockDb, updateMockDb } = await import('../../mock-db');
+    const { applyPlanToState, planPackInstall } = await import('@vistar/shared');
+    const { DEMO_PACK_MANIFEST } = await import('../../packs/demo-pack');
+    let n = 0;
+    const id = () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`;
+    updateMockDb((db) => {
+      const ops = planPackInstall(db.state, DEMO_PACK_MANIFEST, { modes: ['ratings'] });
+      db.state = applyPlanToState(db.state, ops, DEMO_PACK_MANIFEST.key, id);
+    });
+    const records = readMockDb().records.filter((r) => r.objectKey === 'supplier');
+    expect(records.length).toBe(12);
+    expect(new Set(records.map((r) => r.title)).size).toBe(12);
+    expect(records.every((r) => typeof r.values.name === 'string' && (r.values.rating === undefined || (Number(r.values.rating) >= 1 && Number(r.values.rating) <= 5)))).toBe(true);
+    expect(records.every((r) => typeof r.values.gst_number !== 'string' || String(r.values.gst_number).length <= 15)).toBe(true);
+    // Another edit does not seed the object again.
+    updateMockDb(() => undefined);
+    expect(readMockDb().records.filter((r) => r.objectKey === 'supplier')).toHaveLength(12);
+    expect(readMockDb().seed.objects).toContain('supplier');
+  });
 });
