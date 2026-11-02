@@ -1,88 +1,42 @@
 'use client';
 
-import type { Notification, NotificationType } from '@vistar/shared';
-import { mockLeads } from '@vistar/shared/fixtures';
+import type { NotificationType } from '@vistar/shared';
 import { formatDistanceStrict } from 'date-fns';
-import { AlertTriangle, Bell, CheckCheck, Clock, MessageCircle, UserPlus, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, AtSign, Bell, CheckCheck, Clock, FileUp, Info, ListTodo, MessageCircle, UserPlus, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
 import { EmptyState } from '@/components/common/empty-state';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/common/popover';
 import { useNow } from '@/components/common/use-now';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
-import { useCan } from '@/lib/session/session';
+import { useMarkNotificationsRead, useNotifications } from '@/lib/world/hooks';
 
-const LOADED_AT = Date.now();
-const leads = mockLeads(6, 7);
-
-const ICON: Partial<Record<NotificationType, LucideIcon>> = {
+const ICON: Record<NotificationType, LucideIcon> = {
   lead_assigned: UserPlus,
   message_received: MessageCircle,
+  task_due: ListTodo,
   task_overdue: Clock,
   workflow_failed: AlertTriangle,
+  mention: AtSign,
+  import_completed: FileUp,
+  system: Info,
 };
 
-/** Wave 1 mock inbox; Wave 3 reads GET /notifications and live `notification.created` events. */
-function mockNotifications(base: '/app' | '/me', includeWorkflow: boolean): Notification[] {
-  const at = (min: number) => new Date(LOADED_AT - min * 60_000).toISOString();
-  const [a, b, c] = leads;
-  const list: Notification[] = [
-    {
-      id: 'n1',
-      type: 'lead_assigned',
-      title: `New lead assigned: ${a!.name}`,
-      body: `${a!.companyName ?? 'IndiaMART enquiry'}, ${a!.city ?? 'India'}`,
-      href: `${base}/leads?lead=${a!.id}`,
-      data: {},
-      readAt: null,
-      createdAt: at(4),
-    },
-    {
-      id: 'n2',
-      type: 'task_overdue',
-      title: `Overdue: call back ${b!.name}`,
-      body: 'Due 20 minutes ago',
-      href: `${base}/tasks`,
-      data: {},
-      readAt: null,
-      createdAt: at(21),
-    },
-    {
-      id: 'n3',
-      type: 'message_received',
-      title: `WhatsApp reply from ${c!.name}`,
-      body: '“Please share best price with GST.”',
-      href: `${base}/inbox`,
-      data: {},
-      readAt: at(50),
-      createdAt: at(95),
-    },
-  ];
-  if (includeWorkflow) {
-    list.splice(2, 0, {
-      id: 'n4',
-      type: 'workflow_failed',
-      title: 'Workflow step failed: Quote reminder',
-      body: 'WhatsApp template quote_reminder is paused by Meta.',
-      href: '/app/workflows/quote_reminder',
-      data: {},
-      readAt: null,
-      createdAt: at(62),
-    });
-  }
-  return list;
-}
-
-/** Top-bar bell with unread count and a short list (mock). */
+/**
+ * Top-bar bell with the real unread count and the latest notifications of the signed-in user
+ * (mock world, 25-40 per user; read marks persist in the mock DB). Wave 3 reads GET /notifications
+ * and live `notification.created` events through the same hook.
+ */
 export function NotificationsMenu({ base }: { base: '/app' | '/me' }) {
-  const canSeeWorkflows = useCan('workflows.read');
-  const [items, setItems] = useState(() => mockNotifications(base, canSeeWorkflows));
+  const query = useNotifications();
+  const markRead = useMarkNotificationsRead();
+  const items = query.data ?? [];
   const now = useNow(60_000);
   const unread = items.filter((n) => !n.readAt).length;
 
-  const markAllRead = () => setItems((list) => list.map((n) => (n.readAt ? n : { ...n, readAt: new Date().toISOString() })));
-  const markRead = (id: string) => setItems((list) => list.map((n) => (n.id === id && !n.readAt ? { ...n, readAt: new Date().toISOString() } : n)));
+  const markAllRead = () => markRead.mutate(undefined);
+  const markOne = (id: string) => markRead.mutate([id]);
 
   return (
     <Popover>
@@ -107,7 +61,15 @@ export function NotificationsMenu({ base }: { base: '/app' | '/me' }) {
             Mark all as read
           </Button>
         </div>
-        {items.length === 0 ? (
+        {query.isPending ? (
+          <div className="flex flex-col gap-2 p-3" aria-busy="true">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        ) : query.isError ? (
+          <EmptyState size="sm" className="m-3" title="Notifications did not load" description="Check your connection, then open the menu again." />
+        ) : items.length === 0 ? (
           <EmptyState size="sm" className="m-3" title="You are all caught up" description="New leads, replies and overdue tasks show up here." />
         ) : (
           <ul className="max-h-96 overflow-y-auto py-1">
@@ -117,15 +79,15 @@ export function NotificationsMenu({ base }: { base: '/app' | '/me' }) {
                 <li key={n.id}>
                   <PopoverClose asChild>
                     <Link
-                      href={n.href ?? base}
-                      onClick={() => markRead(n.id)}
+                      href={n.href ? `${base}${n.href}` : base}
+                      onClick={() => markOne(n.id)}
                       className="focus-ring flex gap-3 px-3 py-2.5 outline-offset-[-2px] hover:bg-surface-2"
                     >
                       <span
                         aria-hidden
                         className={cn(
                           'mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full',
-                          n.type === 'workflow_failed' ? 'bg-status-red-bg text-status-red-fg' : 'bg-surface-3 text-fg-secondary',
+                          n.type === 'workflow_failed' || n.type === 'task_overdue' ? 'bg-status-red-bg text-status-red-fg' : 'bg-surface-3 text-fg-secondary',
                         )}
                       >
                         <Icon className="size-3.5" />
