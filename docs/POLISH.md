@@ -37,3 +37,14 @@ Source: `docs/screenshots/board-physics/` (final set, iteration 2 of 3; iteratio
 - First drag after page load has one long frame (50 to 170 ms on a GeForce GT 710) while the overlay layer is created. Pre-warm the overlay layer on the first pointer hover over a card.
 - Workflow builder node physics constants (lift, tilt gain, repulsion, throw) still live in `features/workflow-builder/physics/world.ts`; they use the shared spring presets but are not tunable from a config file or the demo page yet.
 - Target column highlight is a ring only; a faint tint shift on the column body would make the drop target easier to spot on wide boards.
+
+## Leads Board Neon Space skin (frontend-physics, NEON-SKIN, SPEC 28.1)
+
+Source: `docs/screenshots/leads-neon/CRITIQUE.md` (final set, iteration 3 of 3; contrast audit in `contrast.json` passes on Neon/Dark and Aurora/Light).
+
+- Neon/Dark: the office plate is still dimmer behind the cards than in reference Image A. Card slabs could drop a few percent of opacity, but the company line (6.3:1 now) loses margin and cards float less clearly; retest with `contrast.mjs` after any change.
+- At 1440x900 the fourth column is cut at the right edge and the board scrolls horizontally; the reference fits four columns. Needs a narrower Neon column width or a smaller stage padding in the board layout.
+- Mock data marks about a third of the leads overdue, so red leading edges show on many cards in screenshots. Real tenants will see fewer; no skin change planned.
+- The plate's floor grid shows only below the shortest column; a short fade at the column foot would show more of it.
+- Aurora/Light: the blurred plate reads as a soft grey-blue wash; a slightly warmer light plate would feel closer to the reference's "space" look.
+- Drop frames (`fps.json`, GeForce GT 710): the drag itself holds 60 fps (p95 16.8 ms), but the drop has a few long frames (p95 50 ms, max 183 ms) while the card lands and both columns re-render. Profile the drop commit with glow on.

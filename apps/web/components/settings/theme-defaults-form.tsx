@@ -1,11 +1,12 @@
 'use client';
 
-import type { LeadsViewMode, ThemeMode } from '@vistar/shared';
-import { Check, Columns3, Table2 } from 'lucide-react';
+import type { BoardSkin, LeadsViewMode, ThemeMode } from '@vistar/shared';
+import { Check, Columns3, Layers, Sparkles, Square, Table2 } from 'lucide-react';
 import { RadioGroup } from 'radix-ui';
 import { useState, type FormEvent } from 'react';
 import { ThemeModeRadio } from '@/components/common/theme-mode-picker';
 import { toast } from '@/components/ui/toast';
+import { BOARD_SKIN_HINT, BOARD_SKIN_LABEL } from '@/features/pipeline/skins/skin-model';
 import { cn } from '@/lib/cn';
 import { useReadOnly } from '@/lib/auth/use-auth';
 import { useMe, useSessionActions } from '@/lib/session/session';
@@ -21,9 +22,23 @@ const VIEW_OPTIONS: ReadonlyArray<{ value: ViewChoice; label: string; hint: stri
   { value: 'none', label: 'No default', hint: 'Board until each person picks a view' },
 ];
 
+/** Leads Board skins (SPEC 28.1); labels and hints come from the board feature. */
+const SKIN_OPTIONS: ReadonlyArray<{ value: BoardSkin; icon: typeof Columns3 }> = [
+  { value: 'flat', icon: Square },
+  { value: 'depth', icon: Layers },
+  { value: 'neon', icon: Sparkles },
+];
+
+const RADIO_CARD = cn(
+  'focus-ring group flex min-h-11 flex-col items-start gap-1 rounded-md border border-border bg-surface p-3 text-left',
+  'transition-[border-color,background-color] duration-150 ease-standard hover:border-border-strong hover:bg-surface-2',
+  'data-[state=checked]:border-accent data-[state=checked]:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-60',
+);
+
 /**
  * Workspace defaults for people who have not chosen for themselves: theme (`defaultTheme`), interface
- * style (`ui.defaultInterfaceStyle`, D-052, adapter until the contract lands) and the Leads page view
+ * style (`ui.defaultInterfaceStyle`, D-052, adapter until the contract lands), the Leads board skin
+ * (`defaultBoardSkin`, setting key leads.defaultBoardSkin) and the Leads page view
  * (`defaultLeadsViewMode`, setting key leads.defaultViewMode). PATCH /workspace.
  */
 export function ThemeDefaultsForm() {
@@ -33,6 +48,7 @@ export function ThemeDefaultsForm() {
   const { reason } = useReadOnly();
   const savedTheme = me.workspace.defaultTheme;
   const savedView: ViewChoice = me.workspace.defaultLeadsViewMode ?? 'none';
+  const savedSkin: BoardSkin = me.workspace.defaultBoardSkin;
   const [theme, setTheme] = useState<ThemeMode>(savedTheme);
   const [style, setStyle] = useState<InterfaceStyle>(defaultInterfaceStyle);
   // The stored default can arrive after the first render (adapter load) or change in another tab.
@@ -42,14 +58,17 @@ export function ThemeDefaultsForm() {
     setStyle(defaultInterfaceStyle);
   }
   const [view, setView] = useState<ViewChoice>(savedView);
+  const [skin, setSkin] = useState<BoardSkin>(savedSkin);
   const [saving, setSaving] = useState(false);
-  const dirty = theme !== savedTheme || view !== savedView || style !== defaultInterfaceStyle;
+  const dirty = theme !== savedTheme || view !== savedView || style !== defaultInterfaceStyle || skin !== savedSkin;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      if (theme !== savedTheme || view !== savedView) await updateWorkspace({ defaultTheme: theme, defaultLeadsViewMode: view === 'none' ? null : view });
+      if (theme !== savedTheme || view !== savedView || skin !== savedSkin) {
+        await updateWorkspace({ defaultTheme: theme, defaultLeadsViewMode: view === 'none' ? null : view, defaultBoardSkin: skin });
+      }
       if (style !== defaultInterfaceStyle) setDefaultInterfaceStyle(style);
       toast.success('Workspace defaults saved');
     } catch {
@@ -80,6 +99,31 @@ export function ThemeDefaultsForm() {
         />
       </SettingsCard>
       <SettingsCard
+        title="Leads board skin"
+        description="Used by everyone who has not picked a board skin. Phones, touch screens, older devices and reduced motion show Neon Space as Flat."
+      >
+        <RadioGroup.Root
+          value={skin}
+          onValueChange={(v) => setSkin(v as BoardSkin)}
+          aria-label="Default board skin"
+          disabled={!!reason}
+          className="grid gap-2 sm:grid-cols-3"
+        >
+          {SKIN_OPTIONS.map(({ value, icon: Icon }) => (
+            <RadioGroup.Item key={value} value={value} className={RADIO_CARD}>
+              <span className="flex w-full items-center justify-between gap-2">
+                <Icon aria-hidden className="size-4 text-fg-secondary group-data-[state=checked]:text-accent-soft-fg" />
+                <RadioGroup.Indicator>
+                  <Check aria-hidden className="size-4 text-accent-soft-fg" />
+                </RadioGroup.Indicator>
+              </span>
+              <span className="text-sm font-medium text-fg group-data-[state=checked]:text-accent-soft-fg">{BOARD_SKIN_LABEL[value]}</span>
+              <span className="text-xs text-muted group-data-[state=checked]:text-muted-strong">{BOARD_SKIN_HINT[value]}</span>
+            </RadioGroup.Item>
+          ))}
+        </RadioGroup.Root>
+      </SettingsCard>
+      <SettingsCard
         title="Leads page view"
         description="The view people see the first time they open Leads. Anyone can switch, and Vistar remembers their choice."
         footer={
@@ -91,6 +135,7 @@ export function ThemeDefaultsForm() {
               setTheme(savedTheme);
               setView(savedView);
               setStyle(defaultInterfaceStyle);
+              setSkin(savedSkin);
             }}
           />
         }

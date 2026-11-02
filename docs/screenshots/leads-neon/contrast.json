@@ -1,0 +1,638 @@
+{
+  "generatedAt": "2026-11-02T09:07:44.263Z",
+  "method": "Two screenshots per view in the same frame (animations paused): rendered, and with board text transparent. Background = pixels of the second screenshot inside each text line box (device px, inset 1 px). Contrast = WCAG 2.x ratio of the computed text colour (alpha composited over the mean background) against every sampled pixel; worst pixel per instance. Body >= 4.5, large >= 3.",
+  "views": {
+    "neon-dark-1440x900@1x": {
+      "stageHeader": {
+        "instances": 4,
+        "minRatio": 10.85,
+        "p10Ratio": 10.85,
+        "medianRatio": 11.12,
+        "required": 4.5,
+        "textColors": [
+          "#e8ecf6"
+        ],
+        "worst": {
+          "ratio": 10.85,
+          "text": "Interested",
+          "background": "#3a311d",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "count": {
+        "instances": 4,
+        "minRatio": 12.62,
+        "p10Ratio": 12.62,
+        "medianRatio": 12.88,
+        "required": 4.5,
+        "textColors": [
+          "#e8ecf6"
+        ],
+        "worst": {
+          "ratio": 12.62,
+          "text": "45",
+          "background": "#2f2613",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "inrTotal": {
+        "instances": 3,
+        "minRatio": 7.44,
+        "p10Ratio": 7.44,
+        "medianRatio": 7.75,
+        "required": 4.5,
+        "textColors": [
+          "#c3cadb"
+        ],
+        "worst": {
+          "ratio": 7.44,
+          "text": "₹2.4Cr",
+          "background": "#3e3422",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "cardName": {
+        "instances": 23,
+        "minRatio": 12.3,
+        "p10Ratio": 12.3,
+        "medianRatio": 12.72,
+        "required": 4.5,
+        "textColors": [
+          "#e8ecf6"
+        ],
+        "worst": {
+          "ratio": 12.3,
+          "text": "Kavita Banerjee",
+          "background": "#312813",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "company": {
+        "instances": 21,
+        "minRatio": 6.38,
+        "p10Ratio": 6.38,
+        "medianRatio": 6.91,
+        "required": 4.5,
+        "textColors": [
+          "#9aa4bf"
+        ],
+        "worst": {
+          "ratio": 6.38,
+          "text": "Royal Pharma Distributors",
+          "background": "#292114",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "value": {
+        "instances": 18,
+        "minRatio": 12.3,
+        "p10Ratio": 12.3,
+        "medianRatio": 12.57,
+        "required": 4.5,
+        "textColors": [
+          "#e8ecf6"
+        ],
+        "worst": {
+          "ratio": 12.3,
+          "text": "₹67K",
+          "background": "#312813",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "activityLine": {
+        "instances": 13,
+        "minRatio": 7.23,
+        "p10Ratio": 7.37,
+        "medianRatio": 9.48,
+        "required": 4.5,
+        "textColors": [
+          "#fca5a5",
+          "#9aa4bf"
+        ],
+        "worst": {
+          "ratio": 7.23,
+          "text": "Thu · 12:16 am",
+          "background": "#1a1612",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "chips": {
+        "instances": 12,
+        "minRatio": 7.98,
+        "p10Ratio": 8.01,
+        "medianRatio": 8.28,
+        "required": 4.5,
+        "textColors": [
+          "#c3cadb"
+        ],
+        "worst": {
+          "ratio": 7.98,
+          "text": "hot",
+          "background": "#3b2f14",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "toolbar": {
+        "instances": 1,
+        "minRatio": 7.82,
+        "p10Ratio": 7.82,
+        "medianRatio": 7.82,
+        "required": 4.5,
+        "textColors": [
+          "#c3cadb",
+          "#9aa4bf"
+        ],
+        "worst": {
+          "ratio": 7.82,
+          "text": "240 leads · ₹14.9Cr total",
+          "background": "#0b0c16",
+          "need": 4.5
+        },
+        "pass": true
+      }
+    },
+    "neon-dark-1920x1080@2x": {
+      "stageHeader": {
+        "instances": 5,
+        "minRatio": 10.57,
+        "p10Ratio": 10.57,
+        "medianRatio": 11.08,
+        "required": 4.5,
+        "textColors": [
+          "#e8ecf6"
+        ],
+        "worst": {
+          "ratio": 10.57,
+          "text": "Interested",
+          "background": "#3c3319",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "count": {
+        "instances": 5,
+        "minRatio": 12.62,
+        "p10Ratio": 12.62,
+        "medianRatio": 13.05,
+        "required": 4.5,
+        "textColors": [
+          "#e8ecf6"
+        ],
+        "worst": {
+          "ratio": 12.62,
+          "text": "45",
+          "background": "#2f2613",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "inrTotal": {
+        "instances": 5,
+        "minRatio": 7.6,
+        "p10Ratio": 7.6,
+        "medianRatio": 8.19,
+        "required": 4.5,
+        "textColors": [
+          "#c3cadb"
+        ],
+        "worst": {
+          "ratio": 7.6,
+          "text": "₹2.4Cr",
+          "background": "#3c331c",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "cardName": {
+        "instances": 36,
+        "minRatio": 12.26,
+        "p10Ratio": 12.3,
+        "medianRatio": 12.92,
+        "required": 4.5,
+        "textColors": [
+          "#e8ecf6"
+        ],
+        "worst": {
+          "ratio": 12.26,
+          "text": "Kavita Banerjee",
+          "background": "#322813",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "company": {
+        "instances": 35,
+        "minRatio": 6.33,
+        "p10Ratio": 6.38,
+        "medianRatio": 6.68,
+        "required": 4.5,
+        "textColors": [
+          "#9aa4bf"
+        ],
+        "worst": {
+          "ratio": 6.33,
+          "text": "Jai Hind Industries",
+          "background": "#292214",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "value": {
+        "instances": 36,
+        "minRatio": 12.26,
+        "p10Ratio": 12.3,
+        "medianRatio": 12.92,
+        "required": 4.5,
+        "textColors": [
+          "#e8ecf6"
+        ],
+        "worst": {
+          "ratio": 12.26,
+          "text": "₹67K",
+          "background": "#322813",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "activityLine": {
+        "instances": 24,
+        "minRatio": 7.23,
+        "p10Ratio": 7.28,
+        "medianRatio": 7.53,
+        "required": 4.5,
+        "textColors": [
+          "#fca5a5",
+          "#9aa4bf"
+        ],
+        "worst": {
+          "ratio": 7.23,
+          "text": "Thu · 12:16 am",
+          "background": "#1a1612",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "chips": {
+        "instances": 20,
+        "minRatio": 7.98,
+        "p10Ratio": 7.98,
+        "medianRatio": 8.38,
+        "required": 4.5,
+        "textColors": [
+          "#c3cadb"
+        ],
+        "worst": {
+          "ratio": 7.98,
+          "text": "follow-up",
+          "background": "#3b2f15",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "toolbar": {
+        "instances": 1,
+        "minRatio": 7.79,
+        "p10Ratio": 7.79,
+        "medianRatio": 7.79,
+        "required": 4.5,
+        "textColors": [
+          "#c3cadb",
+          "#9aa4bf"
+        ],
+        "worst": {
+          "ratio": 7.79,
+          "text": "240 leads · ₹14.9Cr total",
+          "background": "#0b0d16",
+          "need": 4.5
+        },
+        "pass": true
+      }
+    },
+    "aurora-light-1440x900@1x": {
+      "stageHeader": {
+        "instances": 4,
+        "minRatio": 13.73,
+        "p10Ratio": 13.73,
+        "medianRatio": 14.02,
+        "required": 4.5,
+        "textColors": [
+          "#0f172a"
+        ],
+        "worst": {
+          "ratio": 13.73,
+          "text": "New",
+          "background": "#dae2f3",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "count": {
+        "instances": 4,
+        "minRatio": 14.17,
+        "p10Ratio": 14.17,
+        "medianRatio": 14.26,
+        "required": 4.5,
+        "textColors": [
+          "#0f172a"
+        ],
+        "worst": {
+          "ratio": 14.17,
+          "text": "38",
+          "background": "#e4e3fa",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "inrTotal": {
+        "instances": 3,
+        "minRatio": 7.97,
+        "p10Ratio": 7.97,
+        "medianRatio": 8.23,
+        "required": 4.5,
+        "textColors": [
+          "#334155"
+        ],
+        "worst": {
+          "ratio": 7.97,
+          "text": "₹2Cr",
+          "background": "#dbe2f1",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "cardName": {
+        "instances": 23,
+        "minRatio": 16.09,
+        "p10Ratio": 16.09,
+        "medianRatio": 16.41,
+        "required": 4.5,
+        "textColors": [
+          "#0f172a"
+        ],
+        "worst": {
+          "ratio": 16.09,
+          "text": "Neha Kapoor",
+          "background": "#f3f2fd",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "company": {
+        "instances": 21,
+        "minRatio": 5.53,
+        "p10Ratio": 5.53,
+        "medianRatio": 5.62,
+        "required": 4.5,
+        "textColors": [
+          "#56657a"
+        ],
+        "worst": {
+          "ratio": 5.53,
+          "text": "Apex Exports",
+          "background": "#f4f7fe",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "value": {
+        "instances": 18,
+        "minRatio": 16.21,
+        "p10Ratio": 16.21,
+        "medianRatio": 16.42,
+        "required": 4.5,
+        "textColors": [
+          "#0f172a"
+        ],
+        "worst": {
+          "ratio": 16.21,
+          "text": "₹1.2L",
+          "background": "#f0f4fd",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "activityLine": {
+        "instances": 13,
+        "minRatio": 5.79,
+        "p10Ratio": 5.79,
+        "medianRatio": 6.31,
+        "required": 4.5,
+        "textColors": [
+          "#b91c1c",
+          "#56657a"
+        ],
+        "worst": {
+          "ratio": 5.79,
+          "text": "Tomorrow · 4:09 am",
+          "background": "#fbfcff",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "chips": {
+        "instances": 12,
+        "minRatio": 8.29,
+        "p10Ratio": 8.29,
+        "medianRatio": 8.42,
+        "required": 4.5,
+        "textColors": [
+          "#334155"
+        ],
+        "worst": {
+          "ratio": 8.29,
+          "text": "follow-up",
+          "background": "#e5e4fa",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "toolbar": {
+        "instances": 1,
+        "minRatio": 5.55,
+        "p10Ratio": 5.55,
+        "medianRatio": 5.55,
+        "required": 4.5,
+        "textColors": [
+          "#334155",
+          "#56657a"
+        ],
+        "worst": {
+          "ratio": 5.55,
+          "text": "240 leads · ₹14.9Cr total",
+          "background": "#f6f7fc",
+          "need": 4.5
+        },
+        "pass": true
+      }
+    },
+    "aurora-light-1920x1080@2x": {
+      "stageHeader": {
+        "instances": 5,
+        "minRatio": 13.49,
+        "p10Ratio": 13.49,
+        "medianRatio": 14.28,
+        "required": 4.5,
+        "textColors": [
+          "#0f172a"
+        ],
+        "worst": {
+          "ratio": 13.49,
+          "text": "Quote sent",
+          "background": "#dfdef2",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "count": {
+        "instances": 5,
+        "minRatio": 14.04,
+        "p10Ratio": 14.04,
+        "medianRatio": 14.72,
+        "required": 4.5,
+        "textColors": [
+          "#0f172a"
+        ],
+        "worst": {
+          "ratio": 14.04,
+          "text": "38",
+          "background": "#e3e2f9",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "inrTotal": {
+        "instances": 5,
+        "minRatio": 7.9,
+        "p10Ratio": 7.9,
+        "medianRatio": 8.22,
+        "required": 4.5,
+        "textColors": [
+          "#334155"
+        ],
+        "worst": {
+          "ratio": 7.9,
+          "text": "₹2Cr",
+          "background": "#dae1f1",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "cardName": {
+        "instances": 36,
+        "minRatio": 16.09,
+        "p10Ratio": 16.09,
+        "medianRatio": 16.42,
+        "required": 4.5,
+        "textColors": [
+          "#0f172a"
+        ],
+        "worst": {
+          "ratio": 16.09,
+          "text": "Neha Kapoor",
+          "background": "#f3f2fd",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "company": {
+        "instances": 35,
+        "minRatio": 5.53,
+        "p10Ratio": 5.54,
+        "medianRatio": 5.63,
+        "required": 4.5,
+        "textColors": [
+          "#56657a"
+        ],
+        "worst": {
+          "ratio": 5.53,
+          "text": "Sai Kripa Polymers",
+          "background": "#f7f6fe",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "value": {
+        "instances": 36,
+        "minRatio": 16.09,
+        "p10Ratio": 16.09,
+        "medianRatio": 16.42,
+        "required": 4.5,
+        "textColors": [
+          "#0f172a"
+        ],
+        "worst": {
+          "ratio": 16.09,
+          "text": "₹2.5L",
+          "background": "#f3f2fd",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "activityLine": {
+        "instances": 24,
+        "minRatio": 5.79,
+        "p10Ratio": 5.79,
+        "medianRatio": 5.83,
+        "required": 4.5,
+        "textColors": [
+          "#b91c1c",
+          "#56657a"
+        ],
+        "worst": {
+          "ratio": 5.79,
+          "text": "Tomorrow · 4:09 am",
+          "background": "#fbfcff",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "chips": {
+        "instances": 20,
+        "minRatio": 8.19,
+        "p10Ratio": 8.22,
+        "medianRatio": 8.57,
+        "required": 4.5,
+        "textColors": [
+          "#334155"
+        ],
+        "worst": {
+          "ratio": 8.19,
+          "text": "hot",
+          "background": "#f8dfdf",
+          "need": 4.5
+        },
+        "pass": true
+      },
+      "toolbar": {
+        "instances": 1,
+        "minRatio": 5.56,
+        "p10Ratio": 5.56,
+        "medianRatio": 5.56,
+        "required": 4.5,
+        "textColors": [
+          "#334155",
+          "#56657a"
+        ],
+        "worst": {
+          "ratio": 5.56,
+          "text": "240 leads · ₹14.9Cr total",
+          "background": "#f7f7fc",
+          "need": 4.5
+        },
+        "pass": true
+      }
+    }
+  },
+  "summary": {
+    "pass": true,
+    "failures": []
+  }
+}

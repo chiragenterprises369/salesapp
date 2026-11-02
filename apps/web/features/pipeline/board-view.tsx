@@ -1,6 +1,7 @@
 'use client';
 
 import './board.css';
+import './skins/neon.css';
 import type { Board, LeadListItem } from '@vistar/shared';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { QualityMonitor, resolveMotionProfile, useQuality, useTimeScale } from '@/features/shared/physics';
@@ -21,7 +22,9 @@ import { BoardControllerProvider } from './drag/context';
 import type { CommitMove } from './drag/types';
 import { throttle, useCoarsePointer, useIsMobile, useNow } from './hooks';
 import type { LeadsBoardViewProps } from './index';
-import { setBoardFlatMode, useBoardFlatMode } from './motion-prefs';
+import { NeonBackdrop, neonSpaceVars } from './skins/neon-backdrop';
+import { describeSkinFallback, neonEdge } from './skins/skin-model';
+import { useBoardAppearance } from './skins/use-board-appearance';
 import { boardWordsFrom, BoardWordsProvider } from './words';
 
 interface PendingMove extends CommitMove {
@@ -73,7 +76,6 @@ export function BoardView({ pipelineId, density = 'default', devCommit, quality:
   // Phones, the Employee panel and touch-first devices get compact cards with 44 px targets.
   const compact = density === 'compact' || isMobile || coarsePointer;
   const reducedMotion = useReducedMotion();
-  const flat = useBoardFlatMode();
   const physics = useBoardPhysics();
   const timeScale = useTimeScale();
   const labels = useLabels();
@@ -90,6 +92,9 @@ export function BoardView({ pipelineId, density = 'default', devCommit, quality:
   const [ownQuality] = useState(() => new QualityMonitor({ fpsFloor: physics.fpsFloor }));
   const quality = sharedQuality ?? ownQuality;
   const { tier } = useQuality(quality);
+  // Board skin (SPEC 28.1): saved choice, workspace default, device and performance fallbacks.
+  const appearance = useBoardAppearance(quality, physics.fpsFloor);
+  const flat = appearance.skin === 'flat';
   const profile = useMemo(() => resolveMotionProfile({ reducedMotion, flat, tier }), [reducedMotion, flat, tier]);
 
   const [pending, setPending] = useState<PendingMove[]>([]);
@@ -235,17 +240,23 @@ export function BoardView({ pipelineId, density = 'default', devCommit, quality:
   const instructionsId = selectMode ? selectHelpId : canUpdate ? dragHelpId : undefined;
   const retry = () => void query.refetch();
   const enterOn = entrance && profile.stagger;
+  const neon = appearance.variant;
   const rootStyle = {
     '--vb-perspective': `${physics.perspective}px`,
     '--vb-thickness': `${physics.cardThickness}px`,
     '--vb-neighbour-opacity': physics.neighbourOpacity,
     '--vb-sheen': physics.sheen,
     '--vb-hover-lift': `${physics.hoverLift}px`,
+    ...(neon ? neonSpaceVars(neon) : {}),
   } as CSSProperties;
-  const depthAttrs = {
+  // Shared by the board root and the drag overlay, so lifted and flying cards wear the same skin.
+  const depthAttrs: Record<string, string> = {
     'data-depth': profile.depth,
     'data-sheen': profile.sheen && physics.sheen > 0 ? 'on' : 'off',
     'data-motion': profile.mode,
+    'data-board-skin': appearance.skin,
+    'data-board-glow': appearance.glow ? 'on' : 'off',
+    ...(neon ? { 'data-board-variant': neon } : {}),
   };
 
   return (
@@ -257,6 +268,9 @@ export function BoardView({ pipelineId, density = 'default', devCommit, quality:
           style={rootStyle}
           {...depthAttrs}
           data-quality={profile.tier}
+          data-board-skin-requested={appearance.requested}
+          data-board-skin-fallback={appearance.reason ?? undefined}
+          data-board-perf={appearance.perfLevel}
           data-pending={pending.length}
           aria-busy={query.isFetching && query.isPlaceholderData}
         >
@@ -275,47 +289,57 @@ export function BoardView({ pipelineId, density = 'default', devCommit, quality:
                 canSelect={canSelect}
                 filtersActive={Object.keys(filters).length > 0}
                 touch={compact || coarsePointer}
-                flat={flat}
-                onToggleFlat={() => setBoardFlatMode(!flat)}
+                skin={{
+                  requested: appearance.requested,
+                  userChoice: appearance.userChoice,
+                  workspaceDefault: appearance.workspaceDefault,
+                  note: describeSkinFallback(appearance),
+                  onChange: appearance.setSkin,
+                }}
               />
-              <div
-                ref={scrollerRef}
-                role="region"
-                aria-label={`${display.pipeline.name} pipeline`}
-                data-dim={profile.dim ? 'on' : 'off'}
-                onScroll={(e) => persistLeft(e.currentTarget.scrollLeft)}
-                className={cn(
-                  // `relative` keeps absolutely positioned descendants (sr-only text) inside the scroller.
-                  'relative flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-2',
-                  'snap-x snap-mandatory md:snap-none data-[dragging=true]:snap-none',
-                  // While a card is dragged, cards under the pointer must not react to hover.
-                  'data-[dragging=true]:[&_li]:pointer-events-none',
-                )}
-              >
-                {display.columns.map((column, i) => (
-                  <BoardColumn
-                    key={column.stage.id}
-                    column={column}
-                    pipelineId={pipelineId}
-                    filters={filters}
-                    compact={compact}
-                    canDrag={canUpdate}
-                    canMove={canUpdate && !selectMode}
-                    canCreate={canCreate}
-                    selectMode={selectMode}
-                    showQuick={showQuick}
-                    alwaysShowActions={compact || coarsePointer}
-                    stages={stages}
-                    now={now}
-                    instructionsId={instructionsId}
-                    valueShare={meta.totalValue > 0 ? column.totalValueInr / meta.totalValue : 0}
-                    virtualizeOver={physics.virtualizeOver}
-                    pulses={profile.pulses}
-                    numberTickMs={physics.numberTickMs}
-                    countPulseMs={physics.countPulseMs}
-                    enter={enterOn ? { base: i * physics.entranceStaggerMs, step: physics.entranceStaggerMs } : undefined}
-                  />
-                ))}
+              {/* Stage: the Neon Space backdrop sits behind the columns and never scrolls with them. */}
+              <div className="vb-stage relative flex min-h-0 flex-1 flex-col">
+                {neon && <NeonBackdrop variant={neon} />}
+                <div
+                  ref={scrollerRef}
+                  role="region"
+                  aria-label={`${display.pipeline.name} pipeline`}
+                  data-dim={profile.dim ? 'on' : 'off'}
+                  onScroll={(e) => persistLeft(e.currentTarget.scrollLeft)}
+                  className={cn(
+                    // `relative` keeps absolutely positioned descendants (sr-only text) inside the scroller.
+                    'vb-scroller relative flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-2',
+                    'snap-x snap-mandatory md:snap-none data-[dragging=true]:snap-none',
+                    // While a card is dragged, cards under the pointer must not react to hover.
+                    'data-[dragging=true]:[&_li]:pointer-events-none',
+                  )}
+                >
+                  {display.columns.map((column, i) => (
+                    <BoardColumn
+                      key={column.stage.id}
+                      column={column}
+                      pipelineId={pipelineId}
+                      filters={filters}
+                      compact={compact}
+                      canDrag={canUpdate}
+                      canMove={canUpdate && !selectMode}
+                      canCreate={canCreate}
+                      selectMode={selectMode}
+                      showQuick={showQuick}
+                      alwaysShowActions={compact || coarsePointer}
+                      stages={stages}
+                      now={now}
+                      instructionsId={instructionsId}
+                      valueShare={meta.totalValue > 0 ? column.totalValueInr / meta.totalValue : 0}
+                      virtualizeOver={physics.virtualizeOver}
+                      pulses={profile.pulses}
+                      numberTickMs={physics.numberTickMs}
+                      countPulseMs={physics.countPulseMs}
+                      enter={enterOn ? { base: i * physics.entranceStaggerMs, step: physics.entranceStaggerMs } : undefined}
+                      edge={neonEdge(column.stage, i)}
+                    />
+                  ))}
+                </div>
               </div>
               <DragLayer compact={compact} now={now} rootStyle={rootStyle} depthAttrs={depthAttrs} />
               <ActionsSheet

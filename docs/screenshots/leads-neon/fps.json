@@ -1,0 +1,65 @@
+{
+  "generatedAt": "2026-11-02T09:39:15.551Z",
+  "view": "Neon Space / Dark, 1440x900 @1x, /app/leads (mock data, 240 leads), headless Chromium",
+  "gpu": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "method": "requestAnimationFrame intervals in the page. Idle 3 s; drag 10 s: card lifted from New, pointer swept between the New and Interested column centres (311 pointer moves, no edge auto-scroll); drop until the board is idle + 0.5 s.",
+  "idle": {
+    "frames": 179,
+    "avgMs": 16.67,
+    "fps": 60,
+    "p50Ms": 16.7,
+    "p95Ms": 16.7,
+    "p99Ms": 16.8,
+    "maxMs": 16.8,
+    "over20msPct": 0
+  },
+  "drag": {
+    "frames": 568,
+    "avgMs": 17.61,
+    "fps": 56.8,
+    "p50Ms": 16.7,
+    "p95Ms": 16.8,
+    "p99Ms": 33.4,
+    "maxMs": 66.6,
+    "over20msPct": 5.11
+  },
+  "drop": {
+    "frames": 40,
+    "avgMs": 24.58,
+    "fps": 40.68,
+    "p50Ms": 16.7,
+    "p95Ms": 50,
+    "p99Ms": 100.1,
+    "maxMs": 183.3,
+    "over20msPct": 12.5
+  },
+  "board": {
+    "before": {
+      "skin": "neon",
+      "variant": "neon",
+      "glow": "on",
+      "quality": "high",
+      "perfLevel": "0",
+      "fallback": null,
+      "motion": "full"
+    },
+    "during": {
+      "skin": "neon",
+      "variant": "neon",
+      "glow": "on",
+      "quality": "high",
+      "perfLevel": "0",
+      "fallback": null,
+      "motion": "full"
+    },
+    "after": {
+      "skin": "neon",
+      "variant": "neon",
+      "glow": "on",
+      "quality": "high",
+      "perfLevel": "0",
+      "fallback": null,
+      "motion": "full"
+    }
+  }
+}
