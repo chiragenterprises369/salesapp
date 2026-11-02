@@ -17,8 +17,10 @@ import { LogoMark } from './logo';
 import { NavDrawer } from './nav-drawer';
 import { companyNav } from './nav-utils';
 import { NotificationsMenu } from './notifications-menu';
+import { PageTransitionMain } from './page-transition';
 import { useShellStore } from './shell-store';
 import { SidebarNav } from './sidebar-nav';
+import { GlassSheen, SpaceBackdrop } from './space-backdrop';
 import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
@@ -59,15 +61,18 @@ export function CompanyShell({ children }: { children: ReactNode }) {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex h-dvh flex-col overflow-hidden">
+      <div className="relative isolate flex h-dvh flex-col overflow-hidden">
+        <SpaceBackdrop />
         <ImpersonationBanner />
         <div className="flex min-h-0 flex-1">
           <aside
             className={cn(
-              'hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 ease-standard md:flex',
+              'relative isolate hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 ease-standard md:flex',
+              'spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome',
               expanded ? 'w-60' : 'w-14',
             )}
           >
+            <GlassSheen />
             <div className={cn('flex h-14 shrink-0 items-center border-b border-border', expanded ? 'px-3' : 'px-2')}>
               <WorkspaceHeader me={me} expanded={expanded} />
             </div>
@@ -91,7 +96,8 @@ export function CompanyShell({ children }: { children: ReactNode }) {
           </aside>
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 sm:px-4">
+            <header className="relative isolate flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 sm:px-4 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+              <GlassSheen />
               <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}>
                 <Menu aria-hidden />
               </Button>
@@ -107,9 +113,9 @@ export function CompanyShell({ children }: { children: ReactNode }) {
                 <UserMenu panel="company" triggerClassName="ml-1" />
               </div>
             </header>
-            <main id="main" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+            <PageTransitionMain className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
               <div className="px-4 py-5 sm:px-6 lg:px-8 lg:py-6">{children}</div>
-            </main>
+            </PageTransitionMain>
           </div>
         </div>
 

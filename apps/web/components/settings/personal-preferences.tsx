@@ -13,6 +13,7 @@ import { cn } from '@/lib/cn';
 import { useReadOnly } from '@/lib/auth/use-auth';
 import { useCan, useMe, useSessionActions } from '@/lib/session/session';
 import { useReducedMotionSetting, useTheme, type ReducedMotionSetting } from '@/lib/theme';
+import { InterfacePreferences } from './interface-preferences';
 import { SettingsCard } from './settings-card';
 
 const NOTIFY_LABEL: Record<NotificationType, string> = {
@@ -28,8 +29,8 @@ const NOTIFY_LABEL: Record<NotificationType, string> = {
 
 const MOTION: ReadonlyArray<{ value: ReducedMotionSetting; label: string; hint: string }> = [
   { value: 'system', label: 'Follow this device', hint: 'Uses your phone or computer setting' },
-  { value: 'on', label: 'Reduce motion', hint: 'Changes happen instantly, no animation' },
-  { value: 'off', label: 'Full motion', hint: 'Smooth transitions and live counters' },
+  { value: 'on', label: 'Always reduce', hint: 'Changes happen instantly, no animation' },
+  { value: 'off', label: 'Never reduce', hint: 'Ignore the device setting and use your motion intensity' },
 ];
 
 const FLOOR: ReadonlyArray<{ value: TeamFloorMode; label: string }> = [
@@ -71,7 +72,8 @@ function Saved({ status }: { status: string | null }) {
 
 /**
  * Personal preferences, saved as you change them (updateSettings / PATCH /me/settings): theme with
- * scheduled hours, reduced motion, notifications and Team Floor view. `touch` = 44px controls.
+ * scheduled hours, interface style and motion intensity (SPEC 28.2), reduced motion, notifications and
+ * Team Floor view. `touch` = 44px controls.
  */
 export function PersonalPreferences({ touch = false }: { touch?: boolean }) {
   const me = useMe()!;
@@ -104,8 +106,10 @@ export function PersonalPreferences({ touch = false }: { touch?: boolean }) {
         )}
       </SettingsCard>
 
-      <SettingsCard title="Motion" description="Animations on the Board, dashboard counters and the Team Floor.">
-        <RadioGroup.Root value={reducedMotion} onValueChange={(v) => void setReducedMotion(v as ReducedMotionSetting)} aria-label="Motion" className="flex flex-col gap-2">
+      <InterfacePreferences touch={touch} />
+
+      <SettingsCard title="Reduce motion" description="Accessibility: stop animations on the Board, dashboard counters and the Team Floor.">
+        <RadioGroup.Root value={reducedMotion} onValueChange={(v) => void setReducedMotion(v as ReducedMotionSetting)} aria-label="Reduce motion" className="flex flex-col gap-2">
           {MOTION.map((m) => (
             <RadioGroup.Item
               key={m.value}

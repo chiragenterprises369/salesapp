@@ -1,14 +1,21 @@
 /*
-  Vistar Tailwind theme. OWNER: orchestrator (contract). Agents read, never edit.
+  Vistar Tailwind theme. OWNER: frontend-app (since change #18). Other agents request changes in docs/REQUESTS.md.
   - Colors come ONLY from design tokens (styles/tokens.css, generated from @vistar/shared).
   - Tailwind's default palette is disabled so raw colors (bg-blue-500) do not exist.
   - Theme switches on <html data-theme="light|dark">; `dark:` variant follows it.
+  - Interface style (SPEC 28.2) on <html data-interface-style="classic|depth|neon">: `spatial:` = Depth or
+    Neon Space, `neon:` = Neon Space only. Motion intensity on <html data-motion="full|reduced|off">:
+    `motion-full:` applies only when travel (parallax, slides, lifts) is allowed.
 */
 @import 'tailwindcss';
 @import './tokens.css';
+@import './space.css';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 @custom-variant reduced-motion (&:where([data-reduced-motion='on'], [data-reduced-motion='on'] *));
+@custom-variant spatial (&:where([data-interface-style='depth'] *, [data-interface-style='neon'] *));
+@custom-variant neon (&:where([data-interface-style='neon'] *));
+@custom-variant motion-full (&:where([data-motion='full'] *));
 
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -72,6 +79,11 @@
   --color-chart-6: var(--chart-6);
   --color-chart-grid: var(--chart-grid);
   --color-chart-axis: var(--chart-axis);
+  /* Glass surfaces (Depth and Neon Space only; use behind `spatial:`). */
+  --color-glass: var(--glass-fill);
+  --color-glass-panel: var(--glass-panel);
+  --color-glass-border: var(--glass-border);
+  --color-edge-glow: var(--edge-glow);
 
   /* Radius: 8px default, 12px cards. */
   --radius-*: initial;
@@ -87,6 +99,13 @@
   --shadow-raised: var(--elevation-2);
   --shadow-overlay: var(--elevation-3);
   --shadow-lift: var(--elevation-drag);
+  /* Layered depth shadows (contact + ambient + key light), per style and theme. */
+  --shadow-depth-1: var(--depth-shadow-1);
+  --shadow-depth-2: var(--depth-shadow-2);
+  --shadow-depth-3: var(--depth-shadow-3);
+
+  /* backdrop-blur-glass: the only backdrop blur radius (capped by --blur-max). */
+  --blur-glass: var(--glass-blur);
 
   /* Type scale. Body 14px, dense tables 13px. */
   --text-2xs: 11px;
@@ -107,6 +126,8 @@
   --text-3xl--line-height: 36px;
 
   --ease-standard: var(--easing);
+  --ease-glide: var(--easing-glide);
+  --ease-exit: var(--easing-exit);
   --animate-row-in: row-in var(--duration-slow) var(--easing), row-highlight 1.6s var(--easing);
   --animate-fade-in: fade-in var(--duration) var(--easing);
   --animate-dialog-in: dialog-in var(--duration) var(--easing);
@@ -159,6 +180,36 @@
 /* Tabular figures for KPIs, money and timers. */
 @utility tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+  Glass (SPEC 28.2, D-053). Use behind `spatial:` so Classic stays unchanged.
+  glass-chrome: shell sidebar, top bar, bottom nav. The ONLY places with backdrop blur (one per panel, never per card).
+  glass-panel: page panels and wall screens; translucent fill, no blur, safe to repeat.
+  Both swap `muted` for `muted-strong` inside, so small text keeps AA on the translucent fill.
+*/
+@utility glass-chrome {
+  background-color: var(--glass-fill);
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  --muted: var(--muted-strong);
+}
+
+@utility glass-panel {
+  background-color: var(--glass-panel);
+  border-color: var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    var(--depth-shadow-2);
+  --muted: var(--muted-strong);
+}
+
+/* Selected item edge: 2px inset bar in --edge-glow plus the capped glow (a glow only in Neon Space dark). */
+@utility edge-glow {
+  box-shadow:
+    inset 2px 0 0 var(--edge-glow),
+    var(--edge-glow-shadow);
 }
 
 @layer base {

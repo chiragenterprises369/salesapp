@@ -1,0 +1,44 @@
+{
+  "base": "http://localhost:3001",
+  "label": "after-app",
+  "theme": "dark",
+  "preset": "desktop",
+  "results": [
+    {
+      "style": "classic",
+      "path": "/app",
+      "score": 83,
+      "fcp": 281,
+      "lcp": 1743,
+      "tbt": 238,
+      "cls": 0,
+      "jsKb": 700,
+      "landed": "/app",
+      "runs": 5
+    },
+    {
+      "style": "depth",
+      "path": "/app",
+      "score": 81,
+      "fcp": 298,
+      "lcp": 1677,
+      "tbt": 266,
+      "cls": 0,
+      "jsKb": 703,
+      "landed": "/app",
+      "runs": 5
+    },
+    {
+      "style": "neon",
+      "path": "/app",
+      "score": 84,
+      "fcp": 287,
+      "lcp": 1762,
+      "tbt": 227,
+      "cls": 0,
+      "jsKb": 703,
+      "landed": "/app",
+      "runs": 5
+    }
+  ]
+}

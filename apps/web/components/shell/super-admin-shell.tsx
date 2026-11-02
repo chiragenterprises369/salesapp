@@ -13,8 +13,10 @@ import { IdleTimeout } from './idle-timeout';
 import { LogoMark } from './logo';
 import { NavDrawer } from './nav-drawer';
 import { superAdminNav } from './nav-utils';
+import { PageTransitionMain } from './page-transition';
 import { useShellStore } from './shell-store';
 import { SidebarNav } from './sidebar-nav';
+import { GlassSheen, SpaceBackdrop } from './space-backdrop';
 import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
@@ -45,8 +47,16 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex h-dvh overflow-hidden">
-        <aside className={cn('hidden shrink-0 flex-col border-r border-border bg-surface md:flex', isDesktop ? 'w-52' : 'w-14')}>
+      <div className="relative isolate flex h-dvh overflow-hidden">
+        <SpaceBackdrop />
+        <aside
+          className={cn(
+            'relative isolate hidden shrink-0 flex-col border-r border-border bg-surface md:flex',
+            'spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome',
+            isDesktop ? 'w-52' : 'w-14',
+          )}
+        >
+          <GlassSheen />
           <div className={cn('flex h-12 shrink-0 items-center border-b border-border', isDesktop ? 'px-3' : 'px-2')}>
             <ConsoleHeader expanded={isDesktop} />
           </div>
@@ -55,7 +65,8 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 lg:px-4">
+          <header className="relative isolate flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 lg:px-4 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+            <GlassSheen />
             <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}>
               <Menu aria-hidden />
             </Button>
@@ -66,9 +77,9 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
             <ThemeToggle />
             <UserMenu panel="super-admin" />
           </header>
-          <main id="main" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <PageTransitionMain className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
             <div className="px-4 py-4 lg:px-6">{children}</div>
-          </main>
+          </PageTransitionMain>
         </div>
         <NavDrawer open={mobileNavOpen} onOpenChange={setMobileNavOpen} title="Platform navigation" header={<ConsoleHeader expanded />}>
           <SidebarNav groups={groups} expanded density="dense" label="Platform" onNavigate={() => setMobileNavOpen(false)} />

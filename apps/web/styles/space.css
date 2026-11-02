@@ -1,0 +1,199 @@
+/*
+  Space Shell (SPEC 28.2) foundation. OWNER: frontend-app.
+  Everything here is gated on <html data-interface-style="depth|neon"> (set before first paint by the
+  interface boot script), so Classic paints nothing from this file. Values come from tokens.css.
+  - .vs-backdrop: shared background layer behind every panel (company, employee, super admin).
+    Light: soft pastel wash. Dark: gradient + faint perspective grid + sparse particles (canvas).
+  - .vs-sheen: pointer-following highlight inside glass chrome (moved by components/shell/space-effects.ts).
+  - Page transitions: React <ViewTransition> classes vs-glide (full motion) and vs-fade (reduced).
+*/
+
+@layer components {
+  .vs-backdrop,
+  .vs-sheen {
+    display: none;
+  }
+
+  :is([data-interface-style='depth'], [data-interface-style='neon']) .vs-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    contain: strict;
+    background: linear-gradient(180deg, var(--space-base) 0%, var(--space-base-2) 100%);
+  }
+
+  .vs-backdrop > * {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  /* Far layer: wash (light) or nebula glow (dark). Oversized so parallax never shows an edge. */
+  .vs-backdrop__wash {
+    inset: -24px;
+    background:
+      radial-gradient(70% 60% at 88% -6%, var(--space-glow-1), transparent 70%),
+      radial-gradient(60% 55% at -6% 106%, var(--space-glow-2), transparent 70%),
+      radial-gradient(55% 45% at 52% 118%, var(--space-glow-3), transparent 70%);
+  }
+
+  .vs-backdrop__floor,
+  .vs-backdrop__horizon,
+  .vs-backdrop__vignette {
+    display: none;
+  }
+
+  /* Mid layer (dark only): a floor plane receding to a horizon at 60% height, lines converging. */
+  [data-theme='dark'] .vs-backdrop__floor {
+    display: block;
+    left: 0;
+    right: 0;
+    top: 60%;
+    bottom: 0;
+    overflow: hidden;
+    perspective: 360px;
+    perspective-origin: 50% 0%;
+    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.55) 35%, #000 80%);
+  }
+  .vs-backdrop__grid {
+    position: absolute;
+    left: -200%;
+    right: -200%;
+    top: 0;
+    height: 320px;
+    background-image:
+      linear-gradient(to bottom, var(--space-grid) 1px, transparent 1px),
+      linear-gradient(to right, var(--space-grid) 1px, transparent 1px);
+    background-size: 56px 56px;
+    background-position: center top;
+    transform-origin: 50% 0%;
+    transform: rotateX(72deg);
+  }
+
+  /* Horizon line where the floor meets the sky; glow stays inside the --glow-blur-max cap. */
+  [data-theme='dark'] .vs-backdrop__horizon {
+    display: block;
+    left: 0;
+    right: 0;
+    top: 60%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--space-horizon) 25%, var(--space-horizon) 75%, transparent 100%);
+    box-shadow: 0 0 var(--glow-blur-max) var(--space-horizon);
+  }
+
+  [data-theme='dark'] .vs-backdrop__vignette {
+    display: block;
+    inset: 0;
+    background: radial-gradient(120% 100% at 50% 30%, transparent 55%, var(--space-vignette) 100%);
+  }
+
+  /* Near layer: particles canvas, created only in dark by space-effects.ts; fades in once drawn. */
+  .vs-backdrop__particles {
+    inset: -16px;
+    width: calc(100% + 32px);
+    height: calc(100% + 32px);
+    opacity: 0;
+    transition: opacity 600ms linear;
+  }
+  .vs-backdrop__particles[data-ready] {
+    opacity: 1;
+  }
+
+  /* Glass chrome highlight. The host needs `relative isolate` so the sheen sits under its content. */
+  :is([data-interface-style='depth'], [data-interface-style='neon']) .vs-sheen {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  .vs-sheen__light {
+    position: absolute;
+    top: -60%;
+    left: -40%;
+    width: 180%;
+    height: 160%;
+    background: radial-gradient(45% 35% at 35% 30%, var(--glass-sheen), transparent 70%);
+  }
+
+  /* Style picker thumbnails: put data-interface-style and data-theme on the thumbnail itself. */
+  .vs-preview {
+    background:
+      radial-gradient(80% 90% at 92% 0%, var(--space-glow-1), transparent 70%),
+      radial-gradient(70% 80% at 0% 100%, var(--space-glow-2), transparent 70%),
+      linear-gradient(180deg, var(--space-base) 0%, var(--space-base-2) 100%);
+  }
+  [data-theme='dark'].vs-preview {
+    background:
+      linear-gradient(to bottom, transparent 62%, var(--space-horizon) 62%, transparent calc(62% + 1px)),
+      radial-gradient(80% 90% at 92% 0%, var(--space-glow-1), transparent 70%),
+      radial-gradient(70% 80% at 0% 100%, var(--space-glow-2), transparent 70%),
+      linear-gradient(180deg, var(--space-base) 0%, var(--space-base-2) 100%);
+  }
+}
+
+/* Page transitions. The overlay never takes input: clicks and keys reach the live page underneath. */
+::view-transition {
+  pointer-events: none;
+}
+
+/*
+  React starts a view transition for every room change, also in Classic and with motion Off (the
+  boundary's classes are then "none"). The root never animates: the old root snapshot is hidden and the
+  new one is shown as is, so the sidebar and top bar switch instantly and Classic looks unchanged.
+*/
+::view-transition-group(root) {
+  animation: none;
+}
+::view-transition-old(root) {
+  animation: none;
+  opacity: 0;
+}
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-group(.vs-glide),
+::view-transition-group(.vs-fade) {
+  animation-duration: var(--duration-page);
+}
+::view-transition-old(.vs-glide) {
+  animation: vs-glide-out var(--duration-page-exit) var(--easing-exit) both;
+}
+::view-transition-new(.vs-glide) {
+  animation: vs-glide-in var(--duration-page) var(--easing-glide) both;
+}
+::view-transition-old(.vs-fade) {
+  animation: vs-fade-out var(--duration-fade) linear both;
+}
+::view-transition-new(.vs-fade) {
+  animation: vs-fade-in var(--duration-fade) linear both;
+}
+
+@keyframes vs-glide-out {
+  to {
+    opacity: 0;
+    transform: scale(var(--page-exit-scale));
+  }
+}
+@keyframes vs-glide-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--page-enter-shift), 0) scale(var(--page-enter-scale));
+  }
+}
+@keyframes vs-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vs-fade-in {
+  from {
+    opacity: 0;
+  }
+}

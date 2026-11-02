@@ -15,6 +15,8 @@ import { ImpersonationBanner } from './impersonation-banner';
 import { LogoMark } from './logo';
 import { NavIcon } from './nav-icon';
 import { employeeBottomNav, isActivePath } from './nav-utils';
+import { PageTransitionMain } from './page-transition';
+import { GlassSheen, SpaceBackdrop } from './space-backdrop';
 import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
 
@@ -44,10 +46,12 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
   const wide = WIDE_PATHS.some((p) => isActivePath(pathname, p));
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
+    <div className="relative isolate flex h-dvh flex-col overflow-hidden">
+      <SpaceBackdrop />
       <ImpersonationBanner />
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-56 shrink-0 flex-col border-r border-border bg-surface lg:flex">
+        <aside className="relative isolate hidden w-56 shrink-0 flex-col border-r border-border bg-surface lg:flex spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+          <GlassSheen />
           <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
             <LogoMark />
             <span className="min-w-0">
@@ -87,7 +91,8 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] lg:px-6">
+          <header className="relative isolate flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] lg:px-6 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+            <GlassSheen />
             <Link href="/me" aria-label="Home" className="focus-ring rounded-md lg:hidden">
               <LogoMark />
             </Link>
@@ -106,11 +111,12 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
             <UserMenu panel="employee" triggerClassName="size-11" />
           </header>
 
-          <main id="main" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+          <PageTransitionMain className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
             <div className={cn('mx-auto w-full px-4 py-4 sm:px-6 lg:px-8 lg:py-6', !wide && 'max-w-5xl')}>{children}</div>
-          </main>
+          </PageTransitionMain>
 
-          <nav aria-label="Main" className="shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden">
+          <nav aria-label="Main" className="relative isolate shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden spatial:mx-2 spatial:mb-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+            <GlassSheen />
             <ul className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
               {items.map((item) => {
                 const active = isActive(item.id, item.href);
