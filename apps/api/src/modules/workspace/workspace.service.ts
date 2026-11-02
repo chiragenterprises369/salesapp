@@ -2,12 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   BusinessHoursSchema,
   DEFAULT_BUSINESS_HOURS,
-  EMPTY_BRANDING,
   FEATURE_FLAGS,
   FeatureFlagSchema,
   HexColorSchema,
   HolidaySchema,
   ThemeModeSchema,
+  type BrandingUpdate,
   type FeatureFlags,
   type Plan,
   type ThemeMode,
@@ -24,6 +24,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import type { TenantPrisma } from '../../infra/prisma/tenant.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { AccountStatusService } from '../auth/state/account-status.service.js';
+import { BrandingService } from './branding.service.js';
 import { SettingsService } from './settings.service.js';
 import { actorOf, assertTimeZone, diffOf } from './util.js';
 
@@ -40,6 +41,7 @@ export class WorkspaceService {
     private readonly audit: AuditService,
     private readonly events: EventBus,
     private readonly status: AccountStatusService,
+    private readonly branding: BrandingService,
   ) {}
 
   /** Effective feature flags = PlanDefinition.features overlaid with FeatureFlagOverride rows. */
@@ -62,7 +64,7 @@ export class WorkspaceService {
     const db = this.prisma.forTenant(workspaceId);
     const ws = await db.workspace.findFirst({});
     if (!ws) throw notFound('Workspace');
-    const [values, features] = await Promise.all([this.settings.getWorkspaceSettings(db, workspaceId), this.features(db, ws.plan)]);
+    const [values, features, branding] = await Promise.all([this.settings.getWorkspaceSettings(db, workspaceId), this.features(db, ws.plan), this.branding.get(db, workspaceId)]);
     const hours = BusinessHoursSchema.safeParse(ws.businessHours);
     const holidays = HolidaysSchema.safeParse(ws.holidays);
     const accent = HexColorSchema.safeParse(ws.accentColor);
@@ -86,7 +88,7 @@ export class WorkspaceService {
       defaultInterfaceStyle: values.defaultInterfaceStyle,
       defaultBoardSkin: values.defaultBoardSkin,
       componentStyle: values.componentStyle,
-      branding: EMPTY_BRANDING,
+      branding,
       supportAccess: {
         until: supportActive ? ws.supportAccessUntil!.toISOString() : null,
         includeContent: supportActive ? ws.supportAccessContent : false,
@@ -126,7 +128,24 @@ export class WorkspaceService {
       await this.audit.record(auth, req, { action: 'workspace.update', entityType: 'workspace', entityId: wid, diff });
     }
     if (body.defaultTheme !== undefined && body.defaultTheme !== before.defaultTheme) await this.publishTheme(auth, body.defaultTheme);
+    if (componentStyle !== undefined && componentStyle !== before.componentStyle) await this.publishBranding(auth, after);
     return after;
+  }
+
+  /** PATCH /workspace/branding (D-060): audited in BrandingService, live update for every open tab. */
+  async updateBranding(auth: AuthContext, req: Request, body: BrandingUpdate): Promise<Workspace> {
+    const { changed } = await this.branding.update(auth, req, body);
+    const after = await this.get(auth.workspaceId);
+    if (changed.length) await this.publishBranding(auth, after);
+    return after;
+  }
+
+  private async publishBranding(auth: AuthContext, ws: Workspace): Promise<void> {
+    try {
+      await this.events.publish('workspace.branding_changed', auth.workspaceId, { branding: ws.branding, componentStyle: ws.componentStyle }, { actor: actorOf(auth) });
+    } catch (err) {
+      this.logger.error(`workspace.branding_changed publish failed: ${(err as Error).message}`);
+    }
   }
 
   async setTheme(auth: AuthContext, req: Request, mode: ThemeMode): Promise<Workspace> {
