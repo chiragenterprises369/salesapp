@@ -96,6 +96,7 @@ export function createRealtimeSim(client: QueryClient, pipelineId: string, persi
     const afterId = to.leads.find((l) => l.id !== lead.id)?.id ?? null;
     if (!persist) {
       patchBoards((b) => applyMoveToBoard(b, { lead, fromStageId: from.stage.id, toStageId: to.stage.id, beforeId: null, afterId }));
+      busy.delete(lead.id);
       return;
     }
     busy.add(lead.id);
@@ -166,6 +167,8 @@ export function createRealtimeSim(client: QueryClient, pipelineId: string, persi
         const m = pick(board, 'won', taken);
         if (!m) break;
         taken.add(m.lead.id);
+        // Reserved until its move runs, so moves picked meanwhile never take the same card.
+        busy.add(m.lead.id);
         moves.push(m);
       }
       moves.forEach((m, i) => window.setTimeout(() => move(m.lead, m.from, m.to), i * gapMs));
