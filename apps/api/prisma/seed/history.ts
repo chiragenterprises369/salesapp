@@ -203,7 +203,7 @@ export function buildHistory(ctx: CompanyCtx): History {
     let status = t.status;
     let completedAt = t.completedAt ?? null;
     if (!status) {
-      if (t.dueAt !== null && t.dueAt < now - 3 * HOUR && chance(rng, 0.82)) {
+      if (t.dueAt !== null && t.dueAt < now - 3 * HOUR && chance(rng, t.dueAt < now - 2 * DAY ? 0.95 : 0.75)) {
         status = 'done';
         completedAt = Math.min(now - MIN, Math.max(t.createdAt + 5 * MIN, t.dueAt + between(rng, -2 * HOUR, 6 * HOUR)));
       } else status = 'open';
@@ -464,7 +464,7 @@ export function buildHistory(ctx: CompanyCtx): History {
     }
     step(run, 'sorry', sorry.status === 'sent' ? 'succeeded' : 'skipped', t0 + 2 * SEC, t0 + 3 * SEC, { summary: sorry.status === 'sent' ? 'Sent template missed_call_sorry' : 'Skipped: no WhatsApp opt-in' });
     const due = t0 + 15 * MIN;
-    const done = due < now - HOUR && chance(rng, 0.9);
+    const done = due < now - HOUR && chance(rng, due < now - DAY ? 0.97 : 0.85);
     const task = addTask({
       s, type: 'call', title: fill('Call back {name} (missed call)', vars(s)), priority: 'urgent', assigneeId: s.ownerId ?? m.userId, createdById: null, createdAt: t0 + 4 * SEC, dueAt: due,
       source: 'workflow', runId: run.id, status: done ? 'done' : 'open', completedAt: done ? Math.min(now - MIN, due + between(rng, -12 * MIN, 50 * MIN)) : null,
@@ -610,7 +610,13 @@ export function buildHistory(ctx: CompanyCtx): History {
       const priority: TaskPriority = s.temperature === 'hot' ? (chance(rng, 0.15) ? 'urgent' : 'high') : s.temperature === 'warm' ? 'normal' : 'low';
       const creator = chance(rng, 0.15) ? managerOf(s.ownerId).id : s.ownerId;
       const createdAt = Math.min(now - MIN, Math.max(s.created + 5 * MIN, follow - between(rng, 4 * HOUR, 4 * DAY)));
-      addTask({ s, type, title: fill(pick(rng, C.TASK_TITLES[type]), v), priority, assigneeId: s.ownerId, createdById: creator, createdAt, dueAt: follow, source: 'manual', status: 'open', remind: chance(rng, 0.6), notes: chance(rng, 0.25) ? pick(rng, C.TASK_NOTES) : null });
+      // Most past-due follow-ups were done on time; the lead then has no next follow-up date.
+      const doneOnTime = follow < now - HOUR && chance(rng, 0.6);
+      if (doneOnTime) s.d.lead.nextFollowUpAt = null;
+      addTask({
+        s, type, title: fill(pick(rng, C.TASK_TITLES[type]), v), priority, assigneeId: s.ownerId, createdById: creator, createdAt, dueAt: follow, source: 'manual', status: doneOnTime ? 'done' : 'open',
+        completedAt: doneOnTime ? Math.min(now - MIN, Math.max(createdAt + 5 * MIN, follow + between(rng, -2 * HOUR, 4 * HOUR))) : null, remind: chance(rng, 0.6), notes: chance(rng, 0.25) ? pick(rng, C.TASK_NOTES) : null,
+      });
     }
     if (!s.changes.length || !s.ownerId) continue;
     const n = weighted(rng, [[0, 0.45], [1, 0.4], [2, 0.15]] as const);
@@ -704,7 +710,8 @@ export function buildHistory(ctx: CompanyCtx): History {
     s.conversationId = conversationId;
     const inboundTimes = real.filter((m) => m.direction === 'inbound').map((m) => m.at);
     const lastInboundAt = inboundTimes.length ? Math.max(...inboundTimes) : null;
-    const convStatus = s.optOutAt !== null || (s.closeAt !== null && lastMsg.at < now - 2 * DAY) ? 'closed' : lastMsg.direction === 'outbound' && now - lastMsg.at > DAY ? 'pending' : 'open';
+    const convStatus =
+      s.optOutAt !== null || (s.closeAt !== null && lastMsg.at < now - 2 * DAY) || lastMsg.at < now - 7 * DAY ? 'closed' : lastMsg.direction === 'outbound' && now - lastMsg.at > DAY ? 'pending' : 'open';
     h.conversations.push({
       id: conversationId, workspaceId, channel: 'whatsapp', contactId: s.d.contact.id, leadId: s.id, assigneeId: s.ownerId, status: convStatus, unreadCount: unread,
       lastMessageAt: d(lastMsg.at), lastMessagePreview: lastMsg.body.slice(0, 120), lastInboundAt: lastInboundAt !== null ? d(lastInboundAt) : null,

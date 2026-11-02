@@ -26,7 +26,7 @@ import { buildExtras, type Extras } from './seed/extras.js';
 import { buildHistory, type History } from './seed/history.js';
 import { buildPlatform, buildPlatformGlobal, type PlatformRows } from './seed/platform.js';
 import { countRows, formatTable } from './seed/report.js';
-import { insertMany } from './seed/util.js';
+import { insertMany, shiftDates } from './seed/util.js';
 
 config({ path: path.resolve(process.cwd(), '../../.env'), quiet: true });
 
@@ -52,13 +52,20 @@ async function wipe(prisma: PrismaClient) {
   await prisma.platformAdmin.deleteMany({ where: { id: { in: adminIds } } });
 }
 
-async function insertCompany(prisma: PrismaClient, ctx: CompanyCtx, h: History, x: Extras, p: PlatformRows) {
+async function insertCompany(prisma: PrismaClient, ctx: CompanyCtx, h: History, x: Extras, p: PlatformRows, delta: number) {
   const stageIds = ctx.stages.map((s) => s.id);
   for (const stageId of stageIds) {
     const inStage = ctx.drafts.filter((r) => r.lead.stageId === stageId).sort((a, b) => +b.lead.createdAt - +a.lead.createdAt);
     const keys = generateNKeysBetween(null, null, inStage.length);
     inStage.forEach((r, i) => (r.lead.position = keys[i]!));
   }
+  const groups: Array<ReadonlyArray<object | null>> = [
+    ctx.drafts.map((r) => r.lead), ctx.drafts.map((r) => r.contact), ctx.drafts.map((r) => r.deal),
+    h.activities, h.calls, h.conversations, h.messages, h.consents, h.tasks, h.runs, h.steps,
+    x.notifications, x.targets, x.savedViews, x.tags, x.quickReplies, x.integrations, x.endpoints, x.deliveries, x.apiKeys, x.usage, x.audit, x.settings, x.invites,
+    p.platformAudit, p.tenantAudit, p.impersonations, p.flags,
+  ];
+  for (const g of groups) shiftDates(g, delta);
   await insertMany(ctx.drafts.map((r) => r.contact), (b) => prisma.contact.createMany({ data: b }));
   await insertMany(ctx.drafts.map((r) => r.lead), (b) => prisma.lead.createMany({ data: b }));
   await insertMany(ctx.drafts.flatMap((r) => (r.deal ? [r.deal] : [])), (b) => prisma.deal.createMany({ data: b }));
@@ -95,7 +102,10 @@ async function main() {
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   const rng = createRng(2026);
   const t0 = Date.now();
-  const now = t0;
+  // Data is generated on a clock rounded down to the hour (so runs within the same hour build identical
+  // data and counts) and every timestamp is then shifted by `delta` so "now" in the data is the real now.
+  const now = Math.floor(t0 / 3_600_000) * 3_600_000;
+  const delta = t0 - now;
 
   try {
     await wipe(prisma);
@@ -116,16 +126,18 @@ async function main() {
     // Industry Packs: register packs/*/manifest.json, then install generic-sales (adopts the pipeline and templates seeded below).
     await syncRegistry(prisma);
     for (const fx of COMPANY_FIXTURES) {
-      const ctx = await createCompanyBase(prisma, fx, passwordHash, rng, now);
+      const ctx = await createCompanyBase(prisma, fx, passwordHash, rng, now, delta);
       const history = buildHistory(ctx);
       const extras = buildExtras(ctx, history);
       const platform = buildPlatform(ctx, adminRef);
-      await insertCompany(prisma, ctx, history, extras, platform);
+      await insertCompany(prisma, ctx, history, extras, platform, delta);
       const pack = await installPack(prisma, ctx.workspaceId, GENERIC_SALES_PACK_KEY, { action: 'sync', actor: SYSTEM_PACK_ACTOR });
       companies.push({ id: ctx.workspaceId, label: fx.slug });
       summary.push(`  ${fx.name} (${fx.plan}): ${fx.employees.length} users, ${ctx.drafts.length} leads, ${history.calls.length} calls, ${history.conversations.length} conversations, ${history.runs.length} workflow runs, ${GENERIC_SALES_PACK_KEY} ${pack.status}`);
     }
-    await prisma.platformAuditLog.createMany({ data: buildPlatformGlobal(adminRef, now) });
+    const globalRows = buildPlatformGlobal(adminRef, now);
+    shiftDates(globalRows, delta);
+    await prisma.platformAuditLog.createMany({ data: globalRows });
     const seconds = ((Date.now() - t0) / 1000).toFixed(1);
 
     const counts = await countRows(prisma, companies);

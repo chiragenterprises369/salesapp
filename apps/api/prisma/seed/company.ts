@@ -136,8 +136,13 @@ export interface CompanyCtx {
   drafts: LeadDraft[];
 }
 
-export async function createCompanyBase(prisma: PrismaClient, fx: CompanyFixture, passwordHash: string, leadRng: Rng, now: number): Promise<CompanyCtx> {
+/**
+ * `now` is the generation clock (the seed rounds it down to the hour so back-to-back runs build the same
+ * data); rows written here directly are shifted by `delta` to real time, like every generated row later.
+ */
+export async function createCompanyBase(prisma: PrismaClient, fx: CompanyFixture, passwordHash: string, leadRng: Rng, now: number, delta = 0): Promise<CompanyCtx> {
   const rng = rngFor(fx.slug);
+  const real = (t: number) => new Date(t + delta);
   const createdAt = now - (WORKSPACE_AGE_DAYS[fx.slug] ?? 125) * DAY;
   const ws = await prisma.workspace.create({
     data: {
@@ -148,8 +153,8 @@ export async function createCompanyBase(prisma: PrismaClient, fx: CompanyFixture
       holidays: [{ date: '2026-11-08', name: 'Diwali' }],
       plan: fx.plan,
       status: fx.status,
-      trialEndsAt: fx.status === 'trial' ? new Date(now + 10 * DAY) : null,
-      createdAt: new Date(createdAt),
+      trialEndsAt: fx.status === 'trial' ? real(now + 10 * DAY) : null,
+      createdAt: real(createdAt),
     },
   });
   const workspaceId = ws.id;
@@ -157,7 +162,7 @@ export async function createCompanyBase(prisma: PrismaClient, fx: CompanyFixture
   const roleIds = new Map<RoleKind, string>();
   for (const kind of ROLE_KINDS) {
     const role = await prisma.role.create({
-      data: { workspaceId, key: SYSTEM_ROLE_KEYS[kind], name: ROLE_KIND_LABELS[kind], kind, dataScope: DEFAULT_ROLE_SCOPE[kind], permissions: DEFAULT_ROLE_PERMISSIONS[kind], isSystem: true, createdAt: new Date(createdAt) },
+      data: { workspaceId, key: SYSTEM_ROLE_KEYS[kind], name: ROLE_KIND_LABELS[kind], kind, dataScope: DEFAULT_ROLE_SCOPE[kind], permissions: DEFAULT_ROLE_PERMISSIONS[kind], isSystem: true, createdAt: real(createdAt) },
     });
     roleIds.set(kind, role.id);
   }
@@ -169,8 +174,8 @@ export async function createCompanyBase(prisma: PrismaClient, fx: CompanyFixture
     const u = await prisma.user.create({
       data: {
         workspaceId, email: e.email, passwordHash, name: e.name, phone: e.phone, title: e.title, roleId: roleIds.get(e.role)!, status: e.status,
-        statusChangedAt: new Date(now - int(rng, 2, 90) * MIN), lastSeenAt: e.status === 'offline' ? new Date(now - int(rng, 3, 20) * 60 * MIN) : new Date(now - int(rng, 0, 4) * MIN),
-        avatar: e.avatar, deskIndex: e.deskIndex, createdAt: new Date(joinedAt),
+        statusChangedAt: real(now - int(rng, 2, 90) * MIN), lastSeenAt: e.status === 'offline' ? real(now - int(rng, 3, 20) * 60 * MIN) : real(now - int(rng, 0, 4) * MIN),
+        avatar: e.avatar, deskIndex: e.deskIndex, createdAt: real(joinedAt),
       },
     });
     users.push({ id: u.id, key: e.key, name: e.name, email: e.email, kind: e.role, status: e.status, teamId: null, phone: e.phone, title: e.title, joinedAt });
@@ -179,7 +184,7 @@ export async function createCompanyBase(prisma: PrismaClient, fx: CompanyFixture
   const teams: SeedTeam[] = [];
   for (const t of fx.teams) {
     const manager = byKey.get(t.managerKey)!;
-    const team = await prisma.team.create({ data: { workspaceId, name: t.name, managerId: manager.id, createdAt: new Date(createdAt + 30 * MIN) } });
+    const team = await prisma.team.create({ data: { workspaceId, name: t.name, managerId: manager.id, createdAt: real(createdAt + 30 * MIN) } });
     const members = [t.managerKey, ...t.memberKeys].map((k) => byKey.get(k)).filter((x): x is SeedUser => !!x);
     await prisma.user.updateMany({ where: { id: { in: members.map((m) => m.id) } }, data: { teamId: team.id } });
     for (const m of members) m.teamId = team.id;
@@ -189,15 +194,15 @@ export async function createCompanyBase(prisma: PrismaClient, fx: CompanyFixture
   const managers = users.filter((u) => u.kind === 'manager');
   const admin = users.find((u) => u.kind === 'company_admin')!;
 
-  const pipeline = await prisma.pipeline.create({ data: { workspaceId, key: DEFAULT_PIPELINE_KEY, packKey: GENERIC_SALES_PACK_KEY, name: 'Sales', isDefault: true, createdAt: new Date(createdAt) } });
+  const pipeline = await prisma.pipeline.create({ data: { workspaceId, key: DEFAULT_PIPELINE_KEY, packKey: GENERIC_SALES_PACK_KEY, name: 'Sales', isDefault: true, createdAt: real(createdAt) } });
   const stages: SeedStage[] = [];
   for (const [order, s] of DEFAULT_STAGES.entries()) {
-    const st = await prisma.stage.create({ data: { workspaceId, pipelineId: pipeline.id, key: s.key, name: s.name, type: s.type, order, probability: s.probability, createdAt: new Date(createdAt) } });
+    const st = await prisma.stage.create({ data: { workspaceId, pipelineId: pipeline.id, key: s.key, name: s.name, type: s.type, order, probability: s.probability, createdAt: real(createdAt) } });
     stages.push({ id: st.id, key: s.key, name: s.name, type: s.type, order });
   }
 
   await prisma.template.createMany({
-    data: WHATSAPP_TEMPLATE_FIXTURES.map((t) => ({ workspaceId, channel: 'whatsapp' as const, name: t.name, language: 'en', category: t.category, status: 'approved' as const, body: t.body, variables: t.variables, packKey: GENERIC_SALES_PACK_KEY, providerTemplateId: `${int(rng, 100000000000000, 999999999999999)}`, createdAt: new Date(createdAt + DAY) })),
+    data: WHATSAPP_TEMPLATE_FIXTURES.map((t) => ({ workspaceId, channel: 'whatsapp' as const, name: t.name, language: 'en', category: t.category, status: 'approved' as const, body: t.body, variables: t.variables, packKey: GENERIC_SALES_PACK_KEY, providerTemplateId: `${int(rng, 100000000000000, 999999999999999)}`, createdAt: real(createdAt + DAY) })),
   });
   const templateRows = await prisma.template.findMany({ where: { workspaceId }, select: { id: true, name: true, body: true, variables: true } });
   const templates = new Map(templateRows.map((t) => [t.name, t]));
@@ -208,7 +213,7 @@ export async function createCompanyBase(prisma: PrismaClient, fx: CompanyFixture
     const active = i < 2;
     const trigger = tpl.graph.nodes.find((n) => n.type.startsWith('trigger.'))?.type ?? null;
     const graph = { ...tpl.graph, version: 1 };
-    const at = new Date(createdAt + (2 + i) * DAY);
+    const at = real(createdAt + (2 + i) * DAY);
     const wf = await prisma.workflow.create({
       data: { workspaceId, name: tpl.name, description: tpl.description, status: active ? 'active' : 'draft', triggerType: trigger, latestVersion: 1, draft: graph, templateKey: tpl.key, createdById: managerId, createdAt: at },
     });

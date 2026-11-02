@@ -78,6 +78,19 @@ export async function insertMany<T>(rows: T[], insert: (batch: T[]) => Promise<u
   for (let i = 0; i < rows.length; i += size) await insert(rows.slice(i, i + size));
 }
 
+/** Move every top-level Date field of the rows by `delta` ms (generation clock -> real clock). */
+export function shiftDates(rows: ReadonlyArray<object | null>, delta: number): void {
+  if (!delta) return;
+  for (const row of rows) {
+    if (!row) continue;
+    const r = row as Record<string, unknown>;
+    for (const k of Object.keys(r)) {
+      const v = r[k];
+      if (v instanceof Date) r[k] = new Date(v.getTime() + delta);
+    }
+  }
+}
+
 const GST_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 

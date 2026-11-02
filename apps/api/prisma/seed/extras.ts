@@ -118,6 +118,23 @@ export function buildExtras(ctx: CompanyCtx, h: History): Extras {
     if (ctx.fx.status === 'trial' && u.kind === 'company_admin') {
       add({ at: now - between(rng, 2 * HOUR, 20 * HOUR), type: 'system', title: 'Your trial ends in 10 days', body: 'Choose a plan to keep WhatsApp, workflows and telephony running.', path: '/billing', data: { trialEndsAt: iso(now + 10 * DAY) } });
     }
+    if (u.kind !== 'employee') {
+      // Evening digest with the real numbers of that day (team scope for managers).
+      const scope = u.kind === 'manager' ? new Set(ctx.teams.filter((t) => t.managerId === u.id).flatMap((t) => t.memberIds)) : null;
+      for (let k = 1; k <= 24; k++) {
+        const day = addDays(startOfDay(now), -k);
+        if (istWeekday(day + 12 * HOUR) === 0) continue;
+        const inDay = (t: number) => t >= day && t < day + DAY;
+        const newLeads = h.states.filter((s) => inDay(s.created) && (!scope || (s.ownerId && scope.has(s.ownerId)))).length;
+        const calls = h.calls.filter((c) => inDay((c.startedAt as Date).getTime()) && (!scope || (c.userId && scope.has(c.userId)))).length;
+        const wonDay = h.states.filter((s) => s.finalIdx === 4 && s.closeAt !== null && inDay(s.closeAt) && (!scope || (s.ownerId && scope.has(s.ownerId))));
+        const revenue = wonDay.reduce((a, s) => a + (s.d.lead.valueInr ?? 0), 0);
+        add({
+          at: day + 19.5 * HOUR + between(rng, 0, 5 * MIN), type: 'system', title: scope ? 'Team daily summary' : 'Daily summary',
+          body: `${newLeads} new leads, ${calls} calls, ${wonDay.length} deals won (₹${revenue.toLocaleString('en-IN')})`, path: '/reports', data: { date: iso(day), newLeads, calls, dealsWon: wonDay.length, revenueInr: revenue },
+        });
+      }
+    }
 
     const want = int(rng, 25, 40);
     for (const list of buckets.values()) list.sort((a, b) => b.at - a.at);
