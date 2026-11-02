@@ -527,48 +527,130 @@ def weight_islands(obj):
     bm.free()
 
 
-# ---------------------------------------------------------------- lighting (Day)
+# ---------------------------------------------------------------- lighting (Day and Evening)
 
-def day_lighting(scene, t):
-    world = bpy.data.worlds.new('DayWorld')
+LIT_VARIANTS = ('day', 'evening')
+WARM = (1.0, 0.78, 0.52)
+WARM_EVENING = (1.0, 0.7, 0.42)
+COOL_WINDOW = (0.42, 0.58, 1.0)
+# Emission strengths per variant (the evening screens, lamps and hub light their surroundings).
+EMISSION = {
+    'day': {'emissive_screen': 1.2, 'emissive_lamp': 5.0, 'emissive_hub': 9.0, 'emissive_hub_soft': 2.5, 'emissive_reception': 16.0, 'hub_screen': 1.0},
+    'evening': {'emissive_screen': 7.0, 'emissive_lamp': 14.0, 'emissive_hub': 14.0, 'emissive_hub_soft': 4.0, 'emissive_reception': 22.0, 'hub_screen': 3.0},
+}
+
+
+def _lights_collection(scene):
+    col = bpy.data.collections.get('Lights')
+    if col is None:
+        col = bpy.data.collections.new('Lights')
+        scene.collection.children.link(col)
+    for o in list(col.objects):
+        data = o.data
+        bpy.data.objects.remove(o, do_unlink=True)
+        if data is not None and data.users == 0:
+            bpy.data.lights.remove(data)
+    return col
+
+
+def _add_light(col, name, kind, energy, color, location, size=0.12, rotation=None, spot=None):
+    ld = bpy.data.lights.new(name, kind)
+    ld.energy = energy
+    ld.color = color
+    if kind == 'AREA':
+        ld.shape = 'RECTANGLE'
+        ld.size, ld.size_y = size
+    elif kind != 'SUN':
+        ld.shadow_soft_size = size
+    if spot:
+        ld.spot_size, ld.spot_blend = spot
+    lo = bpy.data.objects.new(name, ld)
+    col.objects.link(lo)
+    lo.location = location
+    if rotation is not None:
+        lo.rotation_euler = rotation
+    return lo
+
+
+def _set_emission(variant):
+    for name, strength in EMISSION[variant].items():
+        m = bpy.data.materials.get(name)
+        if m is None:
+            continue
+        bsdf = next((n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+        if bsdf is not None:
+            bsdf.inputs['Emission Strength'].default_value = strength
+
+
+def _windows(t):
+    """(centre, inward normal, width, height) of every window, in Blender coordinates."""
+    out = []
+    for w in t['walls']:
+        for o in w.get('openings') or []:
+            if o['kind'] != 'window':
+                continue
+            M, L, vy = _wall_frame(w)
+            s = (o['from'] + o['to']) / 2
+            z = (o.get('sill', 0.9) + o.get('head', 2.2)) / 2
+            centre = M @ Vector((s, 0, z))
+            inward = (M.to_3x3() @ Vector((0, vy, 0))).normalized()
+            out.append((centre, inward, o['to'] - o['from'], o.get('head', 2.2) - o.get('sill', 0.9)))
+    return out
+
+
+def setup_lighting(scene, t, variant):
+    """Day: warm sun from the upper left plus soft sky. Evening: deep navy sky, a faint cool moon,
+    cool blue light through the windows, warm downlight pools and lamps, glowing monitors."""
+    col = _lights_collection(scene)
+    world = bpy.data.worlds.get('BakeWorld') or bpy.data.worlds.new('BakeWorld')
     scene.world = world
     try:
         world.use_nodes = True
     except Exception:
         pass
     bg = world.node_tree.nodes.get('Background')
-    bg.inputs['Color'].default_value = (0.78, 0.85, 0.96, 1.0)
-    bg.inputs['Strength'].default_value = 0.55
-    sun_data = bpy.data.lights.new('Sun', 'SUN')
-    sun_data.energy = 1.7
-    sun_data.angle = math.radians(8)
-    sun_data.color = (1.0, 0.93, 0.83)
-    sun = bpy.data.objects.new('Sun', sun_data)
-    scene.collection.objects.link(sun)
-    # Warm daylight from the upper left of the screen: travels towards template +x (shadows fall to the\n    # screen right). Must match SUN_TRAVEL in apps/web/features/team-floor/scene/engine.ts (three (1, -1.15, 0.12)).
+    evening = variant == 'evening'
+    if evening:
+        bg.inputs['Color'].default_value = (0.06, 0.085, 0.2, 1.0)
+        bg.inputs['Strength'].default_value = 0.32
+    else:
+        bg.inputs['Color'].default_value = (0.78, 0.85, 0.96, 1.0)
+        bg.inputs['Strength'].default_value = 0.55
+    # Warm daylight travels towards template +x (shadows fall to the screen right). Must match
+    # SUN_TRAVEL in apps/web/features/team-floor/scene/engine.ts (three (1, -1.15, 0.12)).
     travel = Vector((1.0, -0.12, -1.15)).normalized()
-    sun.rotation_euler = travel.to_track_quat('-Z', 'Y').to_euler()
-    # Warm sconces and lamps (small, soft).
+    sun = _add_light(col, 'Sun', 'SUN', 0.22 if evening else 1.7, (0.6, 0.7, 1.0) if evening else (1.0, 0.93, 0.83), (0, 0, 20), rotation=travel.to_track_quat('-Z', 'Y').to_euler())
+    sun.data.angle = math.radians(14 if evening else 8)
+    energies = {
+        'day': {'sconce': 14, 'sconce_outdoor': 8, 'floor_lamp': 30, 'desk_lamp': 8},
+        'evening': {'sconce': 26, 'sconce_outdoor': 16, 'floor_lamp': 70, 'desk_lamp': 18},
+    }[variant]
     for p in t['props']:
-        if p['type'] in ('sconce', 'sconce_outdoor', 'floor_lamp', 'desk_lamp'):
+        if p['type'] in energies:
             x, z = p['pos']
             fx, fz = math.sin(math.radians(p['facing'])), math.cos(math.radians(p['facing']))
             y = p.get('y', 0) + (1.4 if p['type'] == 'floor_lamp' else 0.3 if p['type'] == 'desk_lamp' else 0)
-            ld = bpy.data.lights.new(f'L_{p["type"]}', 'POINT')
-            ld.energy = {'sconce': 14, 'sconce_outdoor': 8, 'floor_lamp': 30, 'desk_lamp': 8}[p['type']]
-            ld.color = (1.0, 0.78, 0.52)
-            ld.shadow_soft_size = 0.12
-            lo = bpy.data.objects.new(ld.name, ld)
-            scene.collection.objects.link(lo)
             off = 0.18 if p['type'].startswith('sconce') else 0.0
-            lo.location = t2b(x + fx * off, z + fz * off, y)
+            _add_light(col, f'L_{p["type"]}', 'POINT', energies[p['type']], WARM_EVENING if evening else WARM, t2b(x + fx * off, z + fz * off, y))
+    if evening:
+        # Warm downlight pools from the (cut-away) ceiling at the template lamp positions.
+        for k, lamp in enumerate(t.get('lamps') or []):
+            if lamp['kind'] != 'pendant':
+                continue
+            x, y, z = lamp['pos']
+            _add_light(col, f'Down_{k}', 'SPOT', 230, WARM_EVENING, t2b(x, z, y + 0.2), size=0.35, rotation=(0, 0, 0), spot=(math.radians(100), 0.9))
+        # Cool evening light through every window, aimed into the room and slightly down.
+        for k, (centre, inward, width, height) in enumerate(_windows(t)):
+            pos = centre - inward * 0.35
+            aim = (inward + Vector((0, 0, -0.55))).normalized()
+            _add_light(col, f'Window_{k}', 'AREA', 90 * width * height, COOL_WINDOW, pos, size=(width, height), rotation=aim.to_track_quat('-Z', 'Y').to_euler())
+    _set_emission(variant)
     return sun
 
 
 # ---------------------------------------------------------------- bake
 
-def bake(obj, scene, size, samples, out_prefix):
-    import numpy as np
+def _bake_setup(scene, samples):
     scene.render.engine = 'CYCLES'
     cy = scene.cycles
     cy.device = 'CPU'
@@ -586,10 +668,19 @@ def bake(obj, scene, size, samples, out_prefix):
     scene.render.bake.margin = 6
     scene.render.bake.use_clear = True
 
+
+def bake(obj, scene, t, size, samples, out_prefix, variants=LIT_VARIANTS):
+    """Bakes each lit variant (diffuse irradiance, direct + indirect) and one AO map into the
+    Lightmap UVs of `obj`. Lit maps are stored as srgb(irradiance / scale): Day uses LM_SCALE, the
+    darker Evening map picks its own scale from the 99th percentile so its 8 bits go to the dark\n    majority (the brightest 1%, next to lamps and emissives, clips to white)."""
+    import numpy as np
+    _bake_setup(scene, samples)
+    cy = scene.cycles
     me = obj.data
     me.uv_layers.active = me.uv_layers['Lightmap']
+    kinds = [*variants, 'ao']
     images = {}
-    for kind in ('day', 'ao'):
+    for kind in kinds:
         img = bpy.data.images.new(f'bake_{kind}', size, size, alpha=False, float_buffer=True)
         img.colorspace_settings.name = 'Linear Rec.709'
         images[kind] = img
@@ -605,24 +696,27 @@ def bake(obj, scene, size, samples, out_prefix):
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
     timings = {}
-    for kind in ('day', 'ao'):
+    for kind in kinds:
         for nt, n in nodes:
             n.image = images[kind]
             nt.nodes.active = n
         t0 = time.time()
-        if kind == 'day':
-            bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, margin=6, use_clear=True, target='IMAGE_TEXTURES')
-        else:
+        if kind == 'ao':
+            setup_lighting(scene, t, 'day')
             scene.world.light_settings.distance = 0.9
             cy.samples = max(32, samples // 2)
             bpy.ops.object.bake(type='AO', margin=6, use_clear=True, target='IMAGE_TEXTURES')
             cy.samples = samples
+        else:
+            setup_lighting(scene, t, kind)
+            bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, margin=6, use_clear=True, target='IMAGE_TEXTURES')
         timings[kind] = round(time.time() - t0, 1)
         print(f'[office] baked {kind} in {timings[kind]} s')
 
     for nt, n in nodes:
         nt.nodes.remove(n)
     me.uv_layers.active = me.uv_layers['UVMap']
+    setup_lighting(scene, t, 'day')
 
     out = {}
     for kind, img in images.items():
@@ -630,18 +724,20 @@ def bake(obj, scene, size, samples, out_prefix):
         img.pixels.foreach_get(px)
         px = px.reshape(size, size, 4)
         rgb = px[..., :3]
-        if kind == 'day':
-            rgb = _denoise(rgb)
-            stats = {'p50': float(np.percentile(rgb.mean(axis=2), 50)), 'p99': float(np.percentile(rgb.mean(axis=2), 99))}
-            enc = linear_to_srgb_np(rgb / LM_SCALE)
-        else:
+        if kind == 'ao':
             rgb = _denoise(rgb, strength=1)
             enc = np.clip(rgb, 0, 1)
             stats = {'p50': float(np.percentile(rgb, 50))}
+        else:
+            rgb = _denoise(rgb)
+            lum = rgb.mean(axis=2)
+            scale = LM_SCALE if kind == 'day' else max(0.5, round(float(np.percentile(lum, 99.0)) * 1.05, 2))
+            stats = {'scale': scale, 'p50': float(np.percentile(lum, 50)), 'p99': float(np.percentile(lum, 99))}
+            enc = linear_to_srgb_np(rgb / scale)
         res = np.ones((size, size, 4), np.float32)
         res[..., :3] = enc
         path = f'{out_prefix}-{kind}.webp'
-        save_rgb_image(f'save_{kind}', res, size, size, path, fmt='WEBP', quality=88 if kind == 'day' else 82)
+        save_rgb_image(f'save_{kind}', res, size, size, path, fmt='WEBP', quality=82 if kind == 'ao' else 88)
         out[kind] = {'file': os.path.basename(path), 'bytes': os.path.getsize(path), **stats}
     return out, timings
 
@@ -741,7 +837,7 @@ def main():
     cam_dir = Vector((math.cos(pitch) * math.sin(yaw), -math.cos(pitch) * math.cos(yaw), math.sin(pitch)))
     culled = cull_backfaces(objs['office_static'], cam_dir)
     lightmap_uv(objs['office_static'])
-    day_lighting(scene, t)
+    setup_lighting(scene, t, 'day')
     build_s = round(time.time() - t0, 1)
     print(f'[office] built in {build_s} s, culled {culled} back faces')
 
@@ -754,17 +850,22 @@ def main():
             meta = json.load(f)
     meta.update({'template': tid, 'lightmapScale': LM_SCALE, 'size': size, 'buildSeconds': build_s, 'stats': stats(objs)})
     if args.get('bake'):
-        maps, timings = bake(objs['office_static'], scene, size, samples, prefix)
+        variants = tuple(v for v in str(args.get('variants', ','.join(LIT_VARIANTS))).split(',') if v in LIT_VARIANTS)
+        maps, timings = bake(objs['office_static'], scene, t, size, samples, prefix, variants)
         meta.update({'maps': maps, 'bakeSeconds': timings, 'samples': samples, 'bakedAt': time.strftime('%Y-%m-%dT%H:%M:%S')})
     if args.get('preview'):
-        preview(scene, t, os.path.join(OUT_TMP, f'office-{tid}-preview.png'), engine='CYCLES' if args.get('preview') != 'workbench' else 'BLENDER_WORKBENCH')
+        light = args.get('light', 'day')
+        setup_lighting(scene, t, light)
+        engine = 'CYCLES' if args.get('preview') != 'workbench' else 'BLENDER_WORKBENCH'
+        preview(scene, t, os.path.join(OUT_TMP, f'office-{tid}-{light}-preview.png'), engine=engine, samples=int(args.get('preview-samples', 48)))
     if args.get('save-blend'):
         bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT_TMP, f'office-{tid}.blend'))
     if args.get('export'):
         export(t, f'{prefix}.glb')
         meta['glbBytes'] = os.path.getsize(f'{prefix}.glb')
-    with open(meta_path, 'w', encoding='utf-8') as f:
-        json.dump(meta, f, indent=1)
+    if args.get('bake') or args.get('export'):
+        with open(meta_path, 'w', encoding='utf-8') as f:
+            json.dump(meta, f, indent=1)
     print(f'[office] done in {round(time.time() - t0, 1)} s')
 
 

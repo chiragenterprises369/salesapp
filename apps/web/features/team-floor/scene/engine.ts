@@ -43,6 +43,9 @@ const DRAG_PX = 5;
 const LOW_FPS = 45;
 const LOW_FOR_S = 3;
 const AMBIENT_FPS = 24;
+/** More name tags than this at less than CROWD_ZOOM x the fit zoom: low-priority tags start compact. */
+const CROWD_TAGS = 20;
+const CROWD_ZOOM = 1.5;
 /** Above this head count the procedural (instanced) characters are used. */
 const GLB_MAX_PEOPLE = 80;
 /** Direction the key light travels (matches the Day bake: warm daylight from the upper left). */
@@ -80,6 +83,8 @@ export class FloorEngine {
   private lookFrom: Look;
   private lookTo: Look;
   private tweenT = 1;
+  /** QA: freezes the theme cross-fade at this point (0..1) for screenshots. */
+  private tweenHold: number | null = null;
   private themed = false;
   private theme: ResolvedTheme = 'light';
   private office: Office | null = null;
@@ -297,6 +302,7 @@ export class FloorEngine {
     }
     this.model.setShadows(shadows);
     this.model.setOutline(tier !== 'low', this.cam.zoom);
+    this.office?.setGlowEnabled(tier !== 'low');
     this.invalidate();
   }
 
@@ -366,6 +372,18 @@ export class FloorEngine {
     this.invalidate();
   }
 
+  /** Current Day/Evening blend (0 = Day bake, 1 = Evening bake). */
+  get lightMix() {
+    return this.look.lightMix;
+  }
+
+  /** QA: hold the theme cross-fade at 	 (0..1) of the last switch, or release it with null. */
+  holdThemeTween(t: number | null) {
+    this.tweenHold = t === null ? null : Math.max(0, Math.min(1, t));
+    if (t === null) this.applyLookAt(this.tweenT);
+    this.invalidate();
+  }
+
   get currentLod() {
     return { level: this.lod, tagsVisible: this.tagsVisible };
   }
@@ -381,6 +399,8 @@ export class FloorEngine {
       renderer: String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)),
       tier: this.tier,
       template: this.o.layout.id,
+      theme: this.theme,
+      lightMix: Math.round(this.look.lightMix * 100) / 100,
       people: this.state?.employees.length ?? 0,
       office: this.officeKind,
       characters: this.model.kind,
@@ -421,7 +441,9 @@ export class FloorEngine {
     let moving = this.cam.update(dt);
     if (moving) this.afterCamera(false);
 
-    if (this.tweenT < 1) {
+    if (this.tweenHold !== null) {
+      this.applyLookAt(this.tweenHold);
+    } else if (this.tweenT < 1) {
       this.tweenT = this.reducedMotion ? 1 : Math.min(1, this.tweenT + dt / THEME_TWEEN_S);
       this.applyLookAt(this.tweenT);
       moving = true;
@@ -520,13 +542,14 @@ export class FloorEngine {
     }
     const attention = new Set<string>();
     if (state) for (const item of state.attention) attention.add(item.userId ?? '');
+    const crowded = !!state && this.tagsVisible && state.employees.length > CROWD_TAGS && this.cam.zoom < this.cam.fit * CROWD_ZOOM;
 
     for (const l of this.labels.values()) {
       if (!this.assetsDone || !state) {
         this.hideLabel(l);
         continue;
       }
-      if (l.version !== (l.el.dataset.v ?? '') || (l.el.dataset.live !== undefined && this.elapsed - l.measuredAt > 1)) this.measure(l);
+      if (l.version !== (l.el.dataset.v ?? '') || (l.el.dataset.live !== undefined && this.elapsed - l.measuredAt > 0.5)) this.measure(l);
       const user = l.el.dataset.user ?? '';
       let anchor: { x: number; y: number } | null = null;
       let priority = 3;
@@ -565,6 +588,7 @@ export class FloorEngine {
         cw: l.kind === 'tag' ? l.cw : undefined,
         ch: l.kind === 'tag' ? l.ch : undefined,
         lane: hasTag ? 22 + 3 : 0,
+        compactOnly: crowded && l.kind === 'tag' && priority >= 3,
       });
     }
     const result = layoutLabels(inputs, { width, height, blocked: this.uiRects, heads, previous: this.placements });

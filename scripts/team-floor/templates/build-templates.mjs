@@ -10,6 +10,8 @@
 // The camera looks from +x +z, so walls on z=0 and x=0 are the tall back walls.
 // `facing` is a heading in degrees: 0 = +z, 90 = +x, 180 = -z, 270 = -x (forward = (sin, cos)).
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { large, small } from './composed.mjs';
+import { MODULE_KIT } from './modules.mjs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -377,7 +379,7 @@ function medium() {
   ];
   for (const [wall, x, z, f] of outdoor) prop('sconce_outdoor', x, z, f, { y: 0.62, wall });
 
-  // Lamps used by the evening look (positions of warm light pools).
+  // Warm light pools for the Evening bake: `pendant` = a downlight in the cut-away ceiling.
   const lamps = [
     { pos: [17.45, 1.6, 4.25], kind: 'floor', room: 'cabin' },
     { pos: [15.95, 1.05, 2.4], kind: 'desk', room: 'cabin' },
@@ -385,6 +387,10 @@ function medium() {
     { pos: [8.0, 2.4, 7.2], kind: 'pendant', room: 'sales' },
     { pos: [13.6, 2.4, 8.2], kind: 'pendant', room: 'sales' },
     { pos: [15.6, 2.2, 11.3], kind: 'pendant', room: 'reception' },
+    { pos: [9.4, 2.4, 11.9], kind: 'pendant', room: 'sales' },
+    { pos: [16.7, 2.4, 8.5], kind: 'pendant', room: 'sales' },
+    { pos: [5.6, 2.4, 11.5], kind: 'pendant', room: 'sales' },
+    { pos: [8.2, 2.3, 2.2], kind: 'pendant', room: 'calling' },
   ];
 
   // ---- Standing spots (idle, overflow, walkers) and the entrance.
@@ -588,7 +594,11 @@ function finalize(t) {
   const queue = [entranceApproach];
   while (queue.length) {
     const cur = queue.shift();
-    for (const nb of adj.get(cur) ?? []) if (!seen.has(nb)) (seen.add(nb), queue.push(nb));
+    for (const nb of adj.get(cur) ?? []) {
+      if (seen.has(nb)) continue;
+      seen.add(nb);
+      queue.push(nb);
+    }
   }
   for (const n of nodes) if (!seen.has(n.id)) problems.push(`waypoint ${n.id} is not reachable from the entrance`);
 
@@ -618,6 +628,7 @@ function finalize(t) {
       o.kind === 'circle' ? { kind: 'circle', pos: [r2(o.cx), r2(o.cz)], r: r2(o.r) } : { kind: 'rect', pos: [r2(o.cx), r2(o.cz)], size: [r2(o.w), r2(o.d)], facing: o.facing ?? 0 },
     ),
     camera: t.camera,
+    ...(t.modules?.length ? { modules: t.modules } : {}),
   };
   return { template: out, problems, counts };
 }
@@ -683,7 +694,7 @@ function svgPlan(t) {
 
 // ---------------------------------------------------------------- main
 
-const builders = { medium };
+const builders = { small: () => finalize(small()), medium, large: () => finalize(large()) };
 const wantSvg = process.argv.includes('--svg');
 mkdirSync(outDir, { recursive: true });
 let failed = false;
@@ -702,4 +713,5 @@ for (const [id, build] of Object.entries(builders)) {
     for (const p of problems) console.error(`  ! ${p}`);
   }
 }
+writeFileSync(join(outDir, 'modules.json'), JSON.stringify({ schemaVersion: 1, note: 'Module kit catalogue (D-054). Placements live in each template under modules.', kinds: MODULE_KIT }, null, 1) + '\n');
 if (failed) process.exitCode = 1;

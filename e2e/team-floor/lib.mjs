@@ -12,8 +12,8 @@ export async function launch({ headless = true } = {}) {
  * New context + page, signed in as `persona`, theme cookie set, floor QA flag on
  * (localStorage vistar.floor.qa = 1 enables the window.__vistarFloor hook and ?floor* params).
  */
-export async function floorPage(browser, base, { persona = 'manager', theme = 'light', width = 1440, height = 900, dpr = 1 } = {}) {
-  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: dpr, colorScheme: theme });
+export async function floorPage(browser, base, { persona = 'manager', theme = 'light', width = 1440, height = 900, dpr = 1, mobile = null } = {}) {
+  const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: dpr, colorScheme: theme, ...(mobile ?? {}) });
   const host = new URL(base).hostname;
   await context.addCookies([
     {

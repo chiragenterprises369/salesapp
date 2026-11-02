@@ -200,6 +200,8 @@ interface QaHook {
   focus(id: string): void;
   focusPoint(x: number, z: number, factor: number): void;
   rooms(): { id: string; x: number; z: number }[];
+  lightMix(): number;
+  holdThemeTween(t: number | null): void;
 }
 
 function EngineBridge({ state, template, theme, tier, reducedMotion, selectedId, focusRequest, onContextLost, callbacksRef, onEngine, container }: BridgeProps) {
@@ -240,6 +242,8 @@ function EngineBridge({ state, template, theme, tier, reducedMotion, selectedId,
         fit: () => engine.resetView(),
         focus: (id) => engine.focus(id),
         focusPoint: (x, z, f) => engine.focusPoint(x, z, f),
+        lightMix: () => engine.lightMix,
+        holdThemeTween: (t) => engine.holdThemeTween(t),
         rooms: () => template.rooms.map((r) => ({ id: r.id, x: r.outline.reduce((a, p) => a + p[0], 0) / r.outline.length, z: r.outline.reduce((a, p) => a + p[1], 0) / r.outline.length })),
       };
     }
@@ -460,5 +464,5 @@ const NameTag = memo(function NameTag({
 
 function CallTimer({ startedAt }: { startedAt: number }) {
   const now = useNow();
-  return <span className="tabular min-w-[3ch] text-fg-secondary">{now ? formatDuration(Math.max(0, now - startedAt) / 1000) : ''}</span>;
+  return <span className="tabular inline-block min-w-[4ch] text-fg-secondary">{now ? formatDuration(Math.max(0, now - startedAt) / 1000) : ''}</span>;
 }

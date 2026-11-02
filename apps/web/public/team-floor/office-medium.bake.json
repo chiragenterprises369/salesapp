@@ -2,7 +2,7 @@
  "template": "medium",
  "lightmapScale": 2.0,
  "size": 2048,
- "buildSeconds": 20.8,
+ "buildSeconds": 31.9,
  "stats": {
   "office_static": {
    "objects": 1,
@@ -88,21 +88,30 @@
  "maps": {
   "day": {
    "file": "office-medium-day.webp",
-   "bytes": 281384,
-   "p50": 0.09230060875415802,
-   "p99": 0.9101733565330505
+   "bytes": 277632,
+   "scale": 2.0,
+   "p50": 0.08678930997848511,
+   "p99": 0.9099984169006348
+  },
+  "evening": {
+   "file": "office-medium-evening.webp",
+   "bytes": 461390,
+   "scale": 1.56,
+   "p50": 0.03054765798151493,
+   "p99": 1.4885269403457642
   },
   "ao": {
    "file": "office-medium-ao.webp",
-   "bytes": 230572,
-   "p50": 0.18154966831207275
+   "bytes": 230576,
+   "p50": 0.16536328196525574
   }
  },
  "bakeSeconds": {
-  "day": 417.0,
-  "ao": 119.6
+  "day": 473.2,
+  "evening": 396.7,
+  "ao": 31.5
  },
  "samples": 128,
- "bakedAt": "2026-11-02T07:56:49",
- "glbBytes": 476332
+ "bakedAt": "2026-11-02T09:24:43",
+ "glbBytes": 476248
 }

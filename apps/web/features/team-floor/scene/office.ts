@@ -4,6 +4,7 @@ import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { FloorLayout } from '../state/layout';
 import type { TemplateId } from '../state/template';
 import type { LabelPalette, Look } from './look';
+import { GlowLayer } from './glow';
 
 /**
  * The authored office (SPEC 12.1 items 1-2): a Draco GLB built by scripts/team-floor/blender,
@@ -32,12 +33,14 @@ export function gltfLoader() {
 
 export interface BakeMeta {
   lightmapScale: number;
-  maps?: Record<string, { file: string }>;
+  maps?: Record<string, { file: string; scale?: number }>;
 }
 
 export interface OfficeAssets {
   gltf: GLTF;
   day: THREE.Texture;
+  /** Evening lightmap (null when the template has no Evening bake: the dark look dims the Day map). */
+  evening: THREE.Texture | null;
   ao: THREE.Texture;
   meta: BakeMeta;
 }
@@ -56,24 +59,51 @@ function loadTexture(url: string, srgb: boolean): Promise<THREE.Texture> {
   });
 }
 
-/** Loads (once per template) the office GLB, its bake metadata, the Day lightmap and AO. */
+/** Loads (once per template) the office GLB, its bake metadata, the Day and Evening lightmaps and AO. */
 export function loadOfficeAssets(id: TemplateId): Promise<OfficeAssets> {
   let p = officeCache.get(id);
   if (!p) {
     const base = `${ASSET_BASE}/office-${id}`;
-    p = Promise.all([
-      gltfLoader().loadAsync(`${base}.glb`),
-      fetch(`${base}.bake.json`).then((r) => {
-        if (!r.ok) throw new Error(`Bake metadata missing (${r.status})`);
-        return r.json() as Promise<BakeMeta>;
-      }),
-      loadTexture(`${base}-day.webp`, true),
-      loadTexture(`${base}-ao.webp`, false),
-    ]).then(([gltf, meta, day, ao]) => ({ gltf, meta, day, ao }));
+    const meta = fetch(`${base}.bake.json`).then((r) => {
+      if (!r.ok) throw new Error(`Bake metadata missing (${r.status})`);
+      return r.json() as Promise<BakeMeta>;
+    });
+    // Both lit maps load up front so the theme cross-fade never waits for the network.
+    const evening = meta.then((m) => (m.maps?.evening ? loadTexture(`${base}-evening.webp`, true).catch(() => null) : null));
+    p = Promise.all([gltfLoader().loadAsync(`${base}.glb`), meta, loadTexture(`${base}-day.webp`, true), evening, loadTexture(`${base}-ao.webp`, false)]).then(
+      ([gltf, metaJson, day, eveningTex, ao]) => ({ gltf, meta: metaJson, day, evening: eveningTex, ao }),
+    );
     p.catch(() => officeCache.delete(id));
     officeCache.set(id, p);
   }
   return p;
+}
+
+/**
+ * Two baked lightmaps on one material: the Day map in three's own `lightMap` slot and the Evening map
+ * blended in by `lightMix` (shared uniforms, so one write updates every office material).
+ */
+interface LightmapBlend {
+  lightMap2: { value: THREE.Texture | null };
+  lightMapIntensity2: { value: number };
+  lightMix: { value: number };
+}
+
+const LIGHTMAP_SAMPLE = /vec4 lightMapTexel = texture2D\( lightMap, vLightMapUv \);\s*reflectedLight\.indirectDiffuse \+= lightMapTexel\.rgb \* lightMapIntensity \* RECIPROCAL_PI;/;
+
+function blendLightmaps(mat: THREE.MeshBasicMaterial, u: LightmapBlend) {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.lightMap2 = u.lightMap2;
+    shader.uniforms.lightMapIntensity2 = u.lightMapIntensity2;
+    shader.uniforms.lightMix = u.lightMix;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <lightmap_pars_fragment>', '#include <lightmap_pars_fragment>\nuniform sampler2D lightMap2;\nuniform float lightMapIntensity2;\nuniform float lightMix;')
+      .replace(
+        LIGHTMAP_SAMPLE,
+        'vec3 lmDay = texture2D( lightMap, vLightMapUv ).rgb * lightMapIntensity;\n\t\tvec3 lmEve = texture2D( lightMap2, vLightMapUv ).rgb * lightMapIntensity2;\n\t\treflectedLight.indirectDiffuse += mix( lmDay, lmEve, lightMix ) * RECIPROCAL_PI;',
+      );
+  };
+  mat.customProgramCacheKey = () => 'vistar-lightmap-blend';
 }
 
 const EMISSIVE_KIND: Record<string, 'hub' | 'hubSoft' | 'reception' | 'lamp'> = {
@@ -92,6 +122,9 @@ export class Office {
   readonly group = new THREE.Group();
   private readonly meta: BakeMeta;
   private readonly lit: Lit[] = [];
+  private readonly blend: LightmapBlend;
+  private readonly hasEvening: boolean;
+  private readonly glow: GlowLayer;
   private readonly glass: { mat: THREE.MeshBasicMaterial; kind: 'glass' | 'hub' | 'window' }[] = [];
   private readonly emissive: { mat: THREE.MeshBasicMaterial; kind: 'hub' | 'hubSoft' | 'reception' | 'lamp' }[] = [];
   private readonly screens = new Map<string, { mat: THREE.MeshBasicMaterial; on: number }>();
@@ -110,8 +143,11 @@ export class Office {
 
   constructor(assets: OfficeAssets, layout: FloorLayout) {
     this.meta = assets.meta;
+    this.hasEvening = !!assets.evening;
+    this.blend = { lightMap2: { value: assets.evening ?? assets.day }, lightMapIntensity2: { value: 1 }, lightMix: { value: 0 } };
     const root = assets.gltf.scene.clone(true);
     root.updateMatrixWorld(true);
+    const screenNodes = new Map<string, THREE.Mesh>();
 
     this.screenTexture = screenTexture();
     this.owned.push(this.screenTexture);
@@ -144,6 +180,7 @@ export class Office {
           this.owned.push(mat);
           m.material = mat;
           this.screens.set(id, { mat, on: 1 });
+          screenNodes.set(id, m);
         });
         return;
       }
@@ -190,6 +227,7 @@ export class Office {
         aoMapIntensity: 1,
       });
       mat.name = name;
+      if (lightmapped) blendLightmaps(mat, this.blend);
       this.owned.push(mat);
       this.lit.push({ mat, base: src.color.clone() });
       m.material = mat;
@@ -233,6 +271,9 @@ export class Office {
     }
     for (const r of remove) r.removeFromParent();
     this.group.add(root);
+    this.glow = new GlowLayer(layout.template, screenNodes);
+    this.owned.push(this.glow);
+    this.group.add(this.glow.group);
 
     // Shadow catcher over the floor (character shadows from the realtime key light).
     const shape = new THREE.Shape(layout.footprint.map(([x, z]) => new THREE.Vector2(x, -z)));
@@ -285,10 +326,17 @@ export class Office {
   }
 
   setLook(look: Look) {
-    const intensity = this.meta.lightmapScale * Math.PI * look.lightmap;
+    const dayScale = this.meta.maps?.day?.scale ?? this.meta.lightmapScale;
+    const eveScale = this.meta.maps?.evening?.scale ?? this.meta.lightmapScale;
+    // Without an Evening bake the dark look falls back to the dimmed, cooled Day map (interim look).
+    const mix = this.hasEvening ? look.lightMix : 0;
+    const tint = this.hasEvening ? look.tint : look.interimTint;
+    const dayLevel = look.lightmap;
+    this.blend.lightMix.value = mix;
+    this.blend.lightMapIntensity2.value = eveScale * Math.PI * look.eveningLightmap;
     for (const { mat, base } of this.lit) {
-      mat.color.copy(base).multiply(look.tint);
-      if (mat.lightMap) mat.lightMapIntensity = intensity;
+      mat.color.copy(base).multiply(tint);
+      if (mat.lightMap) mat.lightMapIntensity = dayScale * Math.PI * dayLevel;
       mat.aoMapIntensity = look.ao;
     }
     for (const g of this.glass) {
@@ -308,13 +356,20 @@ export class Office {
     this.screenColor.copy(look.screen);
     this.screenLevel = look.screenLevel;
     for (const s of this.screens.values()) this.paintScreen(s);
-    for (const p of this.props) p.color.copy(p.userData.base ?? (p.userData.base = p.color.clone())).multiply(look.tint.clone().lerp(new THREE.Color(1, 1, 1), 0.4));
+    for (const p of this.props) p.color.copy(p.userData.base ?? (p.userData.base = p.color.clone())).multiply(look.propTint);
     this.shadowMat.opacity = look.shadowOpacity;
     this.contact.opacity = look.contactShadow;
     if (this.poolMesh) {
-      this.poolMesh.visible = look.poolLevel > 0.01;
-      this.pools.color.copy(look.pool).multiplyScalar(look.poolLevel);
+      const level = this.hasEvening ? 0 : look.poolLevel;
+      this.poolMesh.visible = level > 0.01;
+      this.pools.color.copy(look.pool).multiplyScalar(level);
     }
+    this.glow.setLevel(look.glowLevel);
+  }
+
+  /** Quality tier gate for the glow cards (off on the low tier). */
+  setGlowEnabled(on: boolean) {
+    this.glow.setEnabled(on);
   }
 
   /** Screen brightness per seat: 1 = working, 0.35 = idle, 0 = off (empty or offline). */
@@ -323,6 +378,7 @@ export class Office {
     if (!s || s.on === level) return;
     s.on = level;
     this.paintScreen(s);
+    this.glow.setScreen(seatId, level);
   }
 
   private paintScreen(s: { mat: THREE.MeshBasicMaterial; on: number }) {

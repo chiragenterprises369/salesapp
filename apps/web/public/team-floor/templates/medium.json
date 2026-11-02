@@ -2663,6 +2663,42 @@
    ],
    "kind": "pendant",
    "room": "reception"
+  },
+  {
+   "pos": [
+    9.4,
+    2.4,
+    11.9
+   ],
+   "kind": "pendant",
+   "room": "sales"
+  },
+  {
+   "pos": [
+    16.7,
+    2.4,
+    8.5
+   ],
+   "kind": "pendant",
+   "room": "sales"
+  },
+  {
+   "pos": [
+    5.6,
+    2.4,
+    11.5
+   ],
+   "kind": "pendant",
+   "room": "sales"
+  },
+  {
+   "pos": [
+    8.2,
+    2.3,
+    2.2
+   ],
+   "kind": "pendant",
+   "room": "calling"
   }
  ],
  "obstacles": [

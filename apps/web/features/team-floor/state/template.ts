@@ -90,6 +90,23 @@ const ObstacleSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('circle'), pos: Vec2, r: z.number() }),
 ]);
 
+/** Module kit placement (D-054): Small and Large are composed from these; 28.3 extends the kit. */
+export const MODULE_KINDS = ['sales_pod', 'calling_room', 'manager_cabin', 'lounge', 'reception', 'hub_plaza', 'print_corner', 'hot_bench'] as const;
+export type ModuleKind = (typeof MODULE_KINDS)[number];
+
+const ModuleSchema = z.object({
+  id: z.string(),
+  kind: z.enum(MODULE_KINDS),
+  params: z.record(z.string(), z.unknown()).default({}),
+  /** Placement: origin in template metres and a heading turn (0, 90, 180, 270). */
+  at: Vec2,
+  rot: z.number(),
+  /** Footprint in local metres (width, depth). */
+  size: Vec2,
+  /** Seat ids the module owns. */
+  seats: z.array(z.string()),
+});
+
 export const FloorTemplateSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -122,6 +139,8 @@ export const FloorTemplateSchema = z
       minZoom: z.number().positive(),
       maxZoom: z.number().positive(),
     }),
+    /** Module placements (Small and Large; Medium is hand-composed after the reference). */
+    modules: z.array(ModuleSchema).optional(),
   })
   .superRefine((t, ctx) => {
     const nodes = new Set(t.graph.nodes.map((n) => n.id));
@@ -143,20 +162,23 @@ export const FloorTemplateSchema = z
       if (ids.has(s.id)) ctx.addIssue({ code: 'custom', message: `duplicate seat or spot id "${s.id}"` });
       ids.add(s.id);
     }
+    const seatIds = new Set(t.seats.map((s) => s.id));
+    for (const m of t.modules ?? []) for (const id of m.seats) if (!seatIds.has(id)) ctx.addIssue({ code: 'custom', message: `module ${m.id} lists unknown seat "${id}"` });
   });
 
 export type FloorTemplate = z.infer<typeof FloorTemplateSchema>;
 export type TemplateSeat = FloorTemplate['seats'][number];
 export type TemplateSpot = FloorTemplate['standing'][number];
 export type TemplateRoom = FloorTemplate['rooms'][number];
+export type TemplateModule = NonNullable<FloorTemplate['modules']>[number];
 
 /** Template for a head count: up to 8 small, up to 20 medium, else large (SPEC 12.1). */
 export function templateFor(count: number): TemplateId {
   return count <= 8 ? 'small' : count <= 20 ? 'medium' : 'large';
 }
 
-/** Templates that exist today (Phase A ships Medium only; the others fall back to it). */
-export const AVAILABLE_TEMPLATES: readonly TemplateId[] = ['medium'];
+/** Templates that ship (all three since the Small and Large bakes). */
+export const AVAILABLE_TEMPLATES: readonly TemplateId[] = TEMPLATE_IDS;
 
 export function resolveTemplateId(count: number, override?: TemplateId | null): TemplateId {
   const wanted = override ?? templateFor(count);

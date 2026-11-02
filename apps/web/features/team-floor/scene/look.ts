@@ -9,13 +9,26 @@ import * as THREE from 'three';
  * authored in the Blender build (scripts/team-floor/blender/props.py) and listed in ART for the
  * procedural fallback.
  *
- * Phase A: Light = the Day bake. Dark = the same bake dimmed and cooled with brighter emissives and
- * warm light pools (interim until the Evening bake lands in Phase B).
+ * Light = the Day bake. Dark = the Evening bake (warm lamp pools, cool window light, glowing monitors),
+ * cross-faded in the office shader by lightMix over THEME_TWEEN_S. When a template has no Evening
+ * bake the dark look dims and cools the Day map instead (interimTint, lightmap, light pools).
  */
 
 export interface Look {
+  /** Day lightmap level (the dark value only matters without an Evening bake). */
   lightmap: number;
+  /** Evening lightmap level. */
+  eveningLightmap: number;
+  /** 0 = Day bake, 1 = Evening bake. */
+  lightMix: number;
+  /** Albedo tint of the baked office. */
   tint: THREE.Color;
+  /** Albedo tint when the template has no Evening bake (dimmed Day map). */
+  interimTint: THREE.Color;
+  /** Albedo tint of the realtime-lit instanced props (chairs, monitors, plants). */
+  propTint: THREE.Color;
+  /** Glow cards on emissive sources (0 = off). */
+  glowLevel: number;
   ao: number;
   screen: THREE.Color;
   screenLevel: number;
@@ -75,7 +88,12 @@ export function sceneLook(theme: ResolvedTheme): Look {
   }
   return {
     lightmap: dark ? 0.46 : 1.16,
-    tint: dark ? c('#8d9ac4') : c('#ffffff'),
+    eveningLightmap: 1.0,
+    lightMix: dark ? 1 : 0,
+    tint: c('#ffffff'),
+    interimTint: dark ? c('#8d9ac4') : c('#ffffff'),
+    propTint: dark ? c('#b9c3e0') : c('#ffffff'),
+    glowLevel: dark ? 1 : 0,
     ao: dark ? 0.8 : 1.0,
     screen: c(dark ? '#b4cbff' : '#eef3ff'),
     screenLevel: dark ? 1.25 : 1.0,
@@ -94,8 +112,8 @@ export function sceneLook(theme: ResolvedTheme): Look {
     sunIntensity: dark ? 0.9 : 2.4,
     fill: dark ? c('#c7d2ff') : c('#fff8f0'),
     fillIntensity: dark ? 0.8 : 1.5,
-    rim: dark ? c('#b7c8ff') : c('#fff1dc'),
-    rimStrength: dark ? 0.55 : 0.4,
+    rim: dark ? c('#a9c1ff') : c('#fff1dc'),
+    rimStrength: dark ? 0.85 : 0.4,
     outline: c(dark ? '#0b0d12' : '#2a2320'),
     shadowOpacity: dark ? 0.3 : 0.24,
     poolLevel: dark ? 0.55 : 0,
@@ -106,8 +124,8 @@ export function sceneLook(theme: ResolvedTheme): Look {
   };
 }
 
-const COLOR_KEYS = ['tint', 'screen', 'hub', 'reception', 'lamp', 'windowColor', 'hemiSky', 'hemiGround', 'sun', 'fill', 'rim', 'outline', 'pool', 'accent'] as const;
-const NUM_KEYS = ['lightmap', 'ao', 'screenLevel', 'hubLevel', 'receptionLevel', 'lampLevel', 'glassOpacity', 'hemiIntensity', 'sunIntensity', 'fillIntensity', 'rimStrength', 'shadowOpacity', 'poolLevel', 'contactShadow'] as const;
+const COLOR_KEYS = ['tint', 'interimTint', 'propTint', 'screen', 'hub', 'reception', 'lamp', 'windowColor', 'hemiSky', 'hemiGround', 'sun', 'fill', 'rim', 'outline', 'pool', 'accent'] as const;
+const NUM_KEYS = ['lightmap', 'eveningLightmap', 'lightMix', 'glowLevel', 'ao', 'screenLevel', 'hubLevel', 'receptionLevel', 'lampLevel', 'glassOpacity', 'hemiIntensity', 'sunIntensity', 'fillIntensity', 'rimStrength', 'shadowOpacity', 'poolLevel', 'contactShadow'] as const;
 
 export function cloneLook(a: Look): Look {
   const out = { ...a } as Look;

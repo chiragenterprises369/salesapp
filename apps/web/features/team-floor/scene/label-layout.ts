@@ -35,6 +35,8 @@ export interface LabelInput {
   ch?: number;
   /** Lane offset above the anchor for bubbles (px). */
   lane?: number;
+  /** Crowded floor: this tag goes straight to the compact pill (status dot plus initials). */
+  compactOnly?: boolean;
 }
 
 export interface Placement extends Rect {
@@ -146,7 +148,7 @@ export function layoutLabels(inputs: LabelInput[], opts: LayoutOptions): Placeme
   for (const it of order) {
     const prev = opts.previous.get(it.id);
     const cands = it.kind === 'tag' ? TAG_CANDIDATES : BUBBLE_CANDIDATES;
-    const modes: LabelMode[] = it.kind === 'tag' && it.cw ? ['full', 'compact'] : ['full'];
+    const modes: LabelMode[] = it.kind === 'tag' && it.cw ? (it.compactOnly ? ['compact'] : ['full', 'compact']) : ['full'];
     let done: Placement | null = null;
     for (const avoidHeads of [true, false]) {
       for (const mode of modes) {

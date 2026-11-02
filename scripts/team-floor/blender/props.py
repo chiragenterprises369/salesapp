@@ -474,6 +474,16 @@ def booth_partition(p, M, ctx):
     ctx.glass.box((w - 0.05, 0.012, h - 0.12), (-0.025, 0, h / 2), mat('glass'), matrix=M)
 
 
+def pod_divider(p, M, ctx):
+    """Low fabric privacy screen between back-to-back pod desks (sits on the desk tops)."""
+    w, h, d = p['size']
+    b = ctx.static
+    b.box((w, d, h), (0, 0, h / 2), mat('wall_teal'), bevel=0.01, matrix=M)
+    b.box((w + 0.02, d + 0.012, 0.025), (0, 0, h + 0.0125), mat('frame_alu'), bevel=0.004, matrix=M)
+    for sx in (-1, 1):
+        b.box((0.025, d + 0.012, h), (sx * (w / 2 + 0.0125), 0, h / 2), mat('frame_alu'), matrix=M)
+
+
 def art_frame(p, M, ctx):
     b = ctx.static
     w, h, d = p['size']
@@ -669,6 +679,7 @@ STATIC_BUILDERS = {
     'whiteboard': whiteboard,
     'acoustic_panel': acoustic_panel,
     'booth_partition': booth_partition,
+    'pod_divider': pod_divider,
     'art_frame': art_frame,
     'floor_lamp': floor_lamp,
     'desk_lamp': desk_lamp,
