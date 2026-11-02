@@ -27,7 +27,8 @@ import { formErrorMessage, serverFieldErrors } from '@/lib/crm/ui/errors';
 import { FormGrid, OwnerSelect, TagsInput } from '@/lib/crm/ui/fields';
 import { useMe } from '@/lib/session/session';
 import { copyText } from './capture-forms-list';
-import { CaptureFormRenderer, type RenderField } from './form-renderer';
+import { CaptureFormRenderer } from './form-renderer';
+import { builderProblems, slugKey, type RenderField } from './logic';
 
 const TYPE_LABEL: Record<CaptureFieldType, string> = {
   text: 'Short text',
@@ -71,10 +72,7 @@ const DEFAULT_FIELDS = (): FieldDraft[] => [
   field({ id: 'requirement', label: 'What do you need?', type: 'textarea', mapTo: 'requirement' }),
 ];
 
-const slug = (s: string) => {
-  const v = s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
-  return /^[a-z]/.test(v) ? v : `f_${v}`.slice(0, 40);
-};
+const slug = slugKey;
 
 interface SettingsDraft {
   submitLabel: string;
@@ -107,26 +105,6 @@ const settingsFrom = (f?: CaptureForm): SettingsDraft => ({
   layout: f?.settings.layout ?? 'card',
   showLogo: f?.settings.showLogo ?? true,
 });
-
-/** Same rules as the API (unique keys, options for choices, one field for the name and one for phone or email, each lead field once). */
-export function builderProblems(fields: readonly FieldDraft[]): Record<string, string> {
-  const e: Record<string, string> = {};
-  const seen = new Set<string>();
-  fields.forEach((f, i) => {
-    if (!/^[a-z][a-z0-9_]{0,39}$/.test(f.id)) e[`fields.${i}.id`] = 'Keys start with a letter and use a-z, 0-9 and _.';
-    else if (seen.has(f.id)) e[`fields.${i}.id`] = 'Field keys must be unique.';
-    seen.add(f.id);
-    if (!f.label.trim()) e[`fields.${i}.label`] = 'Enter a label.';
-    if ((f.type === 'select' || f.type === 'multi_select') && !f.options.length) e[`fields.${i}.options`] = 'Add at least one option.';
-  });
-  const targets = fields.map((f) => f.mapTo).filter((t): t is string => !!t);
-  if (!targets.includes('name')) e.fields = 'Map one field to the lead name.';
-  else if (!targets.includes('phone') && !targets.includes('email')) e.fields = 'Map one field to the phone or the email.';
-  const mapped = targets.filter((t) => t !== 'tags');
-  if (new Set(mapped).size !== mapped.length) e.fields = 'Each lead field can be mapped once.';
-  if (fields.length > 40) e.fields = 'A form has at most 40 fields.';
-  return e;
-}
 
 export function CaptureFormBuilderPage({ id }: { id: string }) {
   const item = settingsChild('settings-lead-capture');

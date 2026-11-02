@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { onRealtimeEvent } from '../realtime/client';
+import { scopesForCrmEvent } from './event-scopes';
 
 /**
  * Live refresh of the CRM caches while a CRM page is open. The shared realtime client does not map
@@ -10,21 +11,6 @@ import { onRealtimeEvent } from '../realtime/client';
  * hook listens to the raw events and invalidates by prefix, debounced and deferred while a mutation
  * runs (the same rule the realtime client uses, so optimistic moves are not overwritten mid-flight).
  */
-const PREFIX_SCOPES: Record<string, readonly string[]> = {
-  contact: ['contacts', 'accounts', 'deals'],
-  account: ['accounts', 'contacts', 'deals'],
-  deal: ['deals', 'contacts', 'accounts'],
-  quotation: ['quotations', 'deals', 'contacts', 'accounts'],
-  invoice: ['invoices', 'quotations', 'deals', 'contacts', 'accounts'],
-  catalog: ['products'],
-  meeting: ['calendar', 'contacts', 'accounts', 'deals'],
-  lead: ['contacts', 'accounts'],
-};
-
-export function scopesForCrmEvent(type: string): readonly string[] {
-  return PREFIX_SCOPES[type.split('.')[0] ?? ''] ?? [];
-}
-
 export function useCrmRealtime(): void {
   const qc = useQueryClient();
   useEffect(() => {

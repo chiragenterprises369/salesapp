@@ -78,7 +78,7 @@ function Deals() {
   const rows = flatPages(table.data);
   const pipelineList = pipelines.data?.items ?? [];
   const pipeline = pipelineList.find((p) => p.id === list.filters.pipelineId) ?? pipelineList.find((p) => p.isDefault) ?? pipelineList[0];
-  const stages = pipeline?.stages ?? [];
+  const stages = useMemo(() => pipeline?.stages ?? [], [pipeline]);
 
   const doMove = (req: BoardMoveRequest, lostReason?: string | null) =>
     move.mutate({ deal: req.deal, move: { stageId: req.stage.id, beforeDealId: req.beforeDealId ?? null, afterDealId: req.afterDealId ?? null, lostReason: lostReason ?? null, expectedVersion: req.deal.version } });

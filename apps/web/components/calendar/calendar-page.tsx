@@ -62,6 +62,7 @@ function Calendar() {
   const range = anchor ? viewRange(mode, anchor) : null;
   const query = range ? { from: instantAt(range.from, 0, tz).toISOString(), to: instantAt(addDays(range.to, 1), 0, tz).toISOString(), userId: [who], status: ['scheduled', 'completed', 'cancelled'] as Meeting['status'][] } : null;
   const meetings = useMeetings(query as Parameters<typeof useMeetings>[0]);
+  const meId = me?.user.id;
   const items = useMemo<CalendarItem[]>(
     () =>
       (meetings.data?.items ?? []).map((mt) => ({
@@ -71,11 +72,11 @@ function Calendar() {
         endAt: mt.endAt,
         allDay: mt.allDay,
         tone: mt.status === 'cancelled' ? 'grey' : mt.status === 'completed' ? 'green' : mt.mode === 'video' ? 'blue' : mt.mode === 'phone' ? 'amber' : 'indigo',
-        subtitle: [mt.lead?.name ?? mt.contact?.name ?? mt.account?.name, mt.location, mt.organizer && mt.organizer.id !== me?.user.id ? mt.organizer.name : null].filter(Boolean).join(' · ') || undefined,
+        subtitle: [mt.lead?.name ?? mt.contact?.name ?? mt.account?.name, mt.location, mt.organizer && mt.organizer.id !== meId ? mt.organizer.name : null].filter(Boolean).join(' · ') || undefined,
         canMove: canUpdate && mt.status === 'scheduled',
         muted: mt.status === 'cancelled',
       })),
-    [meetings.data, canUpdate, me?.user.id],
+    [meetings.data, canUpdate, meId],
   );
   const byKey = useMemo(() => new Map((meetings.data?.items ?? []).map((mt) => [keyOf(mt), mt])), [meetings.data]);
 

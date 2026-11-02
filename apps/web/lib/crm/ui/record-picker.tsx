@@ -92,10 +92,10 @@ export function RecordPicker({
             type="button"
             aria-haspopup="listbox"
             aria-expanded={open}
-            aria-invalid={invalid || undefined}
+            data-invalid={invalid || undefined}
             aria-describedby={describedBy}
             className={cn(
-              'focus-ring inline-flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-surface px-2.5 text-left text-sm shadow-card hover:border-fg-secondary disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-danger-text',
+              'focus-ring inline-flex h-8 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-surface px-2.5 text-left text-sm shadow-card hover:border-fg-secondary disabled:cursor-not-allowed disabled:opacity-60 data-[invalid=true]:border-danger-text',
               !value && 'text-muted',
               value && clearable && 'pr-8',
             )}

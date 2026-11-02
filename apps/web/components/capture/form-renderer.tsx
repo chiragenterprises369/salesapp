@@ -1,6 +1,5 @@
 'use client';
 
-import { normalizeIndianPhone, type CaptureField } from '@vistar/shared';
 import { CheckCircle2 } from 'lucide-react';
 import { useId, useState, type FormEvent } from 'react';
 import { NativeSelect } from '@/components/common/native-select';
@@ -8,55 +7,9 @@ import { Checkbox } from '@/components/leads/primitives/checkbox';
 import { Button } from '@/components/ui/button';
 import { FormField, Input, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/cn';
+import { normaliseAnswers, validateAnswers, type FormValue, type RenderField } from './logic';
 
-export type RenderField = Omit<CaptureField, 'mapTo'> & { mapTo?: CaptureField['mapTo'] };
-export type FormValue = string | number | boolean | string[] | null;
-
-export interface RenderableForm {
-  name: string;
-  fields: readonly RenderField[];
-  submitLabel: string;
-  successMessage: string;
-  consent: { enabled: boolean; required: boolean; text: string };
-  layout: 'card' | 'plain';
-  showLogo: boolean;
-  honeypotField: string;
-}
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Client-side checks that mirror the API (required, email, phone, number). */
-export function validateAnswers(fields: readonly RenderField[], values: Record<string, FormValue>): Record<string, string> {
-  const errors: Record<string, string> = {};
-  for (const f of fields) {
-    if (f.type === 'hidden') continue;
-    const v = values[f.id];
-    const empty = v === undefined || v === null || v === '' || v === false || (Array.isArray(v) && v.length === 0);
-    if (f.required && empty) {
-      errors[f.id] = f.type === 'checkbox' ? 'Tick this box to continue.' : `Enter ${f.label.toLowerCase()}.`;
-      continue;
-    }
-    if (empty) continue;
-    if (f.type === 'email' && typeof v === 'string' && !EMAIL_RE.test(v.trim())) errors[f.id] = 'Enter an email like name@company.com.';
-    if (f.type === 'phone' && typeof v === 'string' && !(normalizeIndianPhone(v) || /^\+[1-9]\d{6,14}$/.test(v.trim()))) errors[f.id] = 'Enter a 10-digit mobile number.';
-    if (f.type === 'number' && typeof v === 'string' && !/^-?\d+(\.\d+)?$/.test(v.trim())) errors[f.id] = 'Enter a number.';
-  }
-  return errors;
-}
-
-/** Answers as the submit route expects them (phones normalised, numbers as numbers, trimmed text). */
-export function normaliseAnswers(fields: readonly RenderField[], values: Record<string, FormValue>): Record<string, FormValue> {
-  const out: Record<string, FormValue> = {};
-  for (const f of fields) {
-    const v = values[f.id];
-    if (v === undefined || v === '' || (Array.isArray(v) && !v.length)) continue;
-    if (f.type === 'phone' && typeof v === 'string') out[f.id] = normalizeIndianPhone(v) ?? v.trim();
-    else if (f.type === 'number' && typeof v === 'string') out[f.id] = Number(v);
-    else if (typeof v === 'string') out[f.id] = v.trim();
-    else out[f.id] = v;
-  }
-  return out;
-}
+export type { FormValue, RenderField } from './logic';
 
 /**
  * Renders a lead capture form: the builder preview and the hosted page share this component, so what
