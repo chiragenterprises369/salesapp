@@ -13,20 +13,29 @@ import type {
   Page,
 } from '@vistar/shared';
 import { validateCustomValues, visibleValues } from '@vistar/shared';
-import { mockLeads, mockUsers } from '@vistar/shared/fixtures';
+import { mockUsers, worldLeadDetails } from '@vistar/shared/fixtures';
 import { ApiRequestError } from '../api-error';
 import { readMockDb } from '../mock-db';
 import { generateKeyBetween } from 'fractional-indexing';
 import { useSessionStore } from '../session/session';
+import { worldLeadsSeed } from '../world/world';
 import type { LeadsSource } from './data';
 
 /**
  * In-memory leads backend for Wave 1 (mock). Applies the shared filters AND the signed-in mock
- * persona's data scope (own / team / all) exactly like the API will.
+ * persona's data scope (own / team / all) exactly like the API will. Starts from the 2,500 world leads
+ * (MOCK_LEAD_COUNT, lib/world), generated on first use; edits stay in memory for the tab.
  * Set `window.__vistarMockFailRate = 0.5` in devtools to exercise optimistic rollback.
  */
 const users = mockUsers();
-let leads: LeadListItem[] = mockLeads(240, 7);
+let store: LeadListItem[] | null = null;
+/** Current leads (generated world leads plus this tab's edits). New array identity after every change. */
+export function currentMockLeads(): LeadListItem[] {
+  return (store ??= worldLeadsSeed());
+}
+function setLeads(next: LeadListItem[]): void {
+  store = next;
+}
 /** Lead fields that are not on LeadListItem (custom fields, requirement, ...) survive reloads in the mock. */
 const EXTRA_KEY = 'vistar.mock.leadExtra.v1';
 const extra = new Map<string, Partial<Lead>>(loadExtra());
@@ -68,26 +77,31 @@ function currentPipeline() {
 /** Leads per stage id (all leads, ignoring data scope), for the stage editor's delete guard. */
 export function mockLeadCountByStage(): Map<string, number> {
   const m = new Map<string, number>();
-  for (const l of leads) m.set(l.stageId, (m.get(l.stageId) ?? 0) + 1);
+  for (const l of currentMockLeads()) m.set(l.stageId, (m.get(l.stageId) ?? 0) + 1);
   return m;
 }
 
-function viewer(): { userId: string | null; visible: string[] | null } {
+interface Viewer {
+  userId: string | null;
+  visible: ReadonlySet<string> | null;
+}
+
+/** Computed once per request (2,500 leads x filters would otherwise rebuild it per lead). */
+function viewer(): Viewer {
   const s = useSessionStore.getState().session;
   if (!s || s.audience !== 'workspace') return { userId: null, visible: null };
   const { me } = s;
   if (me.role.dataScope === 'all') return { userId: me.user.id, visible: null };
-  if (me.role.dataScope === 'own') return { userId: me.user.id, visible: [me.user.id] };
-  return { userId: me.user.id, visible: [...new Set([me.user.id, ...me.teamMemberIds])] };
+  if (me.role.dataScope === 'own') return { userId: me.user.id, visible: new Set([me.user.id]) };
+  return { userId: me.user.id, visible: new Set([me.user.id, ...me.teamMemberIds]) };
 }
 
-function inScope(l: LeadListItem): boolean {
-  const { visible } = viewer();
-  return visible === null || (l.owner !== null && visible.includes(l.owner.id));
+function inScope(l: LeadListItem, v: Viewer = viewer()): boolean {
+  return v.visible === null || (l.owner !== null && v.visible.has(l.owner.id));
 }
 
-function matches(l: LeadListItem, f: LeadFilters): boolean {
-  if (!inScope(l)) return false;
+function matches(l: LeadListItem, f: LeadFilters, v: Viewer = viewer()): boolean {
+  if (!inScope(l, v)) return false;
   if (f.q) {
     const q = f.q.toLowerCase();
     const hay = [l.name, l.companyName, l.phone, l.email, l.city].filter(Boolean).join(' ').toLowerCase();
@@ -96,7 +110,7 @@ function matches(l: LeadListItem, f: LeadFilters): boolean {
   if (f.source?.length && !f.source.includes(l.source)) return false;
   if (f.stageId?.length && !f.stageId.includes(l.stageId)) return false;
   if (f.ownerId?.length) {
-    const me = viewer().userId;
+    const me = v.userId;
     const ok = f.ownerId.some((o) => (o === 'unassigned' ? !l.owner : o === 'me' ? l.owner?.id === me : l.owner?.id === o));
     if (!ok) return false;
   }
@@ -116,8 +130,10 @@ function maybeFail() {
 
 const byPosition = (a: LeadListItem, b: LeadListItem) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0);
 
-function stageLeads(pipelineId: string, stageId: string, filters: LeadFilters) {
-  return leads.filter((l) => l.pipelineId === pipelineId && l.stageId === stageId && matches(l, filters)).sort(byPosition);
+function stageLeads(pipelineId: string, stageId: string, filters: LeadFilters, v: Viewer = viewer()) {
+  return currentMockLeads()
+    .filter((l) => l.pipelineId === pipelineId && l.stageId === stageId && matches(l, filters, v))
+    .sort(byPosition);
 }
 
 /** Lead custom fields from the shared mock DB (field target "lead"). */
@@ -142,13 +158,17 @@ function toLead(l: LeadListItem): Lead {
   const s = useSessionStore.getState().session;
   const roleKey = s?.audience === 'workspace' ? s.me.role.key : null;
   const more = extra.get(l.id);
+  // Generated details (product, requirement, GSTIN, quantity, ...) until the user edits the lead.
+  const seed = worldLeadDetails(l);
+  const defs = leadFieldDefs();
+  const seededFields = Object.fromEntries(Object.entries(seed.customFields).filter(([k]) => defs.some((d) => d.key === k && !d.archivedAt)));
   return {
     ...l,
     contactId: null,
     companyId: null,
-    state: null,
-    productInterest: null,
-    requirement: 'Please share best price with GST and delivery time.',
+    state: seed.state,
+    productInterest: seed.productInterest,
+    requirement: seed.requirement,
     sourceRef: l.source === 'indiamart' ? `IM-${l.id.slice(0, 6)}` : null,
     scoreBreakdown: [
       { rule: 'Source: IndiaMART', points: l.source === 'indiamart' ? 15 : 5 },
@@ -160,36 +180,37 @@ function toLead(l: LeadListItem): Lead {
     dnd: false,
     mergedIntoId: null,
     ...more,
-    customFields: visibleValues(leadFieldDefs(), more?.customFields ?? {}, roleKey),
+    customFields: visibleValues(defs, more?.customFields ?? seededFields, roleKey),
   };
 }
 
 function findOrThrow(id: string): LeadListItem {
-  const lead = leads.find((l) => l.id === id);
+  const lead = currentMockLeads().find((l) => l.id === id);
   if (!lead || !inScope(lead)) throw new Error('Lead not found');
   return lead;
 }
 
 function topPosition(stageId: string): string {
-  const col = leads.filter((l) => l.stageId === stageId).sort(byPosition);
+  const col = currentMockLeads().filter((l) => l.stageId === stageId).sort(byPosition);
   return generateKeyBetween(null, col[0]?.position ?? null);
 }
 
 function endPosition(stageId: string): string {
-  const col = leads.filter((l) => l.stageId === stageId).sort(byPosition);
+  const col = currentMockLeads().filter((l) => l.stageId === stageId).sort(byPosition);
   return generateKeyBetween(col.at(-1)?.position ?? null, null);
 }
 
 function replace(next: LeadListItem) {
-  leads = leads.map((l) => (l.id === next.id ? next : l));
+  setLeads(currentMockLeads().map((l) => (l.id === next.id ? next : l)));
 }
 
 export const mockLeadsSource: LeadsSource = {
   async list(query: LeadListQuery): Promise<Page<LeadListItem>> {
     await delay();
     const { sort = 'createdAt', dir = 'desc', limit = 50, cursor } = query;
-    const rows = leads
-      .filter((l) => matches(l, query))
+    const v = viewer();
+    const rows = currentMockLeads()
+      .filter((l) => matches(l, query, v))
       .sort((a, b) => {
         const av = a[sort] ?? '';
         const bv = b[sort] ?? '';
@@ -205,10 +226,11 @@ export const mockLeadsSource: LeadsSource = {
   async board(pipelineId: string, filters: LeadFilters, perColumn = 50): Promise<Board> {
     await delay();
     const pipeline = currentPipeline();
+    const v = viewer();
     return {
       pipeline,
       columns: pipeline.stages.map((stage) => {
-        const inStage = stageLeads(pipelineId, stage.id, filters);
+        const inStage = stageLeads(pipelineId, stage.id, filters, v);
         return {
           stage,
           count: inStage.length,
@@ -260,7 +282,7 @@ export const mockLeadsSource: LeadsSource = {
       createdAt: now,
       updatedAt: now,
     };
-    leads = [item, ...leads];
+    setLeads([item, ...currentMockLeads()]);
     setExtra(item.id, { productInterest: input.productInterest ?? null, requirement: input.requirement ?? null, state: input.state ?? null, customFields: validLeadCustomFields(input.customFields ?? {}, 'create') });
     return toLead(item);
   },
@@ -274,7 +296,7 @@ export const mockLeadsSource: LeadsSource = {
     const stageId = patch.stageId ?? lead.stageId;
     if (patch.customFields !== undefined) {
       const prev = extra.get(id) ?? {};
-      const merged = { ...(prev.customFields ?? {}), ...validLeadCustomFields(patch.customFields, 'update') };
+      const merged = { ...(prev.customFields ?? worldLeadDetails(lead).customFields), ...validLeadCustomFields(patch.customFields, 'update') };
       setExtra(id, { ...prev, customFields: merged });
     }
     const next: LeadListItem = {
@@ -302,9 +324,10 @@ export const mockLeadsSource: LeadsSource = {
     maybeFail();
     const failed: BulkResult['failed'] = [];
     let succeeded = 0;
+    const v = viewer();
     for (const id of action.leadIds) {
-      const lead = leads.find((l) => l.id === id);
-      if (!lead || !inScope(lead)) {
+      const lead = currentMockLeads().find((l) => l.id === id);
+      if (!lead || !inScope(lead, v)) {
         failed.push({ id, code: 'NOT_FOUND', message: 'Lead not found' });
         continue;
       }
@@ -322,7 +345,7 @@ export const mockLeadsSource: LeadsSource = {
           replace({ ...lead, tags: lead.tags.filter((t) => !action.tags.includes(t)), version: lead.version + 1 });
           break;
         case 'delete':
-          leads = leads.filter((l) => l.id !== id);
+          setLeads(currentMockLeads().filter((l) => l.id !== id));
           break;
         case 'whatsapp_template':
           if (!lead.phone) {
@@ -340,7 +363,9 @@ export const mockLeadsSource: LeadsSource = {
     await delay();
     maybeFail();
     const lead = findOrThrow(leadId);
-    const column = leads.filter((l) => l.stageId === move.stageId && l.id !== leadId).sort(byPosition);
+    const column = currentMockLeads()
+      .filter((l) => l.stageId === move.stageId && l.id !== leadId)
+      .sort(byPosition);
     const before = move.beforeLeadId ? column.find((l) => l.id === move.beforeLeadId) : undefined;
     const after = move.afterLeadId ? column.find((l) => l.id === move.afterLeadId) : undefined;
     let lower: string | null;
