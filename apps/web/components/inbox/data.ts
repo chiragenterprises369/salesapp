@@ -6,6 +6,8 @@ import { renderTemplate, WHATSAPP_TEMPLATE_FIXTURES, worldUuid, rngFor } from '@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { useMe } from '@/lib/session/session';
+import { notAvailableYet } from '@/lib/api/availability';
+import { isMockData } from '@/lib/api/data-source';
 import { viewerFromMe, worldContext } from '@/lib/world';
 import { useConversation, useConversations } from '@/lib/world/hooks';
 import { applyEdits, EMPTY_EDITS, threadWithEdits, type InboxEdits } from './logic';
@@ -62,9 +64,11 @@ export function useThread(id: string | null) {
   return { ...q, data };
 }
 
-export const leadOf = (leadId: string | null): LeadListItem | null => (leadId ? (worldContext().leadById.get(leadId) ?? null) : null);
+/** Lead of a conversation for template variables (mock mode only; the API inbox carries lead names). */
+export const leadOf = (leadId: string | null): LeadListItem | null => (leadId && isMockData() ? (worldContext().leadById.get(leadId) ?? null) : null);
 
-export const INBOX_TEMPLATES = WHATSAPP_TEMPLATE_FIXTURES;
+/** Approved WhatsApp templates (GET /templates once WhatsApp is connected; sample templates in mock mode). */
+export const INBOX_TEMPLATES = isMockData() ? WHATSAPP_TEMPLATE_FIXTURES : [];
 
 export function templatePreview(name: string, conversation: Conversation): string {
   const lead = leadOf(conversation.leadId);
@@ -84,6 +88,8 @@ export function useSendMessage(conversation: Conversation | null, author: UserSu
   return useMutation({
     mutationFn: async (out: Outgoing) => {
       if (!conversation) throw new Error('No conversation');
+      // Sending goes through POST /conversations/{id}/messages once the WhatsApp API ships (REALTIME).
+      if (!isMockData()) throw notAvailableYet('Sending WhatsApp messages');
       const store = useInboxStore.getState();
       const m: Message = {
         id: newId(),

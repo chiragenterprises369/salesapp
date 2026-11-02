@@ -34,10 +34,11 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from './primitives/menu';
-import { splitSavedView, useSavedViews, useTablePrefs } from './stores';
+import { splitSavedView, useTablePrefs } from './stores';
+import { useSavedViewList } from './use-saved-views';
 
 /**
- * Saved views (mock: stored in localStorage until the saved-views API lands). Applying one replaces
+ * Saved views (GET/POST/DELETE /views; the mock data mode keeps them in localStorage). Applying one replaces
  * the shared filters (`replaceFilters(filters, id)`), the Table sort and, if set, the view mode.
  */
 export function SavedViewsMenu({
@@ -48,9 +49,7 @@ export function SavedViewsMenu({
   onViewMode: (m: LeadsViewMode) => void;
 }) {
   const me = useMe();
-  const views = useSavedViews((s) => s.views);
-  const addView = useSavedViews((s) => s.add);
-  const removeView = useSavedViews((s) => s.remove);
+  const { views, add: addView, remove: removeView } = useSavedViewList();
   const activeId = useLeadsViewState((s) => s.activeSavedViewId);
   const filters = useLeadsViewState((s) => s.filters);
   const replaceFilters = useLeadsViewState((s) => s.replaceFilters);
@@ -74,19 +73,24 @@ export function SavedViewsMenu({
     if (view.viewMode && view.viewMode !== mode) onViewMode(view.viewMode);
   };
 
-  const save = () => {
+  const save = async () => {
     const trimmed = name.trim();
     if (!trimmed) return setError('Enter a name for this view');
     if (trimmed.length > 60) return setError('Use 60 characters or fewer');
     if (views.some((v) => v.name.toLowerCase() === trimmed.toLowerCase()))
       return setError('A view with this name already exists');
-    const view = addView({
-      name: trimmed,
-      filters,
-      sort,
-      viewMode: keepMode ? mode : null,
-      ownerId: me?.user.id ?? null,
-    });
+    let view;
+    try {
+      view = await addView({
+        name: trimmed,
+        filters,
+        sort,
+        viewMode: keepMode ? mode : null,
+        ownerId: me?.user.id ?? null,
+      });
+    } catch {
+      return setError('The view was not saved. Check your connection and try again.');
+    }
     replaceFilters(filters, view.id);
     setSaveOpen(false);
     toast.success(`Saved view "${trimmed}"`);
@@ -142,9 +146,13 @@ export function SavedViewsMenu({
                     key={v.id}
                     destructive
                     onSelect={() => {
-                      removeView(v.id);
-                      if (activeId === v.id) replaceFilters(filters, null);
-                      toast.success(`Deleted view "${v.name}"`);
+                      removeView(v.id).then(
+                        () => {
+                          if (activeId === v.id) replaceFilters(filters, null);
+                          toast.success(`Deleted view "${v.name}"`);
+                        },
+                        () => toast.error(`"${v.name}" was not deleted. Try again.`),
+                      );
                     }}
                   >
                     <span className="truncate">{v.name}</span>
@@ -161,7 +169,7 @@ export function SavedViewsMenu({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              save();
+              void save();
             }}
             className="contents"
           >

@@ -10,17 +10,18 @@ import { Chip } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
-import { platformKpis, platformRows, type PlatformCell, type PlatformRow } from '@/lib/world/platform';
+import { isMockData } from '@/lib/api/data-source';
+import { apiPlatformKpis, apiPlatformRows, platformKpis, platformRows, type PlatformCell, type PlatformRow } from '@/lib/world/platform';
 
 /**
- * Super Admin list data. Wave 1: rows come from the mock platform world (lib/world/platform: the
- * three seed companies plus 20 generated ones, usage, flags, health, support sessions, audit).
- * Phase 9 (superadmin-panel) swaps the queryFn for /api/super/* calls.
+ * Super Admin list data: /api/super/* in API mode (sections without a shipped route show their empty
+ * state); the test-only mock data mode reads the mock platform world (lib/world/platform).
  */
 export function usePlatformList(section: string) {
   return useQuery({
     queryKey: ['platform', section],
     queryFn: async (): Promise<PlatformRow[]> => {
+      if (!isMockData()) return apiPlatformRows(section);
       await new Promise((r) => setTimeout(r, 350));
       return platformRows(section);
     },
@@ -32,6 +33,7 @@ export function usePlatformKpis() {
   return useQuery({
     queryKey: ['platform', 'overview-kpis'],
     queryFn: async () => {
+      if (!isMockData()) return apiPlatformKpis();
       await new Promise((r) => setTimeout(r, 350));
       return platformKpis();
     },

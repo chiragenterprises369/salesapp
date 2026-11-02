@@ -10,10 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMe } from '@/lib/session/session';
-import { buildWeekCalls } from './my-day-mock';
 import { TargetRings } from './targets';
 import { Section } from './today-view';
-import { useMyDay } from './use-my-day';
+import { useMyDay, weekCalls } from './use-my-day';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -21,7 +20,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export function PerformanceView() {
   const me = useMe()!;
   const query = useMyDay();
-  const week = useMemo(() => buildWeekCalls(me), [me]);
+  const week = useMemo(() => weekCalls(me), [me]);
   const max = Math.max(...week, 1);
 
   return (

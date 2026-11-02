@@ -5,10 +5,8 @@ import {
   type ChipTone,
   type LeadSource,
   type LeadTemperature,
-  type MeResponse,
   type UserSummary,
 } from '@vistar/shared';
-import { mockUsers, TAGS } from '@vistar/shared/fixtures';
 import {
   differenceInCalendarDays,
   format,
@@ -29,15 +27,17 @@ import {
   Webhook,
   type LucideIcon,
 } from 'lucide-react';
-import { useMemo } from 'react';
 import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
-import { useMe } from '@/lib/session/session';
+import { useScopedUserList, useTagNames } from '@/lib/api/directory';
 import { usePipelineStages } from './use-stages';
 
 /** Static default stages: FALLBACK ONLY (see ./use-stages). Read stages with `usePipelineStages()`. */
 export { FALLBACK_PIPELINE, FALLBACK_STAGES } from './use-stages';
-export const KNOWN_TAGS: readonly string[] = TAGS;
+/** Tag names in use in the workspace (GET /tags; mock mode: the fixture tags). */
+export function useKnownTags(): readonly string[] {
+  return useTagNames();
+}
 
 export const SOURCE_LABEL: Record<LeadSource, string> = {
   indiamart: 'IndiaMART',
@@ -150,19 +150,9 @@ export function TagList({
   );
 }
 
-/** Users the signed-in person can see (owner filters and pickers). Mirrors GET /users/options scope. */
-export function scopedUsers(me: MeResponse | null): UserSummary[] {
-  const all = mockUsers().filter((u) => u.role !== 'viewer');
-  if (!me) return [];
-  if (me.role.dataScope === 'all') return all;
-  if (me.role.dataScope === 'own') return all.filter((u) => u.id === me.user.id);
-  const visible = new Set([me.user.id, ...me.teamMemberIds]);
-  return all.filter((u) => visible.has(u.id));
-}
-
+/** Users the signed-in person can see (owner filters and pickers): GET /users/options (data scope applied by the API). */
 export function useScopedUsers(): UserSummary[] {
-  const me = useMe();
-  return useMemo(() => scopedUsers(me), [me]);
+  return useScopedUserList();
 }
 
 /** "Today 4:30 pm", "Tomorrow", "In 3 days", "2 days ago". */

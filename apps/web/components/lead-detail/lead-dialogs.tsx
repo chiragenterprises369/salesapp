@@ -19,6 +19,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
+import { isMockData } from '@/lib/api/data-source';
+import { useLeadDuplicates, useMergeLeads } from './use-lead-activity';
 import { getLeadsSource, leadKeys, useBulkLeads } from '@/lib/leads/data';
 import { formatCreated, formatPhone, StageChip } from '@/components/leads/lead-meta';
 import { Checkbox } from '@/components/leads/primitives/checkbox';
@@ -108,11 +110,12 @@ export function RunWorkflowDialog({
 
 const digits = (p: string | null) => (p ? p.replace(/\D/g, '').slice(-10) : '');
 
-/** Possible duplicates by phone, then by name (mock: client-side over the leads source). */
+/** Possible duplicates: GET /leads/{id}/duplicates (mock mode: phone, then name, over the mock source). */
 function useDuplicates(lead: Lead, enabled: boolean) {
-  return useQuery({
-    queryKey: [...leadKeys.detail(lead.id), 'duplicates'],
-    enabled,
+  const server = useLeadDuplicates(lead.id, enabled);
+  const mockQ = useQuery({
+    queryKey: [...leadKeys.detail(lead.id), 'duplicates', 'mock'],
+    enabled: enabled && isMockData(),
     queryFn: async () => {
       const src = getLeadsSource();
       const [byPhone, byName] = await Promise.all([
@@ -134,9 +137,18 @@ function useDuplicates(lead: Lead, enabled: boolean) {
       return [...out.values()];
     },
   });
+  if (isMockData()) return mockQ;
+  return { ...server, data: server.data?.map((l) => ({ ...l, reason: duplicateReason(lead, l) })) };
 }
 
-/** "Merge duplicates": pick duplicates to merge into this lead (mock: duplicates are removed). */
+function duplicateReason(lead: Lead, other: LeadListItem): string {
+  if (lead.phone && digits(other.phone) === digits(lead.phone)) return 'Same phone';
+  if (lead.email && other.email && other.email.toLowerCase() === lead.email.toLowerCase()) return 'Same email';
+  if (other.name.toLowerCase() === lead.name.toLowerCase()) return 'Same name';
+  return 'Similar';
+}
+
+/** "Merge duplicates": POST /leads/merge (mock mode: the duplicates are removed). */
 export function MergeDialog({
   lead,
   open,
@@ -150,6 +162,7 @@ export function MergeDialog({
 }) {
   const dupes = useDuplicates(lead, open);
   const bulk = useBulkLeads();
+  const merge = useMergeLeads();
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const items = dupes.data ?? [];
 
@@ -225,11 +238,12 @@ export function MergeDialog({
           <Button
             variant="primary"
             disabled={picked.size === 0}
-            loading={bulk.isPending}
+            loading={bulk.isPending || merge.isPending}
             onClick={async () => {
               const ids = [...picked];
               try {
-                await bulk.mutateAsync({ action: 'delete', leadIds: ids });
+                if (isMockData()) await bulk.mutateAsync({ action: 'delete', leadIds: ids });
+                else await merge.mutateAsync({ primaryId: lead.id, duplicateIds: ids });
                 onMerged(ids);
                 toast.success(
                   `Merged ${ids.length} lead${ids.length === 1 ? '' : 's'} into ${lead.name}`,

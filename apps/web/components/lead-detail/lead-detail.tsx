@@ -1,7 +1,6 @@
 'use client';
 
 import type { Lead, LeadListItem, LeadUpdate, Stage, Task } from '@vistar/shared';
-import { mockUsers } from '@vistar/shared/fixtures';
 import {
   AlarmClock,
   ChevronDown,
@@ -27,6 +26,7 @@ import { cn } from '@/lib/cn';
 import { useLead, useUpdateLead } from '@/lib/leads/data';
 import { useCan, useMe } from '@/lib/session/session';
 import { WidgetSlot } from '@/lib/packs';
+import { isMockData } from '@/lib/api/data-source';
 import {
   formatCreated,
   formatFollowUp,
@@ -54,6 +54,7 @@ import { DealValue } from './deal-value';
 import { LeadCustomFields } from './lead-custom-fields';
 import { MergeDialog, RunWorkflowDialog } from './lead-dialogs';
 import { mockTasks, mockTimeline } from './mock-timeline';
+import { useAddNote, useLeadTaskMutations, useLeadTasks, useLeadTimeline } from './use-lead-activity';
 import { ScoreBreakdown, ScoreRing } from './score-ring';
 import { StageProgress } from './stage-progress';
 import { TagsEditor } from './tags-editor';
@@ -158,7 +159,9 @@ function LeadDetailBody({
   const canUpdate = useCan('leads.update');
   const canAssign = useCan('leads.assign');
   const canMerge = useCan('leads.merge');
-  const canRun = useCan('workflows.run');
+  // Workflows run in the API once the workflow engine ships; until then only the mock mode offers it.
+  const mock = isMockData();
+  const canRun = useCan('workflows.run') && mock;
   const update = useUpdateLead();
   const local = useLocalActivity();
   const focusNoteFor = useDrawerIntent((s) => s.focusNoteFor);
@@ -171,26 +174,32 @@ function LeadDetailBody({
   const [base, setBase] = useState<{ id: string; lead: Lead } | null>(null);
   const [now] = useState(() => Date.now());
 
-  // Mock timeline/tasks are generated once per lead (later edits add local activities on top).
+  // API: server timeline and tasks (refetched after every change). Mock mode: generated once per
+  // lead, with this tab's edits added on top.
+  const timelineQ = useLeadTimeline(lead.id);
+  const tasksQ = useLeadTasks(lead.id);
+  const addNote = useAddNote(lead.id);
+  const taskMut = useLeadTaskMutations(lead);
   if (base?.id !== lead.id) setBase({ id: lead.id, lead });
   const seed = base?.id === lead.id ? base.lead : lead;
-  const allUsers = useMemo(() => mockUsers(), []);
   const activities = useMemo(
     () =>
-      [...(local.activities[lead.id] ?? []), ...mockTimeline(seed, allUsers, now)].sort((a, b) =>
+      (mock ? [...(local.activities[lead.id] ?? []), ...mockTimeline(seed, [], now)] : [...(timelineQ.data ?? [])]).sort((a, b) =>
         a.createdAt < b.createdAt ? 1 : -1,
       ),
-    [local.activities, lead.id, seed, allUsers, now],
+    [mock, timelineQ.data, local.activities, lead.id, seed, now],
   );
   const tasks = useMemo(
     () =>
-      [...(local.tasks[lead.id] ?? []), ...mockTasks(seed, now)].map((t) =>
+      (mock ? [...(local.tasks[lead.id] ?? []), ...mockTasks(seed, now)] : (tasksQ.data ?? [])).map((t) =>
         local.done[t.id] === undefined
           ? t
           : { ...t, status: local.done[t.id] ? ('done' as const) : ('open' as const) },
       ),
-    [local.tasks, local.done, lead.id, seed, now],
+    [mock, tasksQ.data, local.tasks, local.done, lead.id, seed, now],
   );
+  /** Local timeline entries are the mock mode's stand-in for server activities. */
+  const addLocal: typeof local.add = mock ? local.add : () => undefined;
   const openTasks = tasks.filter((t) => t.status === 'open').length;
 
   // "Add note" quick action: open on the timeline with the composer focused.
@@ -217,7 +226,7 @@ function LeadDetailBody({
   const moveTo = async (stage: Stage) => {
     const from = lead.stageId;
     await save({ stageId: stage.id }, `${lead.name} moved to ${stage.name}`);
-    local.add(lead.id, {
+    addLocal(lead.id, {
       type: 'stage_changed',
       actor,
       payload: { fromStageId: from, toStageId: stage.id },
@@ -227,7 +236,7 @@ function LeadDetailBody({
   const assign = async (ownerId: string | null) => {
     const name = ownerId ? (users.find((u) => u.id === ownerId)?.name ?? 'teammate') : null;
     await save({ ownerId }, name ? `${w.Lead} assigned to ${name}` : `${w.Lead} unassigned`);
-    local.add(lead.id, {
+    addLocal(lead.id, {
       type: 'assigned',
       actor,
       payload: { fromUserId: lead.owner?.id ?? null, toUserId: ownerId, rule: 'manual' },
@@ -499,8 +508,15 @@ function LeadDetailBody({
           canAddNote={canUpdate}
           composerRef={composerRef}
           onAddNote={(body) => {
-            local.add(lead.id, { type: 'note', actor, payload: { body } });
-            toast.success('Note added');
+            if (mock) {
+              local.add(lead.id, { type: 'note', actor, payload: { body } });
+              toast.success('Note added');
+              return;
+            }
+            addNote.mutate(body, {
+              onSuccess: () => toast.success('Note added'),
+              onError: () => toast.error('Note not saved. Check your connection and try again.'),
+            });
           }}
         />
       </Tabs.Content>
@@ -510,6 +526,13 @@ function LeadDetailBody({
           canEdit={canUpdate}
           onToggle={(t: Task, done) => {
             local.setDone(t.id, done);
+            if (!mock) {
+              taskMut.setDone.mutate(
+                { task: t, done },
+                { onError: () => (local.setDone(t.id, !done), toast.error('Task not updated. Try again.')) },
+              );
+              return;
+            }
             if (done)
               local.add(lead.id, {
                 type: 'task_completed',
@@ -518,6 +541,13 @@ function LeadDetailBody({
               });
           }}
           onAdd={(title, dueAt) => {
+            if (!mock) {
+              taskMut.create.mutate(
+                { title, dueAt },
+                { onSuccess: () => toast.success('Task added'), onError: () => toast.error('Task not added. Try again.') },
+              );
+              return;
+            }
             const id = crypto.randomUUID();
             const nowIso = new Date().toISOString();
             local.addTask(lead.id, {
@@ -588,7 +618,7 @@ function LeadDetailBody({
           open={mergeOpen}
           onOpenChange={setMergeOpen}
           onMerged={(ids) =>
-            local.add(lead.id, { type: 'merged', actor, payload: { mergedLeadIds: ids } })
+            addLocal(lead.id, { type: 'merged', actor, payload: { mergedLeadIds: ids } })
           }
         />
       )}

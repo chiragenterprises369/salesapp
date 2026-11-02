@@ -1,12 +1,12 @@
 'use client';
 
 import { formatFieldValue, type ChipTone, type CustomFieldValue } from '@vistar/shared';
-import { mockUsers } from '@vistar/shared/fixtures';
 import { format } from 'date-fns';
 import { ExternalLink, MapPin, Paperclip } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
+import { useUserNames } from '@/lib/api/directory';
 import {
   configOf,
   isEmptyValue,
@@ -17,7 +17,6 @@ import {
 } from './field-utils';
 import { RelationValue } from './relation-values';
 
-const USERS = new Map(mockUsers().map((u) => [u.id, u.name]));
 const ids = (v: CustomFieldValue) => (Array.isArray(v) ? v : typeof v === 'string' ? [v] : []);
 const linkClass =
   'focus-ring inline-flex min-w-0 items-center gap-1 rounded-xs text-accent-text underline-offset-2 hover:underline';
@@ -41,6 +40,7 @@ export function CustomFieldDisplay({
   plain?: boolean;
   className?: string;
 }) {
+  const userNames = useUserNames();
   if (isEmptyValue(value) || value === undefined) {
     return <span className={cn('text-muted-strong', className)}>{compact ? '—' : 'Not set'}</span>;
   }
@@ -108,7 +108,7 @@ export function CustomFieldDisplay({
           )}
         >
           {ids(value).map((uid) => {
-            const name = USERS.get(uid) ?? `Former teammate ${shortId(uid)}`;
+            const name = userNames.get(uid) ?? `Former teammate ${shortId(uid)}`;
             return (
               <span key={uid} className="inline-flex min-w-0 items-center gap-1.5">
                 <Avatar name={name} size="xs" aria-hidden />

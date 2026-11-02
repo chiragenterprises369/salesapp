@@ -1,7 +1,6 @@
 'use client';
 
 import type { LeadsViewMode, MeResponse } from '@vistar/shared';
-import { MOCK_PIPELINE_ID } from '@vistar/shared/fixtures';
 import { Download, MoreHorizontal, Plus, Upload } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Suspense, useCallback, useState } from 'react';
@@ -16,6 +15,7 @@ import { useCan, useMe, useSessionActions, useSessionStatus } from '@/lib/sessio
 import { useLabels } from '@/lib/customization';
 import { labelOf } from '@vistar/shared';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
+import { isMockData } from '@/lib/api/data-source';
 import { LeadDrawer } from '@/components/lead-detail/lead-drawer';
 import { useLeadDrawer } from '@/components/lead-detail/use-lead-drawer';
 import { BulkActionsBar } from './bulk-actions-bar';
@@ -96,7 +96,9 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const { byId } = usePipelineStages();
+  const { byId, pipelineId, live } = usePipelineStages();
+  // The Board needs the real default pipeline id (the static fallback ids exist only in mock data).
+  const pipelineReady = live || isMockData();
   const labels = useLabels();
   const leadsTitle = labelOf(labels, 'lead', { plural: true });
   const leadLower = labelOf(labels, 'lead', { lower: true });
@@ -118,10 +120,11 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
 
   const view =
     mode === 'board' ? (
-      <LeadsBoardView
-        pipelineId={MOCK_PIPELINE_ID}
-        density={panel === 'employee' ? 'compact' : 'default'}
-      />
+      pipelineReady ? (
+        <LeadsBoardView pipelineId={pipelineId} density={panel === 'employee' ? 'compact' : 'default'} />
+      ) : (
+        <Skeleton className="h-[60vh] w-full" />
+      )
     ) : (
       <TableView onCreate={canCreate ? () => setCreateOpen(true) : undefined} />
     );

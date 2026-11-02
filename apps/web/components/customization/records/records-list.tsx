@@ -32,7 +32,7 @@ import { cn } from '@/lib/cn';
 import { CustomFieldDisplay } from '../custom-field-display';
 import type { FieldDef } from '../field-utils';
 import { RecordCreateSheet } from './record-create-sheet';
-import { isNotFound, ObjectIcon, useDebounced, useObjectFields, USER_BY_ID } from './record-meta';
+import { isNotFound, ObjectIcon, useDebounced, useObjectFields, useUserById } from './record-meta';
 import { RecordsListSkeleton, RecordsNotFound } from './record-states';
 
 type OwnerFilter = 'all' | 'me' | 'unassigned';
@@ -386,7 +386,8 @@ function RecordsListBody({
 }
 
 function OwnerCell({ ownerId, meId }: { ownerId: string | null; meId: string | null }) {
-  const u = ownerId ? USER_BY_ID.get(ownerId) : null;
+  const userById = useUserById();
+  const u = ownerId ? userById.get(ownerId) : null;
   if (!ownerId) return <span className="text-muted">Unassigned</span>;
   const name = u?.name ?? 'Former teammate';
   return (
