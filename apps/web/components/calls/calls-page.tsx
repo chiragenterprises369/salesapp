@@ -234,7 +234,7 @@ export function CallsPage() {
 
   return (
     <RequirePermission anyOf={['calls.read']}>
-      <div className="flex max-w-7xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <PageHeader title="Calls" description="Every call made or received through Vistar, with outcome and recording." className="mb-0" />
 
         {today.isPending || log.isPending || !range ? (

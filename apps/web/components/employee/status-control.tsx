@@ -44,7 +44,7 @@ export function StatusControl() {
           toast.success(`Status set to ${EMPLOYEE_STATUS_LABEL[v as SelfStatus]}`);
         }}
         aria-label="My status"
-        className="grid gap-3 sm:grid-cols-2"
+        className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3 4xl:grid-cols-4"
       >
         {EMPLOYEE_STATUS_CONTROL.map(({ status: s, label }) => (
           <RadioGroup.Item

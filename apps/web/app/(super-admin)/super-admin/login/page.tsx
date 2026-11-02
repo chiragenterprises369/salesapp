@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Super Admin sign-in', robots: { inde
 export default async function SuperAdminLoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { next, reason } = await searchParams;
   return (
-    <AuthFrame badge={<Chip tone="indigo">Platform</Chip>}>
+    <AuthFrame badge={<Chip tone="indigo">Platform</Chip>} brand={false}>
       <SuperLoginFlow next={typeof next === 'string' ? next : null} reason={typeof reason === 'string' ? reason : null} />
     </AuthFrame>
   );

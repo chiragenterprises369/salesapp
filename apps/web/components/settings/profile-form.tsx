@@ -77,7 +77,7 @@ export function ProfileForm({ touch = false }: { touch?: boolean }) {
         description="Your name and number as they appear across Vistar."
         footer={<SaveBar dirty={dirty} saving={saving} readOnlyReason={reason} onDiscard={() => setValues(saved)} />}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
           <FormField label="Name" error={errors.name} required>
             <Input className={field} autoComplete="name" value={values.name} maxLength={80} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} />
           </FormField>

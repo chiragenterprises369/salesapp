@@ -39,10 +39,10 @@ export function DueChip({ dueAt, now, timeZone }: { dueAt: string | null; now: n
   return <Chip tone="neutral">{sameDay || now === 0 ? formatTimeIn(dueAt, timeZone) : formatDateTimeIn(dueAt, timeZone)}</Chip>;
 }
 
-export function Section({ title, count, icon, children }: { title: string; count?: number; icon: ReactNode; children: ReactNode }) {
+export function Section({ title, count, icon, children, className }: { title: string; count?: number; icon: ReactNode; children: ReactNode; className?: string }) {
   const id = `sec-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`;
   return (
-    <Card>
+    <Card className={className}>
       <section aria-labelledby={id}>
         <h2 id={id} className="flex items-center gap-2 px-4 pt-4 pb-2 text-sm font-semibold text-fg [&_svg]:size-4 [&_svg]:text-fg-secondary">
           {icon}

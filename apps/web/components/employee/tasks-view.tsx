@@ -91,9 +91,10 @@ export function TasksView() {
       return <EmptyState icon={<ListTodo />} title="No tasks" description="Tasks you add on a lead, and tasks from workflows, appear here." />;
     }
     return (
-      <div className="flex flex-col gap-4">
+      // Due groups side by side on wide screens (D-066).
+      <div className="grid items-start gap-4 xl:grid-cols-2 3xl:grid-cols-3">
         {open.length === 0 && (
-          <EmptyState size="sm" icon={<CheckCircle2 />} title="All done for now" description="New tasks appear here as soon as they are assigned to you." />
+          <EmptyState size="sm" icon={<CheckCircle2 />} title="All done for now" description="New tasks appear here as soon as they are assigned to you." className="xl:col-span-full" />
         )}
         {groups.map((g) => (
           <Section key={g.title} title={g.title} count={g.items.length} icon={g.title === 'Done' ? <CheckCircle2 /> : <ListTodo />}>

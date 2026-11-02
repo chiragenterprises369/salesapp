@@ -60,7 +60,7 @@ export function SupportAccessForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="grid items-start gap-4 2xl:grid-cols-2">
       <SettingsCard title="Current status" description="Sessions are read-only by default. Each one is recorded in your audit log with the support agent's reason.">
         <div className="flex items-center gap-3">
           <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-surface-3 text-fg-secondary">

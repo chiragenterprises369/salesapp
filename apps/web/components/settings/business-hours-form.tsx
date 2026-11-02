@@ -101,7 +101,7 @@ export function BusinessHoursForm() {
   };
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="grid items-start gap-4 2xl:grid-cols-2">
       <SettingsCard
         title="Weekly hours"
         description={`Workflows that wait for business hours and lead routing use these times (${me.workspace.timezone}).`}

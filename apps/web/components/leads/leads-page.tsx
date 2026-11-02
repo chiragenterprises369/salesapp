@@ -128,7 +128,7 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
 
   return (
     <LeadsActions open={drawer.open}>
-      <div data-leads-page className="flex min-w-0 flex-col gap-3 px-4 pt-4 pb-4 md:px-6 md:pt-5">
+      <div data-leads-page className="flex min-w-0 flex-col gap-3 pt-4 pb-4 md:pt-5">
         <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <div className="flex min-w-0 items-baseline gap-2">
             <h1 className="text-xl font-semibold">{leadsTitle}</h1>
@@ -243,7 +243,7 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
 export function LeadsPageSkeleton() {
   return (
     <div
-      className="flex flex-col gap-3 px-4 pt-4 md:px-6 md:pt-5"
+      className="flex flex-col gap-3 pt-4 md:pt-5"
       aria-busy="true"
       aria-label="Loading leads"
     >
