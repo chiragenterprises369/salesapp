@@ -61,6 +61,19 @@ export function buildOpenApiDocument(opts: { serverUrl?: string; version?: strin
     WorkflowRunStep: S.WorkflowRunStepSchema,
     Workflow: S.WorkflowSchema,
     MeResponse: S.MeResponseSchema,
+    StoredFile: S.StoredFileSchema,
+    FileRef: S.FileRefSchema,
+    WorkspaceBranding: S.WorkspaceBrandingSchema,
+    CustomDomain: S.CustomDomainSchema,
+    FirebaseClientOptions: S.FirebaseClientOptionsSchema,
+    AndroidRelease: S.AndroidReleaseSchema,
+    Device: S.DeviceSchema,
+    Presence: S.PresenceSchema,
+    AttendanceSession: S.AttendanceSessionSchema,
+    FloorRequest: S.FloorRequestSchema,
+    SeatMap: S.SeatMapSchema,
+    FloorAsset: S.FloorAssetSchema,
+    Company: S.CompanySchema,
   };
   const componentJson = Object.fromEntries(Object.entries(components).map(([name, schema]) => [name, inlineJsonOf(schema)]));
 
@@ -109,7 +122,9 @@ export function buildOpenApiDocument(opts: { serverUrl?: string; version?: strin
                 body: {
                   required: true,
                   content: {
-                    [def.bodyContentType]: { schema: z.object({ file: z.string().describe('binary') }) },
+                    [def.bodyContentType]: {
+                      schema: (def.bodyFields ?? z.object({})).extend({ file: z.string().describe('binary') }),
+                    },
                   },
                 },
               }

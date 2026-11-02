@@ -18,7 +18,10 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PacksModule } from './modules/packs/packs.module.js';
 import { PipelineModule } from './modules/pipeline/pipeline.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
+import { StorageModule } from './modules/storage/storage.module.js';
 import { SuperadminModule } from './modules/superadmin/superadmin.module.js';
+import { PlatformConfigModule } from './modules/platform-config/platform-config.module.js';
+import { FloorsModule } from './modules/floors/floors.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 import { WebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module.js';
@@ -37,6 +40,7 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     EventsModule,
     CommonModule,
     ScheduleModule.forRoot(),
+    StorageModule,
     // backend-core
     AuthModule,
     WorkspaceModule,
@@ -47,6 +51,9 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     DashboardModule,
     CustomizationModule,
     PacksModule,
+    // change #19 PLATFORM stream
+    PlatformConfigModule,
+    FloorsModule,
     // realtime-integrations
     RealtimeModule,
     WebhooksModule,

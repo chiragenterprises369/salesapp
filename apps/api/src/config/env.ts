@@ -41,6 +41,17 @@ const EnvSchema = z.object({
   /** Public CDN base (e.g. Bunny pull zone) for public files only; private files use signed URLs. */
   S3_PUBLIC_BASE_URL: z.string().optional(),
 
+  /** Upload storage (D-065): `local` disk driver in development, `s3` for S3 / MinIO / Bunny (S3_* vars). */
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  /** Root of the local driver; default `<repo root>/.data/uploads` (gitignored). */
+  STORAGE_LOCAL_ROOT: z.string().optional(),
+  /** Lifetime of signed download URLs (GET /files/{id}/url), seconds. */
+  FILE_URL_TTL_SEC: z.coerce.number().int().min(60).max(86_400).default(900),
+  /** CNAME target shown in the custom-domain DNS instructions (D-060), e.g. the load balancer host. */
+  CUSTOM_DOMAIN_CNAME_TARGET: z.string().default('localhost'),
+  /** Extra dev CORS origins: http://localhost:<port> and http://127.0.0.1:<port> for this port range (not in production). */
+  DEV_CORS_PORTS: z.string().regex(/^\d{2,5}-\d{2,5}$/).default('3000-3010'),
+
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().optional(),
   SMTP_USER: z.string().optional(),

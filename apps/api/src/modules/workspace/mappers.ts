@@ -36,6 +36,7 @@ export const USER_SELECT = {
   workingHours: true,
   statusChangedAt: true,
   lastSeenAt: true,
+  isFieldStaff: true,
   createdAt: true,
   role: { select: { kind: true, name: true } },
 } as const;
@@ -55,6 +56,7 @@ export interface UserRow {
   workingHours: unknown;
   statusChangedAt: Date | null;
   lastSeenAt: Date | null;
+  isFieldStaff: boolean;
   createdAt: Date;
   role: { kind: RoleKind; name: string };
 }
@@ -79,6 +81,7 @@ export function toUser(u: UserRow): User {
     workingHours: hours && hours.success ? hours.data : null,
     statusChangedAt: iso(u.statusChangedAt),
     lastSeenAt: iso(u.lastSeenAt),
+    isFieldStaff: u.isFieldStaff,
     createdAt: u.createdAt.toISOString(),
   };
 }

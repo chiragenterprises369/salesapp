@@ -27,6 +27,13 @@ export * from './schemas/dashboard.js';
 export * from './schemas/integration.js';
 export * from './schemas/workflow.js';
 export * from './schemas/platform.js';
+export * from './schemas/storage.js';
+export * from './schemas/branding.js';
+export * from './schemas/app-platform.js';
+export * from './schemas/presence.js';
+export * from './schemas/attendance.js';
+export * from './schemas/floor.js';
+export * from './branding.js';
 
 export * from './workflow/nodes.js';
 export * from './workflow/graph.js';

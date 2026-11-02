@@ -2,7 +2,6 @@ import { Body, Controller, Logger } from '@nestjs/common';
 import {
   API_ROUTES,
   ProfileUpdateSchema,
-  StatusUpdateSchema,
   UserSettingsUpdateSchema,
   type UserSettings,
   type UserSettingsUpdate,
@@ -16,7 +15,7 @@ import { SettingsService } from './settings.service.js';
 import { requireUserId, UsersService } from './users.service.js';
 import { actorOf } from './util.js';
 
-/** Self-service: my settings, profile and status (every signed-in user). */
+/** Self-service: my settings and profile (every signed-in user). PUT /me/status is the presence engine's (realtime stream). */
 @Controller()
 export class MeController {
   private readonly logger = new Logger(MeController.name);
@@ -50,10 +49,5 @@ export class MeController {
   @ApiRoute(API_ROUTES.myProfileUpdate)
   updateProfile(@CurrentAuth() auth: AuthContext, @Body(new ZodPipe(ProfileUpdateSchema)) body: z.output<typeof ProfileUpdateSchema>) {
     return this.users.updateProfile(auth, body);
-  }
-
-  @ApiRoute(API_ROUTES.myStatusUpdate)
-  updateStatus(@CurrentAuth() auth: AuthContext, @Body(new ZodPipe(StatusUpdateSchema)) body: z.output<typeof StatusUpdateSchema>) {
-    return this.users.updateStatus(auth, body.status);
   }
 }

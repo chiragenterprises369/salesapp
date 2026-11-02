@@ -1,7 +1,9 @@
 import { z } from 'zod';
-import { EmployeeStatusSchema, LeadSourceSchema, TARGET_METRICS } from '../enums.js';
+import { EmployeeStatusSchema, LeadSourceSchema, PresenceStatusSchema, TARGET_METRICS } from '../enums.js';
 import { IdSchema, IsoDateTimeSchema } from './common.js';
+import { TeamFloorRefSchema } from './floor.js';
 import { LeadListItemSchema } from './lead.js';
+import { TeamFloorPresenceSchema } from './presence.js';
 import { TaskSchema } from './task.js';
 import { UserSummarySchema } from './workspace.js';
 
@@ -97,6 +99,8 @@ export const TeamFloorEmployeeSchema = z.object({
   callsToday: z.number().int(),
   avgTalkSec: z.number().int(),
   targetPct: z.number().nullable(),
+  /** Server-authoritative live status (D-062). Always set by the presence engine; optional only for older mocks. */
+  presence: TeamFloorPresenceSchema.optional(),
 });
 export type TeamFloorEmployee = z.infer<typeof TeamFloorEmployeeSchema>;
 
@@ -112,6 +116,10 @@ export const TeamFloorSnapshotSchema = z.object({
   employees: z.array(TeamFloorEmployeeSchema).max(200),
   leadsWaiting: z.array(z.object({ leadId: IdSchema, name: z.string(), createdAt: IsoDateTimeSchema })),
   attention: z.array(AttentionItemSchema),
+  /** Which floor to draw (custom published floor or a default template). Always set by the server. */
+  floor: TeamFloorRefSchema.optional(),
+  /** Detailed counts per PresenceStatus (available, on_call, in_meeting, ...). */
+  presenceCounts: z.record(PresenceStatusSchema, z.number().int()).optional(),
   generatedAt: IsoDateTimeSchema,
 });
 export type TeamFloorSnapshot = z.infer<typeof TeamFloorSnapshotSchema>;

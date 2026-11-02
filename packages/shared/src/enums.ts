@@ -213,6 +213,125 @@ export const CELEBRATION_INTENSITIES = ['full', 'subtle', 'off'] as const;
 export const CelebrationIntensitySchema = z.enum(CELEBRATION_INTENSITIES);
 export type CelebrationIntensity = z.infer<typeof CelebrationIntensitySchema>;
 
+// ---------------------------------------------------------------- change #19 (SPEC 29)
+
+/**
+ * Detailed live status (D-062), decided by the server from observed facts. `EmployeeStatus` stays the
+ * coarse status on User/UserSummary (chips, dashboard); map with presenceToEmployeeStatus().
+ */
+export const PRESENCE_STATUSES = ['available', 'on_call', 'in_meeting', 'on_break', 'lunch', 'field_visit', 'away', 'offline'] as const;
+export const PresenceStatusSchema = z.enum(PRESENCE_STATUSES);
+export type PresenceStatus = z.infer<typeof PresenceStatusSchema>;
+
+/** Statuses an employee may choose (PUT /me/status). on_call comes from phone state or the telephony adapter only. */
+export const MANUAL_PRESENCE_STATUSES = ['available', 'in_meeting', 'on_break', 'lunch', 'field_visit', 'away', 'offline'] as const;
+export const ManualPresenceStatusSchema = z.enum(MANUAL_PRESENCE_STATUSES);
+export type ManualPresenceStatus = z.infer<typeof ManualPresenceStatusSchema>;
+
+/** Which observed fact set the current presence. */
+export const PRESENCE_SOURCES = ['session', 'heartbeat', 'manual', 'phone_state', 'call_log', 'telephony', 'attendance', 'working_hours', 'timeout', 'system'] as const;
+export const PresenceSourceSchema = z.enum(PRESENCE_SOURCES);
+export type PresenceSource = z.infer<typeof PresenceSourceSchema>;
+
+const PRESENCE_TO_EMPLOYEE: Record<PresenceStatus, EmployeeStatus> = {
+  available: 'idle',
+  on_call: 'on_call',
+  in_meeting: 'busy',
+  on_break: 'away',
+  lunch: 'away',
+  field_visit: 'busy',
+  away: 'away',
+  offline: 'offline',
+};
+/** Coarse status written to User.status (and UserSummary.status) for a detailed presence. */
+export function presenceToEmployeeStatus(status: PresenceStatus): EmployeeStatus {
+  return PRESENCE_TO_EMPLOYEE[status];
+}
+
+/** App that reported a heartbeat or registered a device. */
+export const CLIENT_KINDS = ['web', 'android'] as const;
+export const ClientKindSchema = z.enum(CLIENT_KINDS);
+export type ClientKind = z.infer<typeof ClientKindSchema>;
+
+/** Where a call came from: the employee's SIM (Android app), a VoIP/telephony adapter, or the mock adapter/simulator. */
+export const CALL_SOURCES = ['sim', 'voip', 'mock'] as const;
+export const CallSourceSchema = z.enum(CALL_SOURCES);
+export type CallSource = z.infer<typeof CallSourceSchema>;
+
+/** Technical result of a call (device call log or telephony). `CallOutcome` stays the rep's disposition. */
+export const CALL_RESULTS = ['connected', 'missed', 'no_answer', 'busy', 'rejected', 'failed'] as const;
+export const CallResultSchema = z.enum(CALL_RESULTS);
+export type CallResult = z.infer<typeof CallResultSchema>;
+
+/** Web component design (D-059), workspace setting `ui.componentStyle`. */
+export const COMPONENT_STYLES = ['standard', 'premium'] as const;
+export const ComponentStyleSchema = z.enum(COMPONENT_STYLES);
+export type ComponentStyle = z.infer<typeof ComponentStyleSchema>;
+
+/** Upload purpose (D-065); decides size and type limits and who may read the file (UPLOAD_LIMITS). */
+export const FILE_PURPOSES = ['logo', 'favicon', 'login_image', 'reference_image', 'floor_model', 'apk', 'call_recording', 'attachment'] as const;
+export const FilePurposeSchema = z.enum(FILE_PURPOSES);
+export type FilePurpose = z.infer<typeof FilePurposeSchema>;
+
+/** public = served without auth at /api/files/p/{id} (branding only); private = signed URLs only. */
+export const FILE_VISIBILITIES = ['private', 'public'] as const;
+export const FileVisibilitySchema = z.enum(FILE_VISIBILITIES);
+export type FileVisibility = z.infer<typeof FileVisibilitySchema>;
+
+export const CUSTOM_DOMAIN_STATUSES = ['pending', 'verified', 'failed'] as const;
+export const CustomDomainStatusSchema = z.enum(CUSTOM_DOMAIN_STATUSES);
+export type CustomDomainStatus = z.infer<typeof CustomDomainStatusSchema>;
+
+export const FLOOR_REQUEST_STATUSES = ['submitted', 'in_progress', 'published', 'rejected'] as const;
+export const FloorRequestStatusSchema = z.enum(FLOOR_REQUEST_STATUSES);
+export type FloorRequestStatus = z.infer<typeof FloorRequestStatusSchema>;
+
+/** Category of a floor reference image (SPEC 29.5). */
+export const FLOOR_IMAGE_CATEGORIES = ['work_area', 'cabin', 'meeting_room', 'reception', 'pantry_lounge', 'floor_plan', 'other'] as const;
+export const FloorImageCategorySchema = z.enum(FLOOR_IMAGE_CATEGORIES);
+export type FloorImageCategory = z.infer<typeof FloorImageCategorySchema>;
+
+/** draft = uploaded, not visible to the company; published = the company's live floor; superseded = an older published version. */
+export const FLOOR_ASSET_STATUSES = ['draft', 'published', 'superseded'] as const;
+export const FloorAssetStatusSchema = z.enum(FLOOR_ASSET_STATUSES);
+export type FloorAssetStatus = z.infer<typeof FloorAssetStatusSchema>;
+
+/**
+ * glb = binary glTF; gltf_zip = zip with one .gltf and its buffers/textures; layout_json = a Vistar floor plan
+ * (FloorPlanSchema): plain JSON an AI chat (e.g. Claude) can write from the reference photos and a prompt
+ * (FLOOR_PLAN_PROMPT); the web builds the 3D office from it with the module kit.
+ */
+export const FLOOR_MODEL_FORMATS = ['glb', 'gltf_zip', 'layout_json'] as const;
+export const FloorModelFormatSchema = z.enum(FLOOR_MODEL_FORMATS);
+export type FloorModelFormat = z.infer<typeof FloorModelFormatSchema>;
+
+/** Seat kinds on a custom floor seat map. */
+export const FLOOR_SEAT_KINDS = ['desk', 'cabin', 'meeting', 'lounge', 'reception'] as const;
+export const FloorSeatKindSchema = z.enum(FLOOR_SEAT_KINDS);
+export type FloorSeatKind = z.infer<typeof FloorSeatKindSchema>;
+
+export const DEVICE_PLATFORMS = ['android', 'web'] as const;
+export const DevicePlatformSchema = z.enum(DEVICE_PLATFORMS);
+export type DevicePlatform = z.infer<typeof DevicePlatformSchema>;
+
+/**
+ * Where in the office someone is (room / zone level, D-062 extension): BLE beacons and Wi-Fi access points
+ * observed by the Android app, a QR or NFC marker scanned at a room door, or the employee's own pick.
+ * GPS is not used indoors (too coarse).
+ */
+export const ZONE_SIGNAL_SOURCES = ['ble', 'wifi', 'qr', 'nfc', 'manual'] as const;
+export const ZoneSignalSourceSchema = z.enum(ZONE_SIGNAL_SOURCES);
+export type ZoneSignalSource = z.infer<typeof ZoneSignalSourceSchema>;
+
+export const OFFICE_MARKER_KINDS = ['ble_beacon', 'wifi_ap', 'qr', 'nfc'] as const;
+export const OfficeMarkerKindSchema = z.enum(OFFICE_MARKER_KINDS);
+export type OfficeMarkerKind = z.infer<typeof OfficeMarkerKindSchema>;
+
+/** Screen the web or app user has open (client-reported with heartbeats; "what are they doing"). */
+export const APP_SCREENS = ['home', 'leads', 'lead_detail', 'board', 'calls', 'call', 'inbox', 'conversation', 'tasks', 'team_floor', 'attendance', 'reports', 'settings', 'other'] as const;
+export const AppScreenSchema = z.enum(APP_SCREENS);
+export type AppScreen = z.infer<typeof AppScreenSchema>;
+
 /** Targets (monthly). Prisma enum TargetMetric must match. */
 export const TARGET_METRICS = ['revenue_inr', 'deals_won', 'calls', 'leads_converted'] as const;
 export const TargetMetricSchema = z.enum(TARGET_METRICS);
