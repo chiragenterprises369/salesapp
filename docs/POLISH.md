@@ -47,3 +47,4 @@ Source: `docs/screenshots/leads-neon/CRITIQUE.md` (final set, iteration 3 of 3; 
 - Mock data marks about a third of the leads overdue, so red leading edges show on many cards in screenshots. Real tenants will see fewer; no skin change planned.
 - The plate's floor grid shows only below the shortest column; a short fade at the column foot would show more of it.
 - Aurora/Light: the blurred plate reads as a soft grey-blue wash; a slightly warmer light plate would feel closer to the reference's "space" look.
+- Drop frames (`fps.json`, GeForce GT 710): the drag itself holds 60 fps (p95 16.8 ms), but the drop has a few long frames (p95 50 ms, max 183 ms) while the card lands and both columns re-render. Profile the drop commit with glow on.
