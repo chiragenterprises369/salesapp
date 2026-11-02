@@ -79,7 +79,7 @@ export function ThemeDefaultsForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="grid items-start gap-4 2xl:grid-cols-2">
       <SettingsCard title="Theme" description="New members start with this theme. People who already picked a theme keep their choice.">
         <ThemeModeRadio variant="cards" label="Default theme" value={theme} onValueChange={setTheme} disabled={!!reason} />
         {theme === 'scheduled' && (

@@ -5,6 +5,7 @@ import { formatDistanceStrict } from 'date-fns';
 import { AlertCircle, CalendarClock, ListTodo, Phone, RotateCw, Sparkles, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AndroidAppCard } from '@/components/common/android-app-card';
 import { EmptyState } from '@/components/common/empty-state';
 import { formatDateTimeIn, formatTimeIn } from '@/components/common/time';
 import { useNow } from '@/components/common/use-now';
@@ -38,10 +39,10 @@ export function DueChip({ dueAt, now, timeZone }: { dueAt: string | null; now: n
   return <Chip tone="neutral">{sameDay || now === 0 ? formatTimeIn(dueAt, timeZone) : formatDateTimeIn(dueAt, timeZone)}</Chip>;
 }
 
-export function Section({ title, count, icon, children }: { title: string; count?: number; icon: ReactNode; children: ReactNode }) {
+export function Section({ title, count, icon, children, className }: { title: string; count?: number; icon: ReactNode; children: ReactNode; className?: string }) {
   const id = `sec-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`;
   return (
-    <Card>
+    <Card className={className}>
       <section aria-labelledby={id}>
         <h2 id={id} className="flex items-center gap-2 px-4 pt-4 pb-2 text-sm font-semibold text-fg [&_svg]:size-4 [&_svg]:text-fg-secondary">
           {icon}
@@ -174,7 +175,7 @@ export function TodayView() {
         ))}
       </dl>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 3xl:grid-cols-4">
         <Section title="Calls to make" count={today.callsToMake.length} icon={<Phone />}>
           <TaskList tasks={today.callsToMake} phones={phones} now={now} timeZone={tz} empty="No calls due. New call tasks appear here." />
         </Section>
@@ -243,6 +244,8 @@ export function TodayView() {
           )}
         </div>
       </Section>
+
+      <AndroidAppCard />
     </div>
   );
 }
@@ -285,7 +288,7 @@ function TodaySkeleton() {
           <Skeleton key={i} className="h-16 rounded-lg" />
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 3xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-48 rounded-lg" />
         ))}

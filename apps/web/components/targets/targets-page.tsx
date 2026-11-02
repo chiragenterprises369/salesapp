@@ -113,7 +113,7 @@ export function TargetsPage() {
 
   return (
     <RequirePermission anyOf={['targets.read']}>
-      <div className="flex max-w-7xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <PageHeader
           title="Targets"
           description={me?.role.dataScope === 'team' ? 'Monthly revenue, deals, calls and conversion targets for you and your team.' : 'Monthly revenue, deals, calls and conversion targets for each person and team.'}

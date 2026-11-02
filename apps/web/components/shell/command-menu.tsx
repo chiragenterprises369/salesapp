@@ -98,11 +98,13 @@ export function SearchTrigger() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="focus-ring hidden h-8 w-full max-w-md min-w-0 items-center gap-2 rounded-md border border-input bg-surface-2 px-2.5 text-left text-sm text-muted-strong transition-colors hover:border-fg-secondary sm:flex"
+        className="focus-ring hidden h-8 w-full max-w-md min-w-0 items-center gap-2 rounded-md border border-input bg-surface-2 px-2.5 text-left text-sm text-muted-strong transition-colors hover:border-fg-secondary sm:flex premium:h-9 premium:max-w-none premium:rounded-lg premium:bg-surface premium:shadow-card"
       >
         <Search aria-hidden className="size-4 shrink-0" />
-        <span className="flex-1 truncate">Search or jump to</span>
-        <kbd className="rounded-xs border border-border bg-surface px-1.5 font-sans text-2xs text-muted">Ctrl K</kbd>
+        <span className="flex-1 truncate">
+          Search or jump to<span className="hidden premium:inline"> pages, settings and actions</span>
+        </span>
+        <kbd className="rounded-xs border border-border bg-surface px-1.5 font-sans text-2xs text-muted premium:bg-surface-2 premium:font-medium premium:text-muted-strong">Ctrl K</kbd>
       </button>
       <button
         type="button"

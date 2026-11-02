@@ -22,6 +22,7 @@ export function Tooltip({
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
+          data-slot="tooltip"
           side={side}
           sideOffset={8}
           className={cn('z-50 rounded-md bg-fg px-2 py-1 text-xs font-medium text-bg shadow-overlay data-[state=delayed-open]:animate-fade-in', className)}

@@ -2,7 +2,7 @@
 
 import { formatNumber, type AuditLog, type ChipTone } from '@vistar/shared';
 import { WHATSAPP_TEMPLATE_FIXTURES } from '@vistar/shared/fixtures';
-import { ImageUp, Route, ScrollText } from 'lucide-react';
+import { Route, ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import { columnClass, DataTable, type DataColumn } from '@/components/common/data-table';
 import { formatDateTimeIn } from '@/components/common/time';
@@ -21,29 +21,6 @@ import { SettingsCard } from './settings-card';
  */
 function ViewOnly() {
   return <Chip tone="grey">View only for now</Chip>;
-}
-
-export function BrandingSettings() {
-  const me = useMe()!;
-  return (
-    <SettingsCard title="Logo and colour" description="Used on the sidebar, emails and the Employee app icon.">
-      <div className="mb-3">
-        <ViewOnly />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border-strong bg-surface-2 px-4 py-8 text-center">
-          <ImageUp aria-hidden className="size-5 text-fg-secondary" />
-          <p className="text-sm font-medium text-fg">{me.workspace.logoUrl ? 'Logo uploaded' : 'No logo yet'}</p>
-          <p className="text-xs text-muted">PNG or SVG, square, up to 1 MB. Uploading arrives with file storage.</p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-fg-secondary">Accent colour</span>
-          <span className="text-sm text-fg">{me.workspace.accentColor ?? 'Vistar indigo (default)'}</span>
-          <span className="text-xs text-muted">Custom colours are adjusted automatically so text stays readable in light and dark themes.</span>
-        </div>
-      </div>
-    </SettingsCard>
-  );
 }
 
 export function TagsSettings() {
@@ -164,7 +141,7 @@ const AUDIT_ACTION_LABEL: Record<string, string> = {
 
 const fromTo = (v: unknown) => {
   const d = v as { from?: unknown; to?: unknown } | null;
-  return d && typeof d === 'object' && 'to' in d ? `${String(d.from ?? 'none')} → ${String(d.to)}` : null;
+  return d && typeof d === 'object' && 'to' in d ? `${String(d.from ?? 'none')} â†’ ${String(d.to)}` : null;
 };
 
 /** One readable line from the (PII-masked) diff. */
@@ -179,7 +156,7 @@ function auditItem(a: AuditLog): string {
   }
   for (const key of ['name', 'email', 'provider', 'key', 'reason'] as const) if (typeof d[key] === 'string') parts.push(String(d[key]));
   if (typeof d.until === 'string') parts.push(`until ${formatDateTimeIn(d.until, 'Asia/Kolkata')}`);
-  return parts.length ? parts.slice(0, 2).join(' · ') : a.entityType.replace(/_/g, ' ');
+  return parts.length ? parts.slice(0, 2).join(' Â· ') : a.entityType.replace(/_/g, ' ');
 }
 
 const ACTOR_TONE: Record<AuditLog['actorType'], ChipTone> = { user: 'neutral', super_admin: 'indigo', system: 'grey', api_key: 'blue', workflow: 'grey' };
@@ -217,7 +194,7 @@ export function AuditSettings() {
             </TableCell>
             <TableCell className="font-medium text-fg">{AUDIT_ACTION_LABEL[a.action] ?? a.action}</TableCell>
             <TableCell className={`${columnClass(AUDIT_COLUMNS[3]!)} max-w-sm truncate text-fg-secondary`}>{auditItem(a)}</TableCell>
-            <TableCell className={`${columnClass(AUDIT_COLUMNS[4]!)} font-mono text-xs text-muted`}>{a.ip ?? '–'}</TableCell>
+            <TableCell className={`${columnClass(AUDIT_COLUMNS[4]!)} font-mono text-xs text-muted`}>{a.ip ?? 'â€“'}</TableCell>
           </TableRow>
         ))}
       </DataTable>

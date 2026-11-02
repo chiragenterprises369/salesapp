@@ -14,7 +14,7 @@ export default async function CompanyPackPage({
 }) {
   const { pack, page } = await params;
   return (
-    <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col px-4 pt-4 pb-8 md:px-6 md:pt-5">
+    <div className="flex w-full min-w-0 flex-col pb-4">
       <PackPage packKey={pack} segments={page} panel="company" />
     </div>
   );

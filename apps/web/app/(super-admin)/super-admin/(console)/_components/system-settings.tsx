@@ -8,6 +8,8 @@ import { Avatar } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { ComponentDesignRadio } from '@/components/settings/component-design';
+import { usePlatformComponentStyle, useSetPlatformComponentStyle } from '@/lib/branding/platform-style';
 import { useSession } from '@/lib/session/session';
 
 const COLUMNS: DataColumn[] = [
@@ -25,13 +27,26 @@ const POLICY = [
   { label: 'Two-step verification', value: 'Required for every admin' },
 ];
 
-/** System settings: session policy (read-only constants) and platform admins (you, until Phase 9 lists all). */
+/** System settings: console design, session policy (read-only constants) and platform admins (you, until Phase 9 lists all). */
 export function SystemSettings() {
   const session = useSession();
   const admin = session?.audience === 'platform' ? session.admin : null;
+  const consoleStyle = usePlatformComponentStyle();
+  const setConsoleStyle = useSetPlatformComponentStyle();
   return (
-    <div className="flex max-w-7xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <PageHeader title="System settings" description="Session security for the console and the people who can use it." className="mb-1" />
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle>Console design</CardTitle>
+            <CardDescription>Standard or Premium components for this console on this browser. Each company chooses its own design in its Settings.</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ComponentDesignRadio label="Console component design" value={consoleStyle} onValueChange={setConsoleStyle} />
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader>
           <div>

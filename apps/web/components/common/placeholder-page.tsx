@@ -46,7 +46,7 @@ export function PlaceholderPage({
 }) {
   return (
     <RequirePermission anyOf={anyOf}>
-      <div className="max-w-6xl">
+      <div>
         <PageHeader title={title} description={description} meta={meta} />
         <EmptyState
           icon={<NavIcon name={icon} />}

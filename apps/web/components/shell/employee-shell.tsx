@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/button';
 import { StatusChip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
 import { useNavExtensions } from '@/lib/packs';
+import { brandName } from '@/lib/branding/workspace-branding';
 import { useMe } from '@/lib/session/session';
+import { BrandMark } from './brand-mark';
 import { ImpersonationBanner } from './impersonation-banner';
-import { LogoMark } from './logo';
 import { NavIcon } from './nav-icon';
 import { employeeBottomNav, isActivePath } from './nav-utils';
 import { PageTransitionMain } from './page-transition';
@@ -22,7 +23,6 @@ import { UserMenu } from './user-menu';
 
 /** Pages reached from "More" (incl. pack pages at /me/x/...) keep the More tab active. */
 const MORE_PATHS = ['/me/more', '/me/x', ...NAV_EMPLOYEE_MORE.map((i) => i.href)];
-const WIDE_PATHS = ['/me/leads', '/me/team-floor'];
 
 function useActive() {
   const pathname = usePathname();
@@ -39,23 +39,23 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
   const { employeeBottom } = useNavExtensions();
   const items = useMemo(() => employeeBottomNav(me, employeeBottom(NAV_EMPLOYEE_BOTTOM)), [me, employeeBottom]);
   const isActive = useActive();
-  const pathname = usePathname();
   const [status] = useMyStatus();
   const isManager = me.role.kind === 'manager';
-  // Board columns and the floor need the full width; reading pages stay at a comfortable measure.
-  const wide = WIDE_PATHS.some((p) => isActivePath(pathname, p));
 
   return (
     <div className="relative isolate flex h-dvh flex-col overflow-hidden">
       <SpaceBackdrop />
       <ImpersonationBanner />
       <div className="flex min-h-0 flex-1">
-        <aside className="relative isolate hidden w-56 shrink-0 flex-col border-r border-border bg-surface lg:flex spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+        <aside
+          data-slot="sidebar"
+          className="relative isolate hidden w-56 shrink-0 flex-col border-r border-border bg-surface lg:flex spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome"
+        >
           <GlassSheen />
           <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
-            <LogoMark />
+            <BrandMark />
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">{me.workspace.name}</span>
+              <span className="block truncate text-sm font-semibold">{brandName(me.workspace)}</span>
               <span className="block truncate text-2xs text-muted">My workspace</span>
             </span>
           </div>
@@ -67,6 +67,7 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
                   <li key={item.id}>
                     <Link
                       href={item.href}
+                      data-slot="nav-item"
                       aria-current={active ? 'page' : undefined}
                       className="focus-ring flex h-10 items-center gap-3 rounded-md px-3 text-sm text-fg-secondary transition-colors hover:bg-surface-3 hover:text-fg aria-[current=page]:bg-accent-soft aria-[current=page]:font-medium aria-[current=page]:text-accent-soft-fg"
                     >
@@ -91,10 +92,13 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="relative isolate flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] lg:px-6 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+          <header
+            data-slot="topbar"
+            className="relative isolate flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] lg:px-6 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome"
+          >
             <GlassSheen />
             <Link href="/me" aria-label="Home" className="focus-ring rounded-md lg:hidden">
-              <LogoMark />
+              <BrandMark />
             </Link>
             <span className="ml-1.5 min-w-0 flex-1 truncate text-sm font-semibold lg:ml-0">
               <span className="lg:hidden">{me.user.name.split(' ')[0]}</span>
@@ -112,7 +116,8 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
           </header>
 
           <PageTransitionMain className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
-            <div className={cn('mx-auto w-full px-4 py-4 sm:px-6 lg:px-8 lg:py-6', !wide && 'max-w-5xl')}>{children}</div>
+            {/* Full width on every screen (D-066): pages lay out more columns instead of leaving side bands. */}
+            <div className="w-full px-4 py-4 sm:px-6 lg:px-8 lg:py-6">{children}</div>
           </PageTransitionMain>
 
           <nav aria-label="Main" className="relative isolate shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden spatial:mx-2 spatial:mb-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">

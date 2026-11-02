@@ -198,7 +198,7 @@ export function TasksPage() {
 
   return (
     <RequirePermission anyOf={['tasks.read']}>
-      <div className="flex max-w-6xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <PageHeader
           title="Tasks"
           description="Follow-ups and to-dos for you and your team, sorted by due time."

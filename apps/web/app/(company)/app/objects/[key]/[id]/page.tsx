@@ -11,7 +11,7 @@ export default async function ObjectRecordPage({
 }) {
   const { key, id } = await params;
   return (
-    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col px-4 pt-4 pb-8 md:px-6 md:pt-5">
+    <div className="flex w-full min-w-0 flex-col pb-4">
       <RecordDetail objectKey={key} recordId={id} />
     </div>
   );

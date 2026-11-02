@@ -67,7 +67,7 @@ export function WorkflowsList() {
 
   return (
     <RequirePermission anyOf={['workflows.read']}>
-      <div className="max-w-6xl">
+      <div>
         <PageHeader
           title="Workflows"
           description="Automations that reply, assign, follow up and create tasks when something happens to a lead."

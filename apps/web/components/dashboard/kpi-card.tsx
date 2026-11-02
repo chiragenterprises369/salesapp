@@ -33,7 +33,7 @@ export function KpiCard({ label, kpi, format, lowerIsBetter, series = 'chart-1' 
   return (
     <Card className="flex min-w-0 flex-col gap-1 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="truncate text-xs font-medium text-muted">{label}</h3>
+        <h3 data-slot="kpi-label" className="truncate text-xs font-medium text-muted">{label}</h3>
         {delta !== null && Number.isFinite(delta) && (
           <Chip
             tone={good ? 'green' : 'red'}
@@ -44,7 +44,9 @@ export function KpiCard({ label, kpi, format, lowerIsBetter, series = 'chart-1' 
           </Chip>
         )}
       </div>
-      <AnimatedNumber value={kpi.value} format={format} className="text-2xl font-semibold" />
+      <div data-slot="kpi-value" className="text-2xl font-semibold">
+        <AnimatedNumber value={kpi.value} format={format} />
+      </div>
       <div aria-hidden className="-mx-1 h-9">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart

@@ -630,7 +630,7 @@ function LeadDetailBody({
       <div className="flex flex-col gap-5">
         {header}
         <div className="lg:hidden">{stageBlock}</div>
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] 3xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
           <div className="flex flex-col gap-5">{profile}</div>
           <div className="flex min-w-0 flex-col gap-5 rounded-lg border border-border bg-surface p-4 shadow-card">
             <div className="hidden lg:block">{stageBlock}</div>

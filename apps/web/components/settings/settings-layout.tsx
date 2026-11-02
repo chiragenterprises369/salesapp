@@ -8,10 +8,12 @@ import { RequirePermission } from '@/components/auth/require-permission';
 import { NativeSelect } from '@/components/common/native-select';
 import { PageHeader } from '@/components/common/page-header';
 import { NavIcon } from '@/components/shell/nav-icon';
-import { settingsNav } from '@/components/shell/nav-utils';
+import { settingsNav, withChange19Nav } from '@/components/shell/nav-utils';
 import { useMe } from '@/lib/session/session';
 
-const SETTINGS_ITEM = NAV_COMPANY.flatMap((g) => g.items).find((i) => i.id === 'settings')!;
+const SETTINGS_ITEM = withChange19Nav(NAV_COMPANY)
+  .flatMap((g) => g.items)
+  .find((i) => i.id === 'settings')!;
 
 /** Nav child for a settings page (title, permission). */
 export function settingsChild(id: string): NavItem {
@@ -32,7 +34,8 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
 
   return (
     <RequirePermission anyOf={SETTINGS_ITEM.anyOf ?? []}>
-      <div className="flex max-w-6xl flex-col gap-5 lg:flex-row lg:gap-8">
+      {/* Fills the main area on wide screens (D-066): the nav column stays fixed, the page grows. */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:gap-8">
         <aside className="shrink-0 lg:w-52">
           <p className="mb-2 hidden px-2 text-xs font-medium text-muted-strong lg:block" id="settings-nav-label">
             Settings
@@ -45,6 +48,7 @@ export function SettingsLayout({ children }: { children: ReactNode }) {
                   <li key={item.id}>
                     <Link
                       href={item.href}
+                      data-slot="subnav-item"
                       aria-current={active ? 'page' : undefined}
                       className="focus-ring flex h-8 items-center gap-2.5 rounded-md px-2 text-sm text-fg-secondary transition-colors hover:bg-surface-3 hover:text-fg aria-[current=page]:bg-accent-soft aria-[current=page]:font-medium aria-[current=page]:text-accent-soft-fg"
                     >

@@ -40,6 +40,7 @@ export function Segmented<T extends string>({
       role="radiogroup"
       aria-label={label}
       onKeyDown={onKeyDown}
+      data-slot="segmented"
       className={cn(
         'inline-flex h-8 shrink-0 items-center rounded-md border border-border bg-surface-2 p-0.5',
         className,

@@ -59,7 +59,7 @@ export function WorkspaceForm() {
         description="Shown to your team and on messages that use the workspace name."
         footer={<SaveBar dirty={dirty} saving={saving} readOnlyReason={reason} onDiscard={() => setValues(saved)} />}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
           <FormField label="Company name" error={error ?? undefined} required>
             <Input value={values.name} maxLength={80} disabled={!!reason} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} />
           </FormField>

@@ -103,7 +103,8 @@ export function PersonalPreferences({ touch = false }: { touch?: boolean }) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    // Two columns of cards on wide screens (D-066).
+    <div className="grid items-start gap-4 2xl:grid-cols-2">
       <SettingsCard title="Theme" description="Applies on every device you sign in on.">
         <ThemeModeRadio variant="cards" label="Theme" value={preference.mode} onValueChange={(mode) => void setPreference({ mode })} />
         {preference.mode === 'scheduled' && (
