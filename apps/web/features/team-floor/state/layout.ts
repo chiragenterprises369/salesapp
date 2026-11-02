@@ -29,6 +29,20 @@ export interface HomeSlot extends Spot {
   deskY: number;
   /** Screen anchor (office GLB node `screen:<id>`), null when the place has no monitor. */
   screen: string | null;
+  /** Room (zone on a custom floor) the place is in; null for overflow spots. */
+  room: string | null;
+}
+
+/** A room of a custom floor with the places a visitor can take there (zone tracking, SPEC 29.11). */
+export interface ZoneArea {
+  id: string;
+  name: string;
+  type: TemplateRoom['type'];
+  outline: [number, number][];
+  cx: number;
+  cz: number;
+  /** Meeting chairs first, then standing spots inside the room (never someone's home). */
+  spots: Spot[];
 }
 
 export interface GraphNode {
@@ -76,19 +90,25 @@ export interface FloorLayout {
   /** Warm light pools for the evening look (max 6). */
   lights: { x: number; y: number; z: number }[];
   wallHeights: { back: number; front: number };
+  /** Rooms with visitor spots (custom floors only; empty on the default templates). */
+  zones: ZoneArea[];
+  zoneIndex: Map<string, number>;
 }
 
 const RAD = Math.PI / 180;
 /** Order in which home seats are handed out after the cabin and reception rules. */
 const HOME_ORDER: SeatKind[] = ['desk', 'hot_desk', 'reception', 'cabin'];
+/** Most visitor spots per zone. */
+const ZONE_SPOTS_MAX = 12;
 
 const cache = new Map<string, FloorLayout>();
 
 /** Memoised layout for a template and head count (deterministic). */
 export function getLayout(template: FloorTemplate, people: number): FloorLayout {
-  const key = `${template.id}:${template.seats.length}:${Math.max(0, Math.floor(people))}`;
+  const key = `${template.custom?.key ?? template.id}:${template.seats.length}:${Math.max(0, Math.floor(people))}`;
   let layout = cache.get(key);
   if (!layout) {
+    if (cache.size > 24) cache.clear();
     layout = buildLayout(template, people);
     cache.set(key, layout);
   }
@@ -112,11 +132,11 @@ export function buildLayout(t: FloorTemplate, people: number): FloorLayout {
     for (const s of t.seats) {
       if (s.kind !== kind) continue;
       const work = s.work ?? s.pos;
-      homes.push({ ...spot(s), kind, deskX: work[0], deskZ: work[1], deskY: workY(kind), screen: s.screen ?? null });
+      homes.push({ ...spot(s), kind, deskX: work[0], deskZ: work[1], deskY: workY(kind), screen: s.screen ?? null, room: s.room });
     }
   }
   const seatHomes = homes.length;
-  for (const s of t.standing) homes.push({ ...spot(s), kind: 'standing', deskX: s.pos[0], deskZ: s.pos[1], deskY: 1.05, screen: null });
+  for (const s of t.standing) homes.push({ ...spot(s), kind: 'standing', deskX: s.pos[0], deskZ: s.pos[1], deskY: 1.05, screen: null, room: roomAt(t.rooms, s.pos[0], s.pos[1]) });
 
   const obstacles: Obstacle[] = t.obstacles.map((o) =>
     o.kind === 'circle'
@@ -176,14 +196,14 @@ export function buildLayout(t: FloorTemplate, people: number): FloorLayout {
       if (taken.some(([x, z]) => Math.hypot(x - c.x, z - c.z) < 0.6)) continue;
       taken.push([c.x, c.z]);
       const facing = Math.atan2(hx - c.x, hz - c.z);
-      homes.push({ id: `overflow-${k}`, x: c.x, z: c.z, facing, seated: false, approach: c.node.id, callFacing: null, kind: 'overflow', deskX: c.x, deskZ: c.z, deskY: 1.05, screen: null });
+      homes.push({ id: `overflow-${k}`, x: c.x, z: c.z, facing, seated: false, approach: c.node.id, callFacing: null, kind: 'overflow', deskX: c.x, deskZ: c.z, deskY: 1.05, screen: null, room: null });
       k++;
     }
     // Still short (very large teams on a small template): stack on the last spots.
     for (; k < need; k++) {
       const base = homes[seatHomes + (k % Math.max(1, homes.length - seatHomes))] ?? homes[0]!;
       const ang = (k * 2.399) % (Math.PI * 2);
-      homes.push({ ...base, id: `overflow-${k}`, x: base.x + Math.cos(ang) * 0.35, z: base.z + Math.sin(ang) * 0.35, kind: 'overflow', seated: false, screen: null });
+      homes.push({ ...base, id: `overflow-${k}`, x: base.x + Math.cos(ang) * 0.35, z: base.z + Math.sin(ang) * 0.35, kind: 'overflow', seated: false, screen: null, room: null });
     }
   }
 
@@ -191,6 +211,7 @@ export function buildLayout(t: FloorTemplate, people: number): FloorLayout {
   const lounge = t.seats.filter((s) => s.kind === 'lounge').map(spot);
   const cabin = t.seats.find((s) => s.kind === 'cabin');
   const lights = t.lamps.slice(0, 6).map((l) => ({ x: l.pos[0], y: l.pos[1], z: l.pos[2] }));
+  const zones = t.custom ? zoneAreas(t, graph, walls, obstacles, homes) : [];
 
   return {
     template: t,
@@ -214,7 +235,127 @@ export function buildLayout(t: FloorTemplate, people: number): FloorLayout {
     walls,
     lights,
     wallHeights: t.wallHeights,
+    zones,
+    zoneIndex: new Map(zones.map((z, i) => [z.id, i])),
   };
+}
+
+/** Room (custom floor zone) that contains a point; rooms listed later win (they are drawn on top). */
+export function roomAt(rooms: readonly TemplateRoom[], x: number, z: number): string | null {
+  for (let i = rooms.length - 1; i >= 0; i--) {
+    const r = rooms[i]!;
+    if (!r.id.startsWith('__') && insidePolygon(x, z, r.outline)) return r.id;
+  }
+  return null;
+}
+
+export function polygonCentroid(poly: readonly [number, number][]): [number, number] {
+  let a = 0;
+  let cx = 0;
+  let cz = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, zi] = poly[i]!;
+    const [xj, zj] = poly[j]!;
+    const f = xj * zi - xi * zj;
+    a += f;
+    cx += (xi + xj) * f;
+    cz += (zi + zj) * f;
+  }
+  if (Math.abs(a) < 1e-6) {
+    const n = Math.max(1, poly.length);
+    return [poly.reduce((s, p) => s + p[0], 0) / n, poly.reduce((s, p) => s + p[1], 0) / n];
+  }
+  return [cx / (3 * a), cz / (3 * a)];
+}
+
+/** Straight line between two floor points that keeps clear of walls and furniture (endpoint furniture ignored). */
+export function lineClear(
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+  walls: readonly [number, number, number, number][],
+  obstacles: readonly Obstacle[],
+  clearance = 0.15,
+): boolean {
+  for (const [wx, wz, vx, vz] of walls) {
+    if (segmentsIntersect(ax, az, bx, bz, wx, wz, vx, vz)) return false;
+    if (pointSegment(wx, wz, ax, az, bx, bz) < clearance || pointSegment(vx, vz, ax, az, bx, bz) < clearance) return false;
+  }
+  const len = Math.hypot(bx - ax, bz - az);
+  const steps = Math.max(1, Math.ceil(len / 0.2));
+  for (const o of obstacles) {
+    if (obstacleDistance(o, ax, az) < 0.05 || obstacleDistance(o, bx, bz) < 0.05) continue;
+    // Cheap reject: obstacle far from the segment's bounding box.
+    const reach = Math.max(o.hw, o.hd) + clearance;
+    if (o.x < Math.min(ax, bx) - reach || o.x > Math.max(ax, bx) + reach || o.z < Math.min(az, bz) - reach || o.z > Math.max(az, bz) + reach) continue;
+    for (let s = 0; s <= steps; s++) {
+      const k = s / steps;
+      if (obstacleDistance(o, ax + (bx - ax) * k, az + (bz - az) * k) < clearance) return false;
+    }
+  }
+  return true;
+}
+
+export function segmentsIntersect(ax: number, az: number, bx: number, bz: number, cx: number, cz: number, dx: number, dz: number) {
+  const o = (px: number, pz: number, qx: number, qz: number, rx: number, rz: number) => Math.sign((qx - px) * (rz - pz) - (qz - pz) * (rx - px));
+  return o(ax, az, bx, bz, cx, cz) * o(ax, az, bx, bz, dx, dz) < 0 && o(cx, cz, dx, dz, ax, az) * o(cx, cz, dx, dz, bx, bz) < 0;
+}
+
+/** Nearest graph node with a clear line to the point (else the nearest node). */
+export function approachNode(graph: readonly GraphNode[], x: number, z: number, walls: readonly [number, number, number, number][], obstacles: readonly Obstacle[]): GraphNode | null {
+  const ranked = graph.map((n) => ({ n, d: Math.hypot(n.x - x, n.z - z) })).sort((a, b) => a.d - b.d);
+  for (const { n } of ranked.slice(0, 10)) if (lineClear(x, z, n.x, n.z, walls, obstacles, 0.1)) return n;
+  return ranked[0]?.n ?? null;
+}
+
+/** Visitor spots per room of a custom floor: meeting chairs, then free standing spots near the room centre. */
+function zoneAreas(t: FloorTemplate, graph: GraphNode[], walls: [number, number, number, number][], obstacles: Obstacle[], homes: HomeSlot[]): ZoneArea[] {
+  const taken: [number, number][] = [...homes.map((h) => [h.x, h.z] as [number, number]), ...t.seats.map((s) => s.pos)];
+  const out: ZoneArea[] = [];
+  for (const room of t.rooms) {
+    if (room.id.startsWith('__')) continue;
+    const [cx, cz] = polygonCentroid(room.outline);
+    const spots: Spot[] = [];
+    for (const s of t.seats) {
+      if (s.room !== room.id || s.kind !== 'meeting' || spots.length >= ZONE_SPOTS_MAX) continue;
+      spots.push({ id: `zone:${room.id}:${s.id}`, x: s.pos[0], z: s.pos[1], facing: s.facing * RAD, seated: s.sit, approach: s.approach, callFacing: null });
+    }
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let z0 = Infinity;
+    let z1 = -Infinity;
+    for (const [x, z] of room.outline) {
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      z0 = Math.min(z0, z);
+      z1 = Math.max(z1, z);
+    }
+    const cands: { x: number; z: number; d: number }[] = [];
+    for (let z = z0 + 0.5; z <= z1 - 0.4; z += 0.6) {
+      for (let x = x0 + 0.5; x <= x1 - 0.4; x += 0.6) {
+        if (!insidePolygon(x, z, room.outline)) continue;
+        if (obstacles.some((o) => obstacleDistance(o, x, z) < 0.4)) continue;
+        if (walls.some(([ax, az, bx, bz]) => pointSegment(x, z, ax, az, bx, bz) < 0.45)) continue;
+        cands.push({ x, z, d: Math.hypot(x - cx, z - cz) });
+      }
+    }
+    cands.sort((a, b) => a.d - b.d || a.x - b.x || a.z - b.z);
+    const mine: [number, number][] = spots.map((s) => [s.x, s.z]);
+    for (const c of cands) {
+      if (spots.length >= ZONE_SPOTS_MAX) break;
+      if (taken.some(([x, z]) => Math.hypot(x - c.x, z - c.z) < 0.55)) continue;
+      if (mine.some(([x, z]) => Math.hypot(x - c.x, z - c.z) < 0.75)) continue;
+      const node = approachNode(graph, c.x, c.z, walls, obstacles);
+      if (!node) continue;
+      mine.push([c.x, c.z]);
+      // Face the room centre (the table in a meeting room), or the camera side when at the centre.
+      const facing = c.d > 0.3 ? Math.atan2(cx - c.x, cz - c.z) : (t.camera.yawDeg * Math.PI) / 180;
+      spots.push({ id: `zone:${room.id}:s${spots.length}`, x: c.x, z: c.z, facing, seated: false, approach: node.id, callFacing: null });
+    }
+    if (spots.length) out.push({ id: room.id, name: room.name, type: room.type, outline: room.outline, cx, cz, spots });
+  }
+  return out;
 }
 
 function wallSolids(t: FloorTemplate): [number, number, number, number][] {

@@ -154,6 +154,10 @@ export class AgentSystem {
         return this.layout.booths[loc.index] ?? null;
       case 'lounge':
         return this.layout.lounge[loc.index] ?? null;
+      case 'zone': {
+        const zone = this.layout.zones[this.layout.zoneIndex.get(loc.zoneId) ?? -1];
+        return zone?.spots[loc.index] ?? this.layout.homes[emp.desk] ?? null;
+      }
       case 'gone':
         return null;
     }
@@ -412,6 +416,7 @@ function sameLocation(a: FloorLocation, b: FloorLocation) {
   if (a.kind !== b.kind) return false;
   if (a.kind === 'booth' && b.kind === 'booth') return a.index === b.index;
   if (a.kind === 'lounge' && b.kind === 'lounge') return a.index === b.index;
+  if (a.kind === 'zone' && b.kind === 'zone') return a.zoneId === b.zoneId && a.index === b.index;
   return true;
 }
 

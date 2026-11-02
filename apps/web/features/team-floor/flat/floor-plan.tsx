@@ -22,6 +22,8 @@ export interface FloorPlanProps {
   attention: Map<string, AttentionItem[]>;
   selectedId: string | null;
   onOpen: (id: string) => void;
+  /** Optional: also called with the person's id on a click (FLOOR-WORKSPACE person panel). */
+  onPersonSelect?: (userId: string) => void;
   idPrefix: string;
   className?: string;
 }
@@ -33,8 +35,12 @@ const LEGEND = [
   ['bg-status-grey-fg', 'Break or offline'],
 ] as const;
 
-export function FloorPlan({ state, template, attention, selectedId, onOpen, idPrefix, className }: FloorPlanProps) {
+export function FloorPlan({ state, template, attention, selectedId, onOpen: openPerson, onPersonSelect, idPrefix, className }: FloorPlanProps) {
   const theme = useDocumentTheme();
+  const onOpen = (id: string) => {
+    openPerson(id);
+    onPersonSelect?.(id);
+  };
   const byId = (id: string | null) => (id ? (state.employees[state.index[id] ?? -1] ?? null) : null);
   const inBooths = state.booths.map(byId).filter((e): e is FloorEmployee => !!e);
   const waiting = state.leadsWaiting.length + state.leadsWaitingExtra;
@@ -44,10 +50,12 @@ export function FloorPlan({ state, template, attention, selectedId, onOpen, idPr
       <figure className="m-0 overflow-hidden rounded-lg border border-border bg-surface shadow-card">
         <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-3 py-2">
           <span className="text-xs font-semibold text-fg">{template.name}</span>
-          <span className="flex items-center gap-1 text-xs text-muted">
-            <Headphones aria-hidden className="size-3.5" />
-            {inBooths.length}/{state.booths.length} booths in use
-          </span>
+          {state.booths.length > 0 && (
+            <span className="flex items-center gap-1 text-xs text-muted">
+              <Headphones aria-hidden className="size-3.5" />
+              {inBooths.length}/{state.booths.length} booths in use
+            </span>
+          )}
           <span className="flex items-center gap-1 text-xs text-muted">
             <Inbox aria-hidden className="size-3.5" />
             {waiting === 0 ? 'No leads waiting' : `${waiting} ${waiting === 1 ? 'lead' : 'leads'} waiting at the Lead Hub`}

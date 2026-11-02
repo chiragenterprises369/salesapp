@@ -176,6 +176,8 @@ export const NOTIFICATION_TYPES = [
   'mention',
   'import_completed',
   'system',
+  /** Change #19 wave B: calendar reminder (Meeting.reminders minutes before the start). */
+  'meeting_reminder',
 ] as const;
 export const NotificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
@@ -336,3 +338,101 @@ export type AppScreen = z.infer<typeof AppScreenSchema>;
 export const TARGET_METRICS = ['revenue_inr', 'deals_won', 'calls', 'leads_converted'] as const;
 export const TargetMetricSchema = z.enum(TARGET_METRICS);
 export type TargetMetric = z.infer<typeof TargetMetricSchema>;
+
+// ---------------------------------------------------------------- change #19 wave B (SPEC 29.9): CRM features
+
+/** Labels of extra phone numbers and email addresses on contacts and accounts. */
+export const CONTACT_POINT_LABELS = ['mobile', 'work', 'home', 'whatsapp', 'billing', 'other'] as const;
+export const ContactPointLabelSchema = z.enum(CONTACT_POINT_LABELS);
+export type ContactPointLabel = z.infer<typeof ContactPointLabelSchema>;
+
+/** Pipelines hold leads (the Leads board) or deals (the Deals board). Pipeline.entity column. */
+export const PIPELINE_ENTITIES = ['lead', 'deal'] as const;
+export const PipelineEntitySchema = z.enum(PIPELINE_ENTITIES);
+export type PipelineEntity = z.infer<typeof PipelineEntitySchema>;
+
+/** GST rates in percent (SPEC 29.9). Product.gstRate and document lines use these values only. */
+export const GST_RATES = [0, 5, 12, 18, 28] as const;
+export type GstRate = (typeof GST_RATES)[number];
+export const GstRateSchema = z.union([z.literal(0), z.literal(5), z.literal(12), z.literal(18), z.literal(28)]);
+
+/** Goods carry an HSN code, services a SAC code (99xxxx). */
+export const PRODUCT_KINDS = ['goods', 'service'] as const;
+export const ProductKindSchema = z.enum(PRODUCT_KINDS);
+export type ProductKind = z.infer<typeof ProductKindSchema>;
+
+/** Units of measure: GST UQC codes (labels in PRODUCT_UNIT_LABELS, schemas/catalog.ts). */
+export const PRODUCT_UNITS = ['NOS', 'PCS', 'SET', 'PRS', 'DOZ', 'BOX', 'PAC', 'CTN', 'BAG', 'BTL', 'CAN', 'ROL', 'BDL', 'KGS', 'GMS', 'QTL', 'TON', 'LTR', 'MLT', 'KLR', 'MTR', 'CMS', 'SQM', 'SQF', 'CBM', 'UNT', 'OTH'] as const;
+export const ProductUnitSchema = z.enum(PRODUCT_UNITS);
+export type ProductUnit = z.infer<typeof ProductUnitSchema>;
+
+/** Line discount: percent of the line amount, or a fixed amount in paise. */
+export const DISCOUNT_KINDS = ['percent', 'amount'] as const;
+export const DiscountKindSchema = z.enum(DISCOUNT_KINDS);
+export type DiscountKind = z.infer<typeof DiscountKindSchema>;
+
+/** intra = CGST + SGST (seller and place of supply in the same state), inter = IGST. */
+export const TAX_MODES = ['intra', 'inter'] as const;
+export const TaxModeSchema = z.enum(TAX_MODES);
+export type TaxMode = z.infer<typeof TaxModeSchema>;
+
+/** Quotation status flow (QUOTATION_TRANSITIONS in schemas/documents.ts). Prisma enum QuotationStatus must match. */
+export const QUOTATION_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'expired'] as const;
+export const QuotationStatusSchema = z.enum(QUOTATION_STATUSES);
+export type QuotationStatus = z.infer<typeof QuotationStatusSchema>;
+
+/** Invoice status flow; partially_paid and paid follow the recorded payments. Prisma enum InvoiceStatus must match. */
+export const INVOICE_STATUSES = ['draft', 'issued', 'partially_paid', 'paid', 'cancelled'] as const;
+export const InvoiceStatusSchema = z.enum(INVOICE_STATUSES);
+export type InvoiceStatus = z.infer<typeof InvoiceStatusSchema>;
+
+/** Manually recorded payments. Prisma enum PaymentMode must match. */
+export const PAYMENT_MODES = ['cash', 'upi', 'bank_transfer', 'cheque', 'card', 'other'] as const;
+export const PaymentModeSchema = z.enum(PAYMENT_MODES);
+export type PaymentMode = z.infer<typeof PaymentModeSchema>;
+
+/** Sales document kinds (numbering series, share links, PDFs). */
+export const DOCUMENT_KINDS = ['quotation', 'invoice'] as const;
+export const DocumentKindSchema = z.enum(DOCUMENT_KINDS);
+export type DocumentKind = z.infer<typeof DocumentKindSchema>;
+
+/** Prisma enum MeetingStatus must match. */
+export const MEETING_STATUSES = ['scheduled', 'completed', 'cancelled'] as const;
+export const MeetingStatusSchema = z.enum(MEETING_STATUSES);
+export type MeetingStatus = z.infer<typeof MeetingStatusSchema>;
+
+export const MEETING_MODES = ['in_person', 'video', 'phone'] as const;
+export const MeetingModeSchema = z.enum(MEETING_MODES);
+export type MeetingMode = z.infer<typeof MeetingModeSchema>;
+
+/** Prisma enum AttendeeResponse must match. */
+export const ATTENDEE_RESPONSES = ['pending', 'accepted', 'declined', 'tentative'] as const;
+export const AttendeeResponseSchema = z.enum(ATTENDEE_RESPONSES);
+export type AttendeeResponse = z.infer<typeof AttendeeResponseSchema>;
+
+export const RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'monthly'] as const;
+export const RecurrenceFrequencySchema = z.enum(RECURRENCE_FREQUENCIES);
+export type RecurrenceFrequency = z.infer<typeof RecurrenceFrequencySchema>;
+
+export const TIME_OFF_KINDS = ['leave', 'holiday', 'training', 'other'] as const;
+export const TimeOffKindSchema = z.enum(TIME_OFF_KINDS);
+export type TimeOffKind = z.infer<typeof TimeOffKindSchema>;
+
+/** Lead routing: round robin over the eligible pool, or the eligible user with the fewest open leads. */
+export const ROUTING_STRATEGIES = ['round_robin', 'least_busy'] as const;
+export const RoutingStrategySchema = z.enum(ROUTING_STRATEGIES);
+export type RoutingStrategy = z.infer<typeof RoutingStrategySchema>;
+
+/** Field types of the lead capture form builder. */
+export const CAPTURE_FIELD_TYPES = ['text', 'email', 'phone', 'textarea', 'number', 'select', 'multi_select', 'checkbox', 'date', 'hidden'] as const;
+export const CaptureFieldTypeSchema = z.enum(CAPTURE_FIELD_TYPES);
+export type CaptureFieldType = z.infer<typeof CaptureFieldTypeSchema>;
+
+export const CAPTURE_FORM_STATUSES = ['active', 'paused'] as const;
+export const CaptureFormStatusSchema = z.enum(CAPTURE_FORM_STATUSES);
+export type CaptureFormStatus = z.infer<typeof CaptureFormStatusSchema>;
+
+/** Entities with CRM notes and a merged timeline (contacts, accounts, deals). */
+export const CRM_NOTE_ENTITIES = ['contact', 'account', 'deal'] as const;
+export const CrmNoteEntitySchema = z.enum(CRM_NOTE_ENTITIES);
+export type CrmNoteEntity = z.infer<typeof CrmNoteEntitySchema>;
