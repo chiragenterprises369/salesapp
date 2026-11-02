@@ -1,10 +1,11 @@
 'use client';
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import type { Task } from '@vistar/shared';
 import { useMemo } from 'react';
 import { create } from 'zustand';
-import { listTasks, viewerFromMe, type Viewer } from '@/components/reports/world-interim';
+import { viewerFromMe, type Viewer } from '@/lib/world';
+import { useWorldTasks } from '@/lib/world/hooks';
 import { useMe } from '@/lib/session/session';
 import type { TaskTab } from './logic';
 
@@ -45,14 +46,9 @@ export function applyPatches(tasks: readonly Task[], patches: Record<string, Pat
 
 /** Every task of the tab in the viewer's scope, with local edits applied. */
 export function useTasks(tab: TaskTab) {
-  const v = useViewer();
-  const query = useQuery({
-    queryKey: ['tasks', 'pages', v.userId, tab],
-    queryFn: async () => (await wait(220), listTasks({ scope: tab, limit: 10_000 }, v).items),
-    enabled: !!v.userId,
-  });
+  const query = useWorldTasks({ scope: tab, limit: 10_000 });
   const patches = useTaskEdits((s) => s.patches);
-  const data = useMemo(() => (query.data ? applyPatches(query.data, patches) : undefined), [query.data, patches]);
+  const data = useMemo(() => (query.data ? applyPatches(query.data.items, patches) : undefined), [query.data, patches]);
   return { ...query, data };
 }
 
