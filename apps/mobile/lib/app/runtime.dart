@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../core/calls/call_tracker.dart';
@@ -60,6 +61,8 @@ class AppRuntime {
   Timer? _hoursTimer;
   AppLifecycleListener? _lifecycle;
   VoidCallback? _routerListener;
+  GoRouter? _router;
+  TelephonyService? _telephony;
   final _subs = <StreamSubscription<dynamic>>[];
   bool _disposed = false;
   bool _signingOut = false;
@@ -73,6 +76,7 @@ class AppRuntime {
   String get _client => isAndroidApp ? 'android' : 'web';
 
   void start() {
+    _telephony = ref.read(telephonyProvider);
     _flushTimer = Timer.periodic(const Duration(seconds: 30), (_) => flush());
     unawaited(flush());
     _lifecycle = AppLifecycleListener(
@@ -132,6 +136,7 @@ class AppRuntime {
 
   void _watchScreen() {
     final router = ref.read(routerProvider);
+    _router = router;
     void update() {
       if (_disposed) return;
       final path = router.routerDelegate.currentConfiguration.uri.path;
@@ -143,7 +148,8 @@ class AppRuntime {
 
     _routerListener = update;
     router.routerDelegate.addListener(update);
-    update();
+    // Not during this provider's build: Riverpod forbids changing other providers there.
+    Future.microtask(update);
   }
 
   // ------------------------------------------------------------ heartbeat and realtime
@@ -418,11 +424,12 @@ class AppRuntime {
   void prepareSignOut() => _signingOut = true;
 
   Future<void> dispose() async {
+    // No ref.read here: Riverpod forbids it inside onDispose.
     _disposed = true;
     _flushTimer?.cancel();
     _hoursTimer?.cancel();
     _lifecycle?.dispose();
-    if (_routerListener != null) ref.read(routerProvider).routerDelegate.removeListener(_routerListener!);
+    if (_routerListener != null) _router?.routerDelegate.removeListener(_routerListener!);
     for (final s in _subs) {
       await s.cancel();
     }
@@ -431,8 +438,8 @@ class AppRuntime {
     _realtime?.dispose(signOut: _signingOut);
     await _calls?.dispose();
     await _location?.stop();
-    final tel = ref.read(telephonyProvider);
-    if (tel.supported && !demo) await tel.stopMonitoring();
+    final tel = _telephony;
+    if (tel != null && tel.supported && !demo) await tel.stopMonitoring();
   }
 }
 
