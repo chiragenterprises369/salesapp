@@ -63,6 +63,27 @@
   --elevation-2: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.06);
   --elevation-3: 0 2px 6px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.10);
   --elevation-drag: 0 4px 10px rgba(15, 23, 42, 0.08), 0 18px 40px rgba(15, 23, 42, 0.18);
+  /* Space layer, glass and depth (Depth style; Neon Space overrides below). */
+  --glass-fill: rgba(255, 255, 255, 0.74);
+  --glass-panel: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.90);
+  --glass-sheen: rgba(255, 255, 255, 0.55);
+  --depth-shadow-1: 0 1px 1px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.05);
+  --depth-shadow-2: 0 1px 2px rgba(15, 23, 42, 0.05), 0 6px 16px rgba(15, 23, 42, 0.07), 0 16px 40px rgba(79, 70, 229, 0.06);
+  --depth-shadow-3: 0 2px 4px rgba(15, 23, 42, 0.06), 0 12px 28px rgba(15, 23, 42, 0.10), 0 32px 64px rgba(79, 70, 229, 0.10);
+  --space-base: #F7F8FA;
+  --space-base-2: #F2F4F8;
+  --space-glow-1: rgba(99, 102, 241, 0.07);
+  --space-glow-2: rgba(14, 165, 233, 0.05);
+  --space-glow-3: rgba(16, 185, 129, 0.04);
+  --space-grid: rgba(79, 70, 229, 0);
+  --space-horizon: rgba(79, 70, 229, 0);
+  --space-vignette: rgba(15, 23, 42, 0);
+  --space-particle: rgba(79, 70, 229, 0);
+  --space-particle-2: rgba(14, 165, 233, 0);
+  --edge-glow: #6366F1;
+  --edge-glow-shadow: 0 0 0 transparent;
 }
 
 [data-theme='dark'] {
@@ -126,6 +147,73 @@
   --elevation-2: 0 1px 3px rgba(0, 0, 0, 0.50), 0 4px 12px rgba(0, 0, 0, 0.35);
   --elevation-3: 0 2px 6px rgba(0, 0, 0, 0.40), 0 8px 24px rgba(0, 0, 0, 0.50);
   --elevation-drag: 0 4px 10px rgba(0, 0, 0, 0.40), 0 18px 40px rgba(0, 0, 0, 0.60);
+  --glass-fill: rgba(23, 26, 33, 0.72);
+  --glass-panel: rgba(23, 26, 33, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --glass-sheen: rgba(165, 180, 252, 0.08);
+  --depth-shadow-1: 0 1px 1px rgba(0, 0, 0, 0.30), 0 2px 8px rgba(0, 0, 0, 0.25);
+  --depth-shadow-2: 0 1px 2px rgba(0, 0, 0, 0.40), 0 8px 20px rgba(0, 0, 0, 0.35), 0 20px 48px rgba(8, 10, 30, 0.45);
+  --depth-shadow-3: 0 2px 4px rgba(0, 0, 0, 0.45), 0 14px 32px rgba(0, 0, 0, 0.45), 0 36px 72px rgba(8, 10, 30, 0.55);
+  --space-base: #11131B;
+  --space-base-2: #0C0E13;
+  --space-glow-1: rgba(99, 102, 241, 0.12);
+  --space-glow-2: rgba(56, 189, 248, 0.05);
+  --space-glow-3: rgba(139, 92, 246, 0.05);
+  --space-grid: rgba(129, 140, 248, 0.09);
+  --space-horizon: rgba(129, 140, 248, 0.18);
+  --space-vignette: rgba(0, 0, 0, 0.35);
+  --space-particle: rgba(199, 210, 254, 0.55);
+  --space-particle-2: rgba(125, 211, 252, 0.40);
+  --edge-glow: #818CF8;
+  --edge-glow-shadow: 0 0 0 transparent;
+}
+
+/* Neon Space. Light theme = "Aurora": pastel glass, coloured edges and shadows, no glow. */
+[data-interface-style='neon']:not([data-theme='dark']) {
+  --glass-fill: rgba(255, 255, 255, 0.72);
+  --glass-panel: rgba(255, 255, 255, 0.86);
+  --glass-border: rgba(99, 102, 241, 0.26);
+  --glass-highlight: rgba(255, 255, 255, 0.95);
+  --glass-sheen: rgba(255, 255, 255, 0.60);
+  --depth-shadow-1: 0 1px 1px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(99, 102, 241, 0.08);
+  --depth-shadow-2: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 20px rgba(99, 102, 241, 0.10), 0 18px 44px rgba(14, 165, 233, 0.08);
+  --depth-shadow-3: 0 2px 4px rgba(15, 23, 42, 0.06), 0 14px 32px rgba(99, 102, 241, 0.14), 0 32px 64px rgba(14, 165, 233, 0.10);
+  --space-base: #F8F8FD;
+  --space-base-2: #F3F5FC;
+  --space-glow-1: rgba(129, 140, 248, 0.10);
+  --space-glow-2: rgba(34, 211, 238, 0.07);
+  --space-glow-3: rgba(244, 114, 182, 0.05);
+  --space-grid: rgba(99, 102, 241, 0);
+  --space-horizon: rgba(99, 102, 241, 0);
+  --space-vignette: rgba(15, 23, 42, 0);
+  --space-particle: rgba(99, 102, 241, 0);
+  --space-particle-2: rgba(34, 211, 238, 0);
+  --edge-glow: #6366F1;
+  --edge-glow-shadow: 0 0 0 transparent;
+}
+
+[data-interface-style='neon'][data-theme='dark'] {
+  --glass-fill: rgba(13, 15, 26, 0.74);
+  --glass-panel: rgba(16, 18, 30, 0.88);
+  --glass-border: rgba(129, 140, 248, 0.30);
+  --glass-highlight: rgba(165, 243, 252, 0.10);
+  --glass-sheen: rgba(103, 232, 249, 0.08);
+  --depth-shadow-1: 0 1px 1px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.30);
+  --depth-shadow-2: 0 1px 2px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 12px rgba(99, 102, 241, 0.16);
+  --depth-shadow-3: 0 2px 4px rgba(0, 0, 0, 0.50), 0 16px 36px rgba(0, 0, 0, 0.55), 0 0 12px rgba(99, 102, 241, 0.22);
+  --space-base: #0B0D17;
+  --space-base-2: #07080F;
+  --space-glow-1: rgba(99, 102, 241, 0.16);
+  --space-glow-2: rgba(34, 211, 238, 0.06);
+  --space-glow-3: rgba(217, 70, 239, 0.05);
+  --space-grid: rgba(103, 232, 249, 0.10);
+  --space-horizon: rgba(103, 232, 249, 0.32);
+  --space-vignette: rgba(0, 0, 0, 0.45);
+  --space-particle: rgba(165, 243, 252, 0.70);
+  --space-particle-2: rgba(199, 210, 254, 0.60);
+  --edge-glow: #67E8F9;
+  --edge-glow-shadow: 0 0 10px rgba(103, 232, 249, 0.30);
 }
 
 :root {
@@ -133,7 +221,41 @@
   --duration-fast: 150ms;
   --duration: 200ms;
   --duration-slow: 250ms;
+  --duration-page: 260ms;
+  --duration-page-exit: 160ms;
+  --duration-fade: 150ms;
   --easing: cubic-bezier(0.2, 0, 0, 1);
+  --easing-glide: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* Depth limits (hard caps, D-053). */
+  --glass-blur: 14px;
+  --blur-max: 20px;
+  --glow-blur-max: 12px;
+  --glow-alpha-max: 0.35;
+  --parallax-far: 4px;
+  --parallax-mid: 8px;
+  --parallax-near: 14px;
+  --parallax-sheen: 24px;
+  --tilt-max: 4deg;
+  --lift-y: -2px;
+  --page-enter-shift: 10px;
+  --page-enter-scale: 0.985;
+  --page-exit-scale: 1.015;
+}
+
+/* Motion intensity "reduced": fades only, no travel. "off" also sets data-reduced-motion="on". */
+[data-motion='reduced'],
+[data-motion='off'] {
+  --parallax-far: 0px;
+  --parallax-mid: 0px;
+  --parallax-near: 0px;
+  --parallax-sheen: 0px;
+  --tilt-max: 0deg;
+  --lift-y: 0px;
+  --page-enter-shift: 0px;
+  --page-enter-scale: 1;
+  --page-exit-scale: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

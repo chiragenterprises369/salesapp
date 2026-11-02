@@ -1,0 +1,163 @@
+/*
+  Space Shell (SPEC 28.2) foundation. OWNER: frontend-app.
+  Everything here is gated on <html data-interface-style="depth|neon"> (set before first paint by the
+  interface boot script), so Classic paints nothing from this file. Values come from tokens.css.
+  - .vs-backdrop: shared background layer behind every panel (company, employee, super admin).
+    Light: soft pastel wash. Dark: gradient + faint perspective grid + sparse particles (canvas).
+  - .vs-sheen: pointer-following highlight inside glass chrome (moved by components/shell/space-effects.ts).
+  - Page transitions: React <ViewTransition> classes vs-glide (full motion) and vs-fade (reduced).
+*/
+
+@layer components {
+  .vs-backdrop,
+  .vs-sheen {
+    display: none;
+  }
+
+  :is([data-interface-style='depth'], [data-interface-style='neon']) .vs-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    contain: strict;
+    background: linear-gradient(180deg, var(--space-base) 0%, var(--space-base-2) 100%);
+  }
+
+  .vs-backdrop > * {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  /* Far layer: wash (light) or nebula glow (dark). Oversized so parallax never shows an edge. */
+  .vs-backdrop__wash {
+    inset: -24px;
+    background:
+      radial-gradient(70% 60% at 88% -6%, var(--space-glow-1), transparent 70%),
+      radial-gradient(60% 55% at -6% 106%, var(--space-glow-2), transparent 70%),
+      radial-gradient(55% 45% at 52% 118%, var(--space-glow-3), transparent 70%);
+  }
+
+  .vs-backdrop__grid,
+  .vs-backdrop__horizon,
+  .vs-backdrop__vignette {
+    display: none;
+  }
+
+  /* Mid layer (dark only): perspective floor grid fading out towards the horizon. */
+  [data-theme='dark'] .vs-backdrop__grid {
+    display: block;
+    left: -40%;
+    right: -40%;
+    bottom: -4%;
+    height: 62%;
+    background-image:
+      linear-gradient(to bottom, var(--space-grid) 1px, transparent 1px),
+      linear-gradient(to right, var(--space-grid) 1px, transparent 1px);
+    background-size: 72px 72px;
+    background-position: center bottom;
+    transform-origin: 50% 100%;
+    transform: perspective(420px) rotateX(62deg);
+    mask-image: linear-gradient(to top, #000 0%, #000 30%, transparent 92%);
+  }
+
+  /* Horizon line where the grid fades; glow stays inside the --glow-blur-max cap. */
+  [data-theme='dark'] .vs-backdrop__horizon {
+    display: block;
+    left: 0;
+    right: 0;
+    bottom: 34%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--space-horizon) 30%, var(--space-horizon) 70%, transparent 100%);
+    box-shadow: 0 0 var(--glow-blur-max) var(--space-horizon);
+    opacity: 0.7;
+  }
+
+  [data-theme='dark'] .vs-backdrop__vignette {
+    display: block;
+    inset: 0;
+    background: radial-gradient(120% 100% at 50% 30%, transparent 55%, var(--space-vignette) 100%);
+  }
+
+  /* Near layer: particles canvas, created only in dark by space-effects.ts; fades in once drawn. */
+  .vs-backdrop__particles {
+    inset: -16px;
+    width: calc(100% + 32px);
+    height: calc(100% + 32px);
+    opacity: 0;
+    transition: opacity 600ms linear;
+  }
+  .vs-backdrop__particles[data-ready] {
+    opacity: 1;
+  }
+
+  /* Glass chrome highlight. The host needs `relative isolate` so the sheen sits under its content. */
+  :is([data-interface-style='depth'], [data-interface-style='neon']) .vs-sheen {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .vs-sheen__light {
+    position: absolute;
+    top: -60%;
+    left: -40%;
+    width: 180%;
+    height: 160%;
+    background: radial-gradient(45% 35% at 35% 30%, var(--glass-sheen), transparent 70%);
+  }
+}
+
+/* Page transitions. The overlay never takes input: clicks and keys reach the live page underneath. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* Sidebar and top bar switch instantly; only the page area moves. */
+:root:is([data-interface-style='depth'], [data-interface-style='neon'])::view-transition-old(root),
+:root:is([data-interface-style='depth'], [data-interface-style='neon'])::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(.vs-glide),
+::view-transition-group(.vs-fade) {
+  animation-duration: var(--duration-page);
+}
+::view-transition-old(.vs-glide) {
+  animation: vs-glide-out var(--duration-page-exit) var(--easing-exit) both;
+}
+::view-transition-new(.vs-glide) {
+  animation: vs-glide-in var(--duration-page) var(--easing-glide) both;
+}
+::view-transition-old(.vs-fade) {
+  animation: vs-fade-out var(--duration-fade) linear both;
+}
+::view-transition-new(.vs-fade) {
+  animation: vs-fade-in var(--duration-fade) linear both;
+}
+
+@keyframes vs-glide-out {
+  to {
+    opacity: 0;
+    transform: scale(var(--page-exit-scale));
+  }
+}
+@keyframes vs-glide-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--page-enter-shift), 0) scale(var(--page-enter-scale));
+  }
+}
+@keyframes vs-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vs-fade-in {
+  from {
+    opacity: 0;
+  }
+}
