@@ -1,0 +1,2 @@
+# Screenshot loop iterations stay local; only the final frames in this folder are committed.
+iter-*/
