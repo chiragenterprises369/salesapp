@@ -28,6 +28,7 @@ import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { CrmModule } from './modules/crm/crm.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { RoutingModule } from './modules/routing/routing.module.js';
+import { TeamMessagesModule } from './modules/team-messages/team-messages.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
 import { WebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module.js';
@@ -67,6 +68,7 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     CalendarModule,
     RoutingModule,
     CaptureModule,
+    TeamMessagesModule,
     // realtime-integrations
     RealtimeModule,
     WebhooksModule,
