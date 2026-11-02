@@ -14,7 +14,7 @@ import { useMe } from '@/lib/session/session';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import {
   ACTIVE_FILTER_CLASS,
-  KNOWN_TAGS,
+  useKnownTags,
   SOURCE_LABEL,
   TEMPERATURE_LABEL,
   TONE_DOT_CLASS,
@@ -209,6 +209,7 @@ export function FiltersPanel() {
   const resetFilters = useLeadsViewState((s) => s.resetFilters);
   const me = useMe();
   const users = useScopedUsers();
+  const knownTags = useKnownTags();
   const reduced = useReducedMotion();
   const { stages } = usePipelineStages();
   if (!open) return null;
@@ -290,7 +291,7 @@ export function FiltersPanel() {
           </Group>
         )}
         <Group label="Tags">
-          {KNOWN_TAGS.map((t) => (
+          {knownTags.map((t) => (
             <Toggle
               key={t}
               pressed={!!filters.tag?.includes(t)}

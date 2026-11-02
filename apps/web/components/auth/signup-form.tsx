@@ -8,11 +8,9 @@ import { COMMON_TIME_ZONES } from '@/components/common/timezones';
 import { Button } from '@/components/ui/button';
 import { FormField, Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
-import { DEMO_WORKSPACE_NAME } from '@/lib/auth/demo-accounts';
-import { mockSignup } from '@/lib/auth/mock-auth';
+import { signup, type AuthFailure } from '@/lib/auth/actions';
 import { useRedirectWhenSignedIn } from '@/lib/auth/use-auth';
-import { useSessionActions } from '@/lib/session/session';
-import { AuthCard, OrDivider } from './auth-frame';
+import { AuthCard, FormAlert, OrDivider } from './auth-frame';
 import { fieldErrors, focusFirstInvalid } from './form-errors';
 import { GoogleButton } from './google-button';
 import { PasswordInput } from './password-input';
@@ -26,10 +24,10 @@ const MESSAGES: Partial<Record<Field, string>> = {
   workspaceName: 'Enter your company name (2 to 80 characters)',
 };
 
-/** Create a workspace; the creator becomes its company admin. Mock until Wave 3 (POST /auth/signup). */
+/** Create a workspace; the creator becomes its company admin (POST /auth/signup). */
 export function SignupForm() {
   const status = useRedirectWhenSignedIn(null);
-  const { signInMock } = useSessionActions();
+  const [failure, setFailure] = useState<AuthFailure | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [values, setValues] = useState({ name: '', email: '', password: '', workspaceName: '', timezone: 'Asia/Kolkata' });
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
@@ -45,10 +43,20 @@ export function SignupForm() {
       return;
     }
     setErrors({});
+    setFailure(null);
     setSubmitting(true);
-    const result = await mockSignup(parsed.data);
-    toast.success('Workspace created', { description: `Demo mode: you are signed in to the ${DEMO_WORKSPACE_NAME} sample workspace.` });
-    signInMock(result.persona);
+    const result = await signup(parsed.data);
+    if (!result.ok) {
+      setSubmitting(false);
+      setFailure(result);
+      const fromApi: Partial<Record<Field, string>> = {};
+      for (const d of result.details ?? []) fromApi[d.path as Field] ??= d.message;
+      if (result.code === 'EMAIL_TAKEN') fromApi.email = 'This email already has a Vistar account. Sign in instead.';
+      setErrors(fromApi);
+      focusFirstInvalid(formRef.current);
+      return;
+    }
+    toast.success('Workspace created', { description: `Welcome to ${result.workspaceName}. Invite your team from Settings.` });
   }
 
   if (status === 'authenticated') return <SigningIn />;
@@ -57,6 +65,7 @@ export function SignupForm() {
     <>
       <AuthCard title="Create your workspace" description="Set up Vistar for your company. You can invite your team next.">
         <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+          {failure && <FormAlert>{failure.message}</FormAlert>}
           <FormField label="Your name" error={errors.name} required>
             <Input name="name" autoComplete="name" autoFocus value={values.name} onChange={set('name')} placeholder="Anil Kapoor" />
           </FormField>

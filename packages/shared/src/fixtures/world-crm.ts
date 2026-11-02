@@ -398,6 +398,11 @@ export function worldCalls(ctx: WorldContext): Call[] {
                 ] ?? null),
             provider: 'mock',
             customFields: {},
+            source: 'mock',
+            result: failed ? 'failed' : missed ? (inbound ? 'missed' : 'no_answer') : 'connected',
+            phone: other,
+            deviceCallId: null,
+            recordingFileId: null,
           });
         }
       }
@@ -426,6 +431,11 @@ export function worldCalls(ctx: WorldContext): Call[] {
           disposition: null,
           provider: 'mock',
           customFields: {},
+          source: 'mock',
+          result: null,
+          phone: lead?.phone ?? '+919999999999',
+          deviceCallId: null,
+          recordingFileId: null,
         });
       }
     }

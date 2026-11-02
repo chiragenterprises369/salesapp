@@ -59,6 +59,30 @@ export const ErrorCode = {
   PACK_NOT_ENTITLED: 'PACK_NOT_ENTITLED',
   PACK_CORE_LOCKED: 'PACK_CORE_LOCKED',
   PACK_INSTALL_FAILED: 'PACK_INSTALL_FAILED',
+  // change #19: features, files, domains, platform config, attendance, floors
+  FEATURE_DISABLED: 'FEATURE_DISABLED',
+  FILE_TYPE_NOT_ALLOWED: 'FILE_TYPE_NOT_ALLOWED',
+  FILE_INVALID: 'FILE_INVALID',
+  DOMAIN_INVALID: 'DOMAIN_INVALID',
+  DOMAIN_TAKEN: 'DOMAIN_TAKEN',
+  DOMAIN_VERIFICATION_FAILED: 'DOMAIN_VERIFICATION_FAILED',
+  FIREBASE_CONFIG_INVALID: 'FIREBASE_CONFIG_INVALID',
+  PUSH_NOT_CONFIGURED: 'PUSH_NOT_CONFIGURED',
+  APP_RELEASE_INVALID: 'APP_RELEASE_INVALID',
+  NOT_FIELD_STAFF: 'NOT_FIELD_STAFF',
+  TRACKING_CONSENT_REQUIRED: 'TRACKING_CONSENT_REQUIRED',
+  OUTSIDE_WORKING_HOURS: 'OUTSIDE_WORKING_HOURS',
+  ATTENDANCE_STATE_INVALID: 'ATTENDANCE_STATE_INVALID',
+  FLOOR_REQUEST_INCOMPLETE: 'FLOOR_REQUEST_INCOMPLETE',
+  FLOOR_NOT_READY: 'FLOOR_NOT_READY',
+  // change #19 wave B: CRM features
+  DOCUMENT_STATE_INVALID: 'DOCUMENT_STATE_INVALID',
+  SELLER_PROFILE_INCOMPLETE: 'SELLER_PROFILE_INCOMPLETE',
+  PAYMENT_EXCEEDS_BALANCE: 'PAYMENT_EXCEEDS_BALANCE',
+  RECORD_MERGE_INVALID: 'RECORD_MERGE_INVALID',
+  PRODUCT_SKU_TAKEN: 'PRODUCT_SKU_TAKEN',
+  SHARE_LINK_EXPIRED: 'SHARE_LINK_EXPIRED',
+  CAPTURE_FORM_CLOSED: 'CAPTURE_FORM_CLOSED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -112,6 +136,38 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   PACK_NOT_ENTITLED: 403,
   PACK_CORE_LOCKED: 409,
   PACK_INSTALL_FAILED: 422,
+  /** The company's plan or a Super Admin switch does not include the feature (custom_domain, field_tracking). */
+  FEATURE_DISABLED: 403,
+  FILE_TYPE_NOT_ALLOWED: 415,
+  /** Content does not match the declared type (e.g. not a GLB, broken JSON, APK is not a zip). */
+  FILE_INVALID: 422,
+  DOMAIN_INVALID: 422,
+  DOMAIN_TAKEN: 409,
+  DOMAIN_VERIFICATION_FAILED: 422,
+  FIREBASE_CONFIG_INVALID: 422,
+  PUSH_NOT_CONFIGURED: 422,
+  APP_RELEASE_INVALID: 422,
+  NOT_FIELD_STAFF: 403,
+  TRACKING_CONSENT_REQUIRED: 422,
+  OUTSIDE_WORKING_HOURS: 422,
+  /** Check-in while checked in, check-out or location while not checked in. */
+  ATTENDANCE_STATE_INVALID: 409,
+  /** Fewer than 3 reference images, or missing work_area / cabin-or-meeting_room. */
+  FLOOR_REQUEST_INCOMPLETE: 422,
+  /** Publish without a seat map, or a seat map on a superseded floor. */
+  FLOOR_NOT_READY: 409,
+  /** The action is not allowed in the document's status (edit a sent quotation, issue a cancelled invoice). */
+  DOCUMENT_STATE_INVALID: 409,
+  /** Sending a quotation or issuing an invoice needs the seller legal name and state code (GET /billing/profile). */
+  SELLER_PROFILE_INCOMPLETE: 422,
+  PAYMENT_EXCEEDS_BALANCE: 422,
+  /** Merge of a record into itself, a deleted record, or more than 10 records. */
+  RECORD_MERGE_INVALID: 400,
+  PRODUCT_SKU_TAKEN: 409,
+  /** Share link revoked, rotated or past its expiry. */
+  SHARE_LINK_EXPIRED: 410,
+  /** Lead capture form paused or deleted. */
+  CAPTURE_FORM_CLOSED: 410,
 };
 
 export const FieldErrorSchema = z.object({

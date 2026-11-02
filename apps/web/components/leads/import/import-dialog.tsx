@@ -2,6 +2,8 @@
 
 import { fieldAccessFor, type LeadListItem, type LeadUpdate } from '@vistar/shared';
 import { EMPLOYEE_FIXTURES, mockUsers } from '@vistar/shared/fixtures';
+import { isMockData } from '@/lib/api/data-source';
+import { useUsers } from '@/lib/api/directory';
 import { CheckCircle2, FileSpreadsheet, Info, Upload } from 'lucide-react';
 import Papa from 'papaparse';
 import { RadioGroup } from 'radix-ui';
@@ -78,6 +80,7 @@ export function ImportDialog({
 }) {
   const me = useMe();
   const scoped = useScopedUsers();
+  const people = useUsers();
   const create = useCreateLead();
   const update = useUpdateLead();
   const markRecent = useRecentLeads((s) => s.mark);
@@ -108,10 +111,12 @@ export function ImportDialog({
 
   const owners = useMemo(() => {
     const ids = new Set(scoped.map((u) => u.id));
-    return mockUsers()
-      .map((u, i) => ({ id: u.id, email: EMPLOYEE_FIXTURES[i]?.email }))
-      .filter((o) => ids.has(o.id));
-  }, [scoped]);
+    // Owner emails: GET /users (team.read) in API mode; the fixture emails in the mock data mode.
+    const all = isMockData()
+      ? mockUsers().map((u, i) => ({ id: u.id, email: EMPLOYEE_FIXTURES[i]?.email }))
+      : (people.data ?? []).map((u) => ({ id: u.id, email: u.email }));
+    return all.filter((o) => ids.has(o.id));
+  }, [scoped, people.data]);
 
   const reset = () => {
     setStep('upload');

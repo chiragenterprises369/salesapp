@@ -18,6 +18,7 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { useReadOnly } from '@/lib/auth/use-auth';
 import { useCan } from '@/lib/session/session';
 import { useWorkflowRuns } from '@/lib/world/hooks';
+import { isMockData } from '@/lib/api/data-source';
 import { MOCK_WORKFLOWS, triggerLabel, triggerOf, WORKFLOW_STATUS_LABEL, WORKFLOW_STATUS_TONE } from './mock-workflows';
 
 const COLUMNS: DataColumn[] = [
@@ -57,7 +58,8 @@ export function WorkflowsList() {
     queryKey: ['workflows', 'list'],
     queryFn: async () => {
       await new Promise((r) => setTimeout(r, 250));
-      return MOCK_WORKFLOWS;
+      // The workflows API (GET /workflows) ships with the workflow engine; until then a company has none.
+      return isMockData() ? MOCK_WORKFLOWS : [];
     },
   });
   const rows = query.data ?? [];
@@ -65,7 +67,7 @@ export function WorkflowsList() {
 
   return (
     <RequirePermission anyOf={['workflows.read']}>
-      <div className="max-w-6xl">
+      <div>
         <PageHeader
           title="Workflows"
           description="Automations that reply, assign, follow up and create tasks when something happens to a lead."

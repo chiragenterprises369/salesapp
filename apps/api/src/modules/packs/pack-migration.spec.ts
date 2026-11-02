@@ -29,7 +29,7 @@ afterAll(async () => {
 
 describe('existing workspaces and generic-sales', () => {
   it('plans no pipeline/stage/template writes for seeded workspaces, and nothing at all once synced', async () => {
-    if (!seeded.length) console.warn('No seeded workspaces found (run pnpm db:seed): adoption check skipped');
+    if (!seeded.length) console.warn('No seeded workspaces found (run pnpm db:seed:demo): adoption check skipped');
     for (const ws of seeded) {
       const db = tenantClient(prisma, ws.id);
       const state = await loadPackState(db);

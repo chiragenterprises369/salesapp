@@ -1,7 +1,6 @@
 'use client';
 
-import { objectTarget, visibleFields, type CustomObject } from '@vistar/shared';
-import { mockUsers } from '@vistar/shared/fixtures';
+import { objectTarget, visibleFields, type CustomObject, type UserSummary } from '@vistar/shared';
 import {
   Box,
   Briefcase,
@@ -23,9 +22,10 @@ import {
   Warehouse,
   type LucideIcon,
 } from 'lucide-react';
-import { createElement, useEffect, useState } from 'react';
+import { createElement, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { useMe } from '@/lib/session/session';
+import { useScopedUserList } from '@/lib/api/directory';
 import type { FieldDef } from '../field-utils';
 
 /** Lucide icons a custom object can use (CustomObject.icon). Unknown names fall back to Box. */
@@ -63,8 +63,11 @@ export function ObjectIcon({
   });
 }
 
-export const USERS = mockUsers();
-export const USER_BY_ID = new Map(USERS.map((u) => [u.id, u]));
+/** People the caller may see, by id (GET /users/options; mock mode: fixture users). */
+export function useUserById(): ReadonlyMap<string, UserSummary> {
+  const users = useScopedUserList();
+  return useMemo(() => new Map(users.map((u) => [u.id, u] as const)), [users]);
+}
 
 /** Fields of an object the signed-in role may see, in display order. */
 export function useObjectFields(object: CustomObject | undefined): FieldDef[] {

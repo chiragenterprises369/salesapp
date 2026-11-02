@@ -41,6 +41,8 @@ export interface FloorSceneProps {
   focusRequest: { id: string; nonce: number } | null;
   readOnly: boolean;
   onSelect: (id: string | null) => void;
+  /** Optional: also called with the person's id when someone is clicked (FLOOR-WORKSPACE person panel). */
+  onPersonSelect?: (userId: string) => void;
   onBubble: (hit: BubbleHit) => void;
   onTierDrop: () => void;
   onContextLost: () => void;
@@ -69,16 +71,19 @@ export default function FloorScene(props: FloorSceneProps) {
   const [lod, setLod] = useState<{ level: LodLevel; tags: boolean }>({ level: 'near', tags: true });
   const [ready, setReady] = useState(false);
 
-  const { onSelect, onBubble, onTierDrop } = props;
+  const { onSelect, onPersonSelect, onBubble, onTierDrop } = props;
   useEffect(() => {
     callbacksRef.current = {
-      onSelect,
+      onSelect: (id) => {
+        onSelect(id);
+        if (id) onPersonSelect?.(id);
+      },
       onBubble,
       onTierDrop,
       onLod: (level, tags) => setLod((prev) => (prev.level === level && prev.tags === tags ? prev : { level, tags })),
       onReady: (r) => setReady(r),
     };
-  }, [onSelect, onBubble, onTierDrop]);
+  }, [onSelect, onPersonSelect, onBubble, onTierDrop]);
 
   const onEngine = useCallback((engine: FloorEngine | null) => {
     engineRef.current = engine;

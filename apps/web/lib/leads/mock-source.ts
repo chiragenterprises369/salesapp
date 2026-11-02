@@ -19,6 +19,7 @@ import { readMockDb } from '../mock-db';
 import { generateKeyBetween } from 'fractional-indexing';
 import { useSessionStore } from '../session/session';
 import { worldLeadsSeed } from '../world/world';
+import { noteMockUse } from '../api/data-source';
 import type { LeadsSource } from './data';
 
 /**
@@ -31,6 +32,7 @@ const users = mockUsers();
 let store: LeadListItem[] | null = null;
 /** Current leads (generated world leads plus this tab's edits). New array identity after every change. */
 export function currentMockLeads(): LeadListItem[] {
+  noteMockUse('leads');
   return (store ??= worldLeadsSeed());
 }
 function setLeads(next: LeadListItem[]): void {

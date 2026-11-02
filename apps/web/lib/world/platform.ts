@@ -1,5 +1,7 @@
-import { FEATURE_FLAGS, formatInr, formatNumber, type ChipTone, type FeatureFlag, type Plan, type WorkspaceStatus } from '@vistar/shared';
+import { FEATURE_FLAGS, formatInr, formatNumber, type ChipTone, type Company, type FeatureFlag, type Plan, type WorkspaceStatus } from '@vistar/shared';
 import type { PlatformCompanyFixture } from '@vistar/shared/fixtures';
+import { isRouteMissing } from '../api/availability';
+import { superApi } from '../api/client';
 import { world } from './world';
 
 /**
@@ -35,6 +37,8 @@ export const FLAG_LABEL: Record<FeatureFlag, string> = {
   api_access: 'API access',
   whatsapp: 'WhatsApp',
   employee_rank: 'Employee rank',
+  custom_domain: 'Custom domain',
+  field_tracking: 'Field tracking',
 };
 const ACTION_LABEL: Record<string, string> = {
   'impersonation.start': 'Started View as company',
@@ -214,4 +218,51 @@ export function platformKpis(): PlatformKpi[] {
     { label: 'Monthly recurring revenue', value: formatInr(o.mrrInr, { compact: true }), hint: `Churn ${o.churnPct30d}% in 30 days` },
     { label: 'Leads this month', value: formatNumber(p.leadsThisMonth), hint: `Platform health: ${o.health.status === 'ok' ? 'all systems normal' : o.health.status}` },
   ];
+}
+
+// ---------------------------------------------------------------- API mode (real /api/super routes)
+
+/** Company row from GET /api/super/companies, with the same column keys as the mock rows. */
+function apiCompanyRow(c: Company): PlatformRow {
+  return {
+    id: c.id,
+    cells: {
+      company: { text: c.name, sub: c.ownerEmail ?? c.slug },
+      plan: PLAN_LABEL[c.plan],
+      status: STATUS[c.status],
+      seats: c.userCount === undefined ? formatNumber(c.usage.seats) : formatNumber(c.userCount),
+      leads: formatNumber(c.usage.leads),
+      created: date(c.createdAt),
+    },
+    search: `${c.name} ${c.slug} ${c.ownerEmail ?? ''} ${c.plan} ${c.status}`.toLowerCase(),
+  };
+}
+
+/**
+ * Super Admin lists in API mode. Sections whose /api/super route has not shipped return no rows
+ * (the table shows its empty state); nothing generated.
+ */
+export async function apiPlatformRows(section: string): Promise<PlatformRow[]> {
+  if (section === 'companies') {
+    const rows: PlatformRow[] = [];
+    let cursor: string | undefined;
+    try {
+      do {
+        const page = await superApi.call('superCompanyList', { query: { cursor, limit: 100 } });
+        rows.push(...page.items.map(apiCompanyRow));
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor && rows.length < 1000);
+    } catch (e) {
+      // GET /api/super/companies ships with PLATFORM in this wave; an API without it lists nothing.
+      if (isRouteMissing(e)) return [];
+      throw e;
+    }
+    return rows;
+  }
+  return [];
+}
+
+/** Overview KPIs in API mode (GET /api/super/overview once it ships; none until then). */
+export async function apiPlatformKpis(): Promise<PlatformKpi[]> {
+  return [];
 }

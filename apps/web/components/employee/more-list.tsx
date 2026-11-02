@@ -4,6 +4,7 @@ import { NAV_EMPLOYEE_MORE } from '@vistar/shared';
 import { Building2, ChevronRight, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, type ReactNode } from 'react';
+import { AndroidAppCard } from '@/components/common/android-app-card';
 import { PageHeader } from '@/components/common/page-header';
 import { NavIcon } from '@/components/shell/nav-icon';
 import { employeeMoreNav } from '@/components/shell/nav-utils';
@@ -56,7 +57,8 @@ export function MoreList() {
   return (
     <>
       <PageHeader title="More" description={`${me.user.name} · ${me.workspace.name}`} />
-      <div className="flex flex-col gap-4">
+      {/* Menu | app download and account on wide screens (D-066). */}
+      <div className="grid items-start gap-4 xl:grid-cols-2">
         <Card className="overflow-hidden">
           <ul className="divide-y divide-border">
             {items.map((item) => (
@@ -66,18 +68,21 @@ export function MoreList() {
             ))}
           </ul>
         </Card>
-        <Card className="overflow-hidden">
-          <ul className="divide-y divide-border">
-            {me.role.kind === 'manager' && (
+        <div className="flex flex-col gap-4">
+          <AndroidAppCard />
+          <Card className="overflow-hidden">
+            <ul className="divide-y divide-border">
+              {me.role.kind === 'manager' && (
+                <li>
+                  <MoreRow icon={<Building2 />} label="Company panel" hint="Dashboard, team and settings" href="/app" />
+                </li>
+              )}
               <li>
-                <MoreRow icon={<Building2 />} label="Company panel" hint="Dashboard, team and settings" href="/app" />
+                <MoreRow icon={<LogOut />} label="Sign out" onClick={() => signOut()} />
               </li>
-            )}
-            <li>
-              <MoreRow icon={<LogOut />} label="Sign out" onClick={() => signOut()} />
-            </li>
-          </ul>
-        </Card>
+            </ul>
+          </Card>
+        </div>
       </div>
     </>
   );

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
 import { useSession } from '@/lib/session/session';
+import { ShellBreadcrumbs } from './breadcrumbs';
 import { IdleTimeout } from './idle-timeout';
 import { LogoMark } from './logo';
 import { NavDrawer } from './nav-drawer';
@@ -19,6 +20,8 @@ import { SidebarNav } from './sidebar-nav';
 import { GlassSheen, SpaceBackdrop } from './space-backdrop';
 import { ThemeToggle } from './theme-toggle';
 import { UserMenu } from './user-menu';
+
+const PLATFORM_ROOT = { label: 'Platform', href: '/super-admin' };
 
 function ConsoleHeader({ expanded }: { expanded: boolean }) {
   // Expanded: visible text names the link (WCAG 2.5.3). Icon rail: aria-label.
@@ -50,6 +53,7 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
       <div className="relative isolate flex h-dvh overflow-hidden">
         <SpaceBackdrop />
         <aside
+          data-slot="sidebar"
           className={cn(
             'relative isolate hidden shrink-0 flex-col border-r border-border bg-surface md:flex',
             'spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome',
@@ -65,7 +69,10 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="relative isolate flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 lg:px-4 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+          <header
+            data-slot="topbar"
+            className="relative isolate flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 lg:px-4 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome"
+          >
             <GlassSheen />
             <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}>
               <Menu aria-hidden />
@@ -73,6 +80,7 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
             <span className="md:hidden">
               <ConsoleHeader expanded />
             </span>
+            <ShellBreadcrumbs groups={groups} root={PLATFORM_ROOT} className="hidden premium:lg:flex" />
             <span className="flex-1" />
             <ThemeToggle />
             <UserMenu panel="super-admin" />

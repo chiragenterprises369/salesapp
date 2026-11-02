@@ -21,6 +21,7 @@ import {
   type WorldContext,
 } from '@vistar/shared/fixtures';
 import type { LeadListItem } from '@vistar/shared';
+import { noteMockUse } from '../api/data-source';
 
 /**
  * The mock "world" of the main workspace for this page load (Wave 1, browser only). One linked
@@ -36,6 +37,7 @@ let ctx: WorldContext | null = null;
 let platform: PlatformWorld | null = null;
 
 export function worldContext(): WorldContext {
+  noteMockUse('world');
   if (!ctx) ctx = createWorldContext({ now: Date.now() });
   return ctx;
 }

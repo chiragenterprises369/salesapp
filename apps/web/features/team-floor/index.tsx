@@ -21,8 +21,8 @@ import { detectGpu, readDevParams, useIsClient, useMediaQuery } from './state/en
 import { firstName } from './state/reducer';
 import { attentionByUser, employeeById, locationOf, selectKpis, selectNeedsYou } from './state/selectors';
 import type { TemplateId } from './state/template';
-import type { FloorViewMode, QualityTier } from './state/types';
-import { useFloorFeed } from './state/use-floor-feed';
+import type { FloorEmployee, FloorViewMode, QualityTier } from './state/types';
+import { useFloorFeed, type FloorFeed } from './state/use-floor-feed';
 
 /**
  * PUBLIC API of features/team-floor (contract; owner frontend-3d replaces the implementation,
@@ -38,6 +38,19 @@ export interface TeamFloorProps {
   userIds?: string[] | null;
   /** Floor template override (dev, screenshots). Default: by head count (<=8 small, <=20 medium, else large). */
   template?: TemplateId;
+  // Floor workspace (frontend-physics, change #19 wave B; floor-interface-19b.md). All optional.
+  /** Shared feed lifted by the workspace: the floor reads it instead of opening its own snapshot and socket. */
+  feed?: FloorFeed;
+  /** Controlled selection; undefined = the floor keeps its own. */
+  selectedId?: string | null;
+  /** A person was opened on the scene, the flat plan, the list or Needs you (null = closed). */
+  onPersonSelect?: (userId: string | null) => void;
+  /** Pan the 3D camera to a person chosen outside the floor (command bar); newest nonce wins. */
+  focusRequest?: { id: string; nonce: number } | null;
+  /** Replaces the built-in employee panel (the workspace person panel). */
+  renderPersonPanel?: (p: { employee: FloorEmployee; onClose: () => void; embedded: boolean }) => ReactNode;
+  /** Fill the parent's height instead of the page height (workspace, full screen). */
+  fill?: boolean;
 }
 
 // three, @react-three/fiber and drei live only in this lazily loaded chunk.
@@ -87,7 +100,19 @@ export function TeamFloorFlat(props: Omit<TeamFloorProps, 'mode'>) {
 
 const NEXT_TIER: Record<QualityTier, QualityTier> = { high: 'medium', medium: 'low', low: 'low' };
 
-function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = false, userIds = null, template: templateProp, lockMode }: TeamFloorProps & { lockMode?: FloorViewMode }) {
+function TeamFloorClient({
+  mode: modeProp = 'auto',
+  readOnly: readOnlyProp = false,
+  userIds = null,
+  template: templateProp,
+  lockMode,
+  feed: feedProp,
+  selectedId: selectedProp,
+  onPersonSelect,
+  focusRequest: focusProp,
+  renderPersonPanel,
+  fill = false,
+}: TeamFloorProps & { lockMode?: FloorViewMode }) {
   const me = useMe();
   const { updateSettings } = useSessionActions();
   const canRecordings = useCan('calls.recordings');
@@ -108,10 +133,20 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
   const [tier, setTier] = useState<QualityTier>(initialTier);
   const [localMode, setLocalMode] = useState<FloorViewMode | null>(null);
   const [sceneFailed, setSceneFailed] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [ownSelectedId, setOwnSelectedId] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
+  const selectedId = selectedProp === undefined ? ownSelectedId : selectedProp;
+  const setSelectedId = useCallback(
+    (id: string | null) => {
+      setOwnSelectedId(id);
+      onPersonSelect?.(id);
+    },
+    [onPersonSelect],
+  );
+  const focus = focusProp && (!focusRequest || focusProp.nonce > focusRequest.nonce) ? focusProp : focusRequest;
 
-  const feed = useFloorFeed({ userIds, stress: dev.stress, template: dev.template ?? templateProp ?? null });
+  const ownFeed = useFloorFeed({ userIds, stress: dev.stress, template: dev.template ?? templateProp ?? null, enabled: !feedProp });
+  const feed = feedProp ?? ownFeed;
   const { state, dispatch } = feed;
 
   // Mode: this session's toggle > dev override > saved setting (if not auto) > prop.
@@ -143,18 +178,21 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
   const nameOf = useCallback((id: string | null) => (state && id ? (employeeById(state, id)?.name ?? null) : 'Team'), [state]);
 
   /** Select from a list or "Show on floor": also pans the 3D camera to the person. */
-  const open = useCallback((id: string | null) => {
-    setSelectedId(id);
-    if (id) setFocusRequest({ id, nonce: Date.now() });
-  }, []);
+  const open = useCallback(
+    (id: string | null) => {
+      setSelectedId(id);
+      if (id) setFocusRequest({ id, nonce: Date.now() });
+    },
+    [setSelectedId],
+  );
   /** Select by clicking the canvas: the person is already in view, keep the camera still. */
-  const selectOnCanvas = useCallback((id: string | null) => setSelectedId(id), []);
+  const selectOnCanvas = useCallback((id: string | null) => setSelectedId(id), [setSelectedId]);
 
   const closePanel = useCallback(() => {
     const id = selectedId;
     setSelectedId(null);
     if (id) requestAnimationFrame(() => document.getElementById(employeeDomId(idPrefix, id))?.focus({ preventScroll: true }));
-  }, [selectedId, idPrefix]);
+  }, [selectedId, idPrefix, setSelectedId]);
 
   const resolve = useCallback(
     (item: AttentionItem) => {
@@ -194,6 +232,9 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
   }
 
   const panel = selected ? (
+    renderPersonPanel ? (
+      renderPersonPanel({ employee: selected, onClose: closePanel, embedded: !wide })
+    ) : (
     <EmployeePanel
       employee={selected}
       location={locationOf(state, selected)}
@@ -221,12 +262,16 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
       onMessage={() => toast.success(`Message sent to ${firstName(selected.name)}`)}
       embedded={!wide}
     />
+    )
   ) : null;
 
   const empty = state.employees.length === 0;
 
   return (
-    <section aria-labelledby={`${idPrefix}-title`} className="flex flex-col gap-3 lg:h-[calc(100dvh-11.5rem)] lg:min-h-[560px]">
+    <section
+      aria-labelledby={`${idPrefix}-title`}
+      className={fill ? 'flex h-full min-h-0 flex-col gap-3' : 'flex flex-col gap-3 lg:h-[calc(100dvh-11.5rem)] lg:min-h-[560px]'}
+    >
       <h2 id={`${idPrefix}-title`} className="sr-only">
         Live team floor
       </h2>
@@ -263,7 +308,7 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
                   initialTier={initialTier}
                   reducedMotion={reducedMotion}
                   selectedId={selectedId}
-                  focusRequest={focusRequest}
+                  focusRequest={focus}
                   onSelect={selectOnCanvas}
                   onBubble={onBubble}
                   onTierDrop={onTierDrop}

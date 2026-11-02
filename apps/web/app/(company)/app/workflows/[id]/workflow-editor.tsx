@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/toast';
 import { WorkflowBuilder } from '@/features/workflow-builder';
 import { useReadOnly } from '@/lib/auth/use-auth';
 import { useCan } from '@/lib/session/session';
+import { isMockData } from '@/lib/api/data-source';
 import { MOCK_WORKFLOWS, WORKFLOW_STATUS_LABEL, WORKFLOW_STATUS_TONE } from '../mock-workflows';
 
 /** Workflow builder page: header + the frontend-physics builder (read-only without workflows.edit). */
@@ -18,7 +19,8 @@ export function WorkflowEditor({ id, templateKey }: { id: string; templateKey: s
   const canEdit = useCan('workflows.edit');
   const { readOnly: supportSession } = useReadOnly();
   const isNew = id === 'new';
-  const existing = MOCK_WORKFLOWS.find((w) => w.id === id);
+  // Saved workflows come from GET /workflows/{id} once the workflow engine ships (mock data mode: samples).
+  const existing = isMockData() ? MOCK_WORKFLOWS.find((w) => w.id === id) : undefined;
   const template = isNew && templateKey ? WORKFLOW_TEMPLATES.find((t) => t.key === templateKey) : undefined;
   const readOnly = !canEdit || supportSession;
 

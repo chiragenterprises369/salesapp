@@ -3,8 +3,9 @@
 import { homePathFor } from '@vistar/shared';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect } from 'react';
+import { isMockData } from '@/lib/api/data-source';
 import { usePrincipal, useMe, useSessionActions, useSessionStatus, type MockPersona } from '@/lib/session/session';
-import { LOGIN_PATH, safeNextPath } from './redirect';
+import { LOGIN_PATH, SUPER_LOGIN_PATH, safeNextPath } from './redirect';
 
 /**
  * Auth pages: once a session exists (just signed in, or already signed in), go to `next` or the role's
@@ -54,17 +55,25 @@ export function useSignOut() {
   );
 }
 
-/** Development: become another mock persona and open its home panel. */
+/**
+ * Development: become another persona. Mock mode switches at once; API mode signs out and opens the
+ * sign-in page (the demo accounts list there signs in with one click).
+ */
 export function useSwitchPersona() {
   const router = useRouter();
-  const { signInMock } = useSessionActions();
+  const { signInMock, signOut } = useSessionActions();
   return useCallback(
     (persona: MockPersona, opts: { impersonating?: boolean } = {}) => {
       authTransitionAt = Date.now();
+      if (!isMockData()) {
+        router.replace(persona === 'super_admin' ? SUPER_LOGIN_PATH : LOGIN_PATH);
+        signOut();
+        return;
+      }
       const home = homePathFor(persona === 'super_admin' ? { audience: 'platform' } : { audience: 'workspace', kind: persona });
       router.replace(home);
       signInMock(persona, opts);
     },
-    [router, signInMock],
+    [router, signInMock, signOut],
   );
 }

@@ -6,12 +6,13 @@ import {
   type DomainEvent,
   type EmployeeStatus,
   type Task,
+  type TeamFloorEmployee,
   type TeamFloorSnapshot,
 } from '@vistar/shared';
 import { getLayout } from './layout';
 import { assignHomes } from './seats';
 import type { FloorTemplate } from './template';
-import type { FloorAction, FloorActivity, FloorEffect, FloorEmployee, FloorState } from './types';
+import type { FloorAction, FloorActivity, FloorEffect, FloorEmployee, FloorPresenceFields, FloorPresencePatch, FloorState } from './types';
 
 /**
  * Pure Team Floor reducer. Both the 3D scene and the flat view render from FloorState.
@@ -76,26 +77,53 @@ export interface InitOptions {
   template: FloorTemplate;
 }
 
+/** Live presence fields of a snapshot row (server presence engine, D-062); {} for older mocks. */
+export function presenceFields(e: TeamFloorEmployee, fallback: number): FloorPresenceFields {
+  const p = e.presence;
+  if (!p) return {};
+  const loc = p.location ?? null;
+  return {
+    seatId: p.seatId,
+    zoneId: loc?.zoneId ?? null,
+    zoneName: loc?.zoneName ?? null,
+    zoneSource: loc?.source ?? null,
+    zoneConfidence: loc?.confidence ?? null,
+    zoneAt: loc ? parseTime(loc.at, fallback) : null,
+    screen: p.activity.screen ?? null,
+    activity: p.activity,
+    presence: p.status,
+    lastSeenAt: p.lastSeenAt ? parseTime(p.lastSeenAt, fallback) : null,
+  };
+}
+
+/** True when the person should stand in their known zone instead of sitting at home. */
+function wantsZone(emp: FloorEmployee, zoneSlots: FloorState['zoneSlots']): boolean {
+  return emp.status !== 'offline' && !!emp.zoneId && emp.zoneId !== emp.homeRoom && !!zoneSlots[emp.zoneId];
+}
+
 export function initialFloorState(snapshot: TeamFloorSnapshot, opts: InitOptions): FloorState {
   const generated = parseTime(snapshot.generatedAt, 0);
   const scope = opts.userIds ? new Set(opts.userIds) : null;
   const source = snapshot.employees.filter((e) => !scope || scope.has(e.user.id));
 
   // Homes from the template: cabin for the most senior person, reception for a viewer, deskIndex
-  // keeps its desk, extra people get hot desks, standing and overflow spots (SPEC 12.1).
+  // keeps its desk, extra people get hot desks, standing and overflow spots (SPEC 12.1). On a
+  // published custom floor the server's seat (presence.seatId) comes first.
   const layout = getLayout(opts.template, source.length);
   const homeOf = assignHomes(
-    source.map((e) => ({ id: e.user.id, role: e.user.role, deskIndex: e.deskIndex })),
+    source.map((e) => ({ id: e.user.id, role: e.user.role, deskIndex: e.deskIndex, seatId: e.presence?.seatId ?? null })),
     layout,
   );
   const homeCount = Math.max(source.length, layout.seatHomes);
 
   const employees: FloorEmployee[] = source.map((e, i) => ({
+    ...presenceFields(e, generated),
     id: e.user.id,
     name: e.user.name,
     role: e.user.role,
     avatar: e.user.avatar,
     desk: homeOf[i] ?? i,
+    homeRoom: layout.homes[homeOf[i] ?? i]?.room ?? null,
     status: e.status,
     statusSince: e.activeCall ? parseTime(e.activeCall.startedAt, generated) : null,
     currentLeadId: e.currentLeadId,
@@ -114,7 +142,14 @@ export function initialFloorState(snapshot: TeamFloorSnapshot, opts: InitOptions
 
   const booths: (string | null)[] = layout.booths.map(() => null);
   const lounge: (string | null)[] = layout.lounge.map(() => null);
+  const zoneSlots: FloorState['zoneSlots'] = {};
+  for (const z of layout.zones) zoneSlots[z.id] = z.spots.map(() => null);
+  const zoneNames: Record<string, string> = {};
+  for (const r of opts.template.custom ? opts.template.rooms : []) if (!r.id.startsWith('__')) zoneNames[r.id] = r.name;
+  for (const e of employees) if (e.zoneId && e.zoneName && !zoneNames[e.zoneId]) zoneNames[e.zoneId] = e.zoneName;
   for (const e of employees) {
+    if (e.zoneId && !e.zoneName && zoneNames[e.zoneId]) e.zoneName = zoneNames[e.zoneId];
+    if (wantsZone(e, zoneSlots) && allocate(zoneSlots[e.zoneId!]!, e.id)) continue;
     if (e.status === 'on_call') allocate(booths, e.id);
     if (e.status === 'away') allocate(lounge, e.id);
   }
@@ -126,6 +161,8 @@ export function initialFloorState(snapshot: TeamFloorSnapshot, opts: InitOptions
     homeCount,
     booths,
     lounge,
+    zoneSlots,
+    zoneNames,
     leadsWaiting: snapshot.leadsWaiting.map((l) => ({ leadId: l.leadId, name: l.name, createdAt: parseTime(l.createdAt, generated) })),
     leadsWaitingExtra: Math.max(0, snapshot.kpis.leadsWaiting - snapshot.leadsWaiting.length),
     attention: snapshot.attention.filter((a) => a.userId === null || a.userId in index).slice(0, ATTENTION_MAX),
@@ -154,6 +191,7 @@ class Draft {
   private employees: FloorEmployee[] | null = null;
   private booths: (string | null)[] | null = null;
   private lounge: (string | null)[] | null = null;
+  private zoneSlots: FloorState['zoneSlots'] | null = null;
   private effects: FloorEffect[] | null = null;
   private log: FloorState['log'] | null = null;
   private logSeq: number;
@@ -187,13 +225,67 @@ class Draft {
     this.changed = true;
   }
 
-  relocate(userId: string, prev: EmployeeStatus, next: EmployeeStatus) {
-    if (prev === next) return;
-    if (prev === 'on_call') release((this.booths ??= [...this.base.booths]), userId);
-    if (prev === 'away') release((this.lounge ??= [...this.base.lounge]), userId);
-    if (next === 'on_call') allocate((this.booths ??= [...this.base.booths]), userId);
-    if (next === 'away') allocate((this.lounge ??= [...this.base.lounge]), userId);
-    this.changed = true;
+  /**
+   * Where the person is drawn besides home: their known zone on a custom floor wins (observed), else a
+   * calling booth while on a call and a lounge seat while away. Idempotent; call after every change.
+   */
+  place(emp: FloorEmployee) {
+    const slots = this.zoneSlots ?? this.base.zoneSlots;
+    const target = wantsZone(emp, slots) ? emp.zoneId! : null;
+    for (const [zoneId, list] of Object.entries(slots)) {
+      if (zoneId !== target && list.includes(emp.id)) {
+        this.zoneSlots ??= { ...this.base.zoneSlots };
+        const copy = [...list];
+        release(copy, emp.id);
+        this.zoneSlots[zoneId] = copy;
+        this.changed = true;
+      }
+    }
+    let zoned = false;
+    if (target) {
+      const list = (this.zoneSlots ?? this.base.zoneSlots)[target]!;
+      if (list.includes(emp.id)) zoned = true;
+      else if (list.includes(null)) {
+        this.zoneSlots ??= { ...this.base.zoneSlots };
+        const copy = [...list];
+        allocate(copy, emp.id);
+        this.zoneSlots[target] = copy;
+        this.changed = true;
+        zoned = true;
+      }
+    }
+    const booths = this.booths ?? this.base.booths;
+    const lounge = this.lounge ?? this.base.lounge;
+    const wantBooth = !zoned && emp.status === 'on_call';
+    const wantLounge = !zoned && emp.status === 'away';
+    if (wantBooth ? !booths.includes(emp.id) && booths.includes(null) : booths.includes(emp.id)) {
+      this.booths ??= [...this.base.booths];
+      if (wantBooth) allocate(this.booths, emp.id);
+      else release(this.booths, emp.id);
+      this.changed = true;
+    }
+    if (wantLounge ? !lounge.includes(emp.id) && lounge.includes(null) : lounge.includes(emp.id)) {
+      this.lounge ??= [...this.base.lounge];
+      if (wantLounge) allocate(this.lounge, emp.id);
+      else release(this.lounge, emp.id);
+      this.changed = true;
+    }
+  }
+
+  /** Merge live presence fields (zone, screen, activity) and re-place the person. */
+  patchPresence(userId: string, patch: FloorPresencePatch) {
+    const emp = this.employee(userId);
+    if (!emp) return null;
+    let differs = false;
+    for (const k of Object.keys(patch) as (keyof FloorPresencePatch)[]) {
+      if (patch[k] !== undefined && patch[k] !== emp[k]) differs = true;
+    }
+    if (!differs) return emp;
+    const defined = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) as FloorPresencePatch;
+    const next: FloorEmployee = { ...emp, ...defined };
+    this.setEmployee(next);
+    this.place(next);
+    return next;
   }
 
   effect(e: FloorEffect) {
@@ -269,6 +361,7 @@ class Draft {
       employees: this.employees ?? this.base.employees,
       booths: this.booths ?? this.base.booths,
       lounge: this.lounge ?? this.base.lounge,
+      zoneSlots: this.zoneSlots ?? this.base.zoneSlots,
       effects: this.effects ?? this.base.effects,
       log: this.log ?? this.base.log,
       logSeq: this.logSeq,
@@ -331,7 +424,6 @@ export function attentionFromTask(task: Task, at: string): AttentionItem {
 function setStatus(d: Draft, emp: FloorEmployee, status: EmployeeStatus, at: number, now: number, eventId: string, lead: { id: string | null; name: string | null }) {
   if (emp.status === status && emp.currentLeadId === lead.id) return emp;
   const changed = emp.status !== status;
-  d.relocate(emp.id, emp.status, status);
   const next: FloorEmployee = {
     ...emp,
     status,
@@ -344,6 +436,7 @@ function setStatus(d: Draft, emp: FloorEmployee, status: EmployeeStatus, at: num
       : emp.recent,
   };
   d.setEmployee(next);
+  d.place(next);
   if (changed) {
     d.announce(statusLogText(emp.name, status), now);
     if (status === 'idle') d.effect({ id: `${eventId}:wave`, kind: 'wave', at: now, userId: emp.id });
@@ -367,6 +460,30 @@ function applyEvent(d: Draft, event: DomainEvent, now: number) {
       if (p.status === 'on_call' && !next.activeCall && p.callId) {
         d.setEmployee({ ...next, activeCall: { callId: p.callId, startedAt: parseTime(p.at, at), leadName: next.currentLeadName } });
       }
+      // Detailed live status (presence engine): screen, activity, last seen.
+      const live: FloorPresencePatch = {};
+      if (p.presence !== undefined) live.presence = p.presence;
+      if (p.activity !== undefined) {
+        live.activity = p.activity;
+        live.screen = p.activity.screen ?? null;
+      }
+      if (p.lastSeenAt !== undefined) live.lastSeenAt = p.lastSeenAt ? parseTime(p.lastSeenAt, at) : null;
+      if (Object.keys(live).length) d.patchPresence(p.userId, live);
+      return;
+    }
+    case 'employee.zone_changed': {
+      const p = (event as DomainEvent<'employee.zone_changed'>).payload;
+      const emp = d.employee(p.userId);
+      if (!emp) return;
+      const moved = emp.zoneId !== p.zoneId;
+      d.patchPresence(p.userId, {
+        zoneId: p.zoneId,
+        // The event has no name: the floor's rooms and earlier snapshots know it.
+        zoneName: p.zoneId ? (d.state.zoneNames[p.zoneId] ?? (moved ? null : (emp.zoneName ?? null))) : null,
+        zoneSource: p.source,
+        zoneConfidence: p.confidence,
+        zoneAt: parseTime(p.at, at),
+      });
       return;
     }
     case 'call.started': {
@@ -514,6 +631,11 @@ export function floorRootReducer(state: FloorState | null, action: FloorAction):
         d.setEmployee({ ...from, currentLeadId: null, currentLeadName: null });
       }
       deliver(d, d.employee(action.toUserId) ?? owner, action.leadId, action.leadName, from ? from.id : null, `local:${action.now}`, action.now);
+      return d.commit();
+    }
+    case 'presence': {
+      const d = new Draft(state);
+      d.patchPresence(action.userId, action.patch);
       return d.commit();
     }
   }

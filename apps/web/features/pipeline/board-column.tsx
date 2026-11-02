@@ -182,7 +182,8 @@ export const BoardColumn = memo(function BoardColumn({
       data-stage-key={stage.key}
       style={style}
       className={cn(
-        'vb-column relative flex w-[85vw] max-w-[320px] shrink-0 snap-start flex-col rounded-lg border md:w-[288px]',
+        // Width only (D-066): 288 px minimum from md, growing to share the board's width so wide screens have no empty band.
+        'vb-column relative flex w-[85vw] max-w-[320px] shrink-0 snap-start flex-col rounded-lg border md:w-[288px] md:max-w-none md:grow',
         'transition-[box-shadow,background-color] duration-150 ease-standard',
         COLUMN_TINT[tone],
         enter && 'vb-enter',

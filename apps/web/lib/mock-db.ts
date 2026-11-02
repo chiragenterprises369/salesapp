@@ -20,6 +20,7 @@ import {
 } from '@vistar/shared';
 import { mockPipeline, MOCK_LEAD_COUNT, WHATSAPP_TEMPLATE_FIXTURES } from '@vistar/shared/fixtures';
 import { seedRecordsFor } from './world/records';
+import { noteMockUse } from './api/data-source';
 
 /**
  * Shared in-browser mock database for the flexible data layer and Industry Packs (Wave 1 mocks).
@@ -200,6 +201,7 @@ function load(): MockDbData | null {
 }
 
 export function readMockDb(): MockDbData {
+  noteMockUse('mock-db');
   if (cache) return cache;
   if (typeof window !== 'undefined') {
     const stored = load();

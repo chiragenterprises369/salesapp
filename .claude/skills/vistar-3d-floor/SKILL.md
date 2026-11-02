@@ -1,58 +1,94 @@
 ---
 name: vistar-3d-floor
-description: Vistar Live Team Floor rules - R3F isometric office, theme-aware lighting, procedural characters, event-to-animation mapping, A* movement, performance tiers, flat and accessible fallbacks. Use for any work in apps/web/features/team-floor.
+description: Vistar Live Team Floor rules - authored GLB office per floor template (Day and Evening bakes), company floors published from an AI-written floor plan (layout_json, module kit) or an uploaded GLB/glTF, seat map and zones, rigged GLB characters, template-driven layout and walking graph, zone placement, collision-free DOM labels, theme cross-fade, quality tiers, flat SVG plan and accessible list. Use for any work in apps/web/features/team-floor, public/team-floor, scripts/team-floor and the Super Admin floor pages.
 ---
 
-# Vistar Live Team Floor
+# Vistar Live Team Floor (SPEC 12, 12.1, 29.2, 29.5, 29.11)
 
-Contract: `TeamFloor` props in `apps/web/features/team-floor/index.tsx`, `TeamFloorSnapshotSchema`
-(`schemas/dashboard.ts`), events in `events.ts`, palettes in `design/tokens.ts`. Read
-`vistar-theming` and `vistar-realtime-events` too. No Three.js skill is installed: use context7 for
-`@react-three/fiber` 9, `@react-three/drei` 10, `three` 0.187.
+Contract: `TeamFloor`, `TeamFloorFlat` and `TeamFloorProps` in `apps/web/features/team-floor/index.tsx`;
+`FloorRequestPanel` in `features/team-floor/request`; snapshot `TeamFloorSnapshotSchema`
+(`schemas/dashboard.ts`, per-person `presence` with `seatId` and `location`), floors in `schemas/floor.ts`
+(`FloorPlanSchema`, `SeatMapSchema`, `TeamFloorLayoutSchema`, `FLOOR_PLAN_PROMPT`), events in `events.ts`,
+palettes in `design/tokens.ts`. The split with FLOOR-WORKSPACE (workspace, feed, pages) is in
+`%TEMP%/vistar-handoff/floor-interface-19b.md`. Read `vistar-theming` and `vistar-realtime-events` too.
+Versions: `three` 0.187, `@react-three/fiber` 9, `@react-three/drei` 10 (context7 for docs). Pipeline commands,
+timings and QA scripts: `scripts/team-floor/README.md`. Licenses: `docs/ASSETS.md`.
 
 ## Architecture
-- `index.tsx` stays light: it decides the mode and `next/dynamic(() => import('./scene/...'), { ssr: false })` the 3D scene. three/R3F/drei must never appear in a page's initial chunk.
-- One pure reducer `floorReducer(state, DomainEvent)` + `initialFloorState(snapshot)`. Both 3D and flat views render from this state. Wave 1 feeds it `mockTeamFloorSnapshot()` + `createEventSimulator().next()`; Wave 3 feeds socket events unchanged.
-- Animation state per employee lives in refs, not React state, and advances in `useFrame`. React state changes only on events.
-- Suggested layout: `state/` (reducer, selectors, layout grid), `scene/` (canvas, rooms, props, characters, effects), `flat/` (flat floor + accessible list), `panel/` (employee side panel, KPI strip, Needs-you list).
+- `index.tsx` stays light: mode decision, KPI strip, panels, flat plan. `next/dynamic(() => import('./scene/floor-scene'), { ssr: false })` loads three/R3F. The Super Admin preview and the model top view (`scene/top-view.ts`) are lazy too. Check with `node e2e/team-floor/bundle-check.mjs` (no three in the initial chunks of the Team Floor, office markers and Super Admin floor routes).
+- Data: one pure reducer (`state/reducer.ts`) from the snapshot plus `DomainEvent`s and local actions (`presence` patches from other sources); API mode feeds GET /team-floor/snapshot + the socket (`lib/realtime/floor-source`), mock mode (tests only) the simulator.
+- `scene/engine.ts` (`FloorEngine`) owns every three.js object and the label positions; React state changes only on events. Per-frame work never goes through React. Offices implement `OfficeView` (`scene/office.ts`).
+- Folders: `state/` (template schema, layout, seats, pathfinding, reducer; `state/layout/` = published floors: `published.ts`, `plan-template.ts`, `walk-graph.ts`, `kit.ts`, `preview.ts`), `scene/` (engine, office, `kit/`, model-office, glow, characters, agents, effects, camera, labels, look, top-view), `flat/` (SVG plan, accessible list), `panel/`, `request/` (company floor request), `markers/` (office markers settings).
 
-## Scene
-- Orthographic camera, fixed isometric view (rotation ~35 deg pitch, 45 deg yaw), bounded pan, zoom 0.6-1.8, no orbit. `frameloop="demand"` when nothing animates; invalidate on events and active animations.
-- Rooms on a tile grid: sales floor (desk clusters, one desk per `deskIndex`), glass calling room, manager cabin, lounge (idle), central Lead Hub. Low walls, no ceiling; floor tiles and walls flat-shaded.
-- Lighting: hemisphere + one directional light with soft shadows (small shadow map, `shadows="soft"` only on high tier). Bake-like look: matte materials (`meshStandardMaterial` roughness 0.8+), no reflections.
-- Theme: Light = daylight (cool neutral key light, bright floor from `palettes.light.surface-2`). Dark = evening (dim ambient, warm lamp point lights, emissive monitors using `palettes.dark.accent`). Read `useDocumentTheme()`; tween colours/intensity over ~400 ms on change.
-- Colours only from `palettes[theme]` and `AvatarConfig`. Status accents from status tones (blue on call, green idle, amber busy, grey away/offline, red error).
+## Floor templates (layout as data)
+- `public/team-floor/templates/<small|medium|large>.json`, generated by `scripts/team-floor/templates/build-templates.mjs` and validated by `FloorTemplateSchema` (zod). The Blender build reads the same JSON, so geometry and runtime agree.
+- Contents: footprint, walls (back = tall inner face, front = low outer face, glass, glass_walnut, partition; door and window openings), rooms (floor material), seats (desk, booth, cabin, reception, lounge, hot_desk, meeting; position, facing, work surface, screen id, call facing), standing spots, hub, entrance, walking graph (nodes + line-of-sight edges), props, lamps, obstacles, camera; `custom` only on published company floors.
+- Choice by head count: <= 8 Small, <= 20 Medium, otherwise Large (`templateFor`); `?floorTemplate=` overrides (QA only).
+- Medium is hand-composed after the reference render. Small and Large are composed from the module kit (`templates/modules.mjs`, D-054). Placements are stored in the template (`modules`), the catalogue in `templates/modules.json`.
+- One person per desk, never a dense wall of desks: 1.4 m aisles between pod rows, 1.8 m between pods.
+- Homes: on a published floor the server's `presence.seatId` first; then cabin to the most senior person, reception to a viewer, `deskIndex` desks, hot desks, standing spots, overflow (`state/seats.ts`).
+
+## Company floors (SPEC 29.5, 29.11; D-061)
+- Flow: the company admin sends reference photos from the Team Floor tab (`FloorRequestPanel`: categories work area, cabin, meeting room, reception, pantry or lounge, floor plan, other; rules `floorRequestImageProblems`: >= 3 photos, a work area, a cabin or meeting room). The Super Admin (`/super-admin/floors`) copies `FLOOR_PLAN_PROMPT` (head count and notes filled) into a Claude chat with the photos, uploads or pastes the returned JSON (`layout_json`, validated with `FloorPlanSchema` in the browser and by the API), or a GLB / zipped glTF; places seats and zones in the seat tool; previews 3D and flat in Day and Evening; publishes. `GET /team-floor/layout` then returns the floor (signed URL, 15 min) and every Team Floor reloads on `floor.published`.
+- Loading: `loadWorkspaceFloor(people, override)` (`state/layout/published.ts`) = published template or the default one; files are downloaded once per version and seat map (cache key `floorKey`), never by a stored URL. A broken custom floor falls back to the default template (logged).
+- `templateFromPlan(plan, seatMap)`: architecture and furniture from the plan, seats and zones from the published seat map (the seat tool may have changed them). Rooms -> floors; outer back walls full height, front walls 1.05 m, inner solid walls cut to 1.1 m, glass 2.3 m (the fixed camera must see every room); doors cut openings; a walled room without a door gets one; the entrance is a door on the front wall (made if missing); `lead_hub` item = the hub (else the most open spot of the largest work area); phone booths add booth seats; desk seats get a monitor and parcels land on the desk in front; lamps per room. Walking graph: grid + a node pair per door (`walk-graph.ts`, bucketed lookups).
+- `templateFromModel(seatMap)` for GLB / glTF: rooms = zones, no walls, grid graph; the model is drawn at (model - origin) x scale (seat map `scale`, `origin`); seats and zones are scene metres (x right, z down; rotation = heading, 0 = facing +z).
+- 3D: `scene/kit/kit-office.ts` builds the plan office from the module kit (`state/layout/kit.ts` sizes, `scene/kit/items.ts` parts, one InstancedMesh per primitive and material, procedural floor textures); `scene/model-office.ts` loads the model (fflate for zips, Draco), caps metalness and raises roughness. Both use `FloorAmbience` (hub, lamp pools, 4 warm point lights fading in for Evening, contact shadow) and realtime light from the engine; `setLook` tints with `propTint` and dims for Evening. Flat: zones outlined with `data-zone`, kit furniture coloured like the 3D.
+- Zone placement: a person whose known zone (`zoneId`, from BLE, Wi-Fi, QR/NFC or manual) is not their seat's room walks to a free spot of that zone (`layout.zones`, `FloorState.zoneSlots`, `FloorLocation` kind `zone`); a null zone walks them back. Zone beats booth and lounge.
+- Office markers (`/app/settings/office-markers`): BLE beacon (UUID, major, minor), Wi-Fi network (SSID as the label, BSSID), QR and NFC (token `vz1.` shown once, printable QR sheet) per zone of the published floor.
+
+## Office art (Blender, scripted)
+- `scripts/team-floor/blender/build_office.py --template <id> --bake --export` builds the office from the template, culls faces the fixed camera never sees, unwraps lightmap UVs, bakes Day, Evening (diffuse irradiance) and AO in Cycles, exports a Draco GLB with WebP textures. `bake-all.ps1` runs all templates.
+- GLB contract: `office_static` (lightmapped, UV1), `office_glass`, `office_emissive`, `screen:<seatId>`, `hub_screen`, `inst:<key>:<n>` (repeated props -> InstancedMesh).
+- Lightmaps: `office-<id>-day.webp`, `-evening.webp`, `-ao.webp`, texel = srgb(irradiance / scale); scale per map in `office-<id>.bake.json`. Budgets: office GLB <= 4 MB, characters <= 2 MB, lightmaps <= 2 MB per theme.
+- Never commit `.blend` files or anything under `scripts/team-floor/.out/`.
+
+## Look and theme
+- Template offices: unlit `MeshBasicMaterial` x lightmap x AO; Day and Evening maps blended by `lightMix`; a theme switch cross-fades over 400 ms (`THEME_TWEEN_S`), instantly with reduced motion.
+- Light = Day (warm sun from the upper left, soft sky). Dark = Evening (warm downlight pools, cool window light, glowing monitors, deep navy). Without an Evening map the dark look dims the Day map (`interimTint`); company floors are lit in realtime with the same Look values.
+- Restrained bloom = glow cards on emissive sources only (`scene/glow.ts`), Evening only, off on the low tier.
+- Characters and instanced props use realtime hemisphere + key + camera-side fill; characters get a soft rim (stronger in Evening) and a ~1 px inverted-hull outline.
+- UI accents from `palettes[theme]`; office art colours are authored (`props.py`, mirrored in `look.ts` ART, `kit/items.ts` and `flat/floor-map.tsx` PLAN).
 
 ## Characters
-- No GLB yet: procedural low-poly figures (capsule body, sphere head, hair variant per `hairStyle`, outfit colour) on a shared simple rig; clips as procedural poses: `idle`, `typing`, `phone`, `walking`, `sleeping`. Keep a `CharacterModel` interface so GLB + AnimationMixer can replace it.
-- Name tag (drei `Html` only on high tier; else a canvas-texture sprite) with status dot and live call timer (`formatDuration`). Hide tags beyond the zoom threshold.
+- `characters.glb` (`build_characters.py`): one armature, two builds x two sleeve lengths, hair per `AvatarConfig.hairStyle`, phone and document props, clips idle, sit, typing, phone_sit, phone_stand, walk, walk_carry, wave, wave_sit, sleep_sit, receive_sit. Slots skin, hair, top, bottom, shoes, eyes, accent are tinted from `AvatarConfig`. Above 80 people the procedural instanced figures are used.
+- Drawn at 1.12x (heroic scale, like the reference); seated clips put the pelvis on the 0.47 m seat.
 
 ## Event mapping
 | Event | Floor reaction |
 | --- | --- |
-| `employee.status_changed` | on_call: walk to calling room, phone clip, pulse ring; busy: desk + typing; idle: lounge or wave at desk; away: lounge, sleeping; offline: empty chair (or sleeping at desk) |
-| `lead.created` | glowing parcel spawns at the Lead Hub (queue up to 12, then a counter) |
-| `lead.assigned` | parcel travels along the path to the owner's desk; owner turns and receives it |
-| `call.started` / `call.ended` | sound-wave rings + timer; on end an outcome popup (answered, missed, interested) for ~3 s |
-| `task.overdue`, `attention.raised` | clickable "Needs you" bubble above the employee (or the manager cabin when `userId` null); `attention.resolved` removes it |
+| `employee.status_changed` | on_call: booth (or desk), phone clip, blue ring; busy: desk, typing; idle: desk or wave; away: lounge; offline: asleep at the desk or an empty chair; also stores presence, activity (screen), last seen |
+| `employee.zone_changed` | walks to a spot in the zone (custom floors), back to the seat on null; zone name from the floor rooms |
+| `lead.created` | glowing lead card at the Lead Hub, waiting count on the hub screen |
+| `lead.assigned` | card flies to the owner's desk; owner turns and receives it |
+| `call.started` / `call.ended` | rings and timer; outcome bubble (answered, missed, interested) for ~3 s |
+| `task.overdue`, `attention.raised` | clickable "Needs you" bubble above the person (or the cabin); `attention.resolved` removes it |
+| `floor.published` | the feed reloads the snapshot and `loadWorkspaceFloor` (FLOOR-WORKSPACE feed) |
 
 ## Movement
-- Grid A* (4- or 8-neighbour, diagonal cost 1.4) on a walkability grid built from the room layout; cache paths per (from, to) tile; smooth with Catmull-Rom; walking speed ~1.6 tiles/s; avoid simultaneous same-tile arrival with small offsets.
+- A* on the template walking graph (`state/pathfinding.ts`), string pulling and Catmull-Rom smoothing, cached routes; seats and spots attach to their `approach` node.
+
+## Labels and camera
+- DOM labels placed by `scene/label-layout.ts`: bubbles in their own lane first, then tags by priority (selected, needs you, on call, others), leader lines when moved, compact dot + initials when crowded, hidden last. Zero overlaps in the default view (`e2e/team-floor/labels.spec.ts`).
+- Fixed isometric orthographic camera from the template (yaw 45, pitch 27), auto-fit, eased zoom and pan limits (big company floors zoom further: `maxZoom` = max(3, span / 12)), click-to-focus, Fit button, keyboard pan and zoom on the canvas region.
 
 ## Performance
-- Instanced meshes for desks, chairs, monitors, plants, floor tiles. LOD: far characters become simple capsules, tags hidden.
-- Max 200 employees. Quality tiers `high | medium | low` from GPU detection (`renderer.capabilities`, `navigator.hardwareConcurrency`, device memory) and an FPS monitor (drop a tier after 3 s below 45 fps; never auto-raise mid-session). Low = no shadows, dpr 1, no Html.
-- Pause rendering when `document.hidden`; dispose geometries/materials on unmount.
+- Instanced props, merged static meshes (kit walls and floors merged per material), `frameloop="demand"` with a capped ambient rate, paused when hidden. Tiers high | medium | low from GPU detection and an FPS monitor (drop after 3 s under 45 fps). Low = no shadows, DPR 1, no glow, no outlines.
+- Target 60 fps with 30 people on a mid laptop (`node e2e/team-floor/fps.mjs <base> 30 10 medium`).
 
 ## Modes and accessibility
-- Modes: 3D | Flat toggle (persist `teamFloorMode` via session `updateSettings`). `auto` = flat on coarse pointer/small screens, `prefers-reduced-motion`, low tier, or WebGL unavailable.
-- Flat view: 2D floor plan (CSS grid or SVG) with the same rooms, status chips and Needs-you items; fully keyboard operable.
-- Always render the accessible employee list (visually hidden when 3D is shown, visible in flat): name, status, current lead, call timer, Needs-you items; `aria-live="polite"` summary of changes (throttled).
-- KPI strip on top (active, on call, idle, busy, calls today, leads waiting) with tick-up numbers.
-- Clicking an employee (3D or list) opens the side panel: live status, current lead, calls today, avg talk time, target ring, recent activity, actions (reassign lead, message, view recordings if `calls.recordings`). Hide actions when `readOnly`.
+- 3D | Flat toggle (`teamFloorMode`); `auto` = flat on coarse pointer or small screens, reduced motion, low tier or no WebGL.
+- Flat view: `flat/floor-map.tsx` draws the template as an SVG plan for every template and company floor; the accessible employee list below it is the keyboard and screen-reader path (one tab stop, arrow keys, Enter opens the panel), with the zone name ("In Conference room").
+- The accessible list is always rendered (visually hidden next to the 3D canvas, shown while focused). `readOnly` hides actions. `onPersonSelect` (optional) on the scene and the flat plan opens FLOOR-WORKSPACE's person panel.
+- Seat tool: pointer editing plus the same values in the inspector fields; keyboard on the canvas (arrows move, [ ] turn, R 90 degrees, Delete, Esc), undo and redo (Ctrl+Z, Ctrl+Shift+Z), Ctrl+S saves.
+
+## QA hook
+- `window.__vistarFloor` (ready, info incl. `office` = glb | kit | model | fallback, labels, overlaps, benchmark, zoomBy, fit, focus, focusPoint, rooms, lightMix, holdThemeTween) and the `?floor*` URL overrides exist only in development or when `localStorage['vistar.floor.qa'] = '1'`. `?floorPlan=/team-floor/samples/sample-office.json` previews a plan without the API.
 
 ## Done checklist
-- [ ] three not in the initial chunk (check `.next` build output or bundle analyzer).
-- [ ] 200 simulated employees interactive; tier drop works.
-- [ ] Light and dark scenes both correct; theme change tweens.
-- [ ] Flat mode and list usable with keyboard and screen reader.
+- [ ] Typecheck, lint; `bundle-check.mjs` clean after a build (run by Kiro Crew).
+- [ ] Labels: 0 overlaps for Small, Medium, Large in Light and Dark.
+- [ ] Theme cross-fade (`theme.mjs`) and reduced motion (`--reduced`) pass.
+- [ ] Flat plan and list usable with keyboard and screen reader for every template and a published floor.
+- [ ] Published floor: `e2e/team-floor/published-floor.spec.ts` (API mode) and `published-shots.mjs` (Day and Evening).
+- [ ] Screenshots and comparison sheets in `docs/screenshots/team-floor-v3/`, critique in `CRITIQUE.md`.

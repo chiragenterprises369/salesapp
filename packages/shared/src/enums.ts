@@ -176,6 +176,8 @@ export const NOTIFICATION_TYPES = [
   'mention',
   'import_completed',
   'system',
+  /** Change #19 wave B: calendar reminder (Meeting.reminders minutes before the start). */
+  'meeting_reminder',
 ] as const;
 export const NotificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
@@ -213,7 +215,224 @@ export const CELEBRATION_INTENSITIES = ['full', 'subtle', 'off'] as const;
 export const CelebrationIntensitySchema = z.enum(CELEBRATION_INTENSITIES);
 export type CelebrationIntensity = z.infer<typeof CelebrationIntensitySchema>;
 
+// ---------------------------------------------------------------- change #19 (SPEC 29)
+
+/**
+ * Detailed live status (D-062), decided by the server from observed facts. `EmployeeStatus` stays the
+ * coarse status on User/UserSummary (chips, dashboard); map with presenceToEmployeeStatus().
+ */
+export const PRESENCE_STATUSES = ['available', 'on_call', 'in_meeting', 'on_break', 'lunch', 'field_visit', 'away', 'offline'] as const;
+export const PresenceStatusSchema = z.enum(PRESENCE_STATUSES);
+export type PresenceStatus = z.infer<typeof PresenceStatusSchema>;
+
+/** Statuses an employee may choose (PUT /me/status). on_call comes from phone state or the telephony adapter only. */
+export const MANUAL_PRESENCE_STATUSES = ['available', 'in_meeting', 'on_break', 'lunch', 'field_visit', 'away', 'offline'] as const;
+export const ManualPresenceStatusSchema = z.enum(MANUAL_PRESENCE_STATUSES);
+export type ManualPresenceStatus = z.infer<typeof ManualPresenceStatusSchema>;
+
+/** Which observed fact set the current presence. */
+export const PRESENCE_SOURCES = ['session', 'heartbeat', 'manual', 'phone_state', 'call_log', 'telephony', 'attendance', 'working_hours', 'timeout', 'system'] as const;
+export const PresenceSourceSchema = z.enum(PRESENCE_SOURCES);
+export type PresenceSource = z.infer<typeof PresenceSourceSchema>;
+
+const PRESENCE_TO_EMPLOYEE: Record<PresenceStatus, EmployeeStatus> = {
+  available: 'idle',
+  on_call: 'on_call',
+  in_meeting: 'busy',
+  on_break: 'away',
+  lunch: 'away',
+  field_visit: 'busy',
+  away: 'away',
+  offline: 'offline',
+};
+/** Coarse status written to User.status (and UserSummary.status) for a detailed presence. */
+export function presenceToEmployeeStatus(status: PresenceStatus): EmployeeStatus {
+  return PRESENCE_TO_EMPLOYEE[status];
+}
+
+/** App that reported a heartbeat or registered a device. */
+export const CLIENT_KINDS = ['web', 'android'] as const;
+export const ClientKindSchema = z.enum(CLIENT_KINDS);
+export type ClientKind = z.infer<typeof ClientKindSchema>;
+
+/** Where a call came from: the employee's SIM (Android app), a VoIP/telephony adapter, or the mock adapter/simulator. */
+export const CALL_SOURCES = ['sim', 'voip', 'mock'] as const;
+export const CallSourceSchema = z.enum(CALL_SOURCES);
+export type CallSource = z.infer<typeof CallSourceSchema>;
+
+/** Technical result of a call (device call log or telephony). `CallOutcome` stays the rep's disposition. */
+export const CALL_RESULTS = ['connected', 'missed', 'no_answer', 'busy', 'rejected', 'failed'] as const;
+export const CallResultSchema = z.enum(CALL_RESULTS);
+export type CallResult = z.infer<typeof CallResultSchema>;
+
+/** Web component design (D-059), workspace setting `ui.componentStyle`. */
+export const COMPONENT_STYLES = ['standard', 'premium'] as const;
+export const ComponentStyleSchema = z.enum(COMPONENT_STYLES);
+export type ComponentStyle = z.infer<typeof ComponentStyleSchema>;
+
+/** Upload purpose (D-065); decides size and type limits and who may read the file (UPLOAD_LIMITS). */
+export const FILE_PURPOSES = ['logo', 'favicon', 'login_image', 'reference_image', 'floor_model', 'apk', 'call_recording', 'attachment'] as const;
+export const FilePurposeSchema = z.enum(FILE_PURPOSES);
+export type FilePurpose = z.infer<typeof FilePurposeSchema>;
+
+/** public = served without auth at /api/files/p/{id} (branding only); private = signed URLs only. */
+export const FILE_VISIBILITIES = ['private', 'public'] as const;
+export const FileVisibilitySchema = z.enum(FILE_VISIBILITIES);
+export type FileVisibility = z.infer<typeof FileVisibilitySchema>;
+
+export const CUSTOM_DOMAIN_STATUSES = ['pending', 'verified', 'failed'] as const;
+export const CustomDomainStatusSchema = z.enum(CUSTOM_DOMAIN_STATUSES);
+export type CustomDomainStatus = z.infer<typeof CustomDomainStatusSchema>;
+
+export const FLOOR_REQUEST_STATUSES = ['submitted', 'in_progress', 'published', 'rejected'] as const;
+export const FloorRequestStatusSchema = z.enum(FLOOR_REQUEST_STATUSES);
+export type FloorRequestStatus = z.infer<typeof FloorRequestStatusSchema>;
+
+/** Category of a floor reference image (SPEC 29.5). */
+export const FLOOR_IMAGE_CATEGORIES = ['work_area', 'cabin', 'meeting_room', 'reception', 'pantry_lounge', 'floor_plan', 'other'] as const;
+export const FloorImageCategorySchema = z.enum(FLOOR_IMAGE_CATEGORIES);
+export type FloorImageCategory = z.infer<typeof FloorImageCategorySchema>;
+
+/** draft = uploaded, not visible to the company; published = the company's live floor; superseded = an older published version. */
+export const FLOOR_ASSET_STATUSES = ['draft', 'published', 'superseded'] as const;
+export const FloorAssetStatusSchema = z.enum(FLOOR_ASSET_STATUSES);
+export type FloorAssetStatus = z.infer<typeof FloorAssetStatusSchema>;
+
+/**
+ * glb = binary glTF; gltf_zip = zip with one .gltf and its buffers/textures; layout_json = a Vistar floor plan
+ * (FloorPlanSchema): plain JSON an AI chat (e.g. Claude) can write from the reference photos and a prompt
+ * (FLOOR_PLAN_PROMPT); the web builds the 3D office from it with the module kit.
+ */
+export const FLOOR_MODEL_FORMATS = ['glb', 'gltf_zip', 'layout_json'] as const;
+export const FloorModelFormatSchema = z.enum(FLOOR_MODEL_FORMATS);
+export type FloorModelFormat = z.infer<typeof FloorModelFormatSchema>;
+
+/** Seat kinds on a custom floor seat map. */
+export const FLOOR_SEAT_KINDS = ['desk', 'cabin', 'meeting', 'lounge', 'reception'] as const;
+export const FloorSeatKindSchema = z.enum(FLOOR_SEAT_KINDS);
+export type FloorSeatKind = z.infer<typeof FloorSeatKindSchema>;
+
+export const DEVICE_PLATFORMS = ['android', 'web'] as const;
+export const DevicePlatformSchema = z.enum(DEVICE_PLATFORMS);
+export type DevicePlatform = z.infer<typeof DevicePlatformSchema>;
+
+/**
+ * Where in the office someone is (room / zone level, D-062 extension): BLE beacons and Wi-Fi access points
+ * observed by the Android app, a QR or NFC marker scanned at a room door, or the employee's own pick.
+ * GPS is not used indoors (too coarse).
+ */
+export const ZONE_SIGNAL_SOURCES = ['ble', 'wifi', 'qr', 'nfc', 'manual'] as const;
+export const ZoneSignalSourceSchema = z.enum(ZONE_SIGNAL_SOURCES);
+export type ZoneSignalSource = z.infer<typeof ZoneSignalSourceSchema>;
+
+export const OFFICE_MARKER_KINDS = ['ble_beacon', 'wifi_ap', 'qr', 'nfc'] as const;
+export const OfficeMarkerKindSchema = z.enum(OFFICE_MARKER_KINDS);
+export type OfficeMarkerKind = z.infer<typeof OfficeMarkerKindSchema>;
+
+/** Screen the web or app user has open (client-reported with heartbeats; "what are they doing"). */
+export const APP_SCREENS = ['home', 'leads', 'lead_detail', 'board', 'calls', 'call', 'inbox', 'conversation', 'tasks', 'team_floor', 'attendance', 'reports', 'settings', 'other'] as const;
+export const AppScreenSchema = z.enum(APP_SCREENS);
+export type AppScreen = z.infer<typeof AppScreenSchema>;
+
 /** Targets (monthly). Prisma enum TargetMetric must match. */
 export const TARGET_METRICS = ['revenue_inr', 'deals_won', 'calls', 'leads_converted'] as const;
 export const TargetMetricSchema = z.enum(TARGET_METRICS);
 export type TargetMetric = z.infer<typeof TargetMetricSchema>;
+
+// ---------------------------------------------------------------- change #19 wave B (SPEC 29.9): CRM features
+
+/** Labels of extra phone numbers and email addresses on contacts and accounts. */
+export const CONTACT_POINT_LABELS = ['mobile', 'work', 'home', 'whatsapp', 'billing', 'other'] as const;
+export const ContactPointLabelSchema = z.enum(CONTACT_POINT_LABELS);
+export type ContactPointLabel = z.infer<typeof ContactPointLabelSchema>;
+
+/** Pipelines hold leads (the Leads board) or deals (the Deals board). Pipeline.entity column. */
+export const PIPELINE_ENTITIES = ['lead', 'deal'] as const;
+export const PipelineEntitySchema = z.enum(PIPELINE_ENTITIES);
+export type PipelineEntity = z.infer<typeof PipelineEntitySchema>;
+
+/** GST rates in percent (SPEC 29.9). Product.gstRate and document lines use these values only. */
+export const GST_RATES = [0, 5, 12, 18, 28] as const;
+export type GstRate = (typeof GST_RATES)[number];
+export const GstRateSchema = z.union([z.literal(0), z.literal(5), z.literal(12), z.literal(18), z.literal(28)]);
+
+/** Goods carry an HSN code, services a SAC code (99xxxx). */
+export const PRODUCT_KINDS = ['goods', 'service'] as const;
+export const ProductKindSchema = z.enum(PRODUCT_KINDS);
+export type ProductKind = z.infer<typeof ProductKindSchema>;
+
+/** Units of measure: GST UQC codes (labels in PRODUCT_UNIT_LABELS, schemas/catalog.ts). */
+export const PRODUCT_UNITS = ['NOS', 'PCS', 'SET', 'PRS', 'DOZ', 'BOX', 'PAC', 'CTN', 'BAG', 'BTL', 'CAN', 'ROL', 'BDL', 'KGS', 'GMS', 'QTL', 'TON', 'LTR', 'MLT', 'KLR', 'MTR', 'CMS', 'SQM', 'SQF', 'CBM', 'UNT', 'OTH'] as const;
+export const ProductUnitSchema = z.enum(PRODUCT_UNITS);
+export type ProductUnit = z.infer<typeof ProductUnitSchema>;
+
+/** Line discount: percent of the line amount, or a fixed amount in paise. */
+export const DISCOUNT_KINDS = ['percent', 'amount'] as const;
+export const DiscountKindSchema = z.enum(DISCOUNT_KINDS);
+export type DiscountKind = z.infer<typeof DiscountKindSchema>;
+
+/** intra = CGST + SGST (seller and place of supply in the same state), inter = IGST. */
+export const TAX_MODES = ['intra', 'inter'] as const;
+export const TaxModeSchema = z.enum(TAX_MODES);
+export type TaxMode = z.infer<typeof TaxModeSchema>;
+
+/** Quotation status flow (QUOTATION_TRANSITIONS in schemas/documents.ts). Prisma enum QuotationStatus must match. */
+export const QUOTATION_STATUSES = ['draft', 'sent', 'accepted', 'rejected', 'expired'] as const;
+export const QuotationStatusSchema = z.enum(QUOTATION_STATUSES);
+export type QuotationStatus = z.infer<typeof QuotationStatusSchema>;
+
+/** Invoice status flow; partially_paid and paid follow the recorded payments. Prisma enum InvoiceStatus must match. */
+export const INVOICE_STATUSES = ['draft', 'issued', 'partially_paid', 'paid', 'cancelled'] as const;
+export const InvoiceStatusSchema = z.enum(INVOICE_STATUSES);
+export type InvoiceStatus = z.infer<typeof InvoiceStatusSchema>;
+
+/** Manually recorded payments. Prisma enum PaymentMode must match. */
+export const PAYMENT_MODES = ['cash', 'upi', 'bank_transfer', 'cheque', 'card', 'other'] as const;
+export const PaymentModeSchema = z.enum(PAYMENT_MODES);
+export type PaymentMode = z.infer<typeof PaymentModeSchema>;
+
+/** Sales document kinds (numbering series, share links, PDFs). */
+export const DOCUMENT_KINDS = ['quotation', 'invoice'] as const;
+export const DocumentKindSchema = z.enum(DOCUMENT_KINDS);
+export type DocumentKind = z.infer<typeof DocumentKindSchema>;
+
+/** Prisma enum MeetingStatus must match. */
+export const MEETING_STATUSES = ['scheduled', 'completed', 'cancelled'] as const;
+export const MeetingStatusSchema = z.enum(MEETING_STATUSES);
+export type MeetingStatus = z.infer<typeof MeetingStatusSchema>;
+
+export const MEETING_MODES = ['in_person', 'video', 'phone'] as const;
+export const MeetingModeSchema = z.enum(MEETING_MODES);
+export type MeetingMode = z.infer<typeof MeetingModeSchema>;
+
+/** Prisma enum AttendeeResponse must match. */
+export const ATTENDEE_RESPONSES = ['pending', 'accepted', 'declined', 'tentative'] as const;
+export const AttendeeResponseSchema = z.enum(ATTENDEE_RESPONSES);
+export type AttendeeResponse = z.infer<typeof AttendeeResponseSchema>;
+
+export const RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'monthly'] as const;
+export const RecurrenceFrequencySchema = z.enum(RECURRENCE_FREQUENCIES);
+export type RecurrenceFrequency = z.infer<typeof RecurrenceFrequencySchema>;
+
+export const TIME_OFF_KINDS = ['leave', 'holiday', 'training', 'other'] as const;
+export const TimeOffKindSchema = z.enum(TIME_OFF_KINDS);
+export type TimeOffKind = z.infer<typeof TimeOffKindSchema>;
+
+/** Lead routing: round robin over the eligible pool, or the eligible user with the fewest open leads. */
+export const ROUTING_STRATEGIES = ['round_robin', 'least_busy'] as const;
+export const RoutingStrategySchema = z.enum(ROUTING_STRATEGIES);
+export type RoutingStrategy = z.infer<typeof RoutingStrategySchema>;
+
+/** Field types of the lead capture form builder. */
+export const CAPTURE_FIELD_TYPES = ['text', 'email', 'phone', 'textarea', 'number', 'select', 'multi_select', 'checkbox', 'date', 'hidden'] as const;
+export const CaptureFieldTypeSchema = z.enum(CAPTURE_FIELD_TYPES);
+export type CaptureFieldType = z.infer<typeof CaptureFieldTypeSchema>;
+
+export const CAPTURE_FORM_STATUSES = ['active', 'paused'] as const;
+export const CaptureFormStatusSchema = z.enum(CAPTURE_FORM_STATUSES);
+export type CaptureFormStatus = z.infer<typeof CaptureFormStatusSchema>;
+
+/** Entities with CRM notes and a merged timeline (contacts, accounts, deals). */
+export const CRM_NOTE_ENTITIES = ['contact', 'account', 'deal'] as const;
+export const CrmNoteEntitySchema = z.enum(CRM_NOTE_ENTITIES);
+export type CrmNoteEntity = z.infer<typeof CrmNoteEntitySchema>;

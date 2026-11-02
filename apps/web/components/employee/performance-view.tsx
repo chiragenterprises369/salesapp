@@ -2,26 +2,22 @@
 
 import { formatDuration, formatInr } from '@vistar/shared';
 import { AlertCircle, BarChart3, RotateCw, Trophy } from 'lucide-react';
-import { useMemo } from 'react';
 import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/common/empty-state';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useMe } from '@/lib/session/session';
-import { buildWeekCalls } from './my-day-mock';
 import { TargetRings } from './targets';
 import { Section } from './today-view';
-import { useMyDay } from './use-my-day';
+import { useMyDay, useWeekCalls } from './use-my-day';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /** My performance: targets, this month's numbers, calls per day this week, and rank if the company shows it. */
 export function PerformanceView() {
-  const me = useMe()!;
   const query = useMyDay();
-  const week = useMemo(() => buildWeekCalls(me), [me]);
+  const week = useWeekCalls();
   const max = Math.max(...week, 1);
 
   return (
@@ -46,9 +42,10 @@ export function PerformanceView() {
           }
         />
       ) : (
-        <div className="flex flex-col gap-4">
+        // Wide screens (D-066): rank and totals across, then targets | calls per day.
+        <div className="grid items-start gap-4 xl:grid-cols-2">
           {query.data.today.stats.rank !== null && (
-            <Card className="flex items-center gap-3 p-4">
+            <Card className="flex items-center gap-3 p-4 xl:order-1 xl:col-span-2">
               <span aria-hidden className="flex size-10 items-center justify-center rounded-full bg-accent-soft text-accent-soft-fg">
                 <Trophy className="size-5" />
               </span>
@@ -57,12 +54,12 @@ export function PerformanceView() {
               </p>
             </Card>
           )}
-          <Section title="Targets this month" icon={<Trophy />}>
+          <Section title="Targets this month" icon={<Trophy />} className="xl:order-3">
             <div className="px-2 pb-2">
               <TargetRings targets={query.data.today.targets} />
             </div>
           </Section>
-          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:order-2 xl:col-span-2">
             {[
               { label: 'Calls today', value: String(query.data.today.stats.callsToday) },
               { label: 'Talk time today', value: formatDuration(query.data.today.stats.talkSecToday) },
@@ -75,7 +72,7 @@ export function PerformanceView() {
               </Card>
             ))}
           </dl>
-          <Section title="Calls per day this week" icon={<BarChart3 />}>
+          <Section title="Calls per day this week" icon={<BarChart3 />} className="xl:order-4">
             <ul className="flex flex-col gap-1.5 px-2 pb-2">
               {week.map((n, i) => (
                 <li key={DAYS[i]} className="flex items-center gap-3 text-sm">

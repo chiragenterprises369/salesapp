@@ -52,6 +52,7 @@ export function Button({ className, variant, size, asChild = false, loading = fa
   return (
     <Comp
       data-slot="button"
+      data-variant={variant ?? 'secondary'}
       className={cn(buttonVariants({ variant, size }), className)}
       disabled={asChild ? undefined : disabled || loading}
       aria-disabled={asChild && (disabled || loading) ? true : undefined}

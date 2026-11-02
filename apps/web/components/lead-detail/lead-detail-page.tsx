@@ -49,7 +49,7 @@ function LeadDetailPageInner({ leadId, panel }: { leadId: string; panel: LeadPan
 
   return (
     <LeadsActions open={open}>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 md:px-6 md:py-5">
+      <div className="flex w-full min-w-0 flex-col gap-4">
         <nav aria-label="Breadcrumb">
           <Link
             href={base}
@@ -68,7 +68,7 @@ function LeadDetailPageInner({ leadId, panel }: { leadId: string; panel: LeadPan
 function PageSkeleton() {
   return (
     <div
-      className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-5 md:px-6"
+      className="flex w-full min-w-0 flex-col gap-4"
       role="status"
       aria-busy="true"
       aria-label="Loading"
@@ -78,7 +78,7 @@ function PageSkeleton() {
         <Skeleton className="size-10 rounded-full" />
         <Skeleton className="h-6 w-56" />
       </div>
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[380px_1fr] 3xl:grid-cols-[460px_1fr]">
         <Skeleton className="h-80" />
         <Skeleton className="h-96" />
       </div>

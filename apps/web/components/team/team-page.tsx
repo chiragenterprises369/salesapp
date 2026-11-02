@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/common/empty-state';
+import { AndroidAppCard } from '@/components/common/android-app-card';
 import { PageHeader } from '@/components/common/page-header';
 import { ProgressRing } from '@/components/common/progress-ring';
 import { ErrorBlock, FilterPills, PANEL, SearchField, StatSkeleton, StatTile, TOUCH } from '@/components/reports/page-kit';
@@ -87,7 +88,7 @@ export function TeamPage() {
 
   return (
     <RequirePermission anyOf={['team.read']}>
-      <div className="flex max-w-7xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <PageHeader
           title="Team and roles"
           description={me?.role.dataScope === 'team' ? 'People in your team, their status today and progress against this month’s target.' : 'People in your workspace, the teams they belong to and their progress this month.'}
@@ -143,7 +144,7 @@ export function TeamPage() {
         </div>
 
         {query.isPending ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 3xl:grid-cols-4 4xl:grid-cols-5" aria-busy="true">
             {Array.from({ length: 6 }, (_, i) => (
               <Skeleton key={i} className="h-44 rounded-lg" />
             ))}
@@ -171,7 +172,7 @@ export function TeamPage() {
                   {g.totals.callsToday} calls today · {g.totals.openLeads.toLocaleString('en-IN')} open leads · {formatInr(g.totals.wonInr, { compact: true })} won this month
                 </p>
               </div>
-              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 3xl:grid-cols-4 4xl:grid-cols-5">
                 {g.members.map((m) => (
                   <MemberCard key={m.user.id} m={m} isMe={m.user.id === me?.user.id} />
                 ))}
@@ -179,6 +180,8 @@ export function TeamPage() {
             </section>
           ))
         )}
+
+        <AndroidAppCard audience="team" />
       </div>
     </RequirePermission>
   );

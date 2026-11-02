@@ -15,6 +15,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:validate": "prisma validate",
     "seed": "tsx prisma/seed.ts",
+    "seed:demo": "tsx prisma/seed-demo.ts",
     "simulate": "tsx scripts/simulator.ts",
     "packs:sync": "tsx scripts/packs-sync.ts",
     "postinstall": "prisma generate"
@@ -68,6 +69,7 @@
     "@types/supertest": "^7.2.1",
     "@types/web-push": "^3.6.4",
     "prisma": "7.10.1",
+    "socket.io-client": "^4.8.4",
     "supertest": "^7.3.1",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",

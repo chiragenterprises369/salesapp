@@ -10,17 +10,18 @@ import { Chip } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
-import { platformKpis, platformRows, type PlatformCell, type PlatformRow } from '@/lib/world/platform';
+import { isMockData } from '@/lib/api/data-source';
+import { apiPlatformKpis, apiPlatformRows, platformKpis, platformRows, type PlatformCell, type PlatformRow } from '@/lib/world/platform';
 
 /**
- * Super Admin list data. Wave 1: rows come from the mock platform world (lib/world/platform: the
- * three seed companies plus 20 generated ones, usage, flags, health, support sessions, audit).
- * Phase 9 (superadmin-panel) swaps the queryFn for /api/super/* calls.
+ * Super Admin list data: /api/super/* in API mode (sections without a shipped route show their empty
+ * state); the test-only mock data mode reads the mock platform world (lib/world/platform).
  */
 export function usePlatformList(section: string) {
   return useQuery({
     queryKey: ['platform', section],
     queryFn: async (): Promise<PlatformRow[]> => {
+      if (!isMockData()) return apiPlatformRows(section);
       await new Promise((r) => setTimeout(r, 350));
       return platformRows(section);
     },
@@ -32,6 +33,7 @@ export function usePlatformKpis() {
   return useQuery({
     queryKey: ['platform', 'overview-kpis'],
     queryFn: async () => {
+      if (!isMockData()) return apiPlatformKpis();
       await new Promise((r) => setTimeout(r, 350));
       return platformKpis();
     },
@@ -59,12 +61,17 @@ function Cell({ value, primary }: { value: PlatformCell | undefined; primary: bo
   );
 }
 
+export interface ExtraColumn extends DataColumn {
+  render: (row: PlatformRow) => ReactNode;
+}
+
 export function PlatformSection({
   section,
   title,
   description,
   icon,
   columns,
+  extraColumns = [],
   emptyTitle,
   emptyDescription,
   searchLabel,
@@ -75,6 +82,8 @@ export function PlatformSection({
   description: string;
   icon: string;
   columns: DataColumn[];
+  /** Columns rendered by the page (controls such as the per-company switches), after `columns`. */
+  extraColumns?: ExtraColumn[];
   emptyTitle: string;
   emptyDescription: string;
   /** Adds a search field above the table (filters once data exists). */
@@ -87,14 +96,15 @@ export function PlatformSection({
   const needle = useDeferredValue(q).trim().toLowerCase();
   const rows = (query.data ?? []).filter((r) => !needle || r.search.includes(needle));
   const status = query.isPending ? 'loading' : query.isError ? 'error' : (query.data?.length ?? 0) === 0 ? 'empty' : 'ready';
+  const allColumns = [...columns, ...extraColumns];
 
   return (
-    <div className="flex max-w-7xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <PageHeader title={title} description={description} className="mb-1" />
       {children}
       <DataTable
         label={title}
-        columns={columns}
+        columns={allColumns}
         status={status}
         onRetry={() => void query.refetch()}
         toolbar={
@@ -117,7 +127,7 @@ export function PlatformSection({
       >
         {rows.length === 0 ? (
           <TableRow className="hover:bg-surface">
-            <TableCell colSpan={columns.length} className="py-6 text-center text-sm text-muted">
+            <TableCell colSpan={allColumns.length} className="py-6 text-center text-sm text-muted">
               Nothing matches “{q}”. Try another name.
             </TableCell>
           </TableRow>
@@ -127,6 +137,11 @@ export function PlatformSection({
               {columns.map((c, i) => (
                 <TableCell key={c.key} className={cn(columnClass(c), i === 0 && 'max-w-xs', 'py-2')}>
                   <Cell value={r.cells[c.key]} primary={i === 0} />
+                </TableCell>
+              ))}
+              {extraColumns.map((c) => (
+                <TableCell key={c.key} className={cn(columnClass(c), 'py-2')}>
+                  {c.render(r)}
                 </TableCell>
               ))}
             </TableRow>

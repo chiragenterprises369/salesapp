@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import {
   BoardSkinSchema,
+  ComponentStyleSchema,
   DEFAULT_USER_SETTINGS,
   InterfaceStyleSchema,
   LeadsViewModeSchema,
   SETTING_KEYS,
   UserSettingsSchema,
   type BoardSkin,
+  type ComponentStyle,
   type InterfaceStyle,
   type LeadsViewMode,
   type UserSettings,
@@ -27,12 +29,14 @@ export interface WorkspaceSettingValues {
   showEmployeeRank: boolean;
   defaultInterfaceStyle: InterfaceStyle;
   defaultBoardSkin: BoardSkin;
+  componentStyle: ComponentStyle;
 }
 const WORKSPACE_DEFAULTS: WorkspaceSettingValues = {
   defaultLeadsViewMode: null,
   showEmployeeRank: true,
   defaultInterfaceStyle: 'classic',
   defaultBoardSkin: 'depth',
+  componentStyle: 'standard',
 };
 
 function settingWhere(workspaceId: string, scope: 'user' | 'workspace', scopeId: string, key: string) {
@@ -109,6 +113,7 @@ export class SettingsService {
       SETTING_KEYS.workspace.showEmployeeRank,
       SETTING_KEYS.workspace.defaultInterfaceStyle,
       SETTING_KEYS.workspace.defaultBoardSkin,
+      SETTING_KEYS.workspace.componentStyle,
     ];
     const rows = await db.setting.findMany({ where: { scope: 'workspace', scopeId: workspaceId, key: { in: keys } }, select: { key: true, value: true } });
     const byKey = new Map(rows.map((r) => [r.key, r.value as unknown]));
@@ -116,11 +121,13 @@ export class SettingsService {
     const rank = z.boolean().safeParse(byKey.get(SETTING_KEYS.workspace.showEmployeeRank));
     const style = InterfaceStyleSchema.safeParse(byKey.get(SETTING_KEYS.workspace.defaultInterfaceStyle));
     const skin = BoardSkinSchema.safeParse(byKey.get(SETTING_KEYS.workspace.defaultBoardSkin));
+    const componentStyle = ComponentStyleSchema.safeParse(byKey.get(SETTING_KEYS.workspace.componentStyle));
     return {
       defaultLeadsViewMode: view.success ? view.data : WORKSPACE_DEFAULTS.defaultLeadsViewMode,
       showEmployeeRank: rank.success ? rank.data : WORKSPACE_DEFAULTS.showEmployeeRank,
       defaultInterfaceStyle: style.success ? style.data : WORKSPACE_DEFAULTS.defaultInterfaceStyle,
       defaultBoardSkin: skin.success ? skin.data : WORKSPACE_DEFAULTS.defaultBoardSkin,
+      componentStyle: componentStyle.success ? componentStyle.data : WORKSPACE_DEFAULTS.componentStyle,
     };
   }
 
@@ -144,6 +151,7 @@ export class SettingsService {
     if (values.showEmployeeRank !== undefined) ops.push(upsert(SETTING_KEYS.workspace.showEmployeeRank, values.showEmployeeRank));
     if (values.defaultInterfaceStyle !== undefined) ops.push(upsert(SETTING_KEYS.workspace.defaultInterfaceStyle, values.defaultInterfaceStyle));
     if (values.defaultBoardSkin !== undefined) ops.push(upsert(SETTING_KEYS.workspace.defaultBoardSkin, values.defaultBoardSkin));
+    if (values.componentStyle !== undefined) ops.push(upsert(SETTING_KEYS.workspace.componentStyle, values.componentStyle));
     return ops;
   }
 }

@@ -26,6 +26,7 @@ const NOTIFY_LABEL: Record<NotificationType, string> = {
   mention: 'Someone mentions me in a note',
   import_completed: 'A lead import finishes',
   system: 'Vistar product updates',
+  meeting_reminder: 'A meeting is about to start',
 };
 
 const MOTION: ReadonlyArray<{ value: ReducedMotionSetting; label: string; hint: string }> = [
@@ -103,7 +104,8 @@ export function PersonalPreferences({ touch = false }: { touch?: boolean }) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    // Two columns of cards on wide screens (D-066).
+    <div className="grid items-start gap-4 2xl:grid-cols-2">
       <SettingsCard title="Theme" description="Applies on every device you sign in on.">
         <ThemeModeRadio variant="cards" label="Theme" value={preference.mode} onValueChange={(mode) => void setPreference({ mode })} />
         {preference.mode === 'scheduled' && (

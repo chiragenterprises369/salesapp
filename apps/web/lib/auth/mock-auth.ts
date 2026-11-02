@@ -1,20 +1,40 @@
-import type { InviteAccept, LoginRequest, RoleKind, SignupRequest, SuperLoginChallenge } from '@vistar/shared';
+import type { FieldError, InviteAccept, LoginRequest, RoleKind, SignupRequest, SuperLoginChallenge } from '@vistar/shared';
+import { noteMockUse } from '../api/data-source';
 import { DEMO_PASSWORD, isSuperAdminEmail, personaForEmail } from './demo-accounts';
 
 /**
- * Wave 1 mock auth backend. Same inputs as the real routes (POST /auth/login, /auth/signup,
- * /auth/invites/accept, /api/super/auth/login + /verify); Wave 3 swaps these for HTTP calls.
- * Never stores passwords; the "enrolled" flag only drives which Super Admin screen shows.
+ * Mock auth backend for automated tests (mock data mode only; lib/auth/actions picks it). Same
+ * inputs as the real routes (POST /auth/login, /auth/signup, /auth/invite/accept,
+ * /api/super/auth/login + /verify). Never stores passwords; the "enrolled" flag only drives which
+ * Super Admin screen shows.
  */
-export type AuthFailureCode = 'UNKNOWN_ACCOUNT' | 'BAD_CREDENTIALS' | 'PLATFORM_ACCOUNT' | 'CHALLENGE_EXPIRED' | 'BAD_CODE';
+export type AuthFailureCode =
+  | 'UNKNOWN_ACCOUNT'
+  | 'BAD_CREDENTIALS'
+  | 'PLATFORM_ACCOUNT'
+  | 'CHALLENGE_EXPIRED'
+  | 'BAD_CODE'
+  | 'ACCOUNT_DISABLED'
+  | 'EMAIL_TAKEN'
+  | 'INVITE_INVALID'
+  | 'RATE_LIMITED'
+  | 'INVALID'
+  | 'NETWORK'
+  | 'NOT_CONFIGURED'
+  | 'UNKNOWN';
 
 export interface AuthFailure {
   ok: false;
   code: AuthFailureCode;
   message: string;
+  /** Field errors from the API (VALIDATION_FAILED), keyed by path. */
+  details?: FieldError[];
 }
 
-const wait = (ms = 450) => new Promise((r) => setTimeout(r, ms));
+const wait = (ms = 450) => {
+  noteMockUse('auth');
+  return new Promise((r) => setTimeout(r, ms));
+};
 const fail = (code: AuthFailureCode, message: string): AuthFailure => ({ ok: false, code, message });
 
 export async function mockLogin(input: LoginRequest): Promise<{ ok: true; persona: RoleKind } | AuthFailure> {

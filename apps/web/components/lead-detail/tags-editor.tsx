@@ -5,7 +5,7 @@ import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
-import { KNOWN_TAGS } from '@/components/leads/lead-meta';
+import { useKnownTags } from '@/components/leads/lead-meta';
 
 /** Tag chips with remove buttons and an add field (suggests workspace tags). */
 export function TagsEditor({
@@ -17,6 +17,7 @@ export function TagsEditor({
   editable: boolean;
   onChange: (tags: string[]) => Promise<unknown>;
 }) {
+  const knownTags = useKnownTags();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +94,7 @@ export function TagsEditor({
             className="w-40"
           />
           <datalist id={listId}>
-            {KNOWN_TAGS.filter((t) => !tags.includes(t)).map((t) => (
+            {knownTags.filter((t) => !tags.includes(t)).map((t) => (
               <option key={t} value={t} />
             ))}
           </datalist>

@@ -7,7 +7,6 @@ import {
   type Activity,
   type WorkflowStepStatus,
 } from '@vistar/shared';
-import { mockUsers } from '@vistar/shared/fixtures';
 import { format, isToday, isYesterday } from 'date-fns';
 import {
   ArrowRightLeft,
@@ -39,9 +38,8 @@ import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { SOURCE_LABEL } from '@/components/leads/lead-meta';
 import { usePipelineStages } from '@/components/leads/use-stages';
 import { useLabels } from '@/lib/customization';
+import { useUserNames } from '@/lib/api/directory';
 import type { LeadSource } from '@vistar/shared';
-
-const USERS = new Map(mockUsers().map((u) => [u.id, u.name]));
 
 type Filter = 'all' | 'calls' | 'messages' | 'notes' | 'system';
 const FILTERS: Array<{ id: Filter; label: string }> = [
@@ -109,6 +107,7 @@ function Waveform({ seed }: { seed: string }) {
 
 interface DescribeContext {
   stageName: (id: string) => string | undefined;
+  userName: (id: string) => string | undefined;
   /** Configured singular label for leads ("Lead", "Enquiry"). */
   lead: string;
   leads: string;
@@ -202,7 +201,7 @@ function describe(
       };
     }
     case 'assigned': {
-      const to = a.payload.toUserId ? (USERS.get(a.payload.toUserId) ?? 'a teammate') : 'nobody';
+      const to = a.payload.toUserId ? (ctx.userName(a.payload.toUserId) ?? 'a teammate') : 'nobody';
       const rule = a.payload.rule ? ` (${a.payload.rule.replace(/_/g, ' ')})` : '';
       return { icon: UserRoundPlus, title: `Assigned to ${to}${rule}` };
     }
@@ -247,8 +246,10 @@ export function Timeline({ activities, canAddNote, onAddNote, composerRef }: Tim
   const reduced = useReducedMotion();
   const { byId } = usePipelineStages();
   const labels = useLabels();
+  const names = useUserNames();
   const ctx: DescribeContext = {
     stageName: (id) => byId.get(id)?.name,
+    userName: (id) => names.get(id),
     lead: labelOf(labels, 'lead'),
     leads: labelOf(labels, 'lead', { plural: true }),
   };

@@ -47,7 +47,8 @@ export function CallsView() {
   return (
     <RequirePermission anyOf={['calls.read']}>
       <PageHeader title="Calls" description="Tap to call. Your phone rings first, then Vistar connects the lead and logs the call." />
-      <div className="flex flex-col gap-4">
+      {/* Two columns on wide screens (D-066): to call | recent. */}
+      <div className="grid items-start gap-4 xl:grid-cols-2">
         <Section title="To call" count={day.data ? day.data.today.callsToMake.length + day.data.today.followUps.length : undefined} icon={<Phone />}>
           {day.isPending ? (
             <ListSkeleton />

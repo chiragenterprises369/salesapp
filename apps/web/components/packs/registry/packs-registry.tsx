@@ -44,7 +44,7 @@ function Registry() {
   const status = q.isPending ? 'loading' : q.isError ? 'error' : packs.length === 0 ? 'empty' : 'ready';
 
   return (
-    <div className="flex max-w-7xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Industry packs" description="Packs and versions in the registry, which plans include them, and which companies use them." className="mb-1" />
       <DataTable
         label="Industry pack registry"

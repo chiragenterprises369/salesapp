@@ -1,0 +1,335 @@
+/*
+  Premium component design (SPEC 29.3, D-059). OWNER: frontend-app (web-premium).
+  Applies only under <html data-ui="premium"> (set before first paint by the branding boot script);
+  Standard (no attribute or data-ui="standard") paints nothing from this file, so the current look is
+  unchanged. Works with every interface style (Classic, Depth, Neon Space) and both themes.
+
+  How it is built:
+  1. Token overrides (radius, hairlines, layered elevation, table density) on <html>; everything that
+     uses the tokens follows, including call sites that pass their own classes.
+  2. Component rules keyed on the kit's data-slot attributes, in the `premium` cascade layer. That
+     layer comes after Tailwind's `utilities`, so it wins over the kit's base classes. Only "look"
+     properties are set here (colour, border, radius, shadow, type); sizes stay with the components,
+     so layouts and virtualised lists keep their geometry.
+  Contrast: text colours used here are fg, fg-secondary and muted-strong (AA on every surface and on
+  the chrome tint); focus rings keep the 2px solid `ring` colour (3:1).
+*/
+
+/* ---------------------------------------------------------------- 1. tokens */
+[data-ui='premium'] {
+  --r-xs: 3px;
+  --r-sm: 5px;
+  --r-md: 6px;
+  --r-lg: 10px;
+  --border: #e2e6ec;
+  --border-strong: #c9d0da;
+  --bg: #f4f6f9;
+  --elevation-1: 0 0 0 0.5px rgba(15, 23, 42, 0.03), 0 1px 1px -0.5px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --elevation-2: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 10px -2px rgba(15, 23, 42, 0.08), 0 12px 28px -10px rgba(15, 23, 42, 0.14);
+  --elevation-3: 0 2px 4px rgba(15, 23, 42, 0.05), 0 12px 24px -6px rgba(15, 23, 42, 0.14), 0 28px 56px -16px rgba(15, 23, 42, 0.24);
+  --table-row-h: 2.125rem;
+  --table-head-h: 2rem;
+  /* Premium-only helpers. */
+  --pm-chrome: #fbfcfd;
+  --pm-thead: #f7f9fb;
+  --pm-zebra: rgba(15, 23, 42, 0.022);
+  --pm-hover: color-mix(in oklab, var(--accent) 6%, var(--surface));
+  --pm-menu-hl: color-mix(in oklab, var(--accent) 9%, var(--surface));
+  --pm-halo: color-mix(in oklab, var(--ring) 24%, transparent);
+  --pm-hairline-top: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --pm-overlay: rgba(15, 23, 42, 0.46);
+}
+
+[data-ui='premium'][data-theme='dark'] {
+  --border: #232833;
+  --border-strong: #323948;
+  --bg: #0d0f13;
+  --elevation-1: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 0 0 0.5px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.45);
+  --elevation-2: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 14px -4px rgba(0, 0, 0, 0.45), 0 16px 32px -12px rgba(0, 0, 0, 0.55);
+  --elevation-3: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 4px rgba(0, 0, 0, 0.5), 0 14px 28px -8px rgba(0, 0, 0, 0.6), 0 32px 64px -16px rgba(0, 0, 0, 0.7);
+  --pm-chrome: #12151b;
+  --pm-thead: #1a1e26;
+  --pm-zebra: rgba(255, 255, 255, 0.022);
+  --pm-hover: color-mix(in oklab, var(--accent) 10%, var(--surface));
+  --pm-menu-hl: color-mix(in oklab, var(--accent) 16%, var(--surface));
+  --pm-halo: color-mix(in oklab, var(--ring) 30%, transparent);
+  --pm-hairline-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --pm-overlay: rgba(0, 0, 0, 0.62);
+}
+
+@keyframes pm-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/* ---------------------------------------------------------------- 2. components */
+@layer premium {
+  /* Type: Inter's open digits and single-storey a read cleaner at 13-14 px. */
+  :where([data-ui='premium']) body {
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Buttons */
+  :where([data-ui='premium']) [data-slot='button'] {
+    letter-spacing: -0.006em;
+  }
+  :where([data-ui='premium']) [data-slot='button'][data-variant='primary'] {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 0 0 1px color-mix(in oklab, var(--accent) 78%, #000),
+      0 1px 2px rgba(15, 23, 42, 0.22);
+  }
+  :where([data-ui='premium']) [data-slot='button'][data-variant='secondary'] {
+    border-color: var(--border-strong);
+    box-shadow:
+      var(--pm-hairline-top),
+      0 1px 2px rgba(15, 23, 42, 0.07);
+  }
+  :where([data-ui='premium'][data-theme='dark']) [data-slot='button'][data-variant='secondary'] {
+    background-color: var(--surface-2);
+  }
+  :where([data-ui='premium']) [data-slot='button'][data-variant='secondary']:hover {
+    border-color: color-mix(in oklab, var(--border-strong) 70%, var(--fg-secondary));
+  }
+  :where([data-ui='premium']) [data-slot='button'][data-variant='danger'] {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      0 0 0 1px color-mix(in oklab, var(--danger) 78%, #000),
+      0 1px 2px rgba(15, 23, 42, 0.2);
+  }
+
+  /* Form controls: inner shadow at rest, ring plus soft halo on focus. */
+  :where([data-ui='premium']) :is([data-slot='input'], [data-slot='textarea'], [data-slot='native-select']) {
+    box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.05);
+  }
+  :where([data-ui='premium']) :is([data-slot='input'], [data-slot='textarea'], [data-slot='native-select']):focus-visible {
+    outline: none;
+    border-color: var(--ring);
+    box-shadow:
+      0 0 0 1px var(--ring),
+      0 0 0 4px var(--pm-halo);
+  }
+  :where([data-ui='premium']) :is([data-slot='input'], [data-slot='textarea'], [data-slot='native-select'])[aria-invalid='true']:focus-visible {
+    border-color: var(--danger-text);
+    box-shadow:
+      0 0 0 1px var(--danger-text),
+      0 0 0 4px color-mix(in oklab, var(--danger-text) 22%, transparent);
+  }
+  :where([data-ui='premium']) [data-slot='label'] {
+    color: var(--fg-secondary);
+    letter-spacing: 0.002em;
+  }
+
+  /* Cards */
+  :where([data-ui='premium']) [data-slot='card-title'] {
+    letter-spacing: -0.006em;
+  }
+  :where([data-ui='premium']) [data-slot='card-footer'] {
+    background-color: var(--surface-2);
+  }
+
+  /* Tables: tinted sticky header with small caps labels, tabular numerals, zebra on static tables. */
+  :where([data-ui='premium']) [data-slot='table'] {
+    font-variant-numeric: tabular-nums;
+  }
+  :where([data-ui='premium']) [data-slot='table-head'] {
+    background-color: var(--pm-thead);
+    color: var(--muted-strong);
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+  }
+  :where([data-ui='premium']) [data-slot='table-header'] {
+    box-shadow: 0 1px 0 var(--border);
+  }
+  :where([data-ui='premium']) [data-slot='table-body'] > [data-slot='table-row']:not([data-index]):nth-child(even) > [data-slot='table-cell']:not([colspan]) {
+    background-image: linear-gradient(var(--pm-zebra), var(--pm-zebra));
+  }
+  :where([data-ui='premium']) [data-slot='table-row']:not([data-state='selected']):hover > [data-slot='table-cell'] {
+    background-image: linear-gradient(color-mix(in oklab, var(--accent) 5%, transparent), color-mix(in oklab, var(--accent) 5%, transparent));
+  }
+  :where([data-ui='premium']) [data-slot='table-row'][data-state='selected'] > [data-slot='table-cell']:first-child {
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+
+  /* Chips and badges: squarer, crisper. */
+  :where([data-ui='premium']) [data-slot='chip'] {
+    border-radius: var(--r-sm);
+    letter-spacing: 0.006em;
+  }
+
+  /* Dialogs and sheets */
+  :where([data-ui='premium']) [data-slot='dialog-overlay'] {
+    background-color: var(--pm-overlay);
+  }
+  :where([data-ui='premium']) [data-slot='dialog-content'] {
+    border-radius: 12px;
+    border-color: var(--border-strong);
+  }
+  :where([data-ui='premium'][data-theme='dark']) [data-slot='dialog-content'] {
+    border-color: var(--border);
+  }
+  :where([data-ui='premium']) [data-slot='dialog-title'] {
+    font-size: 15px;
+    line-height: 22px;
+    letter-spacing: -0.01em;
+  }
+  :where([data-ui='premium']) [data-slot='dialog-footer'] {
+    background-color: var(--surface-2);
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+  }
+
+  /* Menus, listboxes, popovers */
+  :where([data-ui='premium']) :is([role='menu'], [role='listbox'], [data-slot='popover']) {
+    border-radius: 10px;
+    border-color: var(--border-strong);
+    box-shadow: var(--elevation-3);
+  }
+  :where([data-ui='premium'][data-theme='dark']) :is([role='menu'], [role='listbox'], [data-slot='popover']) {
+    border-color: var(--border);
+  }
+  :where([data-ui='premium']) :is([role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox'], [role='option'])[data-highlighted],
+  :where([data-ui='premium']) [role='option'][data-selected='true'],
+  :where([data-ui='premium']) [cmdk-item][data-selected='true'] {
+    background-color: var(--pm-menu-hl);
+  }
+
+  /* Tooltips */
+  :where([data-ui='premium']) [data-slot='tooltip'] {
+    border-radius: 6px;
+    box-shadow: var(--elevation-2);
+    letter-spacing: 0.004em;
+  }
+
+  /* Empty states: solid hairline, raised icon tile. */
+  :where([data-ui='premium']) [data-slot='empty-state'] {
+    border-style: solid;
+    border-color: var(--border);
+    background-color: var(--surface);
+  }
+  :where([data-ui='premium']) [data-slot='empty-state-icon'] {
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background-color: var(--surface-2);
+    box-shadow: var(--elevation-1);
+  }
+
+  /* Skeletons: a soft shimmer instead of the pulse (stops with reduced motion). */
+  :where([data-ui='premium']) [data-slot='skeleton'] {
+    animation: pm-shimmer 1.6s ease-in-out infinite;
+    background-image: linear-gradient(90deg, transparent 0%, color-mix(in oklab, var(--surface) 70%, transparent) 50%, transparent 100%);
+    background-size: 60% 100%;
+    background-repeat: no-repeat;
+  }
+
+  /* Switches and segmented controls */
+  :where([data-ui='premium']) [data-slot='switch'] {
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.15);
+  }
+  :where([data-ui='premium']) [data-slot='segmented'] {
+    background-color: var(--surface-3);
+    border-color: var(--border);
+  }
+
+  /* KPI tiles */
+  :where([data-ui='premium']) [data-slot='kpi-label'] {
+    color: var(--muted-strong);
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  :where([data-ui='premium']) [data-slot='kpi-value'] {
+    font-size: 26px;
+    line-height: 32px;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Panels (dashboard, settings): title row separated by a hairline. */
+  :where([data-ui='premium']) [data-slot='panel-head'] {
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  :where([data-ui='premium']) [data-slot='settings-card-head'] {
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+
+  /* Charts (Recharts): quiet dashed grid, small axis labels, raised tooltip. */
+  :where([data-ui='premium']) .recharts-cartesian-grid line {
+    stroke-dasharray: 2 4;
+  }
+  :where([data-ui='premium']) .recharts-cartesian-axis-tick-value {
+    font-size: 11px;
+  }
+  :where([data-ui='premium']) .recharts-default-tooltip {
+    border-radius: 8px !important;
+    box-shadow: var(--elevation-3) !important;
+  }
+
+  /* ---------------------------------------------------------------- shell */
+  :where([data-ui='premium'][data-interface-style='classic']) [data-slot='sidebar'] {
+    background-color: var(--pm-chrome);
+  }
+  :where([data-ui='premium'][data-interface-style='classic']) [data-slot='topbar'] {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+  :where([data-ui='premium']) [data-slot='nav-group-label'] {
+    color: var(--muted-strong);
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  :where([data-ui='premium']) :is([data-slot='nav-item'], [data-slot='subnav-item']) {
+    position: relative;
+  }
+  :where([data-ui='premium']) :is([data-slot='nav-item'], [data-slot='subnav-item']):not([aria-current='page']):hover {
+    background-color: var(--pm-hover);
+  }
+  :where([data-ui='premium']:not([data-interface-style='neon'])) [data-slot='subnav-item'][aria-current='page']::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 7px;
+    bottom: 7px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background-color: var(--accent);
+  }
+  :where([data-ui='premium']:not([data-interface-style='neon'])) [data-slot='nav-item'][aria-current='page']::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 7px;
+    bottom: 7px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background-color: var(--accent);
+  }
+  :where([data-ui='premium']) [data-slot='page-header'] {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+  :where([data-ui='premium']) [data-slot='page-title'] {
+    font-size: 22px;
+    line-height: 30px;
+    letter-spacing: -0.018em;
+  }
+
+  /* Focus: the 2px ring stays; buttons add a soft halo outside it. Toasts follow the tokens. */
+  :where([data-ui='premium']) [data-slot='button']:focus-visible {
+    box-shadow: 0 0 0 7px var(--pm-halo);
+  }
+}

@@ -8,7 +8,7 @@ import { Chip, StatusChip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
 import { useNow } from '../state/env';
 import { OUTCOME_LABEL, OUTCOME_TONE } from '../state/reducer';
-import { LOCATION_LABEL, locationOf } from '../state/selectors';
+import { locationLabel, locationOf } from '../state/selectors';
 import type { FloorEmployee, FloorLocation, FloorState } from '../state/types';
 
 /**
@@ -104,6 +104,7 @@ export function EmployeeList({ state, attention, selectedId, onOpen, variant, id
               emp={emp}
               index={i}
               location={locationOf(state, emp).kind}
+              locationText={locationLabel(state, emp)}
               items={attention.get(emp.id) ?? NO_ITEMS}
               now={emp.status === 'on_call' ? now : 0}
               outcome={outcomes.get(emp.id) ?? null}
@@ -126,6 +127,8 @@ interface PersonButtonProps {
   emp: FloorEmployee;
   index: number;
   location: FloorLocation['kind'];
+  /** Location text incl. the zone name on custom floors. */
+  locationText: string;
   items: AttentionItem[];
   /** Clock for the call timer (0 unless on a call, so other rows skip the 1 s re-render). */
   now: number;
@@ -143,6 +146,7 @@ const PersonButton = memo(function PersonButton({
   emp,
   index,
   location,
+  locationText,
   items,
   now,
   outcome,
@@ -175,7 +179,7 @@ const PersonButton = memo(function PersonButton({
           {EMPLOYEE_STATUS_LABEL[emp.status]}
           {timer ? `, ${timer}` : ''}
           {emp.currentLeadName ? `, ${emp.currentLeadName}` : ''}
-          {away ? `, ${LOCATION_LABEL[location].toLowerCase()}` : ''}
+          {away ? `, ${locationText.toLowerCase()}` : ''}
           {items.length ? `, ${items.length} ${items.length === 1 ? 'item needs' : 'items need'} you` : ''}
         </span>
       </button>
@@ -220,7 +224,7 @@ const PersonButton = memo(function PersonButton({
       {away && location !== 'gone' && (
         <span className="flex items-center gap-1 text-xs text-muted">
           <MapPin aria-hidden className="size-3" />
-          {LOCATION_LABEL[location]}
+          {locationText}
         </span>
       )}
     </button>

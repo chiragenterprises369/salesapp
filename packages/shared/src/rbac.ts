@@ -32,6 +32,17 @@ export const PERMISSION_MATRIX = {
   settings: ['manage'],
   audit: ['read'],
   support_access: ['manage'],
+  // change #19 wave B (SPEC 29.9). Data scope applies via ownerId (contacts, accounts, deals, quotations,
+  // invoices) and organizerId / attendees (calendar).
+  contacts: ['read', 'create', 'update', 'delete', 'merge'],
+  accounts: ['read', 'create', 'update', 'delete', 'merge'],
+  deals: ['read', 'create', 'update', 'delete'],
+  products: ['read', 'manage'],
+  quotations: ['read', 'create', 'update', 'send', 'delete'],
+  invoices: ['read', 'create', 'update', 'issue', 'cancel', 'payments', 'delete'],
+  calendar: ['read', 'create', 'update', 'delete'],
+  routing: ['manage'],
+  capture_forms: ['manage'],
 } as const;
 
 export type PermissionResource = keyof typeof PERMISSION_MATRIX;
@@ -63,6 +74,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKind, Permission[]> = {
     'teamfloor.read',
     'team.read',
     'targets.read', 'targets.manage',
+    'contacts.read', 'contacts.create', 'contacts.update', 'contacts.merge',
+    'accounts.read', 'accounts.create', 'accounts.update', 'accounts.merge',
+    'deals.read', 'deals.create', 'deals.update',
+    'products.read',
+    'quotations.read', 'quotations.create', 'quotations.update', 'quotations.send',
+    'invoices.read', 'invoices.create', 'invoices.update', 'invoices.issue', 'invoices.payments',
+    'calendar.read', 'calendar.create', 'calendar.update', 'calendar.delete',
   ],
   employee: [
     'leads.read', 'leads.create', 'leads.update',
@@ -75,9 +93,24 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKind, Permission[]> = {
     'reports.read',
     'teamfloor.read',
     'targets.read',
+    'contacts.read', 'contacts.create', 'contacts.update',
+    'accounts.read', 'accounts.create', 'accounts.update',
+    'deals.read', 'deals.create', 'deals.update',
+    'products.read',
+    'quotations.read', 'quotations.create', 'quotations.update', 'quotations.send',
+    'invoices.read',
+    'calendar.read', 'calendar.create', 'calendar.update', 'calendar.delete',
   ],
-  viewer: ['dashboard.read', 'leads.read', 'pipeline.read', 'records.read', 'reports.read'],
+  viewer: ['dashboard.read', 'leads.read', 'pipeline.read', 'records.read', 'reports.read', 'contacts.read', 'accounts.read', 'deals.read', 'products.read', 'quotations.read', 'invoices.read', 'calendar.read'],
 };
+
+/**
+ * Permissions added to the SYSTEM roles of existing workspaces by migration 20261103000000_change19b_crm
+ * (custom roles are left alone; company admins add them in the matrix).
+ */
+export const CHANGE_19B_PERMISSIONS: readonly Permission[] = (Object.keys(PERMISSION_MATRIX) as PermissionResource[])
+  .filter((r) => ['contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture_forms'].includes(r))
+  .flatMap((r) => (PERMISSION_MATRIX[r] as readonly string[]).map((a) => `${r}.${a}` as Permission));
 
 export const DEFAULT_ROLE_SCOPE: Record<RoleKind, DataScope> = {
   company_admin: 'all',
@@ -155,8 +188,12 @@ export const PLATFORM_PERMISSIONS = [
 export const PlatformPermissionSchema = z.enum(PLATFORM_PERMISSIONS);
 export type PlatformPermission = z.infer<typeof PlatformPermissionSchema>;
 
-/** Feature flags (per plan, overridable per company by Super Admin). */
-export const FEATURE_FLAGS = ['team_floor_3d', 'ai_node', 'telephony', 'api_access', 'whatsapp', 'employee_rank'] as const;
+/**
+ * Feature flags (per plan, overridable per company by Super Admin).
+ * custom_domain: off in every plan; the Super Admin switches it on per company (D-060).
+ * field_tracking: attendance and GPS for field staff (D-063); on for growth and enterprise by default.
+ */
+export const FEATURE_FLAGS = ['team_floor_3d', 'ai_node', 'telephony', 'api_access', 'whatsapp', 'employee_rank', 'custom_domain', 'field_tracking'] as const;
 export const FeatureFlagSchema = z.enum(FEATURE_FLAGS);
 export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
 export type FeatureFlags = Record<FeatureFlag, boolean>;

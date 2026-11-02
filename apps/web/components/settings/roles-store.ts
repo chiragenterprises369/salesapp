@@ -13,8 +13,12 @@ import {
   type Role,
   type RoleCreate,
 } from '@vistar/shared';
+import { useQuery } from '@tanstack/react-query';
 import { EMPLOYEE_FIXTURES } from '@vistar/shared/fixtures';
 import { create } from 'zustand';
+import { api } from '@/lib/api/client';
+import { isMockData } from '@/lib/api/data-source';
+import { useMe } from '@/lib/session/session';
 
 /** Labels for the permission matrix (resource rows, action columns). */
 export const RESOURCE_LABELS: Record<PermissionResource, { label: string; hint: string }> = {
@@ -39,6 +43,15 @@ export const RESOURCE_LABELS: Record<PermissionResource, { label: string; hint: 
   settings: { label: 'Workspace settings', hint: 'Hours, stages, fields, branding' },
   audit: { label: 'Audit log', hint: 'Who changed what' },
   support_access: { label: 'Support access', hint: 'Let Vistar support view the workspace' },
+  contacts: { label: 'Contacts', hint: 'People at customers and their details' },
+  accounts: { label: 'Accounts', hint: 'Customer companies, GSTIN and addresses' },
+  deals: { label: 'Deals', hint: 'Opportunities on the Deals board' },
+  products: { label: 'Products', hint: 'Products, services and price lists' },
+  quotations: { label: 'Quotations', hint: 'Quotes with GST, PDF and share links' },
+  invoices: { label: 'Invoices', hint: 'Tax invoices and payments' },
+  calendar: { label: 'Calendar', hint: 'Meetings, reminders and time off' },
+  routing: { label: 'Lead routing', hint: 'Who gets each new lead' },
+  capture_forms: { label: 'Lead capture forms', hint: 'Website forms that create leads' },
 };
 
 export const ACTION_LABELS: Record<string, string> = {
@@ -59,6 +72,9 @@ export const ACTION_LABELS: Record<string, string> = {
   team_inbox: 'Team inbox',
   publish: 'Publish',
   run: 'Run',
+  issue: 'Issue',
+  cancel: 'Cancel',
+  payments: 'Payments',
 };
 
 export const SCOPE_LABELS: Record<DataScope, { label: string; sentence: string }> = {
@@ -100,17 +116,29 @@ interface RolesState {
 const wait = () => new Promise((r) => setTimeout(r, 300));
 
 /**
- * Wave 1 mock of GET/POST/PATCH/DELETE /roles. In memory for this browser tab (resets on reload).
+ * Roles: GET/POST/PATCH/DELETE /roles (role changes are audit logged by the API). The store keeps
+ * the list the settings pages read; useRolesStore loads it once per session. The test-only mock
+ * data mode keeps the in-memory system roles (reset on reload).
  */
-export const useRolesStore = create<RolesState>()((set, get) => ({
-  roles: systemRoles(),
+const rolesStore = create<RolesState>()((set, get) => ({
+  roles: isMockData() ? systemRoles() : [],
   saveRole: async (id, patch) => {
+    if (!isMockData()) {
+      const saved = await api.call('roleUpdate', { params: { id }, body: patch });
+      set({ roles: get().roles.map((r) => (r.id === id ? saved : r)) });
+      return saved;
+    }
     await wait();
     const roles = get().roles.map((r) => (r.id === id ? { ...r, ...patch } : r));
     set({ roles });
     return roles.find((r) => r.id === id)!;
   },
   createRole: async (input) => {
+    if (!isMockData()) {
+      const role = await api.call('roleCreate', { body: input });
+      set({ roles: [...get().roles, role] });
+      return role;
+    }
     await wait();
     const taken = new Set(get().roles.map((r) => r.key));
     let key = slug(input.name);
@@ -120,7 +148,33 @@ export const useRolesStore = create<RolesState>()((set, get) => ({
     return role;
   },
   deleteRole: async (id) => {
+    if (!isMockData()) {
+      await api.call('roleDelete', { params: { id } });
+      set({ roles: get().roles.filter((r) => r.id !== id) });
+      return;
+    }
     await wait();
     set({ roles: get().roles.filter((r) => r.id !== id || r.isSystem) });
   },
 }));
+
+/** Loads GET /roles into the store (API mode, once per signed-in user; team.read). */
+function useRolesSync(): void {
+  const me = useMe();
+  useQuery({
+    queryKey: ['dashboard', 'directory', me?.user.id ?? null, 'roles-store'],
+    queryFn: async () => {
+      const roles = (await api.call('roleList')).items;
+      rolesStore.setState({ roles });
+      return roles;
+    },
+    enabled: !isMockData() && !!me && me.permissions.includes('team.read'),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Same selector API as a zustand store hook. */
+export function useRolesStore<T>(selector: (s: RolesState) => T): T {
+  useRolesSync();
+  return rolesStore(selector);
+}

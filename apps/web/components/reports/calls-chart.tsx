@@ -1,13 +1,12 @@
 'use client';
 
-import { palettes } from '@vistar/shared';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useDocumentTheme } from '@/lib/use-document-theme';
+import { useBrandPalette } from '@/lib/branding/use-brand-palette';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 
 /** Calls per day (answered / missed), lazy-loaded so Recharts stays out of the Reports first load. Decorative: the page renders a table equivalent. */
 export default function CallsByDayChart({ data }: { data: Array<{ label: string; answered: number; missed: number }> }) {
-  const p = palettes[useDocumentTheme()];
+  const p = useBrandPalette();
   const reduced = useReducedMotion();
   return (
     <div aria-hidden className="h-56">

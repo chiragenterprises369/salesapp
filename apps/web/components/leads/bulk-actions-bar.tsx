@@ -24,7 +24,7 @@ import { useLeadsViewState } from '@/lib/leads/state';
 import { useCan, useMe } from '@/lib/session/session';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
 import { findCachedLeads } from './cached-leads';
-import { KNOWN_TAGS, TONE_DOT_CLASS, useScopedUsers } from './lead-meta';
+import { TONE_DOT_CLASS, useKnownTags, useScopedUsers } from './lead-meta';
 import { useLeadWords } from './use-lead-words';
 import { usePipelineStages } from './use-stages';
 import {
@@ -68,6 +68,7 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
   const canUpdate = useCan('leads.update');
   const me = useMe();
   const users = useScopedUsers();
+  const knownTags = useKnownTags();
   const bulk = useBulkLeads();
   const qc = useQueryClient();
   const reduced = useReducedMotion();
@@ -215,7 +216,7 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>Add tag</DropdownMenuSubTrigger>
                     <DropdownMenuSubContent className="w-48">
-                      {KNOWN_TAGS.map((t) => (
+                      {knownTags.map((t) => (
                         <DropdownMenuItem
                           key={t}
                           onSelect={() =>
@@ -234,7 +235,7 @@ export function BulkActionsBar({ panel }: { panel: 'company' | 'employee' }) {
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>Remove tag</DropdownMenuSubTrigger>
                     <DropdownMenuSubContent className="w-48">
-                      {KNOWN_TAGS.map((t) => (
+                      {knownTags.map((t) => (
                         <DropdownMenuItem
                           key={t}
                           onSelect={() =>

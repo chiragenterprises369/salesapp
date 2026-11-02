@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PlanSchema, WorkspaceStatusSchema } from '../enums.js';
+import { CustomDomainStatusSchema, FloorRequestStatusSchema, PlanSchema, WorkspaceStatusSchema } from '../enums.js';
 import { FeatureFlagSchema, PlanLimitsSchema } from '../rbac.js';
 import { CursorPaginationQuerySchema, IdSchema, IsoDateTimeSchema } from './common.js';
 import { FeatureFlagsSchema } from './workspace.js';
@@ -46,12 +46,31 @@ export const CompanySchema = z.object({
   trialEndsAt: IsoDateTimeSchema.nullable(),
   mrrInr: z.number().int(),
   usage: UsageSnapshotSchema,
-  flagOverrides: z.record(FeatureFlagSchema, z.boolean()),
+  flagOverrides: z.partialRecord(FeatureFlagSchema, z.boolean()).describe('Only the flags the Super Admin overrode'),
   ownerEmail: z.string().nullable(),
   lastActiveAt: IsoDateTimeSchema.nullable(),
   createdAt: IsoDateTimeSchema,
+  /** Effective flags (plan + overrides); the per-company switches custom_domain and field_tracking are flags. */
+  features: FeatureFlagsSchema.optional(),
+  /** Custom domain of the company, if any (D-060). */
+  customDomain: z.object({ hostname: z.string(), status: CustomDomainStatusSchema }).nullable().optional(),
+  /** Custom floor progress (D-061): latest request status and the published floor version. */
+  floor: z.object({ requestStatus: FloorRequestStatusSchema.nullable(), publishedVersion: z.number().int().nullable() }).optional(),
+  /** Active users (seats in use). */
+  userCount: z.number().int().optional(),
 });
 export type Company = z.infer<typeof CompanySchema>;
+
+/** POST /api/super/companies response: the admin invite link is returned once (always in development; in production only when no email could be sent). */
+export const CompanyCreatedSchema = CompanySchema.extend({
+  adminInvite: z.object({
+    email: z.email(),
+    url: z.string().url().nullable(),
+    expiresAt: IsoDateTimeSchema,
+    emailed: z.boolean(),
+  }),
+});
+export type CompanyCreated = z.infer<typeof CompanyCreatedSchema>;
 
 export const CompanyListQuerySchema = CursorPaginationQuerySchema.extend({
   q: z.string().max(200).optional(),
@@ -77,7 +96,9 @@ export const CompanyStatusChangeSchema = z.object({
   reason: z.string().trim().min(5).max(500),
 });
 export const CompanyFlagsUpdateSchema = z.object({
-  overrides: z.record(FeatureFlagSchema, z.boolean().nullable()).describe('null removes the override'),
+  // Partial map: zod 4 makes z.record with an enum key exhaustive, so a single switch like
+  // { custom_domain: true } was rejected (Kiro Crew platform report, wave A step 1).
+  overrides: z.partialRecord(FeatureFlagSchema, z.boolean().nullable()).describe('null removes the override'),
 });
 
 export const ImpersonationStartSchema = z.object({

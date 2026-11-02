@@ -88,7 +88,7 @@ export function InboxPage({ panel }: { panel: 'company' | 'employee' }) {
 
   return (
     <RequirePermission anyOf={['messages.read']}>
-      <div className={cn('flex flex-col gap-3', panel === 'company' && 'max-w-7xl')}>
+      <div className="flex flex-col gap-3">
         <PageHeader
           title="Inbox"
           description={panel === 'company' ? 'WhatsApp conversations with your leads, shared by the team.' : 'WhatsApp chats with your leads.'}

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Permission, PlatformPermission } from '../rbac.js';
 import {
+  CompanyCreatedSchema,
   CompanyCreateSchema,
   CompanyFlagsUpdateSchema,
   CompanyListQuerySchema,
@@ -13,6 +14,63 @@ import {
   PlatformAuditLogSchema,
   PlatformOverviewSchema,
 } from '../schemas/platform.js';
+import {
+  AndroidReleaseSchema,
+  AndroidReleaseUpdateSchema,
+  AndroidReleaseUploadFieldsSchema,
+  AppConfigSchema,
+  DeviceRegisterSchema,
+  DeviceSchema,
+  FirebaseConfigPartSchema,
+  FirebaseConfigStatusSchema,
+  PushTestResultSchema,
+  PushTestSchema,
+} from '../schemas/app-platform.js';
+import {
+  AttendanceCheckSchema,
+  AttendanceRegisterQuerySchema,
+  AttendanceRegisterSchema,
+  AttendanceSessionSchema,
+  FieldLiveQuerySchema,
+  FieldLiveSchema,
+  FieldRouteQuerySchema,
+  FieldRouteSchema,
+  LocationBatchResultSchema,
+  LocationBatchSchema,
+  MyAttendanceTodaySchema,
+  TrackingConsentSchema,
+  TrackingConsentUpdateSchema,
+} from '../schemas/attendance.js';
+import {
+  BrandingUpdateSchema,
+  CustomDomainSetSchema,
+  CustomDomainStateSchema,
+  HostResolutionSchema,
+  HostResolveQuerySchema,
+  PublicWorkspaceSchema,
+  SlugParamSchema,
+  WorkspaceBrandingSchema,
+} from '../schemas/branding.js';
+import {
+  FloorAssetSchema,
+  FloorRequestCreateSchema,
+  FloorRequestSchema,
+  FloorRequestStatusChangeSchema,
+  FloorUploadFieldsSchema,
+  SeatMapSchema,
+  SuperFloorRequestListQuerySchema,
+  TeamFloorLayoutSchema,
+} from '../schemas/floor.js';
+import {
+  MyPresenceSchema,
+  OfficeMarkerCreateSchema,
+  OfficeMarkerSchema,
+  PresenceEventSchema,
+  PresenceHeartbeatSchema,
+  PresenceHistoryQuerySchema,
+  ZoneSignalSchema,
+} from '../schemas/presence.js';
+import { FileUploadFieldsSchema, FileUrlSchema, SignedFileTokenParamSchema, StoredFileSchema } from '../schemas/storage.js';
 import { ActivitySchema } from '../schemas/activity.js';
 import {
   AuthTokensSchema,
@@ -28,7 +86,16 @@ import {
   SuperSessionSchema,
   SuperVerifyRequestSchema,
 } from '../schemas/auth.js';
-import { CallListQuerySchema, CallSchema, CallUpdateSchema, ClickToCallSchema, RecordingUrlSchema } from '../schemas/call.js';
+import {
+  ActiveCallEventSchema,
+  CallListQuerySchema,
+  CallSchema,
+  CallUpdateSchema,
+  ClickToCallSchema,
+  DeviceCallLogBatchSchema,
+  DeviceCallLogResultSchema,
+  RecordingUrlSchema,
+} from '../schemas/call.js';
 import { CursorPaginationQuerySchema, IdParamSchema, IdSchema, OkResponseSchema, pageOf } from '../schemas/common.js';
 import {
   ConversationAssignSchema,
@@ -86,12 +153,106 @@ import {
 import {
   BoardSchema,
   LeadMoveSchema,
+  PipelineListQuerySchema,
   PipelineSchema,
   StageCreateSchema,
   StageReorderSchema,
   StageSchema,
   StageUpdateSchema,
 } from '../schemas/pipeline.js';
+import {
+  PriceListCreateSchema,
+  PriceListSchema,
+  PriceListUpdateSchema,
+  ProductCreateSchema,
+  ProductListQuerySchema,
+  ProductSchema,
+  ProductUpdateSchema,
+} from '../schemas/catalog.js';
+import {
+  AccountCreateSchema,
+  AccountListItemSchema,
+  AccountListQuerySchema,
+  AccountSchema,
+  AccountUpdateSchema,
+  ContactCreateSchema,
+  ContactListItemSchema,
+  ContactListQuerySchema,
+  ContactSchema,
+  ContactUpdateSchema,
+  CrmBulkActionSchema,
+  CrmMergeSchema,
+  CrmNoteCreateSchema,
+  CrmTimelineItemSchema,
+  DealBoardQuerySchema,
+  DealBulkActionSchema,
+  DealCreateSchema,
+  DealListItemSchema,
+  DealListQuerySchema,
+  DealMoveSchema,
+  DealSchema,
+  DealUpdateSchema,
+  LeadConvertSchema,
+} from '../schemas/crm.js';
+import { CrmRelatedSchema, DealBoardSchema, LeadConvertResultSchema } from '../schemas/crm-related.js';
+import {
+  DocumentPdfQuerySchema,
+  DocumentShareCreateSchema,
+  DocumentShareSchema,
+  DocumentTokenParamSchema,
+  InvoiceCancelSchema,
+  InvoiceCreateSchema,
+  InvoiceIssueSchema,
+  InvoiceListItemSchema,
+  InvoiceListQuerySchema,
+  InvoiceSchema,
+  InvoiceSendResultSchema,
+  InvoiceUpdateSchema,
+  PaymentCreateSchema,
+  PaymentParamSchema,
+  PublicDocumentSchema,
+  QuotationCreateSchema,
+  QuotationListItemSchema,
+  QuotationListQuerySchema,
+  QuotationSchema,
+  QuotationSendResultSchema,
+  QuotationStatusChangeSchema,
+  QuotationUpdateSchema,
+  SellerProfileResponseSchema,
+  SellerProfileSchema,
+} from '../schemas/documents.js';
+import {
+  AvailabilityQuerySchema,
+  MeetingCancelSchema,
+  MeetingCreateSchema,
+  MeetingListQuerySchema,
+  MeetingRespondSchema,
+  MeetingSchema,
+  MeetingUpdateSchema,
+  TimeOffCreateSchema,
+  TimeOffListQuerySchema,
+  TimeOffSchema,
+  UserAvailabilitySchema,
+} from '../schemas/calendar.js';
+import {
+  RoutingDecisionSchema,
+  RoutingRuleCreateSchema,
+  RoutingRuleOrderSchema,
+  RoutingRuleSchema,
+  RoutingRuleUpdateSchema,
+  RoutingTestSchema,
+} from '../schemas/routing.js';
+import {
+  CaptureFormCreateSchema,
+  CaptureFormKeyParamSchema,
+  CaptureFormSchema,
+  CaptureFormUpdateSchema,
+  CaptureSubmissionListQuerySchema,
+  CaptureSubmissionSchema,
+  PublicCaptureFormSchema,
+  PublicCaptureSubmitResultSchema,
+  PublicCaptureSubmitSchema,
+} from '../schemas/capture.js';
 import { TaskCreateSchema, TaskListQuerySchema, TaskSchema, TaskSnoozeSchema, TaskUpdateSchema } from '../schemas/task.js';
 import {
   WorkflowCreateSchema,
@@ -199,9 +360,11 @@ export interface RouteDef {
   body?: z.ZodType;
   /** Non-JSON request body, e.g. multipart file upload. */
   bodyContentType?: 'multipart/form-data';
+  /** Text fields that come with a multipart upload (besides the `file` part). */
+  bodyFields?: z.ZodObject;
   response: z.ZodType | null;
   /** Non-JSON response, e.g. file download. */
-  responseContentType?: 'text/csv' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  responseContentType?: 'text/csv' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' | 'application/octet-stream' | 'application/vnd.android.package-archive' | 'application/pdf';
   status?: number;
 }
 
@@ -250,7 +413,7 @@ export const API_ROUTES = {
   roleDelete: route({ method: 'delete', path: '/roles/{id}', summary: 'Delete a custom role (must have no members)', tag: 'team', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'roles.manage', params: IdParamSchema, response: OkResponseSchema }),
   supportAccessUpdate: route({ method: 'put', path: '/workspace/support-access', summary: 'Enable or disable Super Admin support access with expiry', tag: 'workspace', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'support_access.manage', body: SupportAccessUpdateSchema, response: WorkspaceSchema }),
   myProfileUpdate: route({ method: 'patch', path: '/me/profile', summary: 'Update my profile and avatar', tag: 'settings', owner: 'backend-core', phase: 1, auth: 'jwt', permission: null, body: ProfileUpdateSchema, response: UserSchema }),
-  myStatusUpdate: route({ method: 'put', path: '/me/status', summary: 'Set my status (Available, On call, Break, Offline)', tag: 'settings', owner: 'backend-core', phase: 1, auth: 'jwt', permission: null, body: StatusUpdateSchema, response: UserSchema }),
+  myStatusUpdate: route({ method: 'put', path: '/me/status', summary: 'Set my own status (available, in a meeting, on break, lunch, field visit, away, offline); on_call comes from phone state', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: StatusUpdateSchema, response: MyPresenceSchema }),
   mySettingsGet: route({ method: 'get', path: '/me/settings', summary: 'My settings (theme, floor mode, notifications)', tag: 'settings', owner: 'backend-core', phase: 1, auth: 'jwt', permission: null, response: UserSettingsSchema }),
   mySettingsUpdate: route({ method: 'patch', path: '/me/settings', summary: 'Update my settings', tag: 'settings', owner: 'backend-core', phase: 1, auth: 'jwt', permission: null, body: UserSettingsUpdateSchema, response: UserSettingsSchema }),
 
@@ -317,7 +480,7 @@ export const API_ROUTES = {
   pushSubscribe: route({ method: 'post', path: '/notifications/push-subscriptions', summary: 'Register a web push subscription', tag: 'notifications', owner: 'backend-core', phase: 2, auth: 'jwt', permission: null, body: PushSubscriptionSchema, response: OkResponseSchema }),
 
   // ---------------- pipeline (phase 3) ----------------
-  pipelineList: route({ method: 'get', path: '/pipelines', summary: 'Pipelines with stages', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'leads.read', response: listOf(PipelineSchema) }),
+  pipelineList: route({ method: 'get', path: '/pipelines', summary: 'Pipelines with stages; ?entity=deal lists deal pipelines (the default deal pipeline is created on first use)', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'leads.read', query: PipelineListQuerySchema, response: listOf(PipelineSchema) }),
   pipelineBoard: route({ method: 'get', path: '/pipelines/{id}/board', summary: 'Kanban board (first page per column); accepts the same filters as the lead list', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'leads.read', params: IdParamSchema, query: LeadFiltersSchema.extend({ perColumn: z.coerce.number().int().min(1).max(200).default(50) }), response: BoardSchema }),
   boardColumnPage: route({ method: 'get', path: '/pipelines/{id}/board/columns/{stageId}', summary: 'Next page of one board column', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'leads.read', params: z.object({ id: IdSchema, stageId: IdSchema }), query: LeadFiltersSchema.extend({ cursor: z.string().optional(), limit: z.coerce.number().int().min(1).max(200).default(50) }), response: pageOf(LeadListItemSchema) }),
   stageCreate: route({ method: 'post', path: '/pipelines/{id}/stages', summary: 'Add a stage', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'pipeline.manage', params: IdParamSchema, body: StageCreateSchema, response: StageSchema, status: 201 }),
@@ -330,7 +493,7 @@ export const API_ROUTES = {
   dashboardSummary: route({ method: 'get', path: '/dashboard/summary', summary: 'KPIs, funnel, sources, leaderboard, feed, attention', tag: 'dashboard', owner: 'backend-core', phase: 4, auth: 'jwt', permission: 'dashboard.read', query: DashboardQuerySchema, response: DashboardSummarySchema }),
   attentionResolve: route({ method: 'post', path: '/attention/{id}/resolve', summary: 'Resolve or dismiss a "Needs attention" item (emits attention.resolved); scope applies', tag: 'dashboard', owner: 'backend-core', phase: 4, auth: 'jwt', permission: 'team.read', params: z.object({ id: z.string().min(1).max(120).describe('AttentionItem.id, e.g. task_overdue:<taskId>') }), response: OkResponseSchema }),
   userMessage: route({ method: 'post', path: '/users/{id}/messages', summary: 'Send a short in-app message to a team member (notification.created); managers only to their team', tag: 'team', owner: 'backend-core', phase: 4, auth: 'jwt', permission: 'team.read', params: IdParamSchema, body: z.object({ body: z.string().trim().min(1).max(1000), leadId: IdSchema.optional() }), response: OkResponseSchema, status: 201 }),
-  teamFloorSnapshot: route({ method: 'get', path: '/team-floor/snapshot', summary: 'Live Team Floor initial state', tag: 'team-floor', owner: 'realtime-integrations', phase: 4, auth: 'jwt', permission: 'teamfloor.read', query: z.object({ teamId: IdSchema.optional() }), response: TeamFloorSnapshotSchema }),
+  teamFloorSnapshot: route({ method: 'get', path: '/team-floor/snapshot', summary: 'Live Team Floor initial state (server-authoritative presence, seats, floor ref)', tag: 'team-floor', owner: 'realtime-integrations', phase: 4, auth: 'jwt', permission: 'teamfloor.read', query: z.object({ teamId: IdSchema.optional() }), response: TeamFloorSnapshotSchema }),
 
   // ---------------- integrations & webhooks (phase 5) ----------------
   integrationList: route({ method: 'get', path: '/integrations', summary: 'Integration hub status', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.manage', response: listOf(IntegrationSchema) }),
@@ -404,13 +567,13 @@ export const API_ROUTES = {
 
   // ---------------- Super Admin panel (phase 9, superadmin-panel) ----------------
   superOverview: route({ method: 'get', path: '/api/super/overview', absolute: true, summary: 'Platform KPIs and health summary', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.overview.read', response: PlatformOverviewSchema }),
-  superCompanyList: route({ method: 'get', path: '/api/super/companies', absolute: true, summary: 'Companies', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.read', query: CompanyListQuerySchema, response: pageOf(CompanySchema) }),
-  superCompanyGet: route({ method: 'get', path: '/api/super/companies/{id}', absolute: true, summary: 'Company detail', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: CompanySchema }),
-  superCompanyCreate: route({ method: 'post', path: '/api/super/companies', absolute: true, summary: 'Create a company and invite its admin', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.manage', body: CompanyCreateSchema, response: CompanySchema, status: 201 }),
+  superCompanyList: route({ method: 'get', path: '/api/super/companies', absolute: true, summary: 'Companies', tag: 'super', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', query: CompanyListQuerySchema, response: pageOf(CompanySchema) }),
+  superCompanyGet: route({ method: 'get', path: '/api/super/companies/{id}', absolute: true, summary: 'Company detail (effective flags, custom domain, floor progress)', tag: 'super', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: CompanySchema }),
+  superCompanyCreate: route({ method: 'post', path: '/api/super/companies', absolute: true, summary: 'Create a company and invite its admin (the invite link is returned once)', tag: 'super', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', body: CompanyCreateSchema, response: CompanyCreatedSchema, status: 201 }),
   superCompanyUpdate: route({ method: 'patch', path: '/api/super/companies/{id}', absolute: true, summary: 'Edit company or change plan (audit logged)', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, body: CompanyUpdateSchema, response: CompanySchema }),
   superCompanyStatus: route({ method: 'post', path: '/api/super/companies/{id}/status', absolute: true, summary: 'Suspend or reactivate (reason required)', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, body: CompanyStatusChangeSchema, response: CompanySchema }),
   superCompanyDelete: route({ method: 'delete', path: '/api/super/companies/{id}', absolute: true, summary: 'Schedule company deletion (data export first)', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, response: OkResponseSchema }),
-  superCompanyFlags: route({ method: 'put', path: '/api/super/companies/{id}/flags', absolute: true, summary: 'Per-company feature flag overrides', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.flags.manage', params: IdParamSchema, body: CompanyFlagsUpdateSchema, response: CompanySchema }),
+  superCompanyFlags: route({ method: 'put', path: '/api/super/companies/{id}/flags', absolute: true, summary: 'Per-company feature flag overrides and switches (custom_domain, field_tracking); audit logged', tag: 'super', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.flags.manage', params: IdParamSchema, body: CompanyFlagsUpdateSchema, response: CompanySchema }),
   superPlanList: route({ method: 'get', path: '/api/super/plans', absolute: true, summary: 'Plan catalogue and limits', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.plans.manage', response: listOf(PlanDefinitionSchema) }),
   superPlanUpdate: route({ method: 'put', path: '/api/super/plans/{key}', absolute: true, summary: 'Update plan limits, features, price', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.plans.manage', params: z.object({ key: z.string() }), body: PlanDefinitionSchema.omit({ key: true }), response: PlanDefinitionSchema }),
   superImpersonateStart: route({ method: 'post', path: '/api/super/impersonations', absolute: true, summary: 'Start time-limited "View as company" (reason required, audit logged in both logs)', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.support.impersonate', body: ImpersonationStartSchema, response: ImpersonationSessionSchema, status: 201 }),
@@ -423,6 +586,206 @@ export const API_ROUTES = {
   superPackPlans: route({ method: 'put', path: '/api/super/packs/{key}/plans', absolute: true, summary: 'Plans that include the pack, and its add-on price (audit logged)', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackKeyParamSchema, body: SuperPackPlansUpdateSchema, response: SuperPackSchema }),
   superPackCompany: route({ method: 'put', path: '/api/super/packs/{key}/companies/{workspaceId}', absolute: true, summary: 'Grant or revoke the pack for one company (reason required, audit logged)', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackCompanyParamSchema, body: SuperPackCompanyUpdateSchema, response: PackCompanyUsageSchema }),
   superPackUsage: route({ method: 'get', path: '/api/super/packs/{key}/usage', absolute: true, summary: 'Usage per company (entitlement, status, version, records)', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackKeyParamSchema, response: PackUsageSchema }),
+
+  // ================= change #19 (SPEC 29). phase 19 = this change; owner backend-core = PLATFORM stream, realtime-integrations = REALTIME stream =================
+
+  // ---------------- storage (D-065) ----------------
+  fileUpload: route({ method: 'post', path: '/files', summary: 'Upload a branding file or floor reference image (multipart: file + purpose); limits per purpose in UPLOAD_LIMITS', tag: 'files', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', bodyContentType: 'multipart/form-data', bodyFields: FileUploadFieldsSchema, response: StoredFileSchema, status: 201 }),
+  fileGet: route({ method: 'get', path: '/files/{id}', summary: 'File metadata (tenant-scoped; branding files for everyone, reference images and floor models for settings.manage)', tag: 'files', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, params: IdParamSchema, response: StoredFileSchema }),
+  fileUrl: route({ method: 'get', path: '/files/{id}/url', summary: 'Short-lived signed download URL (15 min); same read rules as fileGet; recordings use callRecording', tag: 'files', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, params: IdParamSchema, response: FileUrlSchema }),
+  fileSignedDownload: route({ method: 'get', path: '/api/files/d/{token}', absolute: true, summary: 'Download through a signed URL (token from fileUrl / superFileUrl / layout responses)', tag: 'files', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: SignedFileTokenParamSchema, response: null, responseContentType: 'application/octet-stream' }),
+  filePublicDownload: route({ method: 'get', path: '/api/files/p/{id}', absolute: true, summary: 'Public branding file (logo, favicon, login image); 404 for private files', tag: 'files', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: IdParamSchema, response: null, responseContentType: 'application/octet-stream' }),
+  superFileUrl: route({ method: 'get', path: '/api/super/files/{id}/url', absolute: true, summary: 'Signed URL for any company or platform file (reference images, floor models, APKs)', tag: 'super-files', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: FileUrlSchema }),
+
+  // ---------------- branding, component style, public workspace (D-059, D-060) ----------------
+  brandingGet: route({ method: 'get', path: '/workspace/branding', summary: 'Company branding (also on Workspace.branding)', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, response: WorkspaceBrandingSchema }),
+  brandingUpdate: route({ method: 'patch', path: '/workspace/branding', summary: 'Update branding (file ids from POST /files; colours are contrast-guarded); audited, emits workspace.branding_changed. Component style: PATCH /workspace componentStyle', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', body: BrandingUpdateSchema, response: WorkspaceSchema }),
+  publicWorkspaceBranding: route({ method: 'get', path: '/public/workspaces/{slug}/branding', summary: 'Login page branding by workspace slug (no auth)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: SlugParamSchema, response: PublicWorkspaceSchema }),
+  publicResolveHost: route({ method: 'get', path: '/public/resolve-host', summary: 'Resolve a Host to a workspace (verified custom domain, or <slug>.localhost in development) for the login page and Next middleware; 404 when unknown', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, query: HostResolveQuerySchema, response: HostResolutionSchema }),
+
+  // ---------------- custom domain (D-060; needs the custom_domain switch) ----------------
+  domainGet: route({ method: 'get', path: '/workspace/domain', summary: 'Custom domain state and DNS instructions (CNAME + TXT)', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', response: CustomDomainStateSchema }),
+  domainSet: route({ method: 'put', path: '/workspace/domain', summary: 'Set or replace the custom domain (status pending, new TXT token); FEATURE_DISABLED without the switch; audited', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', body: CustomDomainSetSchema, response: CustomDomainStateSchema }),
+  domainDelete: route({ method: 'delete', path: '/workspace/domain', summary: 'Remove the custom domain; audited', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', response: CustomDomainStateSchema }),
+  domainVerify: route({ method: 'post', path: '/workspace/domain/verify', summary: 'Check the TXT record now (dev: *.localhost verifies without DNS)', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', response: CustomDomainStateSchema }),
+
+  // ---------------- platform config: Firebase and Android releases (D-058) ----------------
+  superFirebaseGet: route({ method: 'get', path: '/api/super/config/firebase', absolute: true, summary: 'Firebase config status (client options; service account status only)', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', response: FirebaseConfigStatusSchema }),
+  superFirebaseClientUpload: route({ method: 'put', path: '/api/super/config/firebase/client', absolute: true, summary: 'Upload google-services.json (must contain the app.vistar.employee Android app); stored encrypted; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', bodyContentType: 'multipart/form-data', response: FirebaseConfigStatusSchema }),
+  superFirebaseServiceAccountUpload: route({ method: 'put', path: '/api/super/config/firebase/service-account', absolute: true, summary: 'Upload the Firebase service account JSON (FCM sender); stored encrypted, never returned; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', bodyContentType: 'multipart/form-data', response: FirebaseConfigStatusSchema }),
+  superFirebaseDelete: route({ method: 'delete', path: '/api/super/config/firebase/{part}', absolute: true, summary: 'Remove the client config or the service account; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', params: FirebaseConfigPartSchema, response: FirebaseConfigStatusSchema }),
+  superPushTest: route({ method: 'post', path: '/api/super/config/firebase/test', absolute: true, summary: 'Send a test push to one FCM token', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', body: PushTestSchema, response: PushTestResultSchema }),
+  superAndroidReleaseList: route({ method: 'get', path: '/api/super/android-releases', absolute: true, summary: 'Android APK releases, newest first', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', response: listOf(AndroidReleaseSchema) }),
+  superAndroidReleaseUpload: route({ method: 'post', path: '/api/super/android-releases', absolute: true, summary: 'Upload an APK (max 150 MB) with version and notes; sha256 computed; versionCode must be new; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', bodyContentType: 'multipart/form-data', bodyFields: AndroidReleaseUploadFieldsSchema, response: AndroidReleaseSchema, status: 201 }),
+  superAndroidReleaseUpdate: route({ method: 'patch', path: '/api/super/android-releases/{id}', absolute: true, summary: 'Edit notes or the minimum-supported flag; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', params: IdParamSchema, body: AndroidReleaseUpdateSchema, response: AndroidReleaseSchema }),
+  appConfig: route({ method: 'get', path: '/app/config', summary: 'Android app bootstrap: public Firebase options, latest release, minimum version (no auth)', tag: 'app', owner: 'backend-core', phase: 19, auth: 'public', permission: null, response: AppConfigSchema }),
+  appAndroidLatest: route({ method: 'get', path: '/app/android/latest', summary: 'Download the latest APK (no auth; the employee panel links here); 404 when none', tag: 'app', owner: 'backend-core', phase: 19, auth: 'public', permission: null, response: null, responseContentType: 'application/vnd.android.package-archive' }),
+
+  // ---------------- devices and push ----------------
+  myDeviceList: route({ method: 'get', path: '/me/devices', summary: 'My registered devices', tag: 'devices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, response: listOf(DeviceSchema) }),
+  myDeviceRegister: route({ method: 'post', path: '/me/devices', summary: 'Register or refresh this device and its FCM token (idempotent upsert by installationId)', tag: 'devices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, body: DeviceRegisterSchema, response: DeviceSchema }),
+  myDeviceDelete: route({ method: 'delete', path: '/me/devices/{id}', summary: 'Unregister a device (sign-out on the phone)', tag: 'devices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, params: IdParamSchema, response: OkResponseSchema }),
+
+  // ---------------- presence (D-062; REALTIME) ----------------
+  myPresenceGet: route({ method: 'get', path: '/me/presence', summary: 'My current server-decided status', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, response: MyPresenceSchema }),
+  myPresenceHeartbeat: route({ method: 'post', path: '/me/presence/heartbeat', summary: 'Heartbeat from the web or the app (every HEARTBEAT_INTERVAL_MS; also accepted on the socket)', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: PresenceHeartbeatSchema, response: MyPresenceSchema }),
+  myZoneSignal: route({ method: 'post', path: '/me/presence/zone', summary: 'Where I am in the office: BLE beacons / Wi-Fi seen, a scanned QR or NFC marker, or a manual zone (Android app); emits employee.zone_changed', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: ZoneSignalSchema, response: MyPresenceSchema }),
+  officeMarkerList: route({ method: 'get', path: '/team-floor/markers', summary: 'Beacons, access points, QR codes and NFC tags that mark office zones', tag: 'team-floor', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'settings.manage', response: listOf(OfficeMarkerSchema) }),
+  officeMarkerCreate: route({ method: 'post', path: '/team-floor/markers', summary: 'Register a zone marker (QR/NFC token returned once); audited', tag: 'team-floor', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'settings.manage', body: OfficeMarkerCreateSchema, response: OfficeMarkerSchema, status: 201 }),
+  officeMarkerDelete: route({ method: 'delete', path: '/team-floor/markers/{id}', summary: 'Remove a zone marker; audited', tag: 'team-floor', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'settings.manage', params: IdParamSchema, response: OkResponseSchema }),
+  presenceHistory: route({ method: 'get', path: '/users/{id}/presence-history', summary: 'Status changes of one person for a day (scope applies)', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'team.read', params: IdParamSchema, query: PresenceHistoryQuerySchema, response: listOf(PresenceEventSchema) }),
+
+  // ---------------- SIM calls from the app (D-057; REALTIME) ----------------
+  myCallDeviceLog: route({ method: 'post', path: '/me/calls/device-log', summary: 'Upload Android call-log rows (batch of up to 200, idempotent by deviceCallId); emits call.ended / call.updated', tag: 'calls', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'calls.make', body: DeviceCallLogBatchSchema, response: DeviceCallLogResultSchema }),
+  myCallActive: route({ method: 'post', path: '/me/calls/active', summary: 'Live phone state: started / ended (sets presence on_call; emits call.started / call.ended); idempotent by clientCallId', tag: 'calls', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'calls.make', body: ActiveCallEventSchema, response: CallSchema }),
+  callRecordingUpload: route({ method: 'post', path: '/calls/{id}/recording', summary: 'Upload the phone recorder file of my call (multipart file, purpose call_recording, max 50 MB)', tag: 'calls', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'calls.make', params: IdParamSchema, bodyContentType: 'multipart/form-data', response: CallSchema }),
+
+  // ---------------- attendance and field tracking (D-063; REALTIME; flag field_tracking) ----------------
+  myAttendanceToday: route({ method: 'get', path: '/me/attendance/today', summary: 'Today: sessions, working hours, consent, whether to track now', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, response: MyAttendanceTodaySchema }),
+  myAttendanceCheckIn: route({ method: 'post', path: '/me/attendance/check-in', summary: 'Check in with location (field staff, consent, working hours); emits attendance.checked_in', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: AttendanceCheckSchema, response: AttendanceSessionSchema, status: 201 }),
+  myAttendanceCheckOut: route({ method: 'post', path: '/me/attendance/check-out', summary: 'Check out with location; emits attendance.checked_out', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: AttendanceCheckSchema, response: AttendanceSessionSchema }),
+  myLocationBatch: route({ method: 'post', path: '/me/location', summary: 'Location points (batch, idempotent by time); only while checked in and inside working hours; emits location.updated', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: LocationBatchSchema, response: LocationBatchResultSchema }),
+  myTrackingConsentGet: route({ method: 'get', path: '/me/tracking-consent', summary: 'My tracking consent', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, response: TrackingConsentSchema }),
+  myTrackingConsentSet: route({ method: 'put', path: '/me/tracking-consent', summary: 'Accept or withdraw tracking consent (history kept)', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: TrackingConsentUpdateSchema, response: TrackingConsentSchema }),
+  attendanceRegister: route({ method: 'get', path: '/attendance', summary: 'Attendance register for a day (scope applies)', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'team.read', query: AttendanceRegisterQuerySchema, response: AttendanceRegisterSchema }),
+  fieldLive: route({ method: 'get', path: '/field/live', summary: 'Last known position of checked-in field staff (scope applies)', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'team.read', query: FieldLiveQuerySchema, response: FieldLiveSchema }),
+  fieldUserRoute: route({ method: 'get', path: '/field/users/{id}/route', summary: 'Route of one field staff member for a day (scope applies; 404 out of scope)', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'team.read', params: IdParamSchema, query: FieldRouteQuerySchema, response: FieldRouteSchema }),
+
+  // ---------------- custom Team Floors (D-061) ----------------
+  floorRequestCreate: route({ method: 'post', path: '/floor-requests', summary: 'Submit a custom floor request with reference images (>= 3, work_area + cabin or meeting_room); audited', tag: 'team-floor', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', body: FloorRequestCreateSchema, response: FloorRequestSchema, status: 201 }),
+  floorRequestList: route({ method: 'get', path: '/floor-requests', summary: 'This company\'s floor requests, newest first', tag: 'team-floor', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', response: listOf(FloorRequestSchema) }),
+  floorRequestGet: route({ method: 'get', path: '/floor-requests/{id}', summary: 'Floor request with signed image URLs', tag: 'team-floor', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', params: IdParamSchema, response: FloorRequestSchema }),
+  teamFloorLayout: route({ method: 'get', path: '/team-floor/layout', summary: 'The published custom floor (signed model URL + seat map) or the default template id and request status', tag: 'team-floor', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'teamfloor.read', response: TeamFloorLayoutSchema }),
+  superFloorRequestList: route({ method: 'get', path: '/api/super/floor-requests', absolute: true, summary: 'Floor requests across companies', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', query: SuperFloorRequestListQuerySchema, response: pageOf(FloorRequestSchema) }),
+  superFloorRequestGet: route({ method: 'get', path: '/api/super/floor-requests/{id}', absolute: true, summary: 'Floor request with signed reference image URLs', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: FloorRequestSchema }),
+  superFloorRequestStatus: route({ method: 'post', path: '/api/super/floor-requests/{id}/status', absolute: true, summary: 'Mark in progress or reject (note required); audited in both logs; emits floor_request.updated', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, body: FloorRequestStatusChangeSchema, response: FloorRequestSchema }),
+  superFloorList: route({ method: 'get', path: '/api/super/companies/{id}/floors', absolute: true, summary: 'Floor versions of a company', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: listOf(FloorAssetSchema) }),
+  superFloorUpload: route({ method: 'post', path: '/api/super/companies/{id}/floors', absolute: true, summary: 'Upload the AI-made floor for a company: .glb, .zip with a .gltf, or a Vistar floor plan .json (FloorPlanSchema; its seats become the seat map); max 40 MB, validated; creates a draft version; audited', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, bodyContentType: 'multipart/form-data', bodyFields: FloorUploadFieldsSchema, response: FloorAssetSchema, status: 201 }),
+  superFloorGet: route({ method: 'get', path: '/api/super/floors/{id}', absolute: true, summary: 'One floor version with a signed model URL (preview)', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: FloorAssetSchema }),
+  superFloorSeatMap: route({ method: 'put', path: '/api/super/floors/{id}/seat-map', absolute: true, summary: 'Save seats and zones (seat tool); not allowed on superseded versions', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, body: SeatMapSchema, response: FloorAssetSchema }),
+  superFloorPublish: route({ method: 'post', path: '/api/super/floors/{id}/publish', absolute: true, summary: 'Publish (needs a seat map): older published version becomes superseded, request -> published; audited; emits floor.published', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, response: FloorAssetSchema }),
+
+  // ================= change #19 wave B (SPEC 29.9): CRM features. owner backend-core = CRM-API stream ===
+
+  // ---------------- contacts ----------------
+  contactList: route({ method: 'get', path: '/contacts', summary: 'Contacts (people) with search and filters; scope: owner or a visible lead', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', query: ContactListQuerySchema, response: pageOf(ContactListItemSchema) }),
+  contactCreate: route({ method: 'post', path: '/contacts', summary: 'Create a contact (a primary phone already used by another contact answers 409 CONFLICT)', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.create', body: ContactCreateSchema, response: ContactSchema, status: 201 }),
+  contactMerge: route({ method: 'post', path: '/contacts/merge', summary: 'Merge duplicates into a primary contact (leads, deals, documents and meetings move; duplicates soft-deleted); audited', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.merge', body: CrmMergeSchema, response: ContactSchema }),
+  contactBulk: route({ method: 'post', path: '/contacts/bulk', summary: 'Bulk assign owner, add or remove tags, delete', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.update', body: CrmBulkActionSchema, response: BulkResultSchema }),
+  contactGet: route({ method: 'get', path: '/contacts/{id}', summary: 'Contact detail', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', params: IdParamSchema, response: ContactSchema }),
+  contactUpdate: route({ method: 'patch', path: '/contacts/{id}', summary: 'Update a contact (changing ownerId also requires leads.assign; optimistic version)', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.update', params: IdParamSchema, body: ContactUpdateSchema, response: ContactSchema }),
+  contactDelete: route({ method: 'delete', path: '/contacts/{id}', summary: 'Delete a contact (soft; leads keep their data, contactId cleared); audited', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.delete', params: IdParamSchema, response: OkResponseSchema }),
+  contactDuplicates: route({ method: 'get', path: '/contacts/{id}/duplicates', summary: 'Possible duplicates (phones, emails, GSTIN, name + account)', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', params: IdParamSchema, response: listOf(ContactListItemSchema) }),
+  contactRelated: route({ method: 'get', path: '/contacts/{id}/related', summary: 'Leads, deals, quotations, invoices and meetings of a contact', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', params: IdParamSchema, response: CrmRelatedSchema }),
+  contactTimeline: route({ method: 'get', path: '/contacts/{id}/timeline', summary: 'Notes, lead activities, meetings and documents, newest first', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', params: IdParamSchema, query: CursorPaginationQuerySchema, response: pageOf(CrmTimelineItemSchema) }),
+  contactNoteCreate: route({ method: 'post', path: '/contacts/{id}/notes', summary: 'Add a note to a contact', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.update', params: IdParamSchema, body: CrmNoteCreateSchema, response: CrmTimelineItemSchema, status: 201 }),
+
+  // ---------------- accounts (companies; Prisma model Company) ----------------
+  accountList: route({ method: 'get', path: '/accounts', summary: 'Accounts (companies) with search and filters; scope: owner or a visible lead', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', query: AccountListQuerySchema, response: pageOf(AccountListItemSchema) }),
+  accountCreate: route({ method: 'post', path: '/accounts', summary: 'Create an account (GSTIN validated with its check digit; PAN and state code follow the GSTIN)', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.create', body: AccountCreateSchema, response: AccountSchema, status: 201 }),
+  accountMerge: route({ method: 'post', path: '/accounts/merge', summary: 'Merge duplicate accounts (contacts, leads, deals, documents and meetings move); audited', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.merge', body: CrmMergeSchema, response: AccountSchema }),
+  accountBulk: route({ method: 'post', path: '/accounts/bulk', summary: 'Bulk assign owner, add or remove tags, delete', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.update', body: CrmBulkActionSchema, response: BulkResultSchema }),
+  accountGet: route({ method: 'get', path: '/accounts/{id}', summary: 'Account detail', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', params: IdParamSchema, response: AccountSchema }),
+  accountUpdate: route({ method: 'patch', path: '/accounts/{id}', summary: 'Update an account (changing ownerId also requires leads.assign; optimistic version)', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.update', params: IdParamSchema, body: AccountUpdateSchema, response: AccountSchema }),
+  accountDelete: route({ method: 'delete', path: '/accounts/{id}', summary: 'Delete an account (soft; contacts and leads keep their data, links cleared); audited', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.delete', params: IdParamSchema, response: OkResponseSchema }),
+  accountDuplicates: route({ method: 'get', path: '/accounts/{id}/duplicates', summary: 'Possible duplicates (GSTIN, PAN, phone, email, website, name)', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', params: IdParamSchema, response: listOf(AccountListItemSchema) }),
+  accountRelated: route({ method: 'get', path: '/accounts/{id}/related', summary: 'Contacts, leads, deals, quotations, invoices and meetings of an account', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', params: IdParamSchema, response: CrmRelatedSchema }),
+  accountTimeline: route({ method: 'get', path: '/accounts/{id}/timeline', summary: 'Notes, lead activities, meetings and documents, newest first', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', params: IdParamSchema, query: CursorPaginationQuerySchema, response: pageOf(CrmTimelineItemSchema) }),
+  accountNoteCreate: route({ method: 'post', path: '/accounts/{id}/notes', summary: 'Add a note to an account', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.update', params: IdParamSchema, body: CrmNoteCreateSchema, response: CrmTimelineItemSchema, status: 201 }),
+
+  // ---------------- deals (Deal model on a deal pipeline) ----------------
+  dealBoard: route({ method: 'get', path: '/deals/board', summary: 'Deals board: stage columns with counts, value and weighted value (same filters as the table)', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', query: DealBoardQuerySchema, response: DealBoardSchema }),
+  dealBulk: route({ method: 'post', path: '/deals/bulk', summary: 'Bulk assign owner, change stage, delete', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.update', body: DealBulkActionSchema, response: BulkResultSchema }),
+  dealList: route({ method: 'get', path: '/deals', summary: 'Deals table with filters and sort (sort=position for one board column)', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', query: DealListQuerySchema, response: pageOf(DealListItemSchema) }),
+  dealCreate: route({ method: 'post', path: '/deals', summary: 'Create a deal (top of its column); value from the lines when given', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.create', body: DealCreateSchema, response: DealSchema, status: 201 }),
+  dealGet: route({ method: 'get', path: '/deals/{id}', summary: 'Deal detail with products', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', params: IdParamSchema, response: DealSchema }),
+  dealUpdate: route({ method: 'patch', path: '/deals/{id}', summary: 'Update a deal (lines replace all lines; ownerId needs leads.assign; optimistic version)', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.update', params: IdParamSchema, body: DealUpdateSchema, response: DealSchema }),
+  dealDelete: route({ method: 'delete', path: '/deals/{id}', summary: 'Delete a deal (soft); audited', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.delete', params: IdParamSchema, response: OkResponseSchema }),
+  dealMove: route({ method: 'post', path: '/deals/{id}/move', summary: 'Move on the board (stage and position between neighbours); won/lost set closedAt', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.update', params: IdParamSchema, body: DealMoveSchema, response: DealSchema }),
+  dealRelated: route({ method: 'get', path: '/deals/{id}/related', summary: 'Quotations, invoices and meetings of a deal (contacts and leads lists are empty)', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', params: IdParamSchema, response: CrmRelatedSchema }),
+  dealTimeline: route({ method: 'get', path: '/deals/{id}/timeline', summary: 'Notes, lead activities, meetings and documents of a deal', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', params: IdParamSchema, query: CursorPaginationQuerySchema, response: pageOf(CrmTimelineItemSchema) }),
+  dealNoteCreate: route({ method: 'post', path: '/deals/{id}/notes', summary: 'Add a note to a deal', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.update', params: IdParamSchema, body: CrmNoteCreateSchema, response: CrmTimelineItemSchema, status: 201 }),
+  leadConvert: route({ method: 'post', path: '/leads/{id}/convert', summary: 'Convert a lead: link or create the contact and account, optionally create a deal (also needs contacts.create / accounts.create / deals.create for what it creates)', tag: 'leads', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'leads.update', params: IdParamSchema, body: LeadConvertSchema, response: LeadConvertResultSchema }),
+
+  // ---------------- products and price lists ----------------
+  productList: route({ method: 'get', path: '/products', summary: 'Products and services with search and filters', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.read', query: ProductListQuerySchema, response: pageOf(ProductSchema) }),
+  productCreate: route({ method: 'post', path: '/products', summary: 'Create a product (SKU unique: PRODUCT_SKU_TAKEN; HSN for goods, SAC for services)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', body: ProductCreateSchema, response: ProductSchema, status: 201 }),
+  productGet: route({ method: 'get', path: '/products/{id}', summary: 'One product', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.read', params: IdParamSchema, response: ProductSchema }),
+  productUpdate: route({ method: 'patch', path: '/products/{id}', summary: 'Update a product (existing documents keep their line snapshots)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', params: IdParamSchema, body: ProductUpdateSchema, response: ProductSchema }),
+  productDelete: route({ method: 'delete', path: '/products/{id}', summary: 'Delete a product (document lines keep their snapshot; price list items go); audited', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', params: IdParamSchema, response: OkResponseSchema }),
+  priceListList: route({ method: 'get', path: '/price-lists', summary: 'Price lists (without items)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.read', response: listOf(PriceListSchema) }),
+  priceListCreate: route({ method: 'post', path: '/price-lists', summary: 'Create a price list with items', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', body: PriceListCreateSchema, response: PriceListSchema, status: 201 }),
+  priceListGet: route({ method: 'get', path: '/price-lists/{id}', summary: 'Price list with items', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.read', params: IdParamSchema, response: PriceListSchema }),
+  priceListUpdate: route({ method: 'patch', path: '/price-lists/{id}', summary: 'Update a price list (items replace all items when given)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', params: IdParamSchema, body: PriceListUpdateSchema, response: PriceListSchema }),
+  priceListDelete: route({ method: 'delete', path: '/price-lists/{id}', summary: 'Delete a price list (documents keep their prices)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', params: IdParamSchema, response: OkResponseSchema }),
+
+  // ---------------- seller profile (GST identity of the company) ----------------
+  sellerProfileGet: route({ method: 'get', path: '/billing/profile', summary: 'Seller profile for quotations and invoices (GSTIN, address with state code, bank, prefixes, terms)', tag: 'documents', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, response: SellerProfileResponseSchema }),
+  sellerProfileUpdate: route({ method: 'put', path: '/billing/profile', summary: 'Save the seller profile (GSTIN state must match the address state); audited', tag: 'documents', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', body: SellerProfileSchema, response: SellerProfileResponseSchema }),
+
+  // ---------------- quotations ----------------
+  quotationList: route({ method: 'get', path: '/quotations', summary: 'Quotations with filters (expired is applied after validUntil)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.read', query: QuotationListQuerySchema, response: pageOf(QuotationListItemSchema) }),
+  quotationCreate: route({ method: 'post', path: '/quotations', summary: 'Create a draft quotation (number QT/<FY>/<seq> assigned now; GST computed)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.create', body: QuotationCreateSchema, response: QuotationSchema, status: 201 }),
+  quotationGet: route({ method: 'get', path: '/quotations/{id}', summary: 'Quotation detail with lines and totals', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.read', params: IdParamSchema, response: QuotationSchema }),
+  quotationUpdate: route({ method: 'patch', path: '/quotations/{id}', summary: 'Edit a draft quotation (DOCUMENT_STATE_INVALID otherwise; optimistic version)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.update', params: IdParamSchema, body: QuotationUpdateSchema, response: QuotationSchema }),
+  quotationDelete: route({ method: 'delete', path: '/quotations/{id}', summary: 'Delete a draft quotation (soft); audited', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.delete', params: IdParamSchema, response: OkResponseSchema }),
+  quotationStatus: route({ method: 'post', path: '/quotations/{id}/status', summary: 'Change status along QUOTATION_TRANSITIONS (accepted, rejected, expired, reopen to draft)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.update', params: IdParamSchema, body: QuotationStatusChangeSchema, response: QuotationSchema }),
+  quotationSend: route({ method: 'post', path: '/quotations/{id}/send', summary: 'Mark sent (from draft or expired; freezes seller and buyer) and create a share link (needs a complete seller profile)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.send', params: IdParamSchema, body: DocumentShareCreateSchema, response: QuotationSendResultSchema }),
+  quotationShare: route({ method: 'post', path: '/quotations/{id}/share', summary: 'Create a new share link (rotates the old one)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.send', params: IdParamSchema, body: DocumentShareCreateSchema, response: DocumentShareSchema }),
+  quotationShareRevoke: route({ method: 'delete', path: '/quotations/{id}/share', summary: 'Revoke the share link', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.send', params: IdParamSchema, response: OkResponseSchema }),
+  quotationPdf: route({ method: 'get', path: '/quotations/{id}/pdf', summary: 'A4 PDF with branding logo and colour (?download=1 for an attachment)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.read', params: IdParamSchema, query: DocumentPdfQuerySchema, response: null, responseContentType: 'application/pdf' }),
+  quotationConvert: route({ method: 'post', path: '/quotations/{id}/convert', summary: 'Make a draft invoice from a sent or accepted quotation (marks it accepted); idempotent: returns the existing invoice', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.create', params: IdParamSchema, response: InvoiceSchema, status: 201 }),
+  quotationDuplicate: route({ method: 'post', path: '/quotations/{id}/duplicate', summary: 'Copy into a new draft quotation (revisions)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.create', params: IdParamSchema, response: QuotationSchema, status: 201 }),
+
+  // ---------------- invoices and payments ----------------
+  invoiceList: route({ method: 'get', path: '/invoices', summary: 'Invoices with filters (overdue = issued or partially paid past the due date)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.read', query: InvoiceListQuerySchema, response: pageOf(InvoiceListItemSchema) }),
+  invoiceCreate: route({ method: 'post', path: '/invoices', summary: 'Create a draft invoice (no number until issued)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.create', body: InvoiceCreateSchema, response: InvoiceSchema, status: 201 }),
+  invoiceGet: route({ method: 'get', path: '/invoices/{id}', summary: 'Invoice detail with lines, totals and payments', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.read', params: IdParamSchema, response: InvoiceSchema }),
+  invoiceUpdate: route({ method: 'patch', path: '/invoices/{id}', summary: 'Edit a draft invoice (DOCUMENT_STATE_INVALID otherwise)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.update', params: IdParamSchema, body: InvoiceUpdateSchema, response: InvoiceSchema }),
+  invoiceDelete: route({ method: 'delete', path: '/invoices/{id}', summary: 'Delete a draft invoice (issued invoices are cancelled, never deleted); audited', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.delete', params: IdParamSchema, response: OkResponseSchema }),
+  invoiceIssue: route({ method: 'post', path: '/invoices/{id}/issue', summary: 'Issue: assigns INV/<FY>/<seq> (no gaps), freezes seller and buyer; needs a complete seller profile; audited', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.issue', params: IdParamSchema, body: InvoiceIssueSchema, response: InvoiceSchema }),
+  invoiceCancel: route({ method: 'post', path: '/invoices/{id}/cancel', summary: 'Cancel an issued invoice with a reason (the number stays used); audited', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.cancel', params: IdParamSchema, body: InvoiceCancelSchema, response: InvoiceSchema }),
+  invoiceSend: route({ method: 'post', path: '/invoices/{id}/send', summary: 'Issue a draft if needed and create a share link', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.issue', params: IdParamSchema, body: DocumentShareCreateSchema, response: InvoiceSendResultSchema }),
+  invoiceShare: route({ method: 'post', path: '/invoices/{id}/share', summary: 'Create a new share link for an issued invoice (rotates the old one)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.issue', params: IdParamSchema, body: DocumentShareCreateSchema, response: DocumentShareSchema }),
+  invoiceShareRevoke: route({ method: 'delete', path: '/invoices/{id}/share', summary: 'Revoke the share link', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.issue', params: IdParamSchema, response: OkResponseSchema }),
+  invoicePdf: route({ method: 'get', path: '/invoices/{id}/pdf', summary: 'A4 tax invoice PDF with HSN summary, branding logo and colour (?download=1)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.read', params: IdParamSchema, query: DocumentPdfQuerySchema, response: null, responseContentType: 'application/pdf' }),
+  paymentCreate: route({ method: 'post', path: '/invoices/{id}/payments', summary: 'Record a payment (issued or partially paid; at most the balance; idempotent with clientPaymentId); updates the status', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.payments', params: IdParamSchema, body: PaymentCreateSchema, response: InvoiceSchema, status: 201 }),
+  paymentDelete: route({ method: 'delete', path: '/invoices/{id}/payments/{paymentId}', summary: 'Void a payment (kept for the audit trail); updates the status; audited', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.payments', params: PaymentParamSchema, response: InvoiceSchema }),
+
+  // ---------------- public share links ----------------
+  publicDocumentGet: route({ method: 'get', path: '/public/documents/{token}', summary: 'Shared quotation or invoice for the hosted page /d/<token> (410 SHARE_LINK_EXPIRED)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: DocumentTokenParamSchema, response: PublicDocumentSchema }),
+  publicDocumentPdf: route({ method: 'get', path: '/public/documents/{token}/pdf', summary: 'PDF of a shared document', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: DocumentTokenParamSchema, query: DocumentPdfQuerySchema, response: null, responseContentType: 'application/pdf' }),
+
+  // ---------------- calendar and meetings ----------------
+  meetingList: route({ method: 'get', path: '/meetings', summary: 'Meetings in a range (max 62 days), recurring series expanded; scope: organizer or attendee', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', query: MeetingListQuerySchema, response: listOf(MeetingSchema) }),
+  meetingCreate: route({ method: 'post', path: '/meetings', summary: 'Schedule a meeting (attendees, links to lead/contact/account/deal, reminders, recurrence)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.create', body: MeetingCreateSchema, response: MeetingSchema, status: 201 }),
+  meetingGet: route({ method: 'get', path: '/meetings/{id}', summary: 'One meeting (series)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', params: IdParamSchema, response: MeetingSchema }),
+  meetingUpdate: route({ method: 'patch', path: '/meetings/{id}', summary: 'Edit or reschedule (scope series | occurrence); organizer, or calendar.update with scope', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.update', params: IdParamSchema, body: MeetingUpdateSchema, response: MeetingSchema }),
+  meetingDelete: route({ method: 'delete', path: '/meetings/{id}', summary: 'Delete a meeting (soft)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.delete', params: IdParamSchema, response: OkResponseSchema }),
+  meetingCancel: route({ method: 'post', path: '/meetings/{id}/cancel', summary: 'Cancel a meeting or one occurrence of a series', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.update', params: IdParamSchema, body: MeetingCancelSchema, response: MeetingSchema }),
+  meetingRespond: route({ method: 'post', path: '/meetings/{id}/respond', summary: 'Accept, decline or tentative (the caller as attendee)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', params: IdParamSchema, body: MeetingRespondSchema, response: MeetingSchema }),
+  calendarAvailability: route({ method: 'get', path: '/calendar/availability', summary: 'Working hours, busy blocks (meetings, time off) and live status per user in scope', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', query: AvailabilityQuerySchema, response: listOf(UserAvailabilitySchema) }),
+  timeOffList: route({ method: 'get', path: '/time-off', summary: 'Time off (leave, holiday, training) of users in scope', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', query: TimeOffListQuerySchema, response: listOf(TimeOffSchema) }),
+  timeOffCreate: route({ method: 'post', path: '/time-off', summary: 'Add time off (own: calendar.create; others: team.manage)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.create', body: TimeOffCreateSchema, response: TimeOffSchema, status: 201 }),
+  timeOffDelete: route({ method: 'delete', path: '/time-off/{id}', summary: 'Remove time off (own, or team.manage)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.create', params: IdParamSchema, response: OkResponseSchema }),
+
+  // ---------------- lead routing ----------------
+  routingRuleList: route({ method: 'get', path: '/routing-rules', summary: 'Lead routing rules in priority order', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', response: listOf(RoutingRuleSchema) }),
+  routingRuleCreate: route({ method: 'post', path: '/routing-rules', summary: 'Add a rule (end of the order); audited', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', body: RoutingRuleCreateSchema, response: RoutingRuleSchema, status: 201 }),
+  routingRuleOrder: route({ method: 'put', path: '/routing-rules/order', summary: 'Reorder rules (all ids, first = checked first)', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', body: RoutingRuleOrderSchema, response: listOf(RoutingRuleSchema) }),
+  routingTest: route({ method: 'post', path: '/routing-rules/test', summary: 'Who would get this lead? (dry run; nothing is written)', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', body: RoutingTestSchema, response: RoutingDecisionSchema }),
+  routingRuleUpdate: route({ method: 'patch', path: '/routing-rules/{id}', summary: 'Update a rule (conditions replace all conditions); audited', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', params: IdParamSchema, body: RoutingRuleUpdateSchema, response: RoutingRuleSchema }),
+  routingRuleDelete: route({ method: 'delete', path: '/routing-rules/{id}', summary: 'Delete a rule; audited', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', params: IdParamSchema, response: OkResponseSchema }),
+
+  // ---------------- lead capture forms ----------------
+  captureFormList: route({ method: 'get', path: '/capture-forms', summary: 'Lead capture forms with hosted URL and embed snippet', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', response: listOf(CaptureFormSchema) }),
+  captureFormCreate: route({ method: 'post', path: '/capture-forms', summary: 'Create a form (builder schema; name + phone or email mapped); audited', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', body: CaptureFormCreateSchema, response: CaptureFormSchema, status: 201 }),
+  captureFormGet: route({ method: 'get', path: '/capture-forms/{id}', summary: 'One form', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', params: IdParamSchema, response: CaptureFormSchema }),
+  captureFormUpdate: route({ method: 'patch', path: '/capture-forms/{id}', summary: 'Update fields, settings, status (pause)', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', params: IdParamSchema, body: CaptureFormUpdateSchema, response: CaptureFormSchema }),
+  captureFormDelete: route({ method: 'delete', path: '/capture-forms/{id}', summary: 'Delete a form (soft; its URL answers 410); audited', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', params: IdParamSchema, response: OkResponseSchema }),
+  captureSubmissionList: route({ method: 'get', path: '/capture-forms/{id}/submissions', summary: 'Submissions of a form, newest first', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', params: IdParamSchema, query: CaptureSubmissionListQuerySchema, response: pageOf(CaptureSubmissionSchema) }),
+  publicCaptureFormGet: route({ method: 'get', path: '/public/forms/{key}', summary: 'Form for the hosted page /f/<key> and iframes (410 CAPTURE_FORM_CLOSED when paused)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: CaptureFormKeyParamSchema, response: PublicCaptureFormSchema }),
+  publicCaptureFormSubmit: route({ method: 'post', path: '/public/forms/{key}/submit', summary: 'Submit a form: creates a routed lead (rate limited per IP and form, honeypot, consent, idempotent with clientSubmissionId)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: CaptureFormKeyParamSchema, body: PublicCaptureSubmitSchema, response: PublicCaptureSubmitResultSchema }),
 } as const satisfies Record<string, RouteDef>;
 
 export type ApiRouteId = keyof typeof API_ROUTES;

@@ -2,10 +2,12 @@ import { z } from 'zod';
 import {
   BoardSkinSchema,
   CelebrationIntensitySchema,
+  ComponentStyleSchema,
   DataScopeSchema,
   EmployeeStatusSchema,
   InterfaceStyleSchema,
   LeadsViewModeSchema,
+  MANUAL_PRESENCE_STATUSES,
   MotionIntensitySchema,
   PlanSchema,
   RoleKindSchema,
@@ -16,6 +18,7 @@ import { FEATURE_FLAGS, PermissionSchema, type FeatureFlag } from '../rbac.js';
 import { HhMmSchema, ThemeModeSchema, ThemePreferenceSchema } from '../theme.js';
 import { ResolvedLabelsSchema } from '../customization/labels.js';
 import { ActivePackSchema } from '../packs/active.js';
+import { EMPTY_BRANDING, WorkspaceBrandingSchema } from './branding.js';
 import { HexColorSchema, IdSchema, IsoDateSchema, IsoDateTimeSchema, PhoneSchema } from './common.js';
 
 export const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -63,8 +66,8 @@ export const WorkspaceSchema = z.object({
   businessHours: BusinessHoursSchema,
   holidays: z.array(HolidaySchema),
   plan: PlanSchema,
-  logoUrl: z.string().url().nullable(),
-  accentColor: HexColorSchema.nullable().describe('Branding accent; clamped to AA contrast by the UI'),
+  logoUrl: z.string().url().nullable().describe('Legacy: public URL of branding.logoLight (kept in sync)'),
+  accentColor: HexColorSchema.nullable().describe('Legacy: mirrors branding.brandColor; use branding.colors for contrast-safe values'),
   defaultTheme: ThemeModeSchema,
   /** Admin-set default Leads view (Setting key leads.defaultViewMode); null = "board". */
   defaultLeadsViewMode: LeadsViewModeSchema.nullable(),
@@ -74,6 +77,10 @@ export const WorkspaceSchema = z.object({
   defaultInterfaceStyle: InterfaceStyleSchema.default('classic'),
   /** Admin-set Leads Board skin for users who have not chosen one (Setting key leads.defaultBoardSkin). */
   defaultBoardSkin: BoardSkinSchema.default('depth'),
+  /** Web component design for the whole company (Setting key ui.componentStyle, D-059); employees cannot override it. */
+  componentStyle: ComponentStyleSchema.default('standard'),
+  /** Company branding (Setting keys branding.*, D-060). */
+  branding: WorkspaceBrandingSchema.default(EMPTY_BRANDING),
   supportAccess: SupportAccessSchema,
   /** Effective flags = plan defaults + Super Admin overrides. */
   features: FeatureFlagsSchema,
@@ -93,7 +100,7 @@ export const WorkspaceUpdateSchema = WorkspaceSchema.pick({
   showEmployeeRank: true,
 })
   // Plain enums, not the defaulted response fields: Zod 4 applies defaults inside optional keys.
-  .extend({ defaultInterfaceStyle: InterfaceStyleSchema, defaultBoardSkin: BoardSkinSchema })
+  .extend({ defaultInterfaceStyle: InterfaceStyleSchema, defaultBoardSkin: BoardSkinSchema, componentStyle: ComponentStyleSchema })
   .partial();
 export type WorkspaceUpdate = z.infer<typeof WorkspaceUpdateSchema>;
 
@@ -128,6 +135,19 @@ export const SETTING_KEYS = {
     labels: 'ui.labels',
     defaultInterfaceStyle: 'ui.defaultInterfaceStyle',
     defaultBoardSkin: 'leads.defaultBoardSkin',
+    /** ComponentStyle (D-059), default standard */
+    componentStyle: 'ui.componentStyle',
+    /** Branding (D-060). Values: string | null; file keys hold a File id (purpose logo / favicon / login_image). */
+    brandingDisplayName: 'branding.displayName',
+    brandingLogoLight: 'branding.logoLight',
+    brandingLogoDark: 'branding.logoDark',
+    brandingBrandColor: 'branding.brandColor',
+    /** string[6] of #RRGGBB */
+    brandingChartPalette: 'branding.chartPalette',
+    brandingLoginImage: 'branding.loginImage',
+    brandingFavicon: 'branding.favicon',
+    /** SellerProfile (schemas/documents.ts): GSTIN, address with state code, bank, prefixes, terms (change #19 wave B). */
+    sellerProfile: 'billing.sellerProfile',
   },
 } as const;
 
@@ -162,6 +182,8 @@ export const UserSchema = UserSummarySchema.extend({
   workingHours: BusinessHoursSchema.nullable().describe('null = workspace business hours'),
   statusChangedAt: IsoDateTimeSchema.nullable(),
   lastSeenAt: IsoDateTimeSchema.nullable(),
+  /** Field staff get attendance and GPS tracking (D-063); set by a company admin. */
+  isFieldStaff: z.boolean().default(false),
   createdAt: IsoDateTimeSchema,
 });
 export type User = z.infer<typeof UserSchema>;
@@ -176,16 +198,23 @@ export const UserUpdateSchema = z
     isActive: z.boolean(),
     workingHours: BusinessHoursSchema.nullable(),
     avatar: AvatarConfigSchema.nullable(),
+    isFieldStaff: z.boolean(),
   })
   .partial();
 export type UserUpdate = z.infer<typeof UserUpdateSchema>;
 
-/** Self-service profile update (employee panel). Role/team/active are admin-only. */
+/** Self-service profile update (employee panel). Role/team/active/field staff are admin-only. */
 export const ProfileUpdateSchema = UserUpdateSchema.pick({ name: true, phone: true, title: true, avatar: true });
 export type ProfileUpdate = z.infer<typeof ProfileUpdateSchema>;
 
-/** Employee status control: Available (idle), On call, Break (away), Offline. */
-export const StatusUpdateSchema = z.object({ status: z.enum(['idle', 'on_call', 'away', 'offline']) });
+/**
+ * Employee status control (PUT /me/status, D-062): the employee's own status. `on_call` is never manual
+ * (it comes from phone state or telephony). Legacy `idle` = available.
+ */
+export const StatusUpdateSchema = z.object({
+  status: z.enum([...MANUAL_PRESENCE_STATUSES, 'idle'] as const),
+  note: z.string().trim().max(140).optional().describe('Shown on the Team Floor, e.g. "Client visit, Andheri"'),
+});
 export type StatusUpdate = z.infer<typeof StatusUpdateSchema>;
 
 export const TeamSchema = z.object({

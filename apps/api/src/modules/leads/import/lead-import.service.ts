@@ -27,6 +27,7 @@ import { PrismaService } from '../../../infra/prisma/prisma.service.js';
 import type { TenantPrisma } from '../../../infra/prisma/tenant.js';
 import { loadFieldDefs, referenceErrors, roleKeyOf } from '../../customization/custom-values.js';
 import { NotificationsService } from '../../notifications/notifications.service.js';
+import { RoutingService } from '../../routing/routing.service.js';
 import { ActivityService } from '../activity.service.js';
 import { endOfColumn, firstPosition } from '../lead-position.js';
 import { scoreLead } from '../lead-score.js';
@@ -134,6 +135,7 @@ export class LeadImportService {
     private readonly activities: ActivityService,
     private readonly leads: LeadsService,
     private readonly notifications: NotificationsService,
+    private readonly routing: RoutingService,
   ) {}
 
   // ------------------------------------------------------------------ preview
@@ -577,6 +579,17 @@ export class LeadImportService {
       ctx.topBounds.set(stageId, { lower: keys.at(-1) ?? bound.lower, upper: bound.upper });
     }
 
+    // owners: the row's owner, the import default, the importer (own/team scope), else lead routing
+    const owners = new Map<PreparedRow, { id: string | null; rule: string }>();
+    for (const r of rows) {
+      const base = r.ownerId ?? ctx.defaultOwnerId ?? (ctx.auth.dataScope !== 'all' ? ctx.auth.userId : null);
+      if (base) owners.set(r, { id: base, rule: 'import' });
+      else {
+        const routed = await this.routing.assign(wid, { source: r.source, city: r.text.city ?? null, state: r.text.state ?? null, productInterest: r.text.productInterest ?? null, requirement: r.text.requirement ?? null, valueInr: r.valueInr ?? 0, tags: r.tags, captureFormId: null });
+        owners.set(r, { id: routed.ownerId, rule: routed.rule ?? 'import' });
+      }
+    }
+
     const leads = rows.map((r, i) => {
       const stage = stageOf(r);
       const tags = normalizeTags([...r.tags, ...ctx.defaultTags]);
@@ -599,7 +612,8 @@ export class LeadImportService {
         ...fields,
         source: r.source,
         sourceRef: r.sourceRef,
-        ownerId: r.ownerId ?? ctx.defaultOwnerId ?? (ctx.auth.dataScope !== 'all' ? ctx.auth.userId : null),
+        ownerId: owners.get(r)?.id ?? null,
+        assignRule: owners.get(r)?.rule ?? 'import',
         pipelineId: stage.pipelineId,
         stageId: stage.id,
         stageType: stage.type,
@@ -615,13 +629,13 @@ export class LeadImportService {
         createdAt: now,
       };
     });
-    await tx.lead.createMany({ data: leads.map(({ stageType: _t, ...l }) => l) });
+    await tx.lead.createMany({ data: leads.map(({ stageType: _t, assignRule: _r, ...l }) => l) });
     const won = leads.filter((l) => l.stageType === 'won');
     if (won.length) await syncDealsForStage(tx, wid, won, 'won', now);
     await tx.activity.createMany({
       data: leads.flatMap((l) => [
         this.activities.data(wid, ctx.actor, l.id, 'lead_created', { source: l.source }, now),
-        ...(l.ownerId ? [this.activities.data(wid, ctx.actor, l.id, 'assigned', { fromUserId: null, toUserId: l.ownerId, rule: 'import' }, now)] : []),
+        ...(l.ownerId ? [this.activities.data(wid, ctx.actor, l.id, 'assigned', { fromUserId: null, toUserId: l.ownerId, rule: l.assignRule }, now)] : []),
       ]),
     });
   }

@@ -21,12 +21,14 @@ import type {
   FieldDefinitionCreateSchema,
   FieldDefinitionUpdateSchema,
 } from '@vistar/shared';
+import { isMockData } from '../api/data-source';
+import { httpCustomizationSource } from './http-source';
 import { mockCustomizationSource } from './mock-source';
 
 /**
  * Flexible data layer client (fields, custom objects, records, labels, pipelines and stages).
  * OWNER: orchestrator. Mirrors API_ROUTES (fieldList ... labelsUpdate, pipelineList, stage*).
- * Wave 1 uses the mock source over lib/mock-db; the HTTP source replaces it without changing hooks.
+ * The HTTP source is the default; the mock source over lib/mock-db is used only in the test-only mock data mode.
  */
 export interface CustomizationSource {
   listFields(query?: { target?: FieldTarget; includeArchived?: boolean }): Promise<FieldDefinition[]>;
@@ -60,5 +62,5 @@ export interface CustomizationSource {
 }
 
 export function getCustomizationSource(): CustomizationSource {
-  return mockCustomizationSource;
+  return isMockData() ? mockCustomizationSource : httpCustomizationSource;
 }

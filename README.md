@@ -12,7 +12,8 @@ pnpm install              # installs everything, generates the Prisma client
 pnpm setup:env            # creates/completes .env with local secrets (never overwrites existing values)
 pnpm db:up                # Postgres 17, Redis 7, MinIO, Mailpit
 pnpm db:migrate           # apply migrations
-pnpm db:seed              # plans, Super Admin, 3 demo companies (2,940 leads)
+pnpm db:seed              # clean: plans, Super Admin, pack registry (no companies)
+pnpm db:seed:demo         # optional demo data: 3 companies (2,940 leads) for worktrees, smoke and e2e
 pnpm dev                  # shared (watch) + API :4000 + web :3000
 ```
 

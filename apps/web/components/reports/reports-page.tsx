@@ -401,7 +401,7 @@ export function ReportsPage() {
 
   return (
     <RequirePermission anyOf={['reports.read']}>
-      <div className="flex max-w-7xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <PageHeader
           title="Reports"
           description={range ? `Pipeline, source, call and team performance · ${rangeLabel(range, tz)}` : 'Pipeline, source, call and team performance for any date range.'}
