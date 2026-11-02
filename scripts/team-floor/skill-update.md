@@ -1,3 +1,4 @@
+<!-- Applied (change #19 wave B, REQUESTS #3) to .claude/skills/vistar-3d-floor/SKILL.md together with published floors and layout_json. Kept as the history of the draft. -->
 ---
 name: vistar-3d-floor
 description: Vistar Live Team Floor rules - authored GLB office per floor template (Day and Evening bakes), rigged GLB characters, template-driven layout and walking graph, collision-free DOM labels, theme cross-fade, quality tiers, flat SVG plan and accessible list. Use for any work in apps/web/features/team-floor, public/team-floor and scripts/team-floor.
