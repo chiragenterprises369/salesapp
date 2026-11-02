@@ -50,6 +50,8 @@ export interface BoardColumnProps {
   countPulseMs: number;
   /** First-load entrance: delays (ms) for this column and per card; undefined = none. */
   enter?: { base: number; step: number };
+  /** Neon Space edge colour (CSS colour; skins/skin-model neonEdge). Used only by the Neon skin. */
+  edge: string;
 }
 
 /** Count chip: ticks to the new count and pulses when a card enters or leaves, or a drag hovers. */
@@ -97,6 +99,7 @@ export const BoardColumn = memo(function BoardColumn({
   numberTickMs,
   countPulseMs,
   enter,
+  edge,
 }: BoardColumnProps) {
   const ctrl = useBoardController();
   const words = useBoardWords();
@@ -165,7 +168,7 @@ export const BoardColumn = memo(function BoardColumn({
   };
   const remaining = Math.max(1, count - leads.length);
   const sharePct = Math.round(valueShare * 100);
-  const style = { '--vb-stage': stageColorVar(stage, tone), ...(enter ? { animationDelay: `${enter.base}ms` } : {}) } as CSSProperties;
+  const style = { '--vb-stage': stageColorVar(stage, tone), '--vn-edge': edge, ...(enter ? { animationDelay: `${enter.base}ms` } : {}) } as CSSProperties;
 
   return (
     <section
@@ -186,12 +189,16 @@ export const BoardColumn = memo(function BoardColumn({
     >
       <header className={cn('flex flex-col gap-1 pr-1.5 pl-3', compact ? 'pt-1 pb-1' : 'pt-2 pb-1.5')}>
         <div className="flex items-center gap-2">
-          <span aria-hidden className={cn('size-2 shrink-0 rounded-full', STAGE_DOT[tone])} />
+          <span aria-hidden className={cn('vb-dot size-2 shrink-0 rounded-full', STAGE_DOT[tone])} />
           <h3 id={titleId} className="min-w-0 truncate text-sm font-semibold text-fg">
             {stage.name}
           </h3>
           <CountChip count={count} isOver={isOver} tone={tone} pulses={pulses} tickMs={numberTickMs} pulseMs={countPulseMs} />
-          <span className="ml-auto shrink-0 text-xs font-medium text-muted-strong tabular" title={`${formatInr(totalValueInr)} · ${sharePct}% of pipeline value`}>
+          <span
+            data-column-total=""
+            className="ml-auto shrink-0 text-xs font-medium text-muted-strong tabular"
+            title={`${formatInr(totalValueInr)} · ${sharePct}% of pipeline value`}
+          >
             <span className="sr-only">Total value </span>
             <AnimatedNumber value={totalValueInr} format={formatTotal} durationMs={numberTickMs} animate={pulses} />
             <span className="sr-only">, {sharePct}% of pipeline value</span>

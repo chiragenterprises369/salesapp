@@ -14,6 +14,7 @@ import { writeNudge } from './drag/controller';
 import type { CardHandle, DragState } from './drag/types';
 import { followUpLabel } from './hooks';
 import { MoveMenu } from './move-menu';
+import { isOverdue } from './skins/skin-model';
 import { TEMPERATURE_DOT, TEMPERATURE_NAME } from './tones';
 import { TOUCH_CHILDREN } from './touch';
 import { useBoardWords } from './words';
@@ -60,7 +61,7 @@ function Tags({ tags, max }: { tags: readonly string[]; max: number }) {
   const shown = tags.slice(0, max);
   const more = tags.length - shown.length;
   return (
-    <span className="flex min-w-0 items-center gap-1 overflow-hidden">
+    <span className="flex min-w-0 items-center gap-1 overflow-hidden" data-lead-tags="">
       <span className="sr-only">Tags:</span>
       {shown.map((t) => (
         <Chip key={t} className="max-w-36 min-w-0 shrink">
@@ -83,7 +84,7 @@ export function LeadCardBody({ lead, compact, now, selectMode = false, selected 
   const temperature = `${TEMPERATURE_NAME[lead.temperature]} ${words.oneLower}`;
   const followUp = lead.nextFollowUpAt ? followUpLabel(lead.nextFollowUpAt, now) : null;
   const followUpEl = followUp && (
-    <span className={cn('flex min-w-0 items-center gap-1 text-xs', followUp.overdue ? 'font-medium text-danger-text' : 'text-muted')}>
+    <span data-lead-followup="" className={cn('flex min-w-0 items-center gap-1 text-xs', followUp.overdue ? 'font-medium text-danger-text' : 'text-muted')}>
       <CalendarClock aria-hidden className="size-3.5 shrink-0" />
       <span aria-hidden className="truncate">
         {followUp.text}
@@ -109,17 +110,25 @@ export function LeadCardBody({ lead, compact, now, selectMode = false, selected 
         <span id={nameId} data-lead-name="" className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
           {lead.name}
         </span>
-        <span className="shrink-0 text-sm font-semibold text-fg tabular">{formatInr(lead.valueInr, { compact: true })}</span>
+        <span data-lead-value="" className="shrink-0 text-sm font-semibold text-fg tabular">
+          {formatInr(lead.valueInr, { compact: true })}
+        </span>
       </div>
       <div id={detailsId} className={cn('relative flex min-w-0 flex-col', compact ? 'gap-1' : 'gap-1.5')}>
         <span className="sr-only">{temperature}.</span>
         {compact ? (
           <div className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-xs text-muted">{lead.companyName}</span>
+            <span data-lead-company="" className="min-w-0 flex-1 truncate text-xs text-muted">
+              {lead.companyName}
+            </span>
             {followUpEl}
           </div>
         ) : (
-          lead.companyName && <p className="truncate text-xs text-muted">{lead.companyName}</p>
+          lead.companyName && (
+            <p data-lead-company="" className="truncate text-xs text-muted">
+              {lead.companyName}
+            </p>
+          )
         )}
         {!compact && lead.tags.length > 0 && <Tags tags={lead.tags} max={2} />}
         <div
@@ -273,6 +282,9 @@ export const BoardCard = memo(function BoardCard({
   const showActions = engaged && !selectMode && !isPlaceholder && (showQuick || canMove);
   const actionCount = (showQuick ? 3 : 0) + (canMove ? 1 : 0);
   const virtual = virtualStart !== undefined;
+  // Neon Space pulses (painted only by that skin): hot leads breathe, overdue follow-ups get a red edge.
+  const hot = lead.temperature === 'hot';
+  const overdue = isOverdue(lead, stages.find((s) => s.id === stageId)?.type, now);
 
   return (
     <li
@@ -302,6 +314,7 @@ export const BoardCard = memo(function BoardCard({
           style={enterDelay !== undefined ? { animationDelay: `${enterDelay}ms` } : undefined}
         >
           <div aria-hidden className="vb-lip" />
+          {hot && <span aria-hidden className="vb-aura" data-hot="" />}
           <div
             ref={cardRef}
             role={selectMode ? 'checkbox' : 'button'}
@@ -338,11 +351,12 @@ export const BoardCard = memo(function BoardCard({
               reserveActions={compact && !selectMode ? actionCount : 0}
             />
           </div>
+          {overdue && <span aria-hidden className="vb-overdue-edge" data-overdue="" />}
           <span ref={ringRef} aria-hidden className="vb-ring" />
           {showActions && (
             <div
               className={cn(
-                'absolute flex items-center gap-0.5 rounded-md bg-surface',
+                'vb-actions absolute flex items-center gap-0.5 rounded-md bg-surface',
                 compact ? 'right-2.5 bottom-2.5' : 'right-2 bottom-2',
                 !alwaysShowActions && 'vb-actions-in',
               )}

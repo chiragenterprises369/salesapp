@@ -1,0 +1,444 @@
+/*
+  Leads Board skins (SPEC 28.1, D-052, D-053). Everything here is scoped to the board root and the
+  drag overlay, which carry:
+    data-board-skin="flat|depth|neon"   effective skin (after device and performance fallbacks)
+    data-board-variant="neon|aurora"    Neon Space in the Dark theme / the Light theme ("Aurora")
+    data-board-glow="on|off"            edge glow, hot-lead pulse and grid drift (off first when FPS drops)
+  Flat and Depth keep the look from board.css; only Neon Space is styled here.
+
+  Contrast rules (D-053): glow blur never exceeds --glow-blur-max (12px) and glow colours never exceed
+  --glow-alpha-max (35 %); no backdrop-filter anywhere (the office plate is pre-blurred, columns and
+  cards are plain translucent fills over it); inside the Neon board `muted` resolves to `muted-strong`.
+  Text contrast is measured on the rendered background: docs/screenshots/leads-neon/contrast.json.
+  The 28.2 space palette (spacePalettes.neon) arrives as --vn-base, --vn-glow-*, --vn-grid, ... on the root.
+*/
+
+/* ---------------------------------------------------------------- palette */
+
+/* Stage edges (spec: New blue, Contacted cyan, Interested amber, Quote sent indigo, Won green, Lost red);
+   x0..x5 are the fallback hues for custom stages without their own colour. */
+[data-board-variant='neon'] {
+  --vn-edge-new: #3d8bff;
+  --vn-edge-contacted: #22d3ee;
+  --vn-edge-interested: #fbbf24;
+  --vn-edge-quote-sent: #7c7fff;
+  --vn-edge-won: #34d27b;
+  --vn-edge-lost: #f43f5e;
+  --vn-edge-x0: #a78bfa;
+  --vn-edge-x1: #f472b6;
+  --vn-edge-x2: #2dd4bf;
+  --vn-edge-x3: #fb923c;
+  --vn-edge-x4: #a3e635;
+  --vn-edge-x5: #38bdf8;
+  /* Card slab and column glass over the dimmed plate. */
+  --vn-slab: color-mix(in srgb, var(--vn-base-2, #07080f) 90%, transparent);
+  --vn-glass: color-mix(in srgb, var(--vn-base-2, #07080f) 60%, transparent);
+  --vn-glass-low: color-mix(in srgb, var(--vn-base-2, #07080f) 34%, transparent);
+  --vn-top-edge: color-mix(in srgb, var(--fg) 55%, transparent);
+  --vn-overdue: var(--vn-edge-lost);
+}
+
+[data-board-variant='aurora'] {
+  --vn-edge-new: #2563eb;
+  --vn-edge-contacted: #0891b2;
+  --vn-edge-interested: #d97706;
+  --vn-edge-quote-sent: #4f46e5;
+  --vn-edge-won: #16a34a;
+  --vn-edge-lost: #dc2626;
+  --vn-edge-x0: #7c3aed;
+  --vn-edge-x1: #db2777;
+  --vn-edge-x2: #0d9488;
+  --vn-edge-x3: #ea580c;
+  --vn-edge-x4: #65a30d;
+  --vn-edge-x5: #0284c7;
+  --vn-slab: color-mix(in srgb, var(--surface) 90%, transparent);
+  --vn-glass: color-mix(in srgb, var(--surface) 62%, transparent);
+  --vn-glass-low: color-mix(in srgb, var(--surface) 38%, transparent);
+  --vn-top-edge: var(--surface);
+  --vn-overdue: var(--vn-edge-lost);
+}
+
+/* Default edge (drag overlay, before a column sets its own). Columns set --vn-edge inline. */
+[data-board-skin='neon'] {
+  --vn-edge: var(--vn-edge-quote-sent);
+  /* Small text on translucent glass: muted -> muted-strong (like the 28.2 glass utilities). */
+  --muted: var(--muted-strong);
+}
+
+/* Hot-lead aura and overdue edge exist on every card but only Neon paints them. */
+.vb-aura,
+.vb-overdue-edge {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- stage and backdrop */
+
+[data-board-skin='neon'] .vb-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 14px 14px 0;
+  border: 1px solid var(--vn-stage-border);
+  background: var(--vn-base);
+}
+[data-board-variant='neon'] .vb-stage {
+  --vn-stage-border: color-mix(in srgb, var(--vn-edge-quote-sent) 22%, transparent);
+  box-shadow: 0 24px 48px -28px rgb(0 0 0 / 0.8);
+}
+[data-board-variant='aurora'] .vb-stage {
+  --vn-stage-border: color-mix(in srgb, var(--vn-edge-quote-sent) 16%, transparent);
+  box-shadow: 0 20px 44px -28px color-mix(in srgb, var(--vn-edge-quote-sent) 30%, transparent);
+}
+
+[data-board-skin='neon'] .vb-scroller {
+  column-gap: 16px;
+  padding-bottom: 18px;
+}
+
+.vn-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+  background: linear-gradient(180deg, var(--vn-base) 0%, var(--vn-base-2) 100%);
+}
+.vn-backdrop > * {
+  position: absolute;
+  pointer-events: none;
+}
+
+.vn-backdrop__plate {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 40%;
+  opacity: 0;
+  transition: opacity 400ms linear;
+}
+.vn-backdrop__plate[data-ready] {
+  opacity: 1;
+}
+
+/* Tint: dims the plate further toward the top (headers) and the bottom (floor), adds the space glows. */
+.vn-backdrop__tint {
+  inset: 0;
+}
+[data-variant='neon'] > .vn-backdrop__tint {
+  background:
+    radial-gradient(55% 45% at 88% 0%, var(--vn-glow-1), transparent 70%),
+    radial-gradient(50% 45% at 6% 100%, var(--vn-glow-3), transparent 70%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--vn-base-2) 62%, transparent) 0%,
+      color-mix(in srgb, var(--vn-base-2) 32%, transparent) 45%,
+      color-mix(in srgb, var(--vn-base-2) 52%, transparent) 100%
+    );
+}
+[data-variant='aurora'] > .vn-backdrop__tint {
+  background:
+    radial-gradient(55% 50% at 90% 0%, var(--vn-glow-1), transparent 70%),
+    radial-gradient(50% 50% at 4% 100%, var(--vn-glow-2), transparent 70%),
+    radial-gradient(40% 40% at 55% 105%, var(--vn-glow-3), transparent 70%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--vn-base) 70%, transparent) 0%,
+      color-mix(in srgb, var(--vn-base) 46%, transparent) 50%,
+      color-mix(in srgb, var(--vn-base) 60%, transparent) 100%
+    );
+}
+
+/* Floor: a plane receding to the horizon at 62 % height, lines converging; the grid lines glow
+   (a 1 px core plus a 3 px halo, both within the alpha cap). */
+.vn-backdrop__floor {
+  left: 0;
+  right: 0;
+  top: 62%;
+  bottom: 0;
+  overflow: hidden;
+  perspective: 420px;
+  perspective-origin: 50% 0%;
+  mask-image: linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / 0.6) 30%, #000 80%);
+}
+.vn-backdrop__grid {
+  position: absolute;
+  left: -150%;
+  right: -150%;
+  top: -64px;
+  height: 640px;
+  --vn-grid-core: color-mix(in srgb, var(--vn-horizon) 72%, transparent);
+  --vn-grid-halo: var(--vn-grid);
+  background-image:
+    linear-gradient(to bottom, var(--vn-grid-core) 1px, transparent 1px),
+    linear-gradient(to right, var(--vn-grid-core) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--vn-grid-halo) 3px, transparent 3px),
+    linear-gradient(to right, var(--vn-grid-halo) 3px, transparent 3px);
+  background-size: 64px 64px;
+  background-position:
+    center 0,
+    center 0,
+    center -1px,
+    calc(50% - 1px) 0;
+  transform-origin: 50% 0%;
+  transform: rotateX(70deg);
+}
+[data-variant='aurora'] .vn-backdrop__grid {
+  --vn-grid-core: color-mix(in srgb, var(--vn-edge-quote-sent) 16%, transparent);
+  --vn-grid-halo: transparent;
+}
+
+.vn-backdrop__horizon {
+  left: 0;
+  right: 0;
+  top: 62%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--vn-horizon-line) 22%, var(--vn-horizon-line) 78%, transparent 100%);
+}
+[data-variant='neon'] > .vn-backdrop__horizon {
+  --vn-horizon-line: var(--vn-horizon);
+  box-shadow: 0 0 var(--glow-blur-max, 12px) var(--vn-horizon);
+}
+[data-variant='aurora'] > .vn-backdrop__horizon {
+  --vn-horizon-line: color-mix(in srgb, var(--vn-edge-quote-sent) 22%, transparent);
+}
+
+.vn-backdrop__vignette {
+  inset: 0;
+}
+[data-variant='neon'] > .vn-backdrop__vignette {
+  background: radial-gradient(120% 95% at 50% 38%, transparent 52%, var(--vn-vignette) 100%);
+}
+
+/* Very slow drift toward the viewer: full motion, glow on, never while a card is dragged. */
+@keyframes vn-grid-drift {
+  to {
+    transform: rotateX(70deg) translate3d(0, 64px, 0);
+  }
+}
+:root:not([data-motion='reduced']):not([data-motion='off']) .vb-depth[data-motion='full'][data-board-glow='on'] [data-variant='neon'] .vn-backdrop__grid {
+  animation: vn-grid-drift 18s linear infinite;
+}
+.vb-depth[data-board-phase='dragging'] .vn-backdrop__grid {
+  animation-play-state: paused;
+}
+
+/* ---------------------------------------------------------------- columns */
+
+[data-board-skin='neon'] .vb-column {
+  border-width: 2px;
+  border-color: var(--vn-edge);
+  border-radius: 14px;
+  transition:
+    box-shadow var(--duration-fast) var(--easing),
+    border-color var(--duration-fast) var(--easing);
+}
+
+/* Tall glass: a stage-tinted top that fades into clearer glass toward the floor; the inner glow stays at the edge. */
+[data-board-variant='neon'] .vb-column {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 16%, transparent) 0%, transparent 112px),
+    linear-gradient(0deg, color-mix(in srgb, var(--vn-edge) 8%, transparent) 0%, transparent 30%),
+    linear-gradient(180deg, var(--vn-glass) 0%, var(--vn-glass) 30%, var(--vn-glass-low) 100%);
+  box-shadow:
+    inset 0 0 8px color-mix(in srgb, var(--vn-edge) 22%, transparent),
+    0 12px 28px -14px rgb(0 0 0 / 0.75);
+}
+[data-board-variant='neon'][data-board-glow='on'] .vb-column {
+  box-shadow:
+    0 0 var(--glow-blur-max, 12px) color-mix(in srgb, var(--vn-edge) 35%, transparent),
+    inset 0 0 var(--glow-blur-max, 12px) color-mix(in srgb, var(--vn-edge) 28%, transparent),
+    0 12px 28px -14px rgb(0 0 0 / 0.75);
+}
+[data-board-variant='neon'] .vb-column[data-over] {
+  border-color: color-mix(in srgb, var(--vn-edge) 62%, var(--fg));
+  box-shadow:
+    0 0 var(--glow-blur-max, 12px) color-mix(in srgb, var(--vn-edge) 35%, transparent),
+    inset 0 0 var(--glow-blur-max, 12px) color-mix(in srgb, var(--vn-edge) 35%, transparent);
+}
+
+/* Aurora: pastel glass, coloured edge, soft coloured shadow below (no glow). */
+[data-board-variant='aurora'] .vb-column {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 12%, transparent) 0%, transparent 112px),
+    linear-gradient(180deg, var(--vn-glass) 0%, var(--vn-glass) 30%, var(--vn-glass-low) 100%);
+  box-shadow:
+    0 18px 36px -20px color-mix(in srgb, var(--vn-edge) 50%, transparent),
+    0 2px 6px -2px color-mix(in srgb, var(--vn-edge) 22%, transparent);
+}
+[data-board-variant='aurora'] .vb-column[data-over] {
+  border-color: color-mix(in srgb, var(--vn-edge) 75%, var(--fg));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 18%, transparent) 0%, transparent 140px),
+    var(--vn-glass);
+}
+
+/* Header: glowing stage dot, glass count chip, stage-coloured share bar. */
+[data-board-skin='neon'] .vb-dot {
+  background: var(--vn-edge);
+}
+[data-board-variant='neon'][data-board-glow='on'] .vb-dot {
+  box-shadow: 0 0 6px color-mix(in srgb, var(--vn-edge) 35%, transparent);
+}
+[data-board-skin='neon'] .vb-column [data-count] {
+  border-color: color-mix(in srgb, var(--vn-edge) 65%, transparent);
+  background: color-mix(in srgb, var(--vn-edge) 14%, var(--vn-slab));
+  color: var(--fg);
+}
+[data-board-skin='neon'] .vb-share-track {
+  background: color-mix(in srgb, var(--vn-edge) 20%, transparent);
+}
+[data-board-skin='neon'] .vb-share {
+  background: var(--vn-edge);
+}
+
+/* ---------------------------------------------------------------- cards */
+
+[data-board-skin='neon'] [data-lead-name] {
+  font-weight: 600;
+}
+
+/* Dark slab with a bright top edge, tinted by its column. */
+[data-board-variant='neon'] .vb-face:not([data-placeholder]) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 12%, var(--vn-slab)) 0%, var(--vn-slab) 70%);
+  border-color: color-mix(in srgb, var(--vn-edge) 34%, transparent);
+  border-top-color: color-mix(in srgb, var(--vn-edge) 55%, var(--vn-top-edge));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--vn-edge) 40%, var(--vn-top-edge)),
+    0 6px 16px -8px rgb(0 0 0 / 0.8);
+}
+[data-board-variant='aurora'] .vb-face:not([data-placeholder]) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 6%, var(--vn-slab)) 0%, var(--vn-slab) 60%);
+  border-color: color-mix(in srgb, var(--vn-edge) 26%, var(--border));
+  border-top-color: var(--vn-edge);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--vn-edge) 55%, transparent),
+    0 8px 18px -10px color-mix(in srgb, var(--vn-edge) 42%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-board-skin='neon'] .vb-li:hover .vb-face:not([data-placeholder]) {
+    border-color: color-mix(in srgb, var(--vn-edge) 62%, transparent);
+  }
+  [data-board-variant='neon'][data-board-glow='on'] .vb-li:hover .vb-face:not([data-placeholder]) {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--vn-edge) 40%, var(--vn-top-edge)),
+      0 0 10px color-mix(in srgb, var(--vn-edge) 30%, transparent),
+      0 10px 22px -10px rgb(0 0 0 / 0.85);
+  }
+  [data-board-variant='aurora'] .vb-li:hover .vb-face:not([data-placeholder]) {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--vn-edge) 55%, transparent),
+      0 12px 24px -10px color-mix(in srgb, var(--vn-edge) 48%, transparent);
+  }
+}
+
+/* Selection (select mode) stays an accent edge on any skin. */
+[data-board-skin='neon'] .vb-face[aria-checked='true']:not([data-placeholder]) {
+  border-color: var(--ring);
+  box-shadow:
+    0 0 0 1px var(--ring),
+    0 6px 16px -8px rgb(0 0 0 / 0.6);
+}
+
+/* The lifted card glows a little more (still within the caps). */
+[data-board-variant='neon'][data-board-glow='on'] .vb-ghost .vb-face {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--vn-edge) 40%, var(--vn-top-edge)),
+    0 0 var(--glow-blur-max, 12px) color-mix(in srgb, var(--vn-edge) 35%, transparent);
+}
+
+/* Thickness edge: a dark tinted lip (neon) or a pastel one (aurora). */
+[data-board-variant='neon'] .vb-lip {
+  background: color-mix(in srgb, var(--vn-edge) 16%, var(--vn-base-2, #07080f));
+  border-color: color-mix(in srgb, var(--vn-edge) 30%, transparent);
+}
+[data-board-variant='aurora'] .vb-lip {
+  background: color-mix(in srgb, var(--vn-edge) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--vn-edge) 30%, var(--border));
+}
+
+/* Placeholders keep the dashed outline, in the stage colour. */
+[data-board-skin='neon'] .vb-face[data-placeholder='origin'],
+[data-board-skin='neon'] .vb-face[data-placeholder='deck'] {
+  outline-color: color-mix(in srgb, var(--vn-edge) 70%, transparent);
+}
+
+/* Tags as glass chips. */
+[data-board-skin='neon'] .vb-face [data-lead-tags] [data-slot='chip'] {
+  border-color: color-mix(in srgb, var(--vn-edge) 38%, transparent);
+  background: color-mix(in srgb, var(--vn-edge) 12%, transparent);
+  color: var(--fg-secondary);
+}
+
+/* Hover actions sit on the slab colour, not on a grey block. */
+[data-board-skin='neon'] .vb-actions {
+  background: var(--vn-slab);
+}
+
+/* ---------------------------------------------------------------- hot and overdue pulses */
+/* Opacity-only animations (compositor), at most one cycle per 3.6 s (far under 3 flashes per second),
+   paused while a card is dragged, static with reduced motion and gone when the glow is off. */
+
+[data-board-skin='neon'] .vb-aura,
+[data-board-skin='neon'] .vb-overdue-edge {
+  display: block;
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  pointer-events: none;
+}
+[data-board-skin='neon'] .vb-lift[data-placeholder] :is(.vb-aura, .vb-overdue-edge) {
+  display: none;
+}
+
+[data-board-variant='neon'] .vb-aura {
+  box-shadow: 0 0 var(--glow-blur-max, 12px) 1px color-mix(in srgb, var(--vn-edge) 35%, transparent);
+}
+[data-board-variant='aurora'] .vb-aura {
+  box-shadow: 0 10px 22px -8px color-mix(in srgb, var(--vn-edge) 55%, transparent);
+}
+[data-board-glow='off'] .vb-aura {
+  display: none !important;
+}
+
+/* Overdue: a gentle red edge on the card's leading side plus a faint red outline (not a full alarm border). */
+.vb-overdue-edge {
+  border: 1px solid color-mix(in srgb, var(--vn-overdue) 40%, transparent);
+  box-shadow: inset 3px 0 0 var(--vn-overdue);
+}
+
+@keyframes vn-breathe {
+  from {
+    opacity: 0.2;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vn-overdue {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 0.95;
+  }
+}
+
+[data-board-skin='neon'] .vb-aura {
+  opacity: 0.6;
+}
+[data-board-skin='neon'] .vb-overdue-edge {
+  opacity: 0.8;
+}
+:root:not([data-motion='reduced']):not([data-motion='off']) .vb-depth[data-motion='full'][data-board-glow='on'] .vb-aura {
+  animation: vn-breathe 2.4s ease-in-out infinite alternate;
+}
+:root:not([data-motion='reduced']):not([data-motion='off']) .vb-depth[data-motion='full'][data-board-glow='on'] .vb-overdue-edge {
+  animation: vn-overdue 1.8s ease-in-out infinite alternate;
+}
+.vb-depth[data-board-phase='dragging'] :is(.vb-aura, .vb-overdue-edge) {
+  animation-play-state: paused;
+}
