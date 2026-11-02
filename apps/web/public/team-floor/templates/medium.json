@@ -1,0 +1,3132 @@
+{
+ "$schema": "./template.schema.json",
+ "schemaVersion": 1,
+ "id": "medium",
+ "name": "Medium office",
+ "capacity": 20,
+ "units": "m",
+ "bounds": {
+  "min": [
+   0,
+   0
+  ],
+  "max": [
+   18,
+   13
+  ]
+ },
+ "footprint": [
+  [
+   0,
+   0
+  ],
+  [
+   18,
+   0
+  ],
+  [
+   18,
+   13
+  ],
+  [
+   4.5,
+   13
+  ],
+  [
+   4.5,
+   9.5
+  ],
+  [
+   0,
+   9.5
+  ]
+ ],
+ "wallHeights": {
+  "back": 2.8,
+  "front": 1.05
+ },
+ "walls": [
+  {
+   "id": "back-north",
+   "kind": "back",
+   "a": [
+    0,
+    0
+   ],
+   "b": [
+    18,
+    0
+   ],
+   "height": 2.8,
+   "thickness": 0.24,
+   "openings": [
+    {
+     "kind": "window",
+     "from": 16,
+     "to": 17.6,
+     "sill": 1,
+     "head": 2.3
+    }
+   ],
+   "finish": [
+    {
+     "from": 0,
+     "to": 5.1,
+     "inner": "paint"
+    },
+    {
+     "from": 5.1,
+     "to": 11.3,
+     "inner": "acoustic"
+    },
+    {
+     "from": 11.3,
+     "to": 18,
+     "inner": "walnut"
+    }
+   ]
+  },
+  {
+   "id": "back-west",
+   "kind": "back",
+   "a": [
+    0,
+    0
+   ],
+   "b": [
+    0,
+    9.5
+   ],
+   "height": 2.8,
+   "thickness": 0.24,
+   "openings": [
+    {
+     "kind": "window",
+     "from": 1.3,
+     "to": 4.7,
+     "sill": 0.95,
+     "head": 2.35
+    }
+   ],
+   "finish": [
+    {
+     "from": 0,
+     "to": 9.5,
+     "inner": "paint"
+    }
+   ]
+  },
+  {
+   "id": "back-notch",
+   "kind": "back",
+   "a": [
+    4.5,
+    9.5
+   ],
+   "b": [
+    4.5,
+    13
+   ],
+   "height": 2.8,
+   "thickness": 0.24,
+   "openings": [],
+   "finish": [
+    {
+     "from": 0,
+     "to": 3.5,
+     "inner": "paint"
+    }
+   ]
+  },
+  {
+   "id": "front-notch",
+   "kind": "front",
+   "a": [
+    0,
+    9.5
+   ],
+   "b": [
+    4.5,
+    9.5
+   ],
+   "height": 1.05,
+   "thickness": 0.2,
+   "openings": []
+  },
+  {
+   "id": "front-south",
+   "kind": "front",
+   "a": [
+    4.5,
+    13
+   ],
+   "b": [
+    18,
+    13
+   ],
+   "height": 1.05,
+   "thickness": 0.2,
+   "openings": [
+    {
+     "kind": "door",
+     "from": 10.3,
+     "to": 11.899999999999999
+    }
+   ]
+  },
+  {
+   "id": "front-east",
+   "kind": "front",
+   "a": [
+    18,
+    0
+   ],
+   "b": [
+    18,
+    13
+   ],
+   "height": 1.05,
+   "thickness": 0.2,
+   "openings": []
+  },
+  {
+   "id": "call-west",
+   "kind": "glass",
+   "a": [
+    5.1,
+    0
+   ],
+   "b": [
+    5.1,
+    4.3
+   ],
+   "height": 2.3,
+   "thickness": 0.06,
+   "openings": []
+  },
+  {
+   "id": "call-south",
+   "kind": "glass",
+   "a": [
+    5.1,
+    4.3
+   ],
+   "b": [
+    11.3,
+    4.3
+   ],
+   "height": 2.3,
+   "thickness": 0.06,
+   "openings": [
+    {
+     "kind": "door",
+     "from": 0.25,
+     "to": 1.1500000000000004
+    }
+   ]
+  },
+  {
+   "id": "cabin-west",
+   "kind": "glass_walnut",
+   "a": [
+    11.3,
+    0
+   ],
+   "b": [
+    11.3,
+    5
+   ],
+   "height": 2.3,
+   "thickness": 0.12,
+   "openings": []
+  },
+  {
+   "id": "cabin-south-solid",
+   "kind": "partition",
+   "a": [
+    11.3,
+    5
+   ],
+   "b": [
+    14.3,
+    5
+   ],
+   "height": 2.1,
+   "thickness": 0.14,
+   "openings": []
+  },
+  {
+   "id": "cabin-south-glass",
+   "kind": "glass_walnut",
+   "a": [
+    15.3,
+    5
+   ],
+   "b": [
+    18,
+    5
+   ],
+   "height": 2.3,
+   "thickness": 0.12,
+   "openings": []
+  }
+ ],
+ "rooms": [
+  {
+   "id": "lounge",
+   "type": "lounge",
+   "name": "Lounge",
+   "floor": "oak",
+   "outline": [
+    [
+     0,
+     0
+    ],
+    [
+     5.1,
+     0
+    ],
+    [
+     5.1,
+     6.2
+    ],
+    [
+     0,
+     6.2
+    ]
+   ]
+  },
+  {
+   "id": "calling",
+   "type": "calling_room",
+   "name": "Calling room",
+   "floor": "carpet",
+   "outline": [
+    [
+     5.1,
+     0
+    ],
+    [
+     11.3,
+     0
+    ],
+    [
+     11.3,
+     4.3
+    ],
+    [
+     5.1,
+     4.3
+    ]
+   ]
+  },
+  {
+   "id": "cabin",
+   "type": "manager_cabin",
+   "name": "Manager cabin",
+   "floor": "walnut",
+   "outline": [
+    [
+     11.3,
+     0
+    ],
+    [
+     18,
+     0
+    ],
+    [
+     18,
+     5
+    ],
+    [
+     11.3,
+     5
+    ]
+   ]
+  },
+  {
+   "id": "print",
+   "type": "print_corner",
+   "name": "Print corner",
+   "floor": "oak",
+   "outline": [
+    [
+     16.2,
+     5
+    ],
+    [
+     18,
+     5
+    ],
+    [
+     18,
+     6.7
+    ],
+    [
+     16.2,
+     6.7
+    ]
+   ]
+  },
+  {
+   "id": "reception",
+   "type": "reception",
+   "name": "Reception",
+   "floor": "oak",
+   "outline": [
+    [
+     13.4,
+     10.4
+    ],
+    [
+     18,
+     10.4
+    ],
+    [
+     18,
+     13
+    ],
+    [
+     13.4,
+     13
+    ]
+   ]
+  },
+  {
+   "id": "sales",
+   "type": "sales_floor",
+   "name": "Sales floor",
+   "floor": "oak",
+   "outline": [
+    [
+     0,
+     6.2
+    ],
+    [
+     5.1,
+     6.2
+    ],
+    [
+     5.1,
+     4.3
+    ],
+    [
+     11.3,
+     4.3
+    ],
+    [
+     11.3,
+     5
+    ],
+    [
+     16.2,
+     5
+    ],
+    [
+     16.2,
+     6.7
+    ],
+    [
+     18,
+     6.7
+    ],
+    [
+     18,
+     10.4
+    ],
+    [
+     13.4,
+     10.4
+    ],
+    [
+     13.4,
+     13
+    ],
+    [
+     4.5,
+     13
+    ],
+    [
+     4.5,
+     9.5
+    ],
+    [
+     0,
+     9.5
+    ]
+   ]
+  }
+ ],
+ "seats": [
+  {
+   "id": "desk-01",
+   "kind": "desk",
+   "room": "sales",
+   "pos": [
+    6.6,
+    6.82
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    6.6,
+    6
+   ],
+   "screen": "desk-01",
+   "approach": "hub-w"
+  },
+  {
+   "id": "desk-02",
+   "kind": "desk",
+   "room": "sales",
+   "pos": [
+    9.5,
+    6.37
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    9.5,
+    5.55
+   ],
+   "screen": "desk-02",
+   "approach": "hub-n"
+  },
+  {
+   "id": "desk-03",
+   "kind": "desk",
+   "room": "sales",
+   "pos": [
+    14.1,
+    7.37
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    14.1,
+    6.55
+   ],
+   "screen": "desk-03",
+   "approach": "east-1"
+  },
+  {
+   "id": "desk-04",
+   "kind": "desk",
+   "room": "sales",
+   "pos": [
+    6.5,
+    9.57
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    6.5,
+    8.75
+   ],
+   "screen": "desk-04",
+   "approach": "notch"
+  },
+  {
+   "id": "desk-05",
+   "kind": "desk",
+   "room": "sales",
+   "pos": [
+    14.5,
+    9.87
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    14.5,
+    9.05
+   ],
+   "screen": "desk-05",
+   "approach": "east-2"
+  },
+  {
+   "id": "desk-06",
+   "kind": "desk",
+   "room": "sales",
+   "pos": [
+    7.7,
+    12.37
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    7.7,
+    11.55
+   ],
+   "screen": "desk-06",
+   "approach": "south-w"
+  },
+  {
+   "id": "desk-07",
+   "kind": "desk",
+   "room": "sales",
+   "pos": [
+    11.2,
+    12.57
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    11.2,
+    11.75
+   ],
+   "screen": "desk-07",
+   "approach": "south-w"
+  },
+  {
+   "id": "desk-08",
+   "kind": "desk",
+   "room": "sales",
+   "pos": [
+    16.95,
+    9.27
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    16.95,
+    8.45
+   ],
+   "screen": "desk-08",
+   "approach": "east-2"
+  },
+  {
+   "id": "booth-1",
+   "kind": "booth",
+   "room": "calling",
+   "pos": [
+    6.13,
+    1.42
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    6.13,
+    0.55
+   ],
+   "screen": "booth-1",
+   "callFacing": 120,
+   "approach": "call-w"
+  },
+  {
+   "id": "booth-2",
+   "kind": "booth",
+   "room": "calling",
+   "pos": [
+    8.2,
+    1.42
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    8.2,
+    0.55
+   ],
+   "screen": "booth-2",
+   "callFacing": 120,
+   "approach": "call-mid"
+  },
+  {
+   "id": "booth-3",
+   "kind": "booth",
+   "room": "calling",
+   "pos": [
+    10.27,
+    1.42
+   ],
+   "facing": 180,
+   "sit": true,
+   "work": [
+    10.27,
+    0.55
+   ],
+   "screen": "booth-3",
+   "callFacing": 120,
+   "approach": "call-e"
+  },
+  {
+   "id": "cabin-1",
+   "kind": "cabin",
+   "room": "cabin",
+   "pos": [
+    15.2,
+    1.4
+   ],
+   "facing": 0,
+   "sit": true,
+   "work": [
+    15.2,
+    2.25
+   ],
+   "screen": "cabin-1",
+   "approach": "cabin-ne"
+  },
+  {
+   "id": "lounge-1",
+   "kind": "lounge",
+   "room": "lounge",
+   "pos": [
+    0.78,
+    2.25
+   ],
+   "facing": 90,
+   "sit": true,
+   "approach": "lounge-n"
+  },
+  {
+   "id": "lounge-2",
+   "kind": "lounge",
+   "room": "lounge",
+   "pos": [
+    0.78,
+    3
+   ],
+   "facing": 90,
+   "sit": true,
+   "approach": "lounge-n"
+  },
+  {
+   "id": "lounge-3",
+   "kind": "lounge",
+   "room": "lounge",
+   "pos": [
+    0.78,
+    3.75
+   ],
+   "facing": 90,
+   "sit": true,
+   "approach": "lounge-s"
+  },
+  {
+   "id": "lounge-4",
+   "kind": "lounge",
+   "room": "lounge",
+   "pos": [
+    3.55,
+    3
+   ],
+   "facing": 270,
+   "sit": true,
+   "approach": "lounge-n"
+  },
+  {
+   "id": "hot-1",
+   "kind": "hot_desk",
+   "room": "sales",
+   "pos": [
+    5.77,
+    10.75
+   ],
+   "facing": 270,
+   "sit": true,
+   "work": [
+    4.92,
+    10.75
+   ],
+   "screen": "hot-1",
+   "approach": "bench"
+  },
+  {
+   "id": "hot-2",
+   "kind": "hot_desk",
+   "room": "sales",
+   "pos": [
+    5.77,
+    11.55
+   ],
+   "facing": 270,
+   "sit": true,
+   "work": [
+    4.92,
+    11.55
+   ],
+   "screen": "hot-2",
+   "approach": "bench"
+  },
+  {
+   "id": "hot-3",
+   "kind": "hot_desk",
+   "room": "sales",
+   "pos": [
+    5.77,
+    12.35
+   ],
+   "facing": 270,
+   "sit": true,
+   "work": [
+    4.92,
+    12.35
+   ],
+   "screen": "hot-3",
+   "approach": "bench"
+  },
+  {
+   "id": "reception-1",
+   "kind": "reception",
+   "room": "reception",
+   "pos": [
+    15.6,
+    10.78
+   ],
+   "facing": 0,
+   "sit": true,
+   "work": [
+    15.6,
+    11.55
+   ],
+   "screen": "reception-1",
+   "approach": "east-2"
+  }
+ ],
+ "standing": [
+  {
+   "id": "stand-lounge",
+   "pos": [
+    2.7,
+    4.65
+   ],
+   "facing": 45,
+   "sit": false,
+   "approach": "lounge-s"
+  },
+  {
+   "id": "stand-whiteboard",
+   "pos": [
+    12.75,
+    5.85
+   ],
+   "facing": 180,
+   "sit": false,
+   "approach": "north-2"
+  },
+  {
+   "id": "stand-cooler",
+   "pos": [
+    1.05,
+    6.8
+   ],
+   "facing": 270,
+   "sit": false,
+   "approach": "west-n"
+  },
+  {
+   "id": "stand-printer",
+   "pos": [
+    16.6,
+    6.1
+   ],
+   "facing": 140,
+   "sit": false,
+   "approach": "print"
+  },
+  {
+   "id": "stand-hub-w",
+   "pos": [
+    7.95,
+    9.9
+   ],
+   "facing": 80,
+   "sit": false,
+   "approach": "hub-sw"
+  },
+  {
+   "id": "stand-hub-e",
+   "pos": [
+    12.6,
+    7.4
+   ],
+   "facing": 260,
+   "sit": false,
+   "approach": "hub-e"
+  },
+  {
+   "id": "stand-books",
+   "pos": [
+    3.9,
+    1.05
+   ],
+   "facing": 180,
+   "sit": false,
+   "approach": "lounge-n"
+  },
+  {
+   "id": "stand-reception",
+   "pos": [
+    13.9,
+    11.9
+   ],
+   "facing": 90,
+   "sit": false,
+   "approach": "recep-w"
+  },
+  {
+   "id": "stand-call",
+   "pos": [
+    8.6,
+    4.85
+   ],
+   "facing": 20,
+   "sit": false,
+   "approach": "north-1"
+  },
+  {
+   "id": "stand-west",
+   "pos": [
+    3.2,
+    7.6
+   ],
+   "facing": 120,
+   "sit": false,
+   "approach": "west-n"
+  },
+  {
+   "id": "stand-cabinet",
+   "pos": [
+    1.15,
+    8.4
+   ],
+   "facing": 250,
+   "sit": false,
+   "approach": "west-s"
+  },
+  {
+   "id": "stand-hub-s",
+   "pos": [
+    10.4,
+    10.75
+   ],
+   "facing": 0,
+   "sit": false,
+   "approach": "hub-front"
+  },
+  {
+   "id": "stand-east",
+   "pos": [
+    16.6,
+    10.1
+   ],
+   "facing": 220,
+   "sit": false,
+   "approach": "east-2"
+  },
+  {
+   "id": "stand-bench",
+   "pos": [
+    7.2,
+    10
+   ],
+   "facing": 200,
+   "sit": false,
+   "approach": "hub-sw"
+  }
+ ],
+ "hub": {
+  "pos": [
+   10.2,
+   8.6
+  ],
+  "ringRadius": 1.5,
+  "platformRadius": 1.65,
+  "machineRadius": 0.62,
+  "approach": "hub-e"
+ },
+ "entrance": {
+  "outside": [
+   15.6,
+   13.9
+  ],
+  "inside": [
+   13.9,
+   12.35
+  ],
+  "facing": 180,
+  "approach": "door-out"
+ },
+ "graph": {
+  "nodes": [
+   {
+    "id": "lounge-n",
+    "pos": [
+     2.82,
+     1.3
+    ]
+   },
+   {
+    "id": "lounge-s",
+    "pos": [
+     2.82,
+     4.85
+    ]
+   },
+   {
+    "id": "west-n",
+    "pos": [
+     2.9,
+     6.6
+    ]
+   },
+   {
+    "id": "west-s",
+    "pos": [
+     2.9,
+     8.7
+    ]
+   },
+   {
+    "id": "notch",
+    "pos": [
+     5.55,
+     9.5
+    ]
+   },
+   {
+    "id": "bench",
+    "pos": [
+     6.25,
+     11.6
+    ]
+   },
+   {
+    "id": "call-out",
+    "pos": [
+     5.8,
+     4.85
+    ]
+   },
+   {
+    "id": "call-in",
+    "pos": [
+     5.8,
+     3.55
+    ]
+   },
+   {
+    "id": "call-mid",
+    "pos": [
+     8.2,
+     2.9
+    ]
+   },
+   {
+    "id": "call-e",
+    "pos": [
+     10.3,
+     2.9
+    ]
+   },
+   {
+    "id": "call-w",
+    "pos": [
+     6.15,
+     2.9
+    ]
+   },
+   {
+    "id": "north-1",
+    "pos": [
+     8,
+     4.85
+    ]
+   },
+   {
+    "id": "north-2",
+    "pos": [
+     11.6,
+     5.55
+    ]
+   },
+   {
+    "id": "cabin-out",
+    "pos": [
+     14.8,
+     5.6
+    ]
+   },
+   {
+    "id": "cabin-in",
+    "pos": [
+     14.8,
+     4.45
+    ]
+   },
+   {
+    "id": "cabin-e",
+    "pos": [
+     16.65,
+     3.9
+    ]
+   },
+   {
+    "id": "cabin-ne",
+    "pos": [
+     16.65,
+     1.45
+    ]
+   },
+   {
+    "id": "cabin-w",
+    "pos": [
+     13.4,
+     3.6
+    ]
+   },
+   {
+    "id": "print",
+    "pos": [
+     16.3,
+     7.05
+    ]
+   },
+   {
+    "id": "east-1",
+    "pos": [
+     15.9,
+     7.55
+    ]
+   },
+   {
+    "id": "east-2",
+    "pos": [
+     16.3,
+     10
+    ]
+   },
+   {
+    "id": "hub-n",
+    "pos": [
+     11.5,
+     6.6
+    ]
+   },
+   {
+    "id": "hub-w",
+    "pos": [
+     7.75,
+     7.6
+    ]
+   },
+   {
+    "id": "hub-sw",
+    "pos": [
+     8.4,
+     10.1
+    ]
+   },
+   {
+    "id": "hub-e",
+    "pos": [
+     12.45,
+     8.4
+    ]
+   },
+   {
+    "id": "hub-se",
+    "pos": [
+     12.3,
+     10.45
+    ]
+   },
+   {
+    "id": "south-w",
+    "pos": [
+     9.45,
+     12.15
+    ]
+   },
+   {
+    "id": "south-e",
+    "pos": [
+     13,
+     11
+    ]
+   },
+   {
+    "id": "recep-w",
+    "pos": [
+     13.95,
+     12.35
+    ]
+   },
+   {
+    "id": "recep-e",
+    "pos": [
+     17.2,
+     12.3
+    ]
+   },
+   {
+    "id": "recep-back",
+    "pos": [
+     17.25,
+     10.7
+    ]
+   },
+   {
+    "id": "door-in",
+    "pos": [
+     15.6,
+     12.6
+    ]
+   },
+   {
+    "id": "door-out",
+    "pos": [
+     15.6,
+     13.9
+    ]
+   },
+   {
+    "id": "hub-front",
+    "pos": [
+     10.2,
+     10.55
+    ]
+   }
+  ],
+  "edges": [
+   [
+    "lounge-n",
+    "lounge-s"
+   ],
+   [
+    "lounge-n",
+    "west-n"
+   ],
+   [
+    "lounge-n",
+    "west-s"
+   ],
+   [
+    "lounge-s",
+    "west-n"
+   ],
+   [
+    "lounge-s",
+    "west-s"
+   ],
+   [
+    "lounge-s",
+    "notch"
+   ],
+   [
+    "lounge-s",
+    "call-out"
+   ],
+   [
+    "lounge-s",
+    "north-1"
+   ],
+   [
+    "west-n",
+    "west-s"
+   ],
+   [
+    "west-n",
+    "notch"
+   ],
+   [
+    "west-n",
+    "call-out"
+   ],
+   [
+    "notch",
+    "bench"
+   ],
+   [
+    "notch",
+    "hub-sw"
+   ],
+   [
+    "notch",
+    "hub-se"
+   ],
+   [
+    "notch",
+    "hub-front"
+   ],
+   [
+    "call-out",
+    "call-in"
+   ],
+   [
+    "call-out",
+    "call-w"
+   ],
+   [
+    "call-out",
+    "north-1"
+   ],
+   [
+    "call-in",
+    "call-mid"
+   ],
+   [
+    "call-in",
+    "call-e"
+   ],
+   [
+    "call-in",
+    "call-w"
+   ],
+   [
+    "call-mid",
+    "call-e"
+   ],
+   [
+    "call-mid",
+    "call-w"
+   ],
+   [
+    "call-e",
+    "call-w"
+   ],
+   [
+    "north-1",
+    "hub-w"
+   ],
+   [
+    "north-1",
+    "hub-sw"
+   ],
+   [
+    "north-1",
+    "south-w"
+   ],
+   [
+    "north-2",
+    "cabin-out"
+   ],
+   [
+    "north-2",
+    "hub-n"
+   ],
+   [
+    "north-2",
+    "hub-e"
+   ],
+   [
+    "north-2",
+    "hub-se"
+   ],
+   [
+    "north-2",
+    "south-e"
+   ],
+   [
+    "north-2",
+    "recep-w"
+   ],
+   [
+    "cabin-out",
+    "cabin-in"
+   ],
+   [
+    "cabin-out",
+    "print"
+   ],
+   [
+    "cabin-in",
+    "cabin-e"
+   ],
+   [
+    "cabin-in",
+    "cabin-w"
+   ],
+   [
+    "cabin-e",
+    "cabin-ne"
+   ],
+   [
+    "print",
+    "east-1"
+   ],
+   [
+    "print",
+    "hub-e"
+   ],
+   [
+    "east-1",
+    "hub-e"
+   ],
+   [
+    "east-2",
+    "hub-se"
+   ],
+   [
+    "east-2",
+    "south-e"
+   ],
+   [
+    "east-2",
+    "recep-back"
+   ],
+   [
+    "east-2",
+    "hub-front"
+   ],
+   [
+    "hub-n",
+    "hub-w"
+   ],
+   [
+    "hub-n",
+    "hub-e"
+   ],
+   [
+    "hub-n",
+    "hub-se"
+   ],
+   [
+    "hub-n",
+    "south-e"
+   ],
+   [
+    "hub-n",
+    "recep-w"
+   ],
+   [
+    "hub-w",
+    "hub-sw"
+   ],
+   [
+    "hub-w",
+    "south-w"
+   ],
+   [
+    "hub-w",
+    "hub-front"
+   ],
+   [
+    "hub-sw",
+    "hub-se"
+   ],
+   [
+    "hub-sw",
+    "south-w"
+   ],
+   [
+    "hub-sw",
+    "south-e"
+   ],
+   [
+    "hub-sw",
+    "hub-front"
+   ],
+   [
+    "hub-e",
+    "hub-se"
+   ],
+   [
+    "hub-e",
+    "south-e"
+   ],
+   [
+    "hub-e",
+    "recep-w"
+   ],
+   [
+    "hub-e",
+    "hub-front"
+   ],
+   [
+    "hub-se",
+    "south-e"
+   ],
+   [
+    "hub-se",
+    "recep-w"
+   ],
+   [
+    "hub-se",
+    "recep-back"
+   ],
+   [
+    "hub-se",
+    "hub-front"
+   ],
+   [
+    "south-w",
+    "hub-front"
+   ],
+   [
+    "south-e",
+    "recep-w"
+   ],
+   [
+    "south-e",
+    "hub-front"
+   ],
+   [
+    "recep-w",
+    "recep-e"
+   ],
+   [
+    "recep-w",
+    "door-in"
+   ],
+   [
+    "recep-e",
+    "recep-back"
+   ],
+   [
+    "recep-e",
+    "door-in"
+   ],
+   [
+    "recep-back",
+    "hub-front"
+   ],
+   [
+    "door-in",
+    "door-out"
+   ]
+  ]
+ },
+ "props": [
+  {
+   "type": "desk_white",
+   "pos": [
+    6.6,
+    6
+   ],
+   "facing": 0,
+   "seat": "desk-01",
+   "variant": "left"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    6.6,
+    6.82
+   ],
+   "facing": 180,
+   "seat": "desk-01"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    6.6,
+    5.84
+   ],
+   "facing": 0,
+   "seat": "desk-01",
+   "y": 0.75,
+   "screen": "desk-01"
+  },
+  {
+   "type": "plant_desk",
+   "pos": [
+    7.12,
+    5.88
+   ],
+   "facing": 0,
+   "y": 0.75,
+   "variant": "succulent"
+  },
+  {
+   "type": "desk_white",
+   "pos": [
+    9.5,
+    5.55
+   ],
+   "facing": 0,
+   "seat": "desk-02",
+   "variant": "right"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    9.5,
+    6.37
+   ],
+   "facing": 180,
+   "seat": "desk-02"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    9.5,
+    5.39
+   ],
+   "facing": 0,
+   "seat": "desk-02",
+   "y": 0.75,
+   "screen": "desk-02"
+  },
+  {
+   "type": "desk_mug",
+   "pos": [
+    9,
+    5.65
+   ],
+   "facing": 0,
+   "y": 0.75
+  },
+  {
+   "type": "desk_white",
+   "pos": [
+    14.1,
+    6.55
+   ],
+   "facing": 0,
+   "seat": "desk-03",
+   "variant": "left"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    14.1,
+    7.37
+   ],
+   "facing": 180,
+   "seat": "desk-03"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    14.1,
+    6.39
+   ],
+   "facing": 0,
+   "seat": "desk-03",
+   "y": 0.75,
+   "screen": "desk-03"
+  },
+  {
+   "type": "plant_desk",
+   "pos": [
+    14.62,
+    6.43
+   ],
+   "facing": 0,
+   "y": 0.75,
+   "variant": "snake"
+  },
+  {
+   "type": "desk_white",
+   "pos": [
+    6.5,
+    8.75
+   ],
+   "facing": 0,
+   "seat": "desk-04",
+   "variant": "left"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    6.5,
+    9.57
+   ],
+   "facing": 180,
+   "seat": "desk-04"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    6.5,
+    8.59
+   ],
+   "facing": 0,
+   "seat": "desk-04",
+   "y": 0.75,
+   "screen": "desk-04"
+  },
+  {
+   "type": "desk_mug",
+   "pos": [
+    6,
+    8.85
+   ],
+   "facing": 0,
+   "y": 0.75
+  },
+  {
+   "type": "desk_white",
+   "pos": [
+    14.5,
+    9.05
+   ],
+   "facing": 0,
+   "seat": "desk-05",
+   "variant": "right"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    14.5,
+    9.87
+   ],
+   "facing": 180,
+   "seat": "desk-05"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    14.5,
+    8.89
+   ],
+   "facing": 0,
+   "seat": "desk-05",
+   "y": 0.75,
+   "screen": "desk-05"
+  },
+  {
+   "type": "plant_desk",
+   "pos": [
+    15.02,
+    8.93
+   ],
+   "facing": 0,
+   "y": 0.75,
+   "variant": "succulent"
+  },
+  {
+   "type": "desk_white",
+   "pos": [
+    7.7,
+    11.55
+   ],
+   "facing": 0,
+   "seat": "desk-06",
+   "variant": "left"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    7.7,
+    12.37
+   ],
+   "facing": 180,
+   "seat": "desk-06"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    7.7,
+    11.39
+   ],
+   "facing": 0,
+   "seat": "desk-06",
+   "y": 0.75,
+   "screen": "desk-06"
+  },
+  {
+   "type": "desk_mug",
+   "pos": [
+    7.2,
+    11.65
+   ],
+   "facing": 0,
+   "y": 0.75
+  },
+  {
+   "type": "desk_white",
+   "pos": [
+    11.2,
+    11.75
+   ],
+   "facing": 0,
+   "seat": "desk-07",
+   "variant": "left"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    11.2,
+    12.57
+   ],
+   "facing": 180,
+   "seat": "desk-07"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    11.2,
+    11.59
+   ],
+   "facing": 0,
+   "seat": "desk-07",
+   "y": 0.75,
+   "screen": "desk-07"
+  },
+  {
+   "type": "plant_desk",
+   "pos": [
+    11.72,
+    11.63
+   ],
+   "facing": 0,
+   "y": 0.75,
+   "variant": "snake"
+  },
+  {
+   "type": "desk_white",
+   "pos": [
+    16.95,
+    8.45
+   ],
+   "facing": 0,
+   "seat": "desk-08",
+   "variant": "right"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    16.95,
+    9.27
+   ],
+   "facing": 180,
+   "seat": "desk-08"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    16.95,
+    8.29
+   ],
+   "facing": 0,
+   "seat": "desk-08",
+   "y": 0.75,
+   "screen": "desk-08"
+  },
+  {
+   "type": "desk_mug",
+   "pos": [
+    16.45,
+    8.55
+   ],
+   "facing": 0,
+   "y": 0.75
+  },
+  {
+   "type": "desk_booth",
+   "pos": [
+    6.13,
+    0.55
+   ],
+   "facing": 0,
+   "seat": "booth-1"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    6.13,
+    1.42
+   ],
+   "facing": 180,
+   "seat": "booth-1"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    6.13,
+    0.36
+   ],
+   "facing": 0,
+   "seat": "booth-1",
+   "y": 0.75,
+   "screen": "booth-1"
+  },
+  {
+   "type": "acoustic_panel",
+   "pos": [
+    6.13,
+    0.13
+   ],
+   "facing": 0,
+   "y": 1.05,
+   "size": [
+    1.3,
+    0.9,
+    0.04
+   ]
+  },
+  {
+   "type": "desk_booth",
+   "pos": [
+    8.2,
+    0.55
+   ],
+   "facing": 0,
+   "seat": "booth-2"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    8.2,
+    1.42
+   ],
+   "facing": 180,
+   "seat": "booth-2"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    8.2,
+    0.36
+   ],
+   "facing": 0,
+   "seat": "booth-2",
+   "y": 0.75,
+   "screen": "booth-2"
+  },
+  {
+   "type": "acoustic_panel",
+   "pos": [
+    8.2,
+    0.13
+   ],
+   "facing": 0,
+   "y": 1.05,
+   "size": [
+    1.3,
+    0.9,
+    0.04
+   ]
+  },
+  {
+   "type": "booth_partition",
+   "pos": [
+    7.17,
+    1.2
+   ],
+   "facing": 90,
+   "size": [
+    2.4,
+    1.5,
+    0.05
+   ]
+  },
+  {
+   "type": "desk_booth",
+   "pos": [
+    10.27,
+    0.55
+   ],
+   "facing": 0,
+   "seat": "booth-3"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    10.27,
+    1.42
+   ],
+   "facing": 180,
+   "seat": "booth-3"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    10.27,
+    0.36
+   ],
+   "facing": 0,
+   "seat": "booth-3",
+   "y": 0.75,
+   "screen": "booth-3"
+  },
+  {
+   "type": "acoustic_panel",
+   "pos": [
+    10.27,
+    0.13
+   ],
+   "facing": 0,
+   "y": 1.05,
+   "size": [
+    1.3,
+    0.9,
+    0.04
+   ]
+  },
+  {
+   "type": "booth_partition",
+   "pos": [
+    9.23,
+    1.2
+   ],
+   "facing": 90,
+   "size": [
+    2.4,
+    1.5,
+    0.05
+   ]
+  },
+  {
+   "type": "plant_tall",
+   "pos": [
+    10.85,
+    3.85
+   ],
+   "facing": 0,
+   "variant": "fiddle"
+  },
+  {
+   "type": "desk_walnut",
+   "pos": [
+    15.2,
+    2.25
+   ],
+   "facing": 180,
+   "seat": "cabin-1"
+  },
+  {
+   "type": "chair_exec",
+   "pos": [
+    15.2,
+    1.4
+   ],
+   "facing": 0,
+   "seat": "cabin-1"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    14.75,
+    2.15
+   ],
+   "facing": 180,
+   "seat": "cabin-1",
+   "y": 0.76,
+   "screen": "cabin-1"
+  },
+  {
+   "type": "desk_lamp",
+   "pos": [
+    15.95,
+    2.4
+   ],
+   "facing": 200,
+   "y": 0.76
+  },
+  {
+   "type": "chair_visitor",
+   "pos": [
+    14.7,
+    3.2
+   ],
+   "facing": 180
+  },
+  {
+   "type": "chair_visitor",
+   "pos": [
+    15.75,
+    3.2
+   ],
+   "facing": 180
+  },
+  {
+   "type": "bookshelf_walnut",
+   "pos": [
+    12.75,
+    0.3
+   ],
+   "facing": 0,
+   "size": [
+    1.7,
+    2.1,
+    0.4
+   ]
+  },
+  {
+   "type": "credenza_walnut",
+   "pos": [
+    17.15,
+    0.33
+   ],
+   "facing": 0,
+   "size": [
+    1.4,
+    0.75,
+    0.45
+   ]
+  },
+  {
+   "type": "printer_small",
+   "pos": [
+    17.4,
+    0.33
+   ],
+   "facing": 0,
+   "y": 0.75
+  },
+  {
+   "type": "art_frame",
+   "pos": [
+    14.6,
+    0.13
+   ],
+   "facing": 0,
+   "y": 1.65,
+   "size": [
+    0.9,
+    0.7,
+    0.03
+   ],
+   "variant": "abstract-warm"
+  },
+  {
+   "type": "floor_lamp",
+   "pos": [
+    17.45,
+    4.25
+   ],
+   "facing": 0
+  },
+  {
+   "type": "plant_medium",
+   "pos": [
+    11.85,
+    4.4
+   ],
+   "facing": 0,
+   "variant": "monstera"
+  },
+  {
+   "type": "whiteboard",
+   "pos": [
+    12.75,
+    5.09
+   ],
+   "facing": 0,
+   "y": 0.85,
+   "size": [
+    2.2,
+    1.05,
+    0.04
+   ]
+  },
+  {
+   "type": "cabinet_low",
+   "pos": [
+    17.25,
+    5.32
+   ],
+   "facing": 0,
+   "size": [
+    1.2,
+    0.72,
+    0.5
+   ]
+  },
+  {
+   "type": "printer",
+   "pos": [
+    17.25,
+    5.32
+   ],
+   "facing": 0,
+   "y": 0.72
+  },
+  {
+   "type": "filing_cabinet",
+   "pos": [
+    17.68,
+    6.25
+   ],
+   "facing": 270,
+   "size": [
+    0.5,
+    1.05,
+    0.55
+   ]
+  },
+  {
+   "type": "plant_medium",
+   "pos": [
+    16.15,
+    5.4
+   ],
+   "facing": 0,
+   "variant": "bush"
+  },
+  {
+   "type": "rug",
+   "pos": [
+    2.2,
+    3
+   ],
+   "facing": 90,
+   "size": [
+    3.6,
+    0.012,
+    2.9
+   ],
+   "variant": "grey"
+  },
+  {
+   "type": "sofa_green",
+   "pos": [
+    0.6,
+    3
+   ],
+   "facing": 90,
+   "size": [
+    2.5,
+    0.85,
+    0.95
+   ]
+  },
+  {
+   "type": "armchair_green",
+   "pos": [
+    3.6,
+    3
+   ],
+   "facing": 270,
+   "size": [
+    0.9,
+    0.85,
+    0.85
+   ]
+  },
+  {
+   "type": "coffee_table",
+   "pos": [
+    2.15,
+    3
+   ],
+   "facing": 90,
+   "size": [
+    1.15,
+    0.42,
+    0.62
+   ]
+  },
+  {
+   "type": "bookshelf_white",
+   "pos": [
+    3.95,
+    0.3
+   ],
+   "facing": 0,
+   "size": [
+    1.5,
+    1.9,
+    0.38
+   ]
+  },
+  {
+   "type": "plant_tall",
+   "pos": [
+    0.5,
+    0.5
+   ],
+   "facing": 0,
+   "variant": "palm"
+  },
+  {
+   "type": "plant_medium",
+   "pos": [
+    0.5,
+    5.1
+   ],
+   "facing": 0,
+   "variant": "monstera"
+  },
+  {
+   "type": "plant_floor_small",
+   "pos": [
+    2.2,
+    0.35
+   ],
+   "facing": 0,
+   "variant": "round"
+  },
+  {
+   "type": "art_frame",
+   "pos": [
+    0.13,
+    5.6
+   ],
+   "facing": 90,
+   "y": 1.45,
+   "size": [
+    0.55,
+    0.7,
+    0.03
+   ],
+   "variant": "abstract-cool"
+  },
+  {
+   "type": "water_cooler",
+   "pos": [
+    0.36,
+    6.75
+   ],
+   "facing": 90
+  },
+  {
+   "type": "cabinet_low",
+   "pos": [
+    0.32,
+    7.85
+   ],
+   "facing": 90,
+   "size": [
+    1.3,
+    0.8,
+    0.48
+   ],
+   "variant": "oak"
+  },
+  {
+   "type": "plant_desk",
+   "pos": [
+    0.3,
+    7.55
+   ],
+   "facing": 0,
+   "y": 0.8,
+   "variant": "succulent"
+  },
+  {
+   "type": "art_frame",
+   "pos": [
+    0.13,
+    7.85
+   ],
+   "facing": 90,
+   "y": 1.5,
+   "size": [
+    1,
+    0.6,
+    0.03
+   ],
+   "variant": "landscape"
+  },
+  {
+   "type": "plant_tall",
+   "pos": [
+    0.5,
+    9
+   ],
+   "facing": 0,
+   "variant": "fiddle"
+  },
+  {
+   "type": "bench_desk",
+   "pos": [
+    4.92,
+    11.55
+   ],
+   "facing": 90,
+   "size": [
+    2.7,
+    0.75,
+    0.75
+   ]
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    5.77,
+    10.75
+   ],
+   "facing": 270,
+   "seat": "hot-1"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    4.76,
+    10.75
+   ],
+   "facing": 90,
+   "seat": "hot-1",
+   "y": 0.75,
+   "screen": "hot-1",
+   "variant": "small"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    5.77,
+    11.55
+   ],
+   "facing": 270,
+   "seat": "hot-2"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    4.76,
+    11.55
+   ],
+   "facing": 90,
+   "seat": "hot-2",
+   "y": 0.75,
+   "screen": "hot-2",
+   "variant": "small"
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    5.77,
+    12.35
+   ],
+   "facing": 270,
+   "seat": "hot-3"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    4.76,
+    12.35
+   ],
+   "facing": 90,
+   "seat": "hot-3",
+   "y": 0.75,
+   "screen": "hot-3",
+   "variant": "small"
+  },
+  {
+   "type": "plant_tall",
+   "pos": [
+    4.95,
+    9.95
+   ],
+   "facing": 0,
+   "variant": "palm"
+  },
+  {
+   "type": "reception_counter",
+   "pos": [
+    15.6,
+    11.55
+   ],
+   "facing": 0,
+   "size": [
+    2.2,
+    1.05,
+    0.75
+   ]
+  },
+  {
+   "type": "chair_office",
+   "pos": [
+    15.6,
+    10.78
+   ],
+   "facing": 0,
+   "seat": "reception-1"
+  },
+  {
+   "type": "monitor",
+   "pos": [
+    15.25,
+    11.38
+   ],
+   "facing": 180,
+   "seat": "reception-1",
+   "y": 0.75,
+   "screen": "reception-1",
+   "variant": "small"
+  },
+  {
+   "type": "plant_medium",
+   "pos": [
+    17.65,
+    12.68
+   ],
+   "facing": 0,
+   "variant": "bush"
+  },
+  {
+   "type": "hub",
+   "pos": [
+    10.2,
+    8.6
+   ],
+   "facing": 45,
+   "size": [
+    1.24,
+    1.25,
+    1.24
+   ]
+  },
+  {
+   "type": "hub_ring",
+   "pos": [
+    10.2,
+    8.6
+   ],
+   "facing": 0,
+   "size": [
+    3,
+    0.02,
+    3
+   ]
+  },
+  {
+   "type": "mat",
+   "pos": [
+    15.6,
+    13.75
+   ],
+   "facing": 0,
+   "size": [
+    1.9,
+    0.015,
+    1.1
+   ]
+  },
+  {
+   "type": "plant_tall",
+   "pos": [
+    4.95,
+    6.6
+   ],
+   "facing": 0,
+   "variant": "monstera"
+  },
+  {
+   "type": "plant_medium",
+   "pos": [
+    12.4,
+    12.55
+   ],
+   "facing": 0,
+   "variant": "fiddle"
+  },
+  {
+   "type": "plant_floor_small",
+   "pos": [
+    9.55,
+    12.7
+   ],
+   "facing": 0,
+   "variant": "round"
+  },
+  {
+   "type": "sconce",
+   "pos": [
+    0.13,
+    0.55
+   ],
+   "facing": 90,
+   "y": 1.85,
+   "wall": "back-west"
+  },
+  {
+   "type": "sconce",
+   "pos": [
+    0.13,
+    6.2
+   ],
+   "facing": 90,
+   "y": 1.85,
+   "wall": "back-west"
+  },
+  {
+   "type": "sconce",
+   "pos": [
+    4.6,
+    0.13
+   ],
+   "facing": 0,
+   "y": 1.85,
+   "wall": "back-north"
+  },
+  {
+   "type": "sconce",
+   "pos": [
+    11.9,
+    0.13
+   ],
+   "facing": 0,
+   "y": 1.85,
+   "wall": "back-north"
+  },
+  {
+   "type": "sconce",
+   "pos": [
+    15.6,
+    0.13
+   ],
+   "facing": 0,
+   "y": 1.85,
+   "wall": "back-north"
+  },
+  {
+   "type": "sconce",
+   "pos": [
+    4.63,
+    12.1
+   ],
+   "facing": 90,
+   "y": 1.85,
+   "wall": "back-notch"
+  },
+  {
+   "type": "sconce_outdoor",
+   "pos": [
+    7.2,
+    13.11
+   ],
+   "facing": 0,
+   "y": 0.62,
+   "wall": "front-south"
+  },
+  {
+   "type": "sconce_outdoor",
+   "pos": [
+    11.6,
+    13.11
+   ],
+   "facing": 0,
+   "y": 0.62,
+   "wall": "front-south"
+  },
+  {
+   "type": "sconce_outdoor",
+   "pos": [
+    18.11,
+    3
+   ],
+   "facing": 90,
+   "y": 0.62,
+   "wall": "front-east"
+  },
+  {
+   "type": "sconce_outdoor",
+   "pos": [
+    18.11,
+    8
+   ],
+   "facing": 90,
+   "y": 0.62,
+   "wall": "front-east"
+  },
+  {
+   "type": "sconce_outdoor",
+   "pos": [
+    2.2,
+    9.61
+   ],
+   "facing": 0,
+   "y": 0.62,
+   "wall": "front-notch"
+  }
+ ],
+ "lamps": [
+  {
+   "pos": [
+    17.45,
+    1.6,
+    4.25
+   ],
+   "kind": "floor",
+   "room": "cabin"
+  },
+  {
+   "pos": [
+    15.95,
+    1.05,
+    2.4
+   ],
+   "kind": "desk",
+   "room": "cabin"
+  },
+  {
+   "pos": [
+    2.2,
+    2.4,
+    3
+   ],
+   "kind": "pendant",
+   "room": "lounge"
+  },
+  {
+   "pos": [
+    8,
+    2.4,
+    7.2
+   ],
+   "kind": "pendant",
+   "room": "sales"
+  },
+  {
+   "pos": [
+    13.6,
+    2.4,
+    8.2
+   ],
+   "kind": "pendant",
+   "room": "sales"
+  },
+  {
+   "pos": [
+    15.6,
+    2.2,
+    11.3
+   ],
+   "kind": "pendant",
+   "room": "reception"
+  }
+ ],
+ "obstacles": [
+  {
+   "kind": "rect",
+   "pos": [
+    6.6,
+    6
+   ],
+   "size": [
+    1.5,
+    0.8
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    9.5,
+    5.55
+   ],
+   "size": [
+    1.5,
+    0.8
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    14.1,
+    6.55
+   ],
+   "size": [
+    1.5,
+    0.8
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    6.5,
+    8.75
+   ],
+   "size": [
+    1.5,
+    0.8
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    14.5,
+    9.05
+   ],
+   "size": [
+    1.5,
+    0.8
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    7.7,
+    11.55
+   ],
+   "size": [
+    1.5,
+    0.8
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    11.2,
+    11.75
+   ],
+   "size": [
+    1.5,
+    0.8
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    16.95,
+    8.45
+   ],
+   "size": [
+    1.5,
+    0.8
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    6.13,
+    0.55
+   ],
+   "size": [
+    1.3,
+    0.6
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    8.2,
+    0.55
+   ],
+   "size": [
+    1.3,
+    0.6
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    7.17,
+    1.2
+   ],
+   "size": [
+    0.1,
+    2.4
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    10.27,
+    0.55
+   ],
+   "size": [
+    1.3,
+    0.6
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    9.23,
+    1.2
+   ],
+   "size": [
+    0.1,
+    2.4
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    10.85,
+    3.85
+   ],
+   "r": 0.35
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    15.2,
+    2.25
+   ],
+   "size": [
+    1.8,
+    0.8
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    12.75,
+    0.3
+   ],
+   "size": [
+    1.7,
+    0.4
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    17.15,
+    0.33
+   ],
+   "size": [
+    1.4,
+    0.45
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    14.7,
+    3.2
+   ],
+   "size": [
+    0.5,
+    0.5
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    15.75,
+    3.2
+   ],
+   "size": [
+    0.5,
+    0.5
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    17.45,
+    4.25
+   ],
+   "r": 0.25
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    11.85,
+    4.4
+   ],
+   "r": 0.35
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    17.25,
+    5.32
+   ],
+   "size": [
+    1.2,
+    0.5
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    17.68,
+    6.25
+   ],
+   "size": [
+    0.55,
+    0.5
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    16.15,
+    5.4
+   ],
+   "r": 0.33
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    0.6,
+    3
+   ],
+   "size": [
+    0.95,
+    2.5
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    3.6,
+    3
+   ],
+   "size": [
+    0.85,
+    0.9
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    2.15,
+    3
+   ],
+   "size": [
+    0.62,
+    1.15
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    3.95,
+    0.3
+   ],
+   "size": [
+    1.5,
+    0.38
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    0.5,
+    0.5
+   ],
+   "r": 0.45
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    0.5,
+    5.1
+   ],
+   "r": 0.38
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    2.2,
+    0.35
+   ],
+   "r": 0.25
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    0.36,
+    6.75
+   ],
+   "size": [
+    0.4,
+    0.4
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    0.32,
+    7.85
+   ],
+   "size": [
+    0.48,
+    1.3
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    0.5,
+    9
+   ],
+   "r": 0.4
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    4.92,
+    11.55
+   ],
+   "size": [
+    0.75,
+    2.7
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    4.95,
+    9.95
+   ],
+   "r": 0.38
+  },
+  {
+   "kind": "rect",
+   "pos": [
+    15.6,
+    11.55
+   ],
+   "size": [
+    2.3,
+    0.85
+   ],
+   "facing": 0
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    17.65,
+    12.68
+   ],
+   "r": 0.28
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    10.2,
+    8.6
+   ],
+   "r": 0.87
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    4.95,
+    6.6
+   ],
+   "r": 0.36
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    12.4,
+    12.55
+   ],
+   "r": 0.32
+  },
+  {
+   "kind": "circle",
+   "pos": [
+    9.55,
+    12.7
+   ],
+   "r": 0.22
+  }
+ ],
+ "camera": {
+  "yawDeg": 45,
+  "pitchDeg": 32,
+  "padding": 0.035,
+  "fitHeight": 2.8,
+  "minZoom": 0.85,
+  "maxZoom": 3.2
+ }
+}
