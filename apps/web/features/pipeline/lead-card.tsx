@@ -14,6 +14,7 @@ import type { CardHandle, DragState } from './drag/types';
 import { followUpLabel } from './hooks';
 import { MoveMenu } from './move-menu';
 import { TEMPERATURE_DOT, TEMPERATURE_NAME } from './tones';
+import { TOUCH_CHILDREN } from './touch';
 import { useBoardWords } from './words';
 
 /** Width one touch action takes in compact cards (44 px button + 2 px gap). */
@@ -121,7 +122,7 @@ export function LeadCardBody({ lead, compact, now, selectMode = false, selected 
         )}
         {!compact && lead.tags.length > 0 && <Tags tags={lead.tags} max={2} />}
         <div
-          className={cn('flex min-w-0 items-center gap-1.5', compact ? (reserveActions ? 'h-11' : 'h-6') : 'h-7')}
+          className={cn('flex min-w-0 items-center gap-1.5', compact ? (reserveActions ? 'h-[44px]' : 'h-6') : 'h-7')}
           style={reserveActions ? { paddingRight: reserveActions * TOUCH_ACTION_WIDTH } : undefined}
         >
           <Owner lead={lead} />
@@ -342,7 +343,7 @@ export const BoardCard = memo(function BoardCard({
                 !alwaysShowActions && 'vb-actions-in',
               )}
             >
-              {showQuick && <LeadQuickActions lead={lead} size={compact ? 'touch' : 'sm'} />}
+              {showQuick && <LeadQuickActions lead={lead} size={compact ? 'touch' : 'sm'} className={cn(compact && TOUCH_CHILDREN)} />}
               {canMove && (
                 <MoveMenu
                   leadName={lead.name}

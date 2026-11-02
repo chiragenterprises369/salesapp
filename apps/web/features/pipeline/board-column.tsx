@@ -14,6 +14,7 @@ import { pulseChip } from './drag/effects';
 import { throttle } from './hooks';
 import { QuickAdd } from './quick-add';
 import { COLUMN_TINT, COUNT_BORDER, STAGE_DOT, stageColorVar } from './tones';
+import { TOUCH_BUTTON, TOUCH_ICON } from './touch';
 import { countOf, useBoardWords } from './words';
 
 /** Start loading the next page when the column is this close to its end (px). */
@@ -198,6 +199,7 @@ export const BoardColumn = memo(function BoardColumn({
             <Button
               ref={addRef}
               size={compact ? 'icon-touch' : 'icon-sm'}
+              className={cn(compact && TOUCH_ICON)}
               variant="ghost"
               aria-label={`Add ${words.oneLower} to ${stage.name}`}
               aria-expanded={adding}
@@ -230,7 +232,7 @@ export const BoardColumn = memo(function BoardColumn({
               No {words.manyLower} in {stage.name}
             </p>
             {canCreate && !adding && (
-              <Button size={compact ? 'touch' : 'sm'} variant="ghost" onClick={() => setAdding(true)}>
+              <Button size={compact ? 'touch' : 'sm'} variant="ghost" className={cn(compact && TOUCH_BUTTON)} onClick={() => setAdding(true)}>
                 <Plus aria-hidden />
                 Add {words.oneLower}
               </Button>
@@ -243,12 +245,12 @@ export const BoardColumn = memo(function BoardColumn({
             {loadMoreFailed && !loadingMore ? (
               <div role="alert" className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5">
                 <span className="text-xs text-danger-text">Could not load more {words.manyLower}.</span>
-                <Button size={compact ? 'touch' : 'sm'} variant="ghost" onClick={requestMore}>
+                <Button size={compact ? 'touch' : 'sm'} variant="ghost" className={cn(compact && TOUCH_BUTTON)} onClick={requestMore}>
                   Retry
                 </Button>
               </div>
             ) : (
-              <Button size={compact ? 'touch' : 'sm'} variant="ghost" className="w-full" loading={loadingMore} onClick={requestMore}>
+              <Button size={compact ? 'touch' : 'sm'} variant="ghost" className={cn('w-full', compact && TOUCH_BUTTON)} loading={loadingMore} onClick={requestMore}>
                 Show {formatNumber(Math.min(PAGE_SIZE, remaining))} more
               </Button>
             )}

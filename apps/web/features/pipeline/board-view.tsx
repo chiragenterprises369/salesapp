@@ -70,7 +70,8 @@ export function BoardView({ pipelineId, density = 'default', devCommit, quality:
   const { mutateAsync: moveLead } = useMoveLead(pipelineId);
   const isMobile = useIsMobile();
   const coarsePointer = useCoarsePointer();
-  const compact = density === 'compact' || isMobile;
+  // Phones, the Employee panel and touch-first devices get compact cards with 44 px targets.
+  const compact = density === 'compact' || isMobile || coarsePointer;
   const reducedMotion = useReducedMotion();
   const flat = useBoardFlatMode();
   const physics = useBoardPhysics();

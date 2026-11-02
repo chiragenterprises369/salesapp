@@ -5,6 +5,7 @@ import { Layers, ListChecks, RotateCw, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { useLeadsViewState } from '@/lib/leads/state';
+import { TOUCH_BUTTON, TOUCH_ICON } from './touch';
 import { countOf, useBoardWords } from './words';
 
 /**
@@ -43,6 +44,7 @@ export function BoardToolbar({
   const resetFilters = useLeadsViewState((s) => s.resetFilters);
   const noMatches = filtersActive && totalCount === 0;
   const size = touch ? 'touch' : 'sm';
+  const touchClass = touch ? TOUCH_BUTTON : undefined;
 
   return (
     <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 pb-2">
@@ -57,7 +59,7 @@ export function BoardToolbar({
         )}
       </p>
       {noMatches && (
-        <Button size={size} variant="ghost" onClick={resetFilters}>
+        <Button size={size} className={touchClass} variant="ghost" onClick={resetFilters}>
           Clear filters
         </Button>
       )}
@@ -69,7 +71,7 @@ export function BoardToolbar({
       {refreshFailed && (
         <span role="alert" className="flex items-center gap-1 text-xs text-danger-text">
           Could not refresh the board.
-          <Button size={size} variant="ghost" onClick={onRetry}>
+          <Button size={size} className={touchClass} variant="ghost" onClick={onRetry}>
             <RotateCw aria-hidden />
             Retry
           </Button>
@@ -82,7 +84,7 @@ export function BoardToolbar({
               {selectedCount === 0 ? `Select ${words.manyLower}` : `${formatNumber(selectedCount)} selected`}
             </span>
             {selectedCount > 0 && (
-              <Button size={size} variant="ghost" onClick={() => setSelected([])}>
+              <Button size={size} className={touchClass} variant="ghost" onClick={() => setSelected([])}>
                 Clear
               </Button>
             )}
@@ -95,7 +97,7 @@ export function BoardToolbar({
           aria-label="Flat mode"
           title={flat ? 'Flat mode is on: plain cards, no physics' : 'Flat mode: plain cards, no physics'}
           onClick={onToggleFlat}
-          className={cn(flat && 'bg-surface-3 text-fg')}
+          className={cn(touch && TOUCH_ICON, flat && 'bg-surface-3 text-fg')}
         >
           {flat ? <Square aria-hidden /> : <Layers aria-hidden />}
         </Button>
@@ -104,7 +106,7 @@ export function BoardToolbar({
             size={size}
             aria-pressed={selectMode}
             onClick={() => setBoardSelectMode(!selectMode)}
-            className={cn(selectMode && 'border-status-indigo-border bg-accent-soft text-accent-soft-fg hover:bg-accent-soft')}
+            className={cn(touchClass, selectMode && 'border-status-indigo-border bg-accent-soft text-accent-soft-fg hover:bg-accent-soft')}
           >
             <ListChecks aria-hidden />
             Select

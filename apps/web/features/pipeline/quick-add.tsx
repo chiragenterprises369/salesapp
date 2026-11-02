@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import { useCreateLead } from '@/lib/leads/data';
+import { TOUCH_BUTTON } from './touch';
 
 /**
  * Inline "add lead" card at the top of a column. Enter saves (and keeps the form open for the
@@ -63,7 +64,7 @@ export function QuickAdd({ stage, touch, onClose }: { stage: Stage; touch: boole
     }
   };
 
-  const size = touch ? 'h-11 text-base' : undefined;
+  const size = touch ? 'h-[44px] text-base' : undefined;
   return (
     <form
       aria-label={`Add lead to ${stage.name}`}
@@ -107,10 +108,10 @@ export function QuickAdd({ stage, touch, onClose }: { stage: Stage; touch: boole
         </p>
       )}
       <div className="flex items-center justify-end gap-1.5">
-        <Button size={touch ? 'touch' : 'sm'} variant="ghost" onClick={onClose}>
+        <Button size={touch ? 'touch' : 'sm'} className={cn(touch && TOUCH_BUTTON)} variant="ghost" onClick={onClose}>
           Cancel
         </Button>
-        <Button size={touch ? 'touch' : 'sm'} type="submit" loading={create.isPending}>
+        <Button size={touch ? 'touch' : 'sm'} className={cn(touch && TOUCH_BUTTON)} type="submit" loading={create.isPending}>
           Add lead
         </Button>
       </div>

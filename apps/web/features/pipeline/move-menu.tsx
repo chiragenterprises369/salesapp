@@ -7,6 +7,7 @@ import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { STAGE_DOT } from './tones';
+import { TOUCH_ICON } from './touch';
 
 /**
  * "Move to stage..." menu: the non-drag alternative for every card (keyboard, touch, switch
@@ -32,7 +33,7 @@ export function MoveMenu({
   return (
     <DropdownMenu.Root onOpenChange={onOpenChange}>
       <DropdownMenu.Trigger asChild>
-        <Button size={touch ? 'icon-touch' : 'icon-sm'} variant="ghost" aria-label={`Move ${leadName} to stage`} title="Move to stage…">
+        <Button size={touch ? 'icon-touch' : 'icon-sm'} className={cn(touch && TOUCH_ICON)} variant="ghost" aria-label={`Move ${leadName} to stage`} title="Move to stage…">
           <ArrowRightLeft aria-hidden />
         </Button>
       </DropdownMenu.Trigger>
@@ -60,7 +61,7 @@ export function MoveMenu({
                 }}
                 className={cn(
                   'flex cursor-default items-center gap-2 rounded-sm px-2 text-sm outline-none select-none',
-                  touch ? 'min-h-11' : 'min-h-8',
+                  touch ? 'min-h-[44px]' : 'min-h-8',
                   'data-[highlighted]:bg-surface-3 data-[disabled]:text-muted',
                 )}
               >

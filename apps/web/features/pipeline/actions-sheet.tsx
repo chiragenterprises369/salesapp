@@ -8,6 +8,7 @@ import { useLeadActions } from '@/components/leads-shared/lead-actions';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { STAGE_DOT } from './tones';
+import { TOUCH_BUTTON } from './touch';
 import { useBoardWords } from './words';
 
 function SheetItem({ icon: Icon, onSelect, disabled, children }: { icon?: LucideIcon; onSelect: () => void; disabled?: boolean; children: ReactNode }) {
@@ -17,7 +18,7 @@ function SheetItem({ icon: Icon, onSelect, disabled, children }: { icon?: Lucide
       disabled={disabled}
       onClick={onSelect}
       className={cn(
-        'focus-ring flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-base text-fg',
+        'focus-ring flex min-h-[44px] w-full items-center gap-3 rounded-md px-3 text-left text-base text-fg',
         'hover:bg-surface-3 active:bg-surface-3 disabled:text-muted disabled:hover:bg-transparent',
       )}
     >
@@ -113,7 +114,7 @@ export function ActionsSheet({
                 )}
               </div>
               <div className="border-t border-border p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-                <Button size="touch" variant="ghost" className="w-full" onClick={onClose}>
+                <Button size="touch" variant="ghost" className={cn(TOUCH_BUTTON, 'w-full')} onClick={onClose}>
                   Cancel
                 </Button>
               </div>
