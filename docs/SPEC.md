@@ -944,3 +944,150 @@ Goal: Workflows is a general n8n-style automation builder. A company connects AN
 4. Data picker and run timeline.
 5. Channel nodes (WhatsApp, email, Telegram).
 6. Connector definitions and templates.
+
+## 28. Planned: Neon Space board, Space Shell, Team Floor multi-map - PLANNED (not started; each waits for "go")
+
+Received as one steering message with three specs, to be executed one at a time: 28.1 first, then 28.2, then 28.3, each only after the user's "go". Do not build or scaffold 28.2 or 28.3 before their "go".
+
+Reference images (kept outside product paths, never shipped):
+- Image A = `references/IMG_3064.PNG` (neon Leads Board), for 28.1 only.
+- Image B = `references/IMG_3066.PNG` (multi-floor office), for 28.3 only.
+
+Prerequisites (from the steering rules):
+- 28.1 needs the Leads Depth Style and Motion upgrade (board physics, 11.1) finished and merged. Not met at the time of saving: `agent/frontend-physics` holds 2 unmerged commits plus uncommitted work, and STATUS lists it as paused.
+- 28.3 needs the Team Floor v3 pass (12.1) finished. Not met at the time of saving: Phase A is in progress on `agent/frontend-3d`.
+
+Open conflict to resolve before 28.1 or 28.2 starts: section 4 and section 11.1 currently say "no neon, no glassmorphism". 28.1 and 28.2 add opt-in neon and glass styles. Proposed reading: the defaults stay Depth (board) and Classic (app), and Neon Space is an opt-in skin with its own contrast rules.
+
+The three specs below are saved verbatim.
+
+### 28.1 Spec 1: Leads Board third skin "Neon Space" and event celebrations
+
+LEADS BOARD: THIRD SKIN "NEON SPACE" + EVENT CELEBRATIONS (add to the Depth Style and Motion specs; do not restart; owner: frontend-physics; read frontend-design, vistar-theming and animation skills first; end your summary with "Skills used: ...")
+
+REFERENCE
+
+The attached image is the target: tall glass stage columns with strong colored neon edges over a dimmed office backdrop, event animations (new leads streaming in, quote envelope flying, fireworks on Won, shredding on Lost). Ignore its garbled text and its wrong "Leads | Board" toggle; the real toggle stays Board | Table. All real text is crisp DOM text.
+
+SKIN MODEL
+
+Board skins become: Flat, Depth, Neon Space. Selection is remembered per user and workspace default is allowed. Neon Space is dark-first; in the Light theme it renders as a bright "Aurora" variant (pastel glass, colored edges, soft colored shadows, no glow). Default stays Depth. Neon Space is automatically unavailable on mobile and low-end devices (falls back to Flat).
+
+NEON SPACE LOOK
+
+- Backdrop: dimmed, blurred office scene (a pre-rendered image or low-cost 3D plate, lazy-loaded, never a video), dark vignette, faint perspective floor lines with a glowing grid.
+- Columns: tall glass panels with 2px saturated neon edges (New blue, Contacted cyan, Interested amber, Quote sent indigo, Won green, Lost red), inner glow limited to the edge, header with stage name, count and total in INR. Strictly cap glow brightness and blur radius so text stays AA-readable; text contrast is checked against the actual rendered background.
+- Cards: darker glass slabs with a bright top edge, bold name, company, INR value, activity line, chips. Hot leads pulse softly.
+
+EVENT CELEBRATIONS (all event-driven from real data events, throttled, intensity setting Full / Subtle / Off)
+
+- New lead arrives: it streams in as a glowing card along a light ribbon into New (source color), lands softly.
+- Stage move: the card rides a short ribbon between columns; a ring pulse at arrival.
+- Quote sent: a small envelope flies from the card and dissolves into the column.
+- Won: a short, tasteful burst (confetti or sparks plus a rupee glyph) above the column, with a count-up of the total; limit to once per 2 seconds, auto-skip if more than 3 queued.
+- Lost: the card softly dissolves into a few shards and fades; no gore, no harsh red flash.
+- Overdue: gentle red edge pulse.
+
+Safety: no flashing faster than 3 times per second, no full-screen flashes, prefers-reduced-motion or intensity Off replaces all of it with simple fades.
+
+PERFORMANCE
+
+Particles on a single capped canvas layer (max about 300 particles), pooled and reused; effects pause when the tab is hidden; adaptive tiers drop particles and glow first, then fall back to Depth then Flat when FPS stays under 45. Never apply backdrop-filter per card.
+
+VERIFY
+
+Playwright screenshots in Neon/Dark and Aurora/Light at 1440x900 and 1920x1080, DPR 1 and 2, plus frames from each event animation and a contrast audit of text on the rendered background. Look at the images, compare with the reference, iterate (max 6). Save to docs/screenshots/leads-neon/ and give me the paths.
+
+REPORT
+
+8 lines: what changed, screenshot paths, FPS, contrast results, gaps.
+
+### 28.2 Spec 2: Space Shell, 3D space feel across the app
+
+SPACE SHELL: 3D SPACE FEEL ACROSS THE APP (new spec; do not restart; owners: frontend-app for the shell, frontend-physics and frontend-3d for scenes; read frontend-design, vistar-theming and Three.js skills first; end your summary with "Skills used: ...")
+
+PRINCIPLE
+
+The app feels like moving through rooms of one space, but daily work stays fast and readable. Only showcase pages get real 3D scenes; utility pages stay flat 2D inside glass panels over the shared space background. A global "Interface style" setting (Classic, Depth, Neon Space) and a "Motion intensity" setting (Full, Reduced, Off) apply everywhere; mobile, low-end devices and reduced motion fall back to Classic automatically.
+
+SHELL
+
+- A shared, lightweight background layer (themed gradient plus faint perspective grid and sparse particles in dark; soft pastel wash in light) behind every page, with depth-styled sidebar and top bar (glass, subtle parallax).
+- Page transitions: a short camera-glide or slide-and-depth transition between pages (under 300ms), never blocking input.
+
+PAGE MAP
+
+- Dashboard: "Control room": KPI cards and charts rendered as glass panels, with a big wall-screen section (leaderboard, funnel, source donut) that gently tilts with the pointer; live values animate in real time.
+- Leads: the Board skins from earlier specs.
+- Live Team Floor: the 3D office (separate spec).
+- Workflows: the depth-card canvas with rope edges and flowing packets (as specified).
+- Reports: a "war room" layout: charts on large glass screens, drill-down opens a focused panel; exports and tables stay 2D.
+- Inbox, Calls, Tasks: 2D glass panels with depth styling only (layered shadows, subtle hover lift, animated list items); no 3D scenes.
+- Integrations, Webhooks and logs, Billing, Settings, Team and roles tables, Super Admin tables: Classic 2D inside glass panels; no 3D.
+- Employee panel: Classic or Depth only; Neon is off on mobile.
+
+RULES
+
+- All real text is DOM text with AA contrast in both themes and every style.
+- One shared motion and depth token set (shadows, blur caps, durations, springs) in vistar-theming; no per-page one-off values.
+- Lazy-load Three.js and effect layers per page; no 3D library in the main bundle.
+- Performance budget: first page load not slower than before; 60fps on a mid laptop; adaptive tier downgrade when FPS is under 45.
+- Accessibility: keyboard navigation unchanged, focus rings visible, reduced motion respected, no flashing over 3Hz.
+
+VERIFY
+
+Playwright screenshots of every page in Classic, Depth and Neon, Light and Dark, desktop and 375px; Lighthouse performance numbers before and after; fix and iterate (max 5). Save to docs/screenshots/space-shell/ and give me the paths.
+
+REPORT
+
+8 lines: what changed, pages covered, performance numbers, gaps.
+
+### 28.3 Spec 3: Team Floor multi-map and auto-upgrade by headcount
+
+TEAM FLOOR: MULTI-MAP AND AUTO-UPGRADE BY HEADCOUNT (extends the Team Floor v3 spec; do not restart; owner: frontend-3d; backend support from backend-core; read frontend-design, vistar-theming and Three.js skills first; end your summary with "Skills used: ...")
+
+REFERENCE
+
+The attached multi-floor office image is the target for large offices (several floors, glass war rooms, big wall screens showing live KPIs, lounge, cafe, reception, several glowing hubs). It is an AI concept: match its richness and structure as far as real-time rendering allows.
+
+MODEL
+
+Organization -> Locations (branches, for example Nagpur office, Mumbai office) -> Buildings -> Floors -> Zones (sales pods, calling hall, war rooms, manager cabins, lounge, cafe, reception). Each employee has a location and a team; each team maps to a zone.
+
+MULTIPLE MAPS
+
+- Map switcher: location tabs, a floor selector (one floor at full detail, others ghosted in a cutaway like the reference), and a minimap.
+- "All locations" overview: a simple city-level view with one pin or mini-building per location showing live counts (on call, available, busy); click to fly into that office.
+- Per-team filter and focus (highlight a team's zone), search for a person (camera flies to them).
+
+MODULAR OFFICE AS DATA
+
+- Office layouts are generated from a JSON module kit, not hand-placed meshes: sales pod (4 or 6 desks), calling booth block, war room, manager cabin, lounge, cafe, reception, hub plaza, wall-screen wall, stair/elevator core, floor plates.
+- Capacity tiers: Starter (up to 8 seats), Team (up to 20), Studio (up to 50), HQ (up to 150, multi-floor), Campus (up to 500, multiple buildings or wings). The Medium reference look maps to Team.
+- Hubs: besides the Lead Hub, optional source hubs (IndiaMART, WhatsApp, Website, Referral) with glowing links to the desks of whoever receives those leads; parcels fly from the right hub to the assigned desk.
+- Wall screens inside the scene show live KPIs (leaderboard, funnel, conversion) from real data.
+
+AUTO-UPGRADE
+
+- Capacity is computed per location from active employees assigned there. When headcount reaches 90% of the current tier's capacity, or a new hire would exceed it, the system upgrades to the next tier.
+- Setting per workspace (Floor settings): Auto (default), Ask an admin first (notification with Approve), or Locked. Admin can force a tier. Never auto-downgrade; only suggest when headcount stays under 50% of capacity for 30 days.
+- Stable seats: every person keeps the same seat id across upgrades; new people get seats in their team's zone first, then overflow zones. Upgrading adds modules (a new wing, pods, or a floor) and never reshuffles existing people.
+- Upgrade animation: new modules rise or assemble with a short scaffold-and-glow effect (2 to 3 seconds), camera eases to the new area, a toast says "Office upgraded to Studio". Respect reduced motion (instant swap with a fade).
+- Store the layout and seat assignments in the database; layout changes are audit logged.
+
+SCALE AND PERFORMANCE
+
+- 200 or more people: instanced props, LOD for characters (full animation near the camera, simplified poses mid-range, billboards or dots far away), animate only visible floors, merge static geometry, throttle label updates, lazy-load floors.
+- 300 or more people: automatic "Cluster view": pods collapse to status-colored tiles with counts; zooming into a pod expands it to people.
+- Labels use the existing collision-avoiding layer; at scale show dots and initials until zoomed in.
+- Adaptive quality tiers with an FPS monitor; Flat 2D plan remains the fallback for mobile and low-end devices and also supports the same locations, floors and tiers.
+
+SEED AND TEST
+
+- Seed generator that can create 8, 20, 50, 150 and 300 employees across two locations with realistic team structure, plus a simulator for calls, status changes and lead parcels.
+- Tests: tier selection and thresholds, stable seat ids across an upgrade, no downgrade without approval, permissions (managers see their team and location only), label overlap count under 3 in the default view at every tier.
+- Playwright screenshots for each tier (Light and Dark, DPR 1 and 2), the upgrade animation frames, the All-locations overview, and a Flat view per tier; side-by-side with the reference images; iterate (max 8). Save to docs/screenshots/team-floor-multimap/ and give me the paths.
+
+REPORT
+
+8 lines: what was built, tiers verified with FPS, screenshot paths, asset list with licenses, gaps versus the reference.
