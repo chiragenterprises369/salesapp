@@ -2,6 +2,7 @@
 
 import { formatDuration, ROLE_KIND_LABELS, type AttentionItem, type ChipTone } from '@vistar/shared';
 import { ExternalLink, ListTodo, MapPin, MessageCircle, MessageSquare, Monitor, Phone, PhoneCall, Smartphone, UserPlus, Users, X } from 'lucide-react';
+import Link from 'next/link';
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -99,6 +100,9 @@ export function PersonPanel(props: PersonPanelProps) {
     <section
       aria-labelledby={titleId}
       data-person-panel={e.id}
+      data-presence={live?.status ?? e.status}
+      data-zone={zone?.zoneId ?? undefined}
+      data-screen={screen ?? undefined}
       className={cn('flex min-h-0 flex-col', !embedded && 'rounded-lg border border-border bg-surface shadow-card')}
       onKeyDown={(ev) => {
         if (ev.key === 'Escape' && !embedded && !ev.defaultPrevented) {
@@ -167,7 +171,14 @@ export function PersonPanel(props: PersonPanelProps) {
               </p>
             </>
           ) : live?.isFieldStaff && live.checkedIn ? (
-            <p className="text-sm text-fg">Out in the field (checked in)</p>
+            <p className="flex flex-wrap items-center gap-x-2 text-sm text-fg">
+              Out in the field (checked in)
+              {seesTeam && (
+                <Link href="/app/attendance/live" data-floor-leave="" className="focus-ring rounded-sm text-sm text-accent-text underline-offset-4 hover:underline">
+                  See the field map
+                </Link>
+              )}
+            </p>
           ) : (
             <>
               <p className="text-sm text-muted">{offline ? 'Not in' : 'Room not known'}</p>
