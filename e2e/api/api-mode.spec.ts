@@ -11,7 +11,7 @@ import { join } from 'node:path';
  * Every test fails if the page used the mock data layer (window.__vistarMockUse).
  *
  * Run (web built with NEXT_PUBLIC_API_URL pointing at the API):
- *   E2E_BASE_URL=http://localhost:3002 pnpm e2e e2e/api --project=desktop
+ *   E2E_BASE_URL=http://localhost:3002 E2E_API_MODE=1 pnpm e2e api-mode --project=desktop
  * Not part of the mock suites: skipped unless E2E_API_MODE=1.
  */
 const expect = baseExpect.configure({ timeout: 20_000 });
