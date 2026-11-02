@@ -234,7 +234,7 @@ function medium() {
   DESKS.forEach(([x, z], i) => {
     const id = `desk-${String(i + 1).padStart(2, '0')}`;
     const facing = 180;
-    const [sx, sz] = ahead(x, z, facing, -0.82); // chair behind the desk (towards +z)
+    const [sx, sz] = ahead(x, z, facing, -0.62); // chair behind the desk (towards +z), knees under the desk
     seats.push({ id, kind: 'desk', room: 'sales', pos: [r2(sx), r2(sz)], facing, sit: true, work: [r2(x), r2(z)], screen: id });
     prop('desk_white', x, z, facing + 180, { seat: id, variant: i % 3 === 1 ? 'right' : 'left' });
     prop('chair_office', sx, sz, facing, { seat: id });
@@ -250,9 +250,9 @@ function medium() {
     const cx = CALL.x0 + boothW * (i + 0.5);
     const id = `booth-${i + 1}`;
     const deskZ = 0.55;
-    seats.push({ id, kind: 'booth', room: 'calling', pos: [r2(cx), 1.42], facing: 180, sit: true, work: [r2(cx), deskZ], screen: id, callFacing: 120 });
+    seats.push({ id, kind: 'booth', room: 'calling', pos: [r2(cx), 1.15], facing: 180, sit: true, work: [r2(cx), deskZ], screen: id, callFacing: 120 });
     prop('desk_booth', cx, deskZ, 0, { seat: id });
-    prop('chair_office', cx, 1.42, 180, { seat: id });
+    prop('chair_office', cx, 1.15, 180, { seat: id });
     prop('monitor', cx, 0.36, 0, { seat: id, y: 0.75, screen: id });
     prop('acoustic_panel', cx, 0.13, 0, { y: 1.05, size: [1.3, 0.9, 0.04] });
     block(cx, deskZ, 1.3, 0.6);
@@ -267,9 +267,9 @@ function medium() {
 
   // ---- Manager cabin.
   const cabinDesk = [15.2, 2.25];
-  seats.push({ id: 'cabin-1', kind: 'cabin', room: 'cabin', pos: [15.2, 1.4], facing: 0, sit: true, work: cabinDesk, screen: 'cabin-1' });
+  seats.push({ id: 'cabin-1', kind: 'cabin', room: 'cabin', pos: [15.2, 1.63], facing: 0, sit: true, work: cabinDesk, screen: 'cabin-1' });
   prop('desk_walnut', ...cabinDesk, 180, { seat: 'cabin-1' });
-  prop('chair_exec', 15.2, 1.4, 0, { seat: 'cabin-1' });
+  prop('chair_exec', 15.2, 1.63, 0, { seat: 'cabin-1' });
   prop('monitor', 14.75, 2.15, 180, { seat: 'cabin-1', y: 0.76, screen: 'cabin-1' });
   prop('desk_lamp', 15.95, 2.4, 200, { y: 0.76 });
   prop('chair_visitor', 14.7, 3.2, 180);
@@ -336,8 +336,8 @@ function medium() {
   block(benchX, 11.55, 0.75, 2.7);
   [10.75, 11.55, 12.35].forEach((z, i) => {
     const id = `hot-${i + 1}`;
-    seats.push({ id, kind: 'hot_desk', room: 'sales', pos: [r2(benchX + 0.85), z], facing: 270, sit: true, work: [r2(benchX), z], screen: id });
-    prop('chair_office', benchX + 0.85, z, 270, { seat: id });
+    seats.push({ id, kind: 'hot_desk', room: 'sales', pos: [r2(benchX + 0.64), z], facing: 270, sit: true, work: [r2(benchX), z], screen: id });
+    prop('chair_office', benchX + 0.64, z, 270, { seat: id });
     prop('monitor', benchX - 0.16, z, 90, { seat: id, y: 0.75, screen: id, variant: 'small' });
   });
   prop('plant_tall', NOTCH.x + 0.45, 9.95, 0, { variant: 'palm' });
@@ -345,9 +345,9 @@ function medium() {
 
   // ---- Reception at the entrance: counter with a glowing blue base edge.
   const recep = [15.6, 11.55];
-  seats.push({ id: 'reception-1', kind: 'reception', room: 'reception', pos: [15.6, 10.78], facing: 0, sit: true, work: recep, screen: 'reception-1' });
+  seats.push({ id: 'reception-1', kind: 'reception', room: 'reception', pos: [15.6, 10.85], facing: 0, sit: true, work: recep, screen: 'reception-1' });
   prop('reception_counter', ...recep, 0, { size: [2.2, 1.05, 0.75] });
-  prop('chair_office', 15.6, 10.78, 0, { seat: 'reception-1' });
+  prop('chair_office', 15.6, 10.85, 0, { seat: 'reception-1' });
   prop('monitor', 15.25, 11.38, 180, { seat: 'reception-1', y: 0.75, screen: 'reception-1', variant: 'small' });
   prop('plant_medium', W - 0.35, 12.68, 0, { variant: 'bush' });
   block(...recep, 2.2, 0.75, 0, 0.05);
@@ -445,6 +445,7 @@ function medium() {
     ['hub-e', 12.45, 8.4],
     ['hub-se', 12.3, 10.45],
     ['south-w', 9.45, 12.15],
+    ['south-mid', 10.25, 12.5],
     ['south-e', 13.0, 11.0],
     ['recep-w', 13.95, 12.35],
     ['recep-e', 17.2, 12.3],

@@ -1,4 +1,5 @@
 import type { AttentionItem, AvatarConfig, CallOutcome, ChipTone, DomainEvent, EmployeeStatus, RoleKind } from '@vistar/shared';
+import type { TemplateId } from './template';
 
 /** Rooms on the floor plan (3D and flat views share them). */
 export type RoomId = 'sales' | 'calling' | 'cabin' | 'lounge' | 'hub';
@@ -29,7 +30,7 @@ export interface FloorEmployee {
   name: string;
   role: RoleKind;
   avatar: AvatarConfig | null;
-  /** Resolved desk slot (stable, unique). */
+  /** Home slot index in the layout (desk, hot desk, reception, cabin, standing or overflow spot). */
   desk: number;
   status: EmployeeStatus;
   /** Epoch ms of the last status change; null when the snapshot does not say. */
@@ -80,7 +81,10 @@ export interface FloorState {
   employees: FloorEmployee[];
   /** userId -> index in `employees`. */
   index: Record<string, number>;
-  deskCount: number;
+  /** Floor template the homes refer to. */
+  templateId: TemplateId;
+  /** Home slots in use (layout is built for at least this many people). */
+  homeCount: number;
   /** Calling room booths and lounge seats (userId or null). Stable allocation. */
   booths: (string | null)[];
   lounge: (string | null)[];

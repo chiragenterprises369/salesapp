@@ -464,7 +464,7 @@
    "room": "sales",
    "pos": [
     6.6,
-    6.82
+    6.62
    ],
    "facing": 180,
    "sit": true,
@@ -481,7 +481,7 @@
    "room": "sales",
    "pos": [
     9.5,
-    6.37
+    6.17
    ],
    "facing": 180,
    "sit": true,
@@ -498,7 +498,7 @@
    "room": "sales",
    "pos": [
     14.1,
-    7.37
+    7.17
    ],
    "facing": 180,
    "sit": true,
@@ -515,7 +515,7 @@
    "room": "sales",
    "pos": [
     6.5,
-    9.57
+    9.37
    ],
    "facing": 180,
    "sit": true,
@@ -532,7 +532,7 @@
    "room": "sales",
    "pos": [
     14.5,
-    9.87
+    9.67
    ],
    "facing": 180,
    "sit": true,
@@ -549,7 +549,7 @@
    "room": "sales",
    "pos": [
     7.7,
-    12.37
+    12.17
    ],
    "facing": 180,
    "sit": true,
@@ -566,7 +566,7 @@
    "room": "sales",
    "pos": [
     11.2,
-    12.57
+    12.37
    ],
    "facing": 180,
    "sit": true,
@@ -575,7 +575,7 @@
     11.75
    ],
    "screen": "desk-07",
-   "approach": "south-w"
+   "approach": "south-mid"
   },
   {
    "id": "desk-08",
@@ -583,7 +583,7 @@
    "room": "sales",
    "pos": [
     16.95,
-    9.27
+    9.07
    ],
    "facing": 180,
    "sit": true,
@@ -600,7 +600,7 @@
    "room": "calling",
    "pos": [
     6.13,
-    1.42
+    1.15
    ],
    "facing": 180,
    "sit": true,
@@ -618,7 +618,7 @@
    "room": "calling",
    "pos": [
     8.2,
-    1.42
+    1.15
    ],
    "facing": 180,
    "sit": true,
@@ -636,7 +636,7 @@
    "room": "calling",
    "pos": [
     10.27,
-    1.42
+    1.15
    ],
    "facing": 180,
    "sit": true,
@@ -654,7 +654,7 @@
    "room": "cabin",
    "pos": [
     15.2,
-    1.4
+    1.63
    ],
    "facing": 0,
    "sit": true,
@@ -718,7 +718,7 @@
    "kind": "hot_desk",
    "room": "sales",
    "pos": [
-    5.77,
+    5.56,
     10.75
    ],
    "facing": 270,
@@ -735,7 +735,7 @@
    "kind": "hot_desk",
    "room": "sales",
    "pos": [
-    5.77,
+    5.56,
     11.55
    ],
    "facing": 270,
@@ -752,7 +752,7 @@
    "kind": "hot_desk",
    "room": "sales",
    "pos": [
-    5.77,
+    5.56,
     12.35
    ],
    "facing": 270,
@@ -770,7 +770,7 @@
    "room": "reception",
    "pos": [
     15.6,
-    10.78
+    10.85
    ],
    "facing": 0,
    "sit": true,
@@ -1138,6 +1138,13 @@
     ]
    },
    {
+    "id": "south-mid",
+    "pos": [
+     10.25,
+     12.5
+    ]
+   },
+   {
     "id": "south-e",
     "pos": [
      13,
@@ -1398,6 +1405,10 @@
    ],
    [
     "hub-w",
+    "south-mid"
+   ],
+   [
+    "hub-w",
     "hub-front"
    ],
    [
@@ -1407,6 +1418,10 @@
    [
     "hub-sw",
     "south-w"
+   ],
+   [
+    "hub-sw",
+    "south-mid"
    ],
    [
     "hub-sw",
@@ -1501,7 +1516,7 @@
    "type": "chair_office",
    "pos": [
     6.6,
-    6.82
+    6.62
    ],
    "facing": 180,
    "seat": "desk-01"
@@ -1541,7 +1556,7 @@
    "type": "chair_office",
    "pos": [
     9.5,
-    6.37
+    6.17
    ],
    "facing": 180,
    "seat": "desk-02"
@@ -1580,7 +1595,7 @@
    "type": "chair_office",
    "pos": [
     14.1,
-    7.37
+    7.17
    ],
    "facing": 180,
    "seat": "desk-03"
@@ -1620,7 +1635,7 @@
    "type": "chair_office",
    "pos": [
     6.5,
-    9.57
+    9.37
    ],
    "facing": 180,
    "seat": "desk-04"
@@ -1659,7 +1674,7 @@
    "type": "chair_office",
    "pos": [
     14.5,
-    9.87
+    9.67
    ],
    "facing": 180,
    "seat": "desk-05"
@@ -1699,7 +1714,7 @@
    "type": "chair_office",
    "pos": [
     7.7,
-    12.37
+    12.17
    ],
    "facing": 180,
    "seat": "desk-06"
@@ -1738,7 +1753,7 @@
    "type": "chair_office",
    "pos": [
     11.2,
-    12.57
+    12.37
    ],
    "facing": 180,
    "seat": "desk-07"
@@ -1778,7 +1793,7 @@
    "type": "chair_office",
    "pos": [
     16.95,
-    9.27
+    9.07
    ],
    "facing": 180,
    "seat": "desk-08"
@@ -1816,7 +1831,7 @@
    "type": "chair_office",
    "pos": [
     6.13,
-    1.42
+    1.15
    ],
    "facing": 180,
    "seat": "booth-1"
@@ -1859,7 +1874,7 @@
    "type": "chair_office",
    "pos": [
     8.2,
-    1.42
+    1.15
    ],
    "facing": 180,
    "seat": "booth-2"
@@ -1915,7 +1930,7 @@
    "type": "chair_office",
    "pos": [
     10.27,
-    1.42
+    1.15
    ],
    "facing": 180,
    "seat": "booth-3"
@@ -1980,7 +1995,7 @@
    "type": "chair_exec",
    "pos": [
     15.2,
-    1.4
+    1.63
    ],
    "facing": 0,
    "seat": "cabin-1"
@@ -2326,7 +2341,7 @@
   {
    "type": "chair_office",
    "pos": [
-    5.77,
+    5.56,
     10.75
    ],
    "facing": 270,
@@ -2347,7 +2362,7 @@
   {
    "type": "chair_office",
    "pos": [
-    5.77,
+    5.56,
     11.55
    ],
    "facing": 270,
@@ -2368,7 +2383,7 @@
   {
    "type": "chair_office",
    "pos": [
-    5.77,
+    5.56,
     12.35
    ],
    "facing": 270,
@@ -2412,7 +2427,7 @@
    "type": "chair_office",
    "pos": [
     15.6,
-    10.78
+    10.85
    ],
    "facing": 0,
    "seat": "reception-1"

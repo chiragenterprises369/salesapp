@@ -26,9 +26,16 @@ export function selectKpis(state: FloorState): FloorKpis {
   return { active, onCall, idle, busy, callsToday, leadsWaiting: state.leadsWaiting.length + state.leadsWaitingExtra };
 }
 
-/** Where the employee is: calling room booth, lounge seat, own desk, or gone (offline). */
+/** Some offline people are shown asleep at their desk, the rest leave an empty chair (stable per person). */
+export function offlineAsleep(id: string): boolean {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return (h >>> 0) / 4294967296 < 0.4;
+}
+
+/** Where the employee is: calling room booth, lounge seat, own desk, or gone (offline, empty chair). */
 export function locationOf(state: FloorState, emp: FloorEmployee): FloorLocation {
-  if (emp.status === 'offline') return { kind: 'gone' };
+  if (emp.status === 'offline') return offlineAsleep(emp.id) ? { kind: 'desk' } : { kind: 'gone' };
   if (emp.status === 'on_call') {
     const i = state.booths.indexOf(emp.id);
     if (i !== -1) return { kind: 'booth', index: i };

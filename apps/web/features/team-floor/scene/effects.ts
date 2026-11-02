@@ -1,18 +1,15 @@
-import { formatDuration, type AttentionItem, type ChipTone } from '@vistar/shared';
 import * as THREE from 'three';
 import type { FloorLayout } from '../state/layout';
 import type { FollowPath, PathFinder } from '../state/pathfinding';
 import { samplePath } from '../state/pathfinding';
-import { firstName, OUTCOME_LABEL, OUTCOME_TONE } from '../state/reducer';
-import type { FloorEffect, FloorEmployee, FloorState } from '../state/types';
+import type { FloorEffect, FloorState } from '../state/types';
 import type { AgentSystem } from './agents';
-import { PillLabel } from './labels';
-import type { LabelPalette, Look } from './look';
-import type { MaterialSet } from './materials';
+import type { Look } from './look';
 
 /**
- * Event reactions: parcels at the Lead Hub and in flight to desks, sound-wave rings for calls,
- * "Needs you" bubbles (clickable), call outcome popups and sprite name tags (medium/low tiers).
+ * Event reactions in 3D: glowing parcels at the Lead Hub and in flight to desks, sound-wave rings
+ * for calls and hub bursts. Text (name tags, "Needs you", call outcomes, the queue counter) lives in
+ * the DOM label layer so it can be laid out without overlaps (see label-layout.ts).
  */
 
 const QUEUE_SLOTS = 12;
@@ -40,14 +37,6 @@ interface Parcel {
   scale: number;
 }
 
-interface Popup {
-  label: PillLabel;
-  userId: string;
-  t: number;
-  /** Wall-clock start (ms); set on the first frame it is drawn. */
-  born: number;
-}
-
 interface Burst {
   x: number;
   z: number;
@@ -60,11 +49,9 @@ const tmpM = new THREE.Matrix4();
 const tmpQ = new THREE.Quaternion();
 const tmpS = new THREE.Vector3();
 const sample = { x: 0, z: 0, dx: 0, dz: 0 };
-const SEVERITY: Record<AttentionItem['severity'], number> = { critical: 2, warning: 1, info: 0 };
-const SEVERITY_TONE: Record<AttentionItem['severity'], ChipTone> = { critical: 'red', warning: 'amber', info: 'blue' };
 
 function ringMaterial() {
-  const m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false });
+  const m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, toneMapped: false });
   m.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute float aOpacity;\nvarying float vOpacity;')
@@ -76,43 +63,29 @@ function ringMaterial() {
   return m;
 }
 
-export interface BubbleHit {
-  userId: string | null;
-  itemIds: string[];
-}
-
 export class EffectsSystem {
   readonly group = new THREE.Group();
   private readonly layout: FloorLayout;
   private readonly paths: PathFinder;
   private readonly agents: AgentSystem;
-  private palette: LabelPalette | null = null;
   private look: Look;
   private reducedMotion = false;
 
+  private readonly parcelMat: THREE.MeshLambertMaterial;
   private readonly parcelMesh: THREE.InstancedMesh;
   private readonly parcels: Parcel[] = [];
-  private readonly counter = new PillLabel();
-  private waitingCount = 0;
 
   private readonly ringMesh: THREE.InstancedMesh;
   private readonly ringOpacity: THREE.InstancedBufferAttribute;
   private readonly ringMat: THREE.MeshBasicMaterial;
   private readonly bursts: Burst[] = [];
 
-  private readonly bubbles = new Map<string, { label: PillLabel; items: AttentionItem[]; tone: ChipTone }>();
-  private readonly popups: Popup[] = [];
-  private readonly tags = new Map<string, PillLabel>();
-  private tagsMode: 'sprite' | 'off' = 'off';
-  private tagsVisible = true;
-  private selectedId: string | null = null;
-
   private readonly seen = new Set<string>();
   private state: FloorState | null = null;
   private time = 0;
   private readonly geometries: THREE.BufferGeometry[] = [];
 
-  constructor(layout: FloorLayout, paths: PathFinder, agents: AgentSystem, mats: MaterialSet, look: Look) {
+  constructor(layout: FloorLayout, paths: PathFinder, agents: AgentSystem, look: Look) {
     this.layout = layout;
     this.paths = paths;
     this.agents = agents;
@@ -121,10 +94,10 @@ export class EffectsSystem {
 
     const parcelGeo = new THREE.BoxGeometry(0.3, 0.22, 0.3);
     this.geometries.push(parcelGeo);
-    this.parcelMesh = new THREE.InstancedMesh(parcelGeo, mats.parcel, PARCEL_CAP);
+    this.parcelMat = new THREE.MeshLambertMaterial({ color: look.accent, emissive: look.accent, emissiveIntensity: 0.55 });
+    this.parcelMesh = new THREE.InstancedMesh(parcelGeo, this.parcelMat, PARCEL_CAP);
     this.parcelMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.parcelMesh.frustumCulled = false;
-    this.parcelMesh.castShadow = true;
     this.parcelMesh.count = 0;
     this.group.add(this.parcelMesh);
 
@@ -141,10 +114,6 @@ export class EffectsSystem {
     this.ringMesh.renderOrder = 3;
     this.ringMesh.count = 0;
     this.group.add(this.ringMesh);
-
-    this.counter.sprite.center.set(0.5, 0);
-    this.counter.sprite.visible = false;
-    this.group.add(this.counter.sprite);
   }
 
   setReducedMotion(on: boolean) {
@@ -153,29 +122,8 @@ export class EffectsSystem {
 
   setLook(look: Look) {
     this.look = look;
-  }
-
-  setPalette(palette: LabelPalette) {
-    this.palette = palette;
-    if (this.state) {
-      this.syncBubbles(this.state);
-      this.syncCounter();
-    }
-    for (const p of this.popups) p.label.sprite.visible = false;
-    this.popups.length = 0;
-  }
-
-  setTagsMode(mode: 'sprite' | 'off') {
-    this.tagsMode = mode;
-    if (mode === 'off') for (const t of this.tags.values()) t.sprite.visible = false;
-  }
-
-  setTagsVisible(visible: boolean) {
-    this.tagsVisible = visible;
-  }
-
-  setSelected(id: string | null) {
-    this.selectedId = id;
+    this.parcelMat.color.copy(look.accent);
+    this.parcelMat.emissive.copy(look.accent);
   }
 
   /** Called on every new FloorState. */
@@ -190,7 +138,6 @@ export class EffectsSystem {
     }
     for (const id of this.seen) if (!live.has(id)) this.seen.delete(id);
     this.syncQueue(state);
-    this.syncBubbles(state);
   }
 
   private onEffect(state: FloorState, e: FloorEffect) {
@@ -203,29 +150,6 @@ export class EffectsSystem {
         if (pos && !this.reducedMotion) this.bursts.push({ x: pos.x, z: pos.z, t: 0, kind: 'call' });
         return;
       }
-      case 'call_outcome': {
-        if (!this.palette) return;
-        const label = new PillLabel();
-        const tone = e.outcome ? OUTCOME_TONE[e.outcome] : 'grey';
-        const t = this.palette.tone[tone];
-        label.draw(
-          {
-            text: e.outcome ? OUTCOME_LABEL[e.outcome] : 'Call ended',
-            trailing: e.durationSec > 0 ? formatDuration(e.durationSec) : null,
-            dot: t.fg,
-            bg: t.bg,
-            fg: t.fg,
-            border: t.border,
-            weight: 600,
-          },
-          this.palette.font,
-        );
-        label.sprite.center.set(0.5, 0);
-        label.sprite.renderOrder = 13;
-        this.group.add(label.sprite);
-        this.popups.push({ label, userId: e.userId, t: 0, born: 0 });
-        return;
-      }
       case 'parcel_spawn':
         if (!this.reducedMotion) this.bursts.push({ x: this.layout.hub.x, z: this.layout.hub.z, t: 0, kind: 'hub' });
         return;
@@ -236,13 +160,13 @@ export class EffectsSystem {
 
   private slotPosition(slot: number) {
     const a = (slot / QUEUE_SLOTS) * Math.PI * 2 + Math.PI / 4;
-    return { x: this.layout.hub.x + Math.cos(a) * 1.25, z: this.layout.hub.z + Math.sin(a) * 1.25 };
+    const r = this.layout.hub.r * 0.72;
+    return { x: this.layout.hub.x + Math.cos(a) * r, z: this.layout.hub.z + Math.sin(a) * r };
   }
 
   private syncQueue(state: FloorState) {
     const shown = state.leadsWaiting.slice(-QUEUE_SLOTS);
     const wanted = new Set(shown.map((l) => l.leadId));
-    // Parcels that left the queue without a delivery: shrink away.
     for (const p of this.parcels) {
       if ((p.phase === 'queue' || p.phase === 'drop') && !wanted.has(p.leadId)) {
         p.phase = 'vanish';
@@ -264,40 +188,26 @@ export class EffectsSystem {
         phase: fresh && !this.reducedMotion ? 'drop' : 'queue',
         t: 0,
         x: pos.x,
-        y: fresh && !this.reducedMotion ? 2.4 : 0.2,
+        y: fresh && !this.reducedMotion ? 2.6 : 0.2,
         z: pos.z,
         slot,
         path: null,
         s: 0,
         cursor: 0,
-        from: { x: pos.x, y: 2.4, z: pos.z },
+        from: { x: pos.x, y: 2.6, z: pos.z },
         to: null,
         ownerId: null,
         scale: 1,
       });
     }
-    this.waitingCount = state.leadsWaiting.length + state.leadsWaitingExtra;
-    this.syncCounter();
-  }
-
-  private syncCounter() {
-    const extra = this.waitingCount - Math.min(QUEUE_SLOTS, this.waitingCount);
-    if (!this.palette || extra <= 0) {
-      this.counter.sprite.visible = false;
-      return;
-    }
-    const t = this.palette.tone.indigo;
-    this.counter.draw({ text: `+${extra} waiting`, bg: t.bg, fg: t.fg, border: t.border, weight: 600 }, this.palette.font);
-    this.counter.sprite.position.set(this.layout.hub.x, 1.05, this.layout.hub.z);
-    this.counter.sprite.visible = true;
   }
 
   private startDelivery(state: FloorState, e: Extract<FloorEffect, { kind: 'delivery' }>) {
     const owner = state.employees[state.index[e.toUserId] ?? -1];
     if (!owner) return;
-    const desk = this.layout.desks[owner.desk];
-    if (!desk) return;
-    const to = { x: desk.deskX, y: 0.62 + 0.11, z: desk.deskZ };
+    const home = this.layout.homes[owner.desk];
+    if (!home) return;
+    const to = { x: home.deskX, y: home.deskY + 0.11, z: home.deskZ };
 
     let start = { x: this.layout.hub.x, y: 0.62, z: this.layout.hub.z };
     const queued = this.parcels.find((p) => p.leadId === e.leadId && (p.phase === 'queue' || p.phase === 'drop' || p.phase === 'vanish'));
@@ -306,8 +216,8 @@ export class EffectsSystem {
       this.parcels.splice(this.parcels.indexOf(queued), 1);
     } else if (e.fromUserId) {
       const from = state.employees[state.index[e.fromUserId] ?? -1];
-      const fromDesk = from ? this.layout.desks[from.desk] : null;
-      if (fromDesk) start = { x: fromDesk.deskX, y: 0.73, z: fromDesk.deskZ };
+      const fromHome = from ? this.layout.homes[from.desk] : null;
+      if (fromHome) start = { x: fromHome.deskX, y: fromHome.deskY + 0.1, z: fromHome.deskZ };
     }
     if (this.parcels.length >= PARCEL_CAP) this.parcels.shift();
 
@@ -315,116 +225,21 @@ export class EffectsSystem {
       this.parcels.push({ key: e.id, leadId: e.leadId, phase: 'landed', t: 0, ...to, slot: -1, path: null, s: 0, cursor: 0, from: to, to, ownerId: owner.id, scale: 1 });
       return;
     }
-    const path = this.paths.route(start.x, start.z, desk.x, desk.z);
-    this.parcels.push({
-      key: e.id,
-      leadId: e.leadId,
-      phase: 'flight',
-      t: 0,
-      ...start,
-      slot: -1,
-      path,
-      s: 0,
-      cursor: 0,
-      from: start,
-      to,
-      ownerId: owner.id,
-      scale: 1,
-    });
+    const path = this.paths.route(start.x, start.z, home.x, home.z, { fromNode: this.layout.hub.approach, toNode: home.approach });
+    this.parcels.push({ key: e.id, leadId: e.leadId, phase: 'flight', t: 0, ...start, slot: -1, path, s: 0, cursor: 0, from: start, to, ownerId: owner.id, scale: 1 });
   }
 
-  private syncBubbles(state: FloorState) {
-    const groups = new Map<string, AttentionItem[]>();
-    for (const item of state.attention) {
-      const key = item.userId ?? '';
-      if (item.userId && state.index[item.userId] === undefined) continue;
-      const g = groups.get(key);
-      if (g) g.push(item);
-      else groups.set(key, [item]);
-    }
-    for (const [key, b] of this.bubbles) {
-      if (!groups.has(key)) {
-        this.group.remove(b.label.sprite);
-        b.label.dispose();
-        this.bubbles.delete(key);
-      }
-    }
-    if (!this.palette) return;
-    for (const [key, items] of groups) {
-      let b = this.bubbles.get(key);
-      if (!b) {
-        const label = new PillLabel();
-        label.sprite.center.set(0.5, 0);
-        label.sprite.renderOrder = 12;
-        label.sprite.userData.bubbleKey = key;
-        this.group.add(label.sprite);
-        b = { label, items, tone: 'amber' };
-        this.bubbles.set(key, b);
-      }
-      b.items = items;
-      const worst = items.reduce((m, i) => (SEVERITY[i.severity] > SEVERITY[m.severity] ? i : m), items[0]!);
-      b.tone = SEVERITY_TONE[worst.severity];
-      const t = this.palette.tone[b.tone];
-      b.label.draw(
-        { text: items.length > 1 ? `Needs you · ${items.length}` : 'Needs you', badge: t.fg, bg: t.bg, fg: t.fg, border: t.border, weight: 600 },
-        this.palette.font,
-      );
-    }
-  }
-
-  /** Something will change without motion (popup or parcel expiry): wake up now and then. */
+  /** Something will change without motion (parcel expiry): wake up now and then. */
   get pending(): boolean {
-    return this.popups.length > 0 || this.parcels.some((p) => p.phase === 'landed' || p.phase === 'vanish');
-  }
-
-  /** Sprite name tags show call timers that need a redraw every second. */
-  get liveTimers(): boolean {
-    return this.tagsMode === 'sprite' && !!this.state?.employees.some((e) => e.status === 'on_call');
-  }
-
-  /** Bubble under the ray (sprites are tested first: they render on top). */
-  pick(raycaster: THREE.Raycaster): BubbleHit | null {
-    const sprites = [...this.bubbles.values()].map((b) => b.label.sprite).filter((s) => s.visible);
-    const hit = raycaster.intersectObjects(sprites, false)[0];
-    if (!hit) return null;
-    const key = hit.object.userData.bubbleKey as string;
-    const b = this.bubbles.get(key);
-    return b ? { userId: key || null, itemIds: b.items.map((i) => i.id) } : null;
-  }
-
-  /** Name tags (sprite mode); called each frame with the shared clock. */
-  private updateTags(zoom: number, nowMs: number) {
-    const state = this.state;
-    const palette = this.palette;
-    if (!state || !palette || this.tagsMode !== 'sprite') return;
-    for (const emp of state.employees) {
-      let tag = this.tags.get(emp.id);
-      const show = (this.tagsVisible || emp.id === this.selectedId) && emp.status !== 'offline';
-      const head = show ? this.agents.headOf(emp.id, tmpV) : null;
-      if (!head) {
-        if (tag) tag.sprite.visible = false;
-        continue;
-      }
-      if (!tag) {
-        tag = new PillLabel();
-        tag.sprite.center.set(0.5, 0);
-        this.tags.set(emp.id, tag);
-        this.group.add(tag.sprite);
-      }
-      tag.draw(tagSpec(emp, palette, nowMs), palette.font);
-      tag.fit(zoom);
-      tag.sprite.position.set(head.x, head.y + 0.08, head.z);
-      tag.sprite.visible = true;
-    }
+    return this.parcels.some((p) => p.phase === 'landed' || p.phase === 'vanish');
   }
 
   /** Advance animations. Returns true while something moves. */
-  update(dt: number, zoom: number, nowMs: number): boolean {
+  update(dt: number): boolean {
     this.time += dt;
     const rm = this.reducedMotion;
     let moving = false;
 
-    // Parcels.
     let n = 0;
     for (let i = this.parcels.length - 1; i >= 0; i--) {
       const p = this.parcels[i]!;
@@ -455,7 +270,7 @@ export class EffectsSystem {
           const u = Math.min(1, p.s / Math.max(0.01, p.path.length));
           p.x = sample.x;
           p.z = sample.z;
-          p.y = p.from.y + (1.15 - p.from.y) * Math.min(1, u * 4) + Math.sin(u * Math.PI) * 0.25;
+          p.y = p.from.y + (1.5 - p.from.y) * Math.min(1, u * 4) + Math.sin(u * Math.PI) * 0.3;
           if (p.ownerId && p.path.length - p.s < 3) this.agents.lookAt(p.ownerId, p.x, p.z, 0.4);
           if (p.s >= p.path.length) {
             p.phase = 'land';
@@ -509,7 +324,7 @@ export class EffectsSystem {
     // Rings: on-call pulses and bursts.
     let r = 0;
     const blue = this.look.status.on_call;
-    const accent = this.look.color.hubRing;
+    const accent = this.look.hub;
     const putRing = (x: number, z: number, scale: number, opacity: number, color: THREE.Color) => {
       if (r >= RING_CAP || opacity <= 0.01) return;
       tmpM.makeScale(scale, 1, scale).setPosition(x, 0.02 + r * 0.00002, z);
@@ -519,18 +334,14 @@ export class EffectsSystem {
       r++;
     };
     const state = this.state;
-    if (state) {
+    if (state && !rm) {
       for (const emp of state.employees) {
         if (emp.status !== 'on_call') continue;
         const pos = this.agents.positionOf(emp.id);
-        if (!pos || !pos.visible) continue;
-        if (rm) {
-          putRing(pos.x, pos.z, 1.4, 0.45, blue);
-          continue;
-        }
+        if (!pos || !pos.visible || pos.walking) continue;
         for (let k = 0; k < 2; k++) {
-          const u = (this.time / 1.7 + k / 2 + (emp.desk % 7) * 0.13) % 1;
-          putRing(pos.x, pos.z, 0.85 + u * 1.3, 0.6 * (1 - u), blue);
+          const u = (this.time / 1.9 + k / 2 + (emp.desk % 7) * 0.13) % 1;
+          putRing(pos.x, pos.z, 1.05 + u * 1.1, 0.5 * (1 - u), blue);
         }
       }
     }
@@ -545,7 +356,7 @@ export class EffectsSystem {
       moving = true;
       if (b.kind === 'hub') {
         const u = b.t / life;
-        putRing(b.x, b.z, 2 + u * 4, 0.7 * (1 - u), accent);
+        putRing(b.x, b.z, 3 + u * 4, 0.7 * (1 - u), accent);
       } else {
         for (let k = 0; k < 3; k++) {
           const u = Math.min(1, Math.max(0, (b.t - k * 0.18) / 0.9));
@@ -557,89 +368,14 @@ export class EffectsSystem {
     this.ringMesh.instanceMatrix.needsUpdate = true;
     if (this.ringMesh.instanceColor) this.ringMesh.instanceColor.needsUpdate = true;
     this.ringOpacity.needsUpdate = true;
-
-    // Bubbles above heads (or the manager cabin).
-    for (const [key, b] of this.bubbles) {
-      let x: number;
-      let y: number;
-      let z: number;
-      if (!key) {
-        x = this.layout.cabinSeat.x;
-        y = 1.45;
-        z = this.layout.cabinSeat.z;
-      } else {
-        const head = this.agents.headOf(key, tmpV);
-        if (head) {
-          x = head.x;
-          y = head.y + (this.tagsVisible ? 0.62 : 0.12);
-          z = head.z;
-        } else {
-          const emp = state?.employees[state.index[key] ?? -1];
-          const desk = emp ? this.layout.desks[emp.desk] : null;
-          if (!desk) {
-            b.label.sprite.visible = false;
-            continue;
-          }
-          x = desk.deskX;
-          y = 1.2;
-          z = desk.deskZ;
-        }
-      }
-      b.label.sprite.position.set(x, y + (rm ? 0 : 0.05 * Math.sin(this.time * 2.4)), z);
-      b.label.fit(zoom);
-      b.label.sprite.visible = true;
-    }
-
-    // Outcome popups (~3 s, wall clock). When zoomed out (no name tags), only the newest few show.
-    const popupLimit = this.tagsVisible ? Infinity : 5;
-    for (let i = this.popups.length - 1; i >= 0; i--) {
-      const p = this.popups[i]!;
-      if (p.born === 0) p.born = nowMs;
-      p.t = (nowMs - p.born) / 1000;
-      if (p.t > 3.2) {
-        this.group.remove(p.label.sprite);
-        p.label.dispose();
-        this.popups.splice(i, 1);
-        continue;
-      }
-      const head = this.popups.length - 1 - i < popupLimit ? this.agents.headOf(p.userId, tmpV) : null;
-      if (!head) {
-        p.label.sprite.visible = false;
-        continue;
-      }
-      const rise = rm ? 0 : Math.min(1, p.t / 3) * 0.45;
-      p.label.sprite.position.set(head.x, head.y + 1.05 + rise, head.z);
-      p.label.material.opacity = rm ? 1 : Math.min(1, p.t / 0.2, (3.2 - p.t) / 0.5);
-      p.label.fit(zoom);
-      p.label.sprite.visible = true;
-      if (!rm) moving = true;
-    }
-
-    this.counter.fit(zoom);
-    this.updateTags(zoom, nowMs);
     return moving;
   }
 
   dispose() {
     for (const g of this.geometries) g.dispose();
     this.ringMat.dispose();
+    this.parcelMat.dispose();
     this.parcelMesh.dispose();
     this.ringMesh.dispose();
-    this.counter.dispose();
-    for (const b of this.bubbles.values()) b.label.dispose();
-    for (const p of this.popups) p.label.dispose();
-    for (const t of this.tags.values()) t.dispose();
   }
-}
-
-function tagSpec(emp: FloorEmployee, palette: LabelPalette, nowMs: number) {
-  const timer = emp.status === 'on_call' && emp.activeCall ? formatDuration((nowMs - emp.activeCall.startedAt) / 1000) : null;
-  return {
-    text: firstName(emp.name),
-    dot: palette.status[emp.status],
-    trailing: timer,
-    bg: palette.surface,
-    fg: palette.fg,
-    border: palette.border,
-  };
 }

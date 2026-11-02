@@ -43,7 +43,7 @@ from common import (  # noqa: E402
     t2b,
 )
 
-LM_SCALE = 2.5  # lightmap texel = srgb(irradiance / LM_SCALE); runtime intensity = LM_SCALE * PI
+LM_SCALE = 2.0  # lightmap texel = srgb(irradiance / LM_SCALE); runtime intensity = LM_SCALE * PI
 TEX_DIR = os.path.join(OUT_TMP, 'textures')
 
 
@@ -252,11 +252,6 @@ def _finish_segments(w, s0, s1):
     return out
 
 
-def _cut_by_windows(f0, f1, openings):
-    """Sub-spans of [f0, f1] that are not windows (for wainscot rails etc. below the sill)."""
-    return [(f0, f1)]
-
-
 def _wainscot(b, M, vy, T, f0, f1, openings):
     yv = vy * (T / 2 + 0.01)
     b.box((f1 - f0, 0.02, 0.95), ((f0 + f1) / 2, yv, 0.475), P.mat('wall_teal'), matrix=M)
@@ -448,12 +443,76 @@ def lightmap_uv(obj, margin=0.0035):
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=margin, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    weight_islands(obj)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
     try:
-        bpy.ops.uv.pack_islands(udim_source='CLOSEST_UDIM', rotate=True, margin_method='FRACTION', margin=margin, shape_method='CONCAVE')
+        bpy.ops.uv.pack_islands(udim_source='CLOSEST_UDIM', rotate=True, scale=True, margin_method='FRACTION', margin=margin, shape_method='CONCAVE')
     except TypeError:
         bpy.ops.uv.pack_islands(rotate=True, margin=margin)
     bpy.ops.object.mode_set(mode='OBJECT')
     me.uv_layers.active = me.uv_layers['UVMap']
+
+
+FLOOR_MATS = {'floor_oak', 'floor_walnut', 'floor_carpet', 'floor_stone', 'rug_grey'}
+WALL_MATS = {'wall_paint', 'wall_teal', 'walnut', 'acoustic', 'wall_slate'}
+
+
+def weight_islands(obj):
+    """Give the floor (most of the screen) and walls more lightmap texels than small furniture parts:
+    scale each UV island about its centre before packing (packing keeps relative island sizes)."""
+    me = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    uv = bm.loops.layers.uv['Lightmap']
+    parent = list(range(len(bm.faces)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for e in bm.edges:
+        if len(e.link_faces) != 2:
+            continue
+        f1, f2 = e.link_faces
+        l1 = next(l for l in f1.loops if l.edge == e)
+        l2 = next(l for l in f2.loops if l.edge == e)
+        if (l1[uv].uv - l2.link_loop_next[uv].uv).length < 1e-6 and (l1.link_loop_next[uv].uv - l2[uv].uv).length < 1e-6:
+            a, b = find(f1.index), find(f2.index)
+            if a != b:
+                parent[a] = b
+    names = [m.name if m else '' for m in me.materials]
+    weight = {}
+    for f in bm.faces:
+        name = names[f.material_index] if f.material_index < len(names) else ''
+        w = 1.0
+        if name in FLOOR_MATS and f.normal.z > 0.9:
+            w = 2.3
+        elif name in WALL_MATS and abs(f.normal.z) < 0.2 and f.calc_area() > 0.25:
+            w = 1.35
+        elif f.calc_area() < 0.004:
+            w = 0.7
+        r = find(f.index)
+        weight[r] = max(weight.get(r, 0.0), w)
+    islands = {}
+    for f in bm.faces:
+        islands.setdefault(find(f.index), []).append(f)
+    for r, faces in islands.items():
+        w = weight.get(r, 1.0)
+        if abs(w - 1.0) < 1e-3:
+            continue
+        loops = [l for f in faces for l in f.loops]
+        cx = sum(l[uv].uv.x for l in loops) / len(loops)
+        cy = sum(l[uv].uv.y for l in loops) / len(loops)
+        for l in loops:
+            l[uv].uv.x = cx + (l[uv].uv.x - cx) * w
+            l[uv].uv.y = cy + (l[uv].uv.y - cy) * w
+    bm.to_mesh(me)
+    bm.free()
 
 
 # ---------------------------------------------------------------- lighting (Day)
@@ -467,15 +526,15 @@ def day_lighting(scene, t):
         pass
     bg = world.node_tree.nodes.get('Background')
     bg.inputs['Color'].default_value = (0.78, 0.85, 0.96, 1.0)
-    bg.inputs['Strength'].default_value = 0.62
+    bg.inputs['Strength'].default_value = 0.55
     sun_data = bpy.data.lights.new('Sun', 'SUN')
-    sun_data.energy = 1.25
-    sun_data.angle = math.radians(9)
+    sun_data.energy = 1.7
+    sun_data.angle = math.radians(8)
     sun_data.color = (1.0, 0.93, 0.83)
     sun = bpy.data.objects.new('Sun', sun_data)
     scene.collection.objects.link(sun)
-    # Warm daylight from the upper left of the screen (template -x, slightly -z), high.
-    travel = Vector((1.0, -0.32, -1.25)).normalized()
+    # Warm daylight from the upper left of the screen: travels towards template +x (shadows fall to the\n    # screen right). Must match SUN_TRAVEL in apps/web/features/team-floor/scene/engine.ts (three (1, -1.15, 0.12)).
+    travel = Vector((1.0, -0.12, -1.15)).normalized()
     sun.rotation_euler = travel.to_track_quat('-Z', 'Y').to_euler()
     # Warm sconces and lamps (small, soft).
     for p in t['props']:
@@ -510,6 +569,8 @@ def bake(obj, scene, size, samples, out_prefix):
     cy.transparent_max_bounces = 8
     cy.caustics_reflective = False
     cy.caustics_refractive = False
+    cy.sample_clamp_direct = 6.0
+    cy.sample_clamp_indirect = 2.5
     scene.render.bake.margin = 6
     scene.render.bake.use_clear = True
 

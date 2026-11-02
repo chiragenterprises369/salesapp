@@ -2,6 +2,7 @@
 
 import type { TeamFloorMode } from '@vistar/shared';
 import { useSyncExternalStore } from 'react';
+import type { TemplateId } from './template';
 import type { QualityTier } from './types';
 
 /**
@@ -134,20 +135,39 @@ export interface FloorDevParams {
   mode: TeamFloorMode | null;
   /** ?floorTier=high|medium|low overrides GPU detection. */
   tier: QualityTier | null;
+  /** ?floorTemplate=small|medium|large overrides the head-count rule. */
+  template: TemplateId | null;
 }
 
-const NO_DEV: FloorDevParams = { stress: 0, mode: null, tier: null };
+const NO_DEV: FloorDevParams = { stress: 0, mode: null, tier: null, template: null };
 
-/** Dev-only URL overrides (ignored in production builds). */
+/**
+ * QA switch: on in development, and in production builds only when localStorage
+ * `vistar.floor.qa` = "1" (set by the e2e/team-floor scripts). It enables the ?floor* URL
+ * overrides and the read-only `window.__vistarFloor` hook (ready state, label rects, frame timing).
+ */
+export function qaEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (process.env.NODE_ENV !== 'production') return true;
+  try {
+    return window.localStorage.getItem('vistar.floor.qa') === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Dev/QA-only URL overrides (ignored in production builds unless qaEnabled()). */
 export function readDevParams(): FloorDevParams {
-  if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') return NO_DEV;
+  if (!qaEnabled()) return NO_DEV;
   const q = new URLSearchParams(window.location.search);
   const stress = Math.min(200, Math.max(0, Number.parseInt(q.get('floorStress') ?? '0', 10) || 0));
   const m = q.get('floorMode');
   const t = q.get('floorTier');
+  const tpl = q.get('floorTemplate');
   return {
     stress,
     mode: m === '3d' || m === 'flat' || m === 'auto' ? m : null,
     tier: t === 'high' || t === 'medium' || t === 'low' ? t : null,
+    template: tpl === 'small' || tpl === 'medium' || tpl === 'large' ? tpl : null,
   };
 }
