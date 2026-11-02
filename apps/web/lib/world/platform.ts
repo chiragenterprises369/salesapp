@@ -35,6 +35,8 @@ export const FLAG_LABEL: Record<FeatureFlag, string> = {
   api_access: 'API access',
   whatsapp: 'WhatsApp',
   employee_rank: 'Employee rank',
+  custom_domain: 'Custom domain',
+  field_tracking: 'Field tracking',
 };
 const ACTION_LABEL: Record<string, string> = {
   'impersonation.start': 'Started View as company',

@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import type { EmployeeStatus, User, UserSummary, UserUpdate } from '@vistar/shared';
+import { Injectable } from '@nestjs/common';
+import type { User, UserSummary, UserUpdate } from '@vistar/shared';
 import type { Request } from 'express';
 import type { AuthContext } from '../../common/auth/auth-context.js';
 import { ScopeService } from '../../common/auth/scope.service.js';
@@ -7,13 +7,11 @@ import { AuditService } from '../../common/audit/audit.service.js';
 import { AppException, conflict, notFound } from '../../common/errors/app-exception.js';
 import { toUserSummary, USER_SUMMARY_SELECT } from '../../common/mappers/user.mapper.js';
 import { Prisma } from '../../generated/prisma/client.js';
-import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { assertInTenant } from '../../infra/prisma/tenant.js';
 import { AccountStatusService } from '../auth/state/account-status.service.js';
 import { toUser, USER_SELECT } from './mappers.js';
 import { countActiveAdmins, isAdminCapable } from './roles.service.js';
-import { actorOf } from './util.js';
 
 type ProfileUpdate = Pick<UserUpdate, 'name' | 'phone' | 'title' | 'avatar'>;
 
@@ -24,15 +22,16 @@ export function requireUserId(auth: AuthContext): string {
 
 const jsonOrNull = (v: unknown) => (v === null ? Prisma.DbNull : (v as Prisma.InputJsonValue));
 
+/**
+ * Team members. The employee status control (PUT /me/status) moved to the realtime stream's presence
+ * engine in change #19 (D-062).
+ */
 @Injectable()
 export class UsersService {
-  private readonly logger = new Logger(UsersService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly scope: ScopeService,
     private readonly audit: AuditService,
-    private readonly events: EventBus,
     private readonly status: AccountStatusService,
   ) {}
 
@@ -104,14 +103,18 @@ export class UsersService {
     if (body.isActive !== undefined) data.isActive = body.isActive;
     if (body.workingHours !== undefined) data.workingHours = jsonOrNull(body.workingHours);
     if (body.avatar !== undefined) data.avatar = jsonOrNull(body.avatar);
+    if (body.isFieldStaff !== undefined) data.isFieldStaff = body.isFieldStaff;
     const updated = await db.user.update({ where: { id }, data, select: USER_SELECT });
 
     const diff: Record<string, { from: unknown; to: unknown }> = {};
     if (roleChanged) diff.roleId = { from: target.roleId, to: updated.roleId };
     if (body.teamId !== undefined && body.teamId !== target.teamId) diff.teamId = { from: target.teamId, to: updated.teamId };
     if (body.isActive !== undefined && body.isActive !== target.isActive) diff.isActive = { from: target.isActive, to: updated.isActive };
+    if (body.isFieldStaff !== undefined && body.isFieldStaff !== target.isFieldStaff) diff.isFieldStaff = { from: target.isFieldStaff, to: updated.isFieldStaff };
     if (Object.keys(diff).length) {
-      const action = diff.isActive ? (updated.isActive ? 'user.activate' : 'user.deactivate') : diff.roleId ? 'user.role_change' : 'user.team_change';
+      const action = diff.isActive
+        ? updated.isActive ? 'user.activate' : 'user.deactivate'
+        : diff.roleId ? 'user.role_change' : diff.teamId ? 'user.team_change' : 'user.field_staff_change';
       await this.audit.record(auth, req, { action, entityType: 'user', entityId: id, diff });
     }
     if (diff.isActive && !updated.isActive) await this.status.revokeAllForUser(auth.workspaceId, id);
@@ -129,28 +132,6 @@ export class UsersService {
     const db = this.prisma.forTenant(auth.workspaceId);
     if (!Object.keys(data).length) return this.get(auth.workspaceId, userId);
     const updated = await db.user.update({ where: { id: userId }, data, select: USER_SELECT });
-    return toUser(updated);
-  }
-
-  async updateStatus(auth: AuthContext, status: Extract<EmployeeStatus, 'idle' | 'on_call' | 'away' | 'offline'>): Promise<User> {
-    const userId = requireUserId(auth);
-    const db = this.prisma.forTenant(auth.workspaceId);
-    const current = await db.user.findFirst({ where: { id: userId, deletedAt: null }, select: { status: true } });
-    if (!current) throw notFound('User');
-    if (current.status === status) return this.get(auth.workspaceId, userId);
-
-    const at = new Date();
-    const updated = await db.user.update({ where: { id: userId }, data: { status, statusChangedAt: at }, select: USER_SELECT });
-    try {
-      await this.events.publish(
-        'employee.status_changed',
-        auth.workspaceId,
-        { userId, status, previousStatus: current.status, currentLeadId: null, callId: null, at: at.toISOString() },
-        { actor: actorOf(auth, updated.name) },
-      );
-    } catch (err) {
-      this.logger.error(`employee.status_changed publish failed: ${(err as Error).message}`);
-    }
     return toUser(updated);
   }
 }

@@ -9,6 +9,7 @@ import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { afterTimeCursor, nextTimeCursor } from '../leads/lib/cursor.js';
 import { panelPrefix, publishSafe, SYSTEM_ACTOR } from '../leads/lib/context.js';
+import { PushService } from '../platform-config/push.service.js';
 
 export interface NotifyInput {
   type: NotificationType;
@@ -39,6 +40,7 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventBus,
+    private readonly push: PushService,
   ) {}
 
   /** Create a notification for one user and push `notification.created` to that user's room. */
@@ -59,6 +61,12 @@ export class NotificationsService {
     });
     const notification = toNotification(row);
     await publishSafe(this.events, this.logger, 'notification.created', workspaceId, { notification }, { actor, userId });
+    // Phone push (FCM) for the Android app; a no-op until Firebase is configured (D-058).
+    void this.push.sendToUser(workspaceId, userId, {
+      title: notification.title,
+      body: notification.body,
+      data: { kind: notification.type, notificationId: notification.id, href: notification.href ?? undefined, workspaceId },
+    });
     return notification;
   }
 

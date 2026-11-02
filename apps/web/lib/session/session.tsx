@@ -2,6 +2,7 @@
 
 import {
   DEFAULT_USER_SETTINGS,
+  presenceToEmployeeStatus,
   type MeResponse,
   type PlatformAdmin,
   type Principal,
@@ -176,8 +177,10 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     await delay();
     const key = keyProfile(s.me.role.kind);
     const statusChangedAt = new Date().toISOString();
-    write(key, { ...(read<Partial<User>>(key) ?? {}), status, statusChangedAt });
-    const user: User = { ...s.me.user, status, statusChangedAt };
+    // Mock: the manual status maps to the coarse User.status (the real API returns MyPresence, D-062).
+    const coarse = status === 'idle' ? 'idle' : presenceToEmployeeStatus(status);
+    write(key, { ...(read<Partial<User>>(key) ?? {}), status: coarse, statusChangedAt });
+    const user: User = { ...s.me.user, status: coarse, statusChangedAt };
     set({ session: { ...s, me: { ...s.me, user } } });
     return user;
   },

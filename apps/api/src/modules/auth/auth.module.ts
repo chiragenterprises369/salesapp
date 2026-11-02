@@ -36,6 +36,6 @@ import { WorkspaceProvisioner } from './workspace-provisioner.js';
     { provide: APP_GUARD, useClass: HttpThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
-  exports: [TokenService, MeService],
+  exports: [TokenService, MeService, WorkspaceProvisioner, InviteService],
 })
 export class AuthModule {}

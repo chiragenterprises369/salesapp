@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Permission, PlatformPermission } from '../rbac.js';
 import {
+  CompanyCreatedSchema,
   CompanyCreateSchema,
   CompanyFlagsUpdateSchema,
   CompanyListQuerySchema,
@@ -13,6 +14,63 @@ import {
   PlatformAuditLogSchema,
   PlatformOverviewSchema,
 } from '../schemas/platform.js';
+import {
+  AndroidReleaseSchema,
+  AndroidReleaseUpdateSchema,
+  AndroidReleaseUploadFieldsSchema,
+  AppConfigSchema,
+  DeviceRegisterSchema,
+  DeviceSchema,
+  FirebaseConfigPartSchema,
+  FirebaseConfigStatusSchema,
+  PushTestResultSchema,
+  PushTestSchema,
+} from '../schemas/app-platform.js';
+import {
+  AttendanceCheckSchema,
+  AttendanceRegisterQuerySchema,
+  AttendanceRegisterSchema,
+  AttendanceSessionSchema,
+  FieldLiveQuerySchema,
+  FieldLiveSchema,
+  FieldRouteQuerySchema,
+  FieldRouteSchema,
+  LocationBatchResultSchema,
+  LocationBatchSchema,
+  MyAttendanceTodaySchema,
+  TrackingConsentSchema,
+  TrackingConsentUpdateSchema,
+} from '../schemas/attendance.js';
+import {
+  BrandingUpdateSchema,
+  CustomDomainSetSchema,
+  CustomDomainStateSchema,
+  HostResolutionSchema,
+  HostResolveQuerySchema,
+  PublicWorkspaceSchema,
+  SlugParamSchema,
+  WorkspaceBrandingSchema,
+} from '../schemas/branding.js';
+import {
+  FloorAssetSchema,
+  FloorRequestCreateSchema,
+  FloorRequestSchema,
+  FloorRequestStatusChangeSchema,
+  FloorUploadFieldsSchema,
+  SeatMapSchema,
+  SuperFloorRequestListQuerySchema,
+  TeamFloorLayoutSchema,
+} from '../schemas/floor.js';
+import {
+  MyPresenceSchema,
+  OfficeMarkerCreateSchema,
+  OfficeMarkerSchema,
+  PresenceEventSchema,
+  PresenceHeartbeatSchema,
+  PresenceHistoryQuerySchema,
+  ZoneSignalSchema,
+} from '../schemas/presence.js';
+import { FileUploadFieldsSchema, FileUrlSchema, SignedFileTokenParamSchema, StoredFileSchema } from '../schemas/storage.js';
 import { ActivitySchema } from '../schemas/activity.js';
 import {
   AuthTokensSchema,
@@ -28,7 +86,16 @@ import {
   SuperSessionSchema,
   SuperVerifyRequestSchema,
 } from '../schemas/auth.js';
-import { CallListQuerySchema, CallSchema, CallUpdateSchema, ClickToCallSchema, RecordingUrlSchema } from '../schemas/call.js';
+import {
+  ActiveCallEventSchema,
+  CallListQuerySchema,
+  CallSchema,
+  CallUpdateSchema,
+  ClickToCallSchema,
+  DeviceCallLogBatchSchema,
+  DeviceCallLogResultSchema,
+  RecordingUrlSchema,
+} from '../schemas/call.js';
 import { CursorPaginationQuerySchema, IdParamSchema, IdSchema, OkResponseSchema, pageOf } from '../schemas/common.js';
 import {
   ConversationAssignSchema,
@@ -199,9 +266,11 @@ export interface RouteDef {
   body?: z.ZodType;
   /** Non-JSON request body, e.g. multipart file upload. */
   bodyContentType?: 'multipart/form-data';
+  /** Text fields that come with a multipart upload (besides the `file` part). */
+  bodyFields?: z.ZodObject;
   response: z.ZodType | null;
   /** Non-JSON response, e.g. file download. */
-  responseContentType?: 'text/csv' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  responseContentType?: 'text/csv' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' | 'application/octet-stream' | 'application/vnd.android.package-archive';
   status?: number;
 }
 
@@ -250,7 +319,7 @@ export const API_ROUTES = {
   roleDelete: route({ method: 'delete', path: '/roles/{id}', summary: 'Delete a custom role (must have no members)', tag: 'team', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'roles.manage', params: IdParamSchema, response: OkResponseSchema }),
   supportAccessUpdate: route({ method: 'put', path: '/workspace/support-access', summary: 'Enable or disable Super Admin support access with expiry', tag: 'workspace', owner: 'backend-core', phase: 1, auth: 'jwt', permission: 'support_access.manage', body: SupportAccessUpdateSchema, response: WorkspaceSchema }),
   myProfileUpdate: route({ method: 'patch', path: '/me/profile', summary: 'Update my profile and avatar', tag: 'settings', owner: 'backend-core', phase: 1, auth: 'jwt', permission: null, body: ProfileUpdateSchema, response: UserSchema }),
-  myStatusUpdate: route({ method: 'put', path: '/me/status', summary: 'Set my status (Available, On call, Break, Offline)', tag: 'settings', owner: 'backend-core', phase: 1, auth: 'jwt', permission: null, body: StatusUpdateSchema, response: UserSchema }),
+  myStatusUpdate: route({ method: 'put', path: '/me/status', summary: 'Set my own status (available, in a meeting, on break, lunch, field visit, away, offline); on_call comes from phone state', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: StatusUpdateSchema, response: MyPresenceSchema }),
   mySettingsGet: route({ method: 'get', path: '/me/settings', summary: 'My settings (theme, floor mode, notifications)', tag: 'settings', owner: 'backend-core', phase: 1, auth: 'jwt', permission: null, response: UserSettingsSchema }),
   mySettingsUpdate: route({ method: 'patch', path: '/me/settings', summary: 'Update my settings', tag: 'settings', owner: 'backend-core', phase: 1, auth: 'jwt', permission: null, body: UserSettingsUpdateSchema, response: UserSettingsSchema }),
 
@@ -330,7 +399,7 @@ export const API_ROUTES = {
   dashboardSummary: route({ method: 'get', path: '/dashboard/summary', summary: 'KPIs, funnel, sources, leaderboard, feed, attention', tag: 'dashboard', owner: 'backend-core', phase: 4, auth: 'jwt', permission: 'dashboard.read', query: DashboardQuerySchema, response: DashboardSummarySchema }),
   attentionResolve: route({ method: 'post', path: '/attention/{id}/resolve', summary: 'Resolve or dismiss a "Needs attention" item (emits attention.resolved); scope applies', tag: 'dashboard', owner: 'backend-core', phase: 4, auth: 'jwt', permission: 'team.read', params: z.object({ id: z.string().min(1).max(120).describe('AttentionItem.id, e.g. task_overdue:<taskId>') }), response: OkResponseSchema }),
   userMessage: route({ method: 'post', path: '/users/{id}/messages', summary: 'Send a short in-app message to a team member (notification.created); managers only to their team', tag: 'team', owner: 'backend-core', phase: 4, auth: 'jwt', permission: 'team.read', params: IdParamSchema, body: z.object({ body: z.string().trim().min(1).max(1000), leadId: IdSchema.optional() }), response: OkResponseSchema, status: 201 }),
-  teamFloorSnapshot: route({ method: 'get', path: '/team-floor/snapshot', summary: 'Live Team Floor initial state', tag: 'team-floor', owner: 'realtime-integrations', phase: 4, auth: 'jwt', permission: 'teamfloor.read', query: z.object({ teamId: IdSchema.optional() }), response: TeamFloorSnapshotSchema }),
+  teamFloorSnapshot: route({ method: 'get', path: '/team-floor/snapshot', summary: 'Live Team Floor initial state (server-authoritative presence, seats, floor ref)', tag: 'team-floor', owner: 'realtime-integrations', phase: 4, auth: 'jwt', permission: 'teamfloor.read', query: z.object({ teamId: IdSchema.optional() }), response: TeamFloorSnapshotSchema }),
 
   // ---------------- integrations & webhooks (phase 5) ----------------
   integrationList: route({ method: 'get', path: '/integrations', summary: 'Integration hub status', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.manage', response: listOf(IntegrationSchema) }),
@@ -404,13 +473,13 @@ export const API_ROUTES = {
 
   // ---------------- Super Admin panel (phase 9, superadmin-panel) ----------------
   superOverview: route({ method: 'get', path: '/api/super/overview', absolute: true, summary: 'Platform KPIs and health summary', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.overview.read', response: PlatformOverviewSchema }),
-  superCompanyList: route({ method: 'get', path: '/api/super/companies', absolute: true, summary: 'Companies', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.read', query: CompanyListQuerySchema, response: pageOf(CompanySchema) }),
-  superCompanyGet: route({ method: 'get', path: '/api/super/companies/{id}', absolute: true, summary: 'Company detail', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: CompanySchema }),
-  superCompanyCreate: route({ method: 'post', path: '/api/super/companies', absolute: true, summary: 'Create a company and invite its admin', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.manage', body: CompanyCreateSchema, response: CompanySchema, status: 201 }),
+  superCompanyList: route({ method: 'get', path: '/api/super/companies', absolute: true, summary: 'Companies', tag: 'super', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', query: CompanyListQuerySchema, response: pageOf(CompanySchema) }),
+  superCompanyGet: route({ method: 'get', path: '/api/super/companies/{id}', absolute: true, summary: 'Company detail (effective flags, custom domain, floor progress)', tag: 'super', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: CompanySchema }),
+  superCompanyCreate: route({ method: 'post', path: '/api/super/companies', absolute: true, summary: 'Create a company and invite its admin (the invite link is returned once)', tag: 'super', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', body: CompanyCreateSchema, response: CompanyCreatedSchema, status: 201 }),
   superCompanyUpdate: route({ method: 'patch', path: '/api/super/companies/{id}', absolute: true, summary: 'Edit company or change plan (audit logged)', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, body: CompanyUpdateSchema, response: CompanySchema }),
   superCompanyStatus: route({ method: 'post', path: '/api/super/companies/{id}/status', absolute: true, summary: 'Suspend or reactivate (reason required)', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, body: CompanyStatusChangeSchema, response: CompanySchema }),
   superCompanyDelete: route({ method: 'delete', path: '/api/super/companies/{id}', absolute: true, summary: 'Schedule company deletion (data export first)', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, response: OkResponseSchema }),
-  superCompanyFlags: route({ method: 'put', path: '/api/super/companies/{id}/flags', absolute: true, summary: 'Per-company feature flag overrides', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.flags.manage', params: IdParamSchema, body: CompanyFlagsUpdateSchema, response: CompanySchema }),
+  superCompanyFlags: route({ method: 'put', path: '/api/super/companies/{id}/flags', absolute: true, summary: 'Per-company feature flag overrides and switches (custom_domain, field_tracking); audit logged', tag: 'super', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.flags.manage', params: IdParamSchema, body: CompanyFlagsUpdateSchema, response: CompanySchema }),
   superPlanList: route({ method: 'get', path: '/api/super/plans', absolute: true, summary: 'Plan catalogue and limits', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.plans.manage', response: listOf(PlanDefinitionSchema) }),
   superPlanUpdate: route({ method: 'put', path: '/api/super/plans/{key}', absolute: true, summary: 'Update plan limits, features, price', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.plans.manage', params: z.object({ key: z.string() }), body: PlanDefinitionSchema.omit({ key: true }), response: PlanDefinitionSchema }),
   superImpersonateStart: route({ method: 'post', path: '/api/super/impersonations', absolute: true, summary: 'Start time-limited "View as company" (reason required, audit logged in both logs)', tag: 'super', owner: 'superadmin-panel', phase: 9, auth: 'super', permission: 'platform.support.impersonate', body: ImpersonationStartSchema, response: ImpersonationSessionSchema, status: 201 }),
@@ -423,6 +492,84 @@ export const API_ROUTES = {
   superPackPlans: route({ method: 'put', path: '/api/super/packs/{key}/plans', absolute: true, summary: 'Plans that include the pack, and its add-on price (audit logged)', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackKeyParamSchema, body: SuperPackPlansUpdateSchema, response: SuperPackSchema }),
   superPackCompany: route({ method: 'put', path: '/api/super/packs/{key}/companies/{workspaceId}', absolute: true, summary: 'Grant or revoke the pack for one company (reason required, audit logged)', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackCompanyParamSchema, body: SuperPackCompanyUpdateSchema, response: PackCompanyUsageSchema }),
   superPackUsage: route({ method: 'get', path: '/api/super/packs/{key}/usage', absolute: true, summary: 'Usage per company (entitlement, status, version, records)', tag: 'super-packs', owner: 'backend-core', phase: 2, auth: 'super', permission: 'platform.packs.manage', params: PackKeyParamSchema, response: PackUsageSchema }),
+
+  // ================= change #19 (SPEC 29). phase 19 = this change; owner backend-core = PLATFORM stream, realtime-integrations = REALTIME stream =================
+
+  // ---------------- storage (D-065) ----------------
+  fileUpload: route({ method: 'post', path: '/files', summary: 'Upload a branding file or floor reference image (multipart: file + purpose); limits per purpose in UPLOAD_LIMITS', tag: 'files', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', bodyContentType: 'multipart/form-data', bodyFields: FileUploadFieldsSchema, response: StoredFileSchema, status: 201 }),
+  fileGet: route({ method: 'get', path: '/files/{id}', summary: 'File metadata (tenant-scoped; branding files for everyone, reference images and floor models for settings.manage)', tag: 'files', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, params: IdParamSchema, response: StoredFileSchema }),
+  fileUrl: route({ method: 'get', path: '/files/{id}/url', summary: 'Short-lived signed download URL (15 min); same read rules as fileGet; recordings use callRecording', tag: 'files', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, params: IdParamSchema, response: FileUrlSchema }),
+  fileSignedDownload: route({ method: 'get', path: '/api/files/d/{token}', absolute: true, summary: 'Download through a signed URL (token from fileUrl / superFileUrl / layout responses)', tag: 'files', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: SignedFileTokenParamSchema, response: null, responseContentType: 'application/octet-stream' }),
+  filePublicDownload: route({ method: 'get', path: '/api/files/p/{id}', absolute: true, summary: 'Public branding file (logo, favicon, login image); 404 for private files', tag: 'files', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: IdParamSchema, response: null, responseContentType: 'application/octet-stream' }),
+  superFileUrl: route({ method: 'get', path: '/api/super/files/{id}/url', absolute: true, summary: 'Signed URL for any company or platform file (reference images, floor models, APKs)', tag: 'super-files', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: FileUrlSchema }),
+
+  // ---------------- branding, component style, public workspace (D-059, D-060) ----------------
+  brandingGet: route({ method: 'get', path: '/workspace/branding', summary: 'Company branding (also on Workspace.branding)', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, response: WorkspaceBrandingSchema }),
+  brandingUpdate: route({ method: 'patch', path: '/workspace/branding', summary: 'Update branding (file ids from POST /files; colours are contrast-guarded); audited, emits workspace.branding_changed. Component style: PATCH /workspace componentStyle', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', body: BrandingUpdateSchema, response: WorkspaceSchema }),
+  publicWorkspaceBranding: route({ method: 'get', path: '/public/workspaces/{slug}/branding', summary: 'Login page branding by workspace slug (no auth)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: SlugParamSchema, response: PublicWorkspaceSchema }),
+  publicResolveHost: route({ method: 'get', path: '/public/resolve-host', summary: 'Resolve a Host to a workspace (verified custom domain, or <slug>.localhost in development) for the login page and Next middleware; 404 when unknown', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, query: HostResolveQuerySchema, response: HostResolutionSchema }),
+
+  // ---------------- custom domain (D-060; needs the custom_domain switch) ----------------
+  domainGet: route({ method: 'get', path: '/workspace/domain', summary: 'Custom domain state and DNS instructions (CNAME + TXT)', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', response: CustomDomainStateSchema }),
+  domainSet: route({ method: 'put', path: '/workspace/domain', summary: 'Set or replace the custom domain (status pending, new TXT token); FEATURE_DISABLED without the switch; audited', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', body: CustomDomainSetSchema, response: CustomDomainStateSchema }),
+  domainDelete: route({ method: 'delete', path: '/workspace/domain', summary: 'Remove the custom domain; audited', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', response: CustomDomainStateSchema }),
+  domainVerify: route({ method: 'post', path: '/workspace/domain/verify', summary: 'Check the TXT record now (dev: *.localhost verifies without DNS)', tag: 'workspace', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', response: CustomDomainStateSchema }),
+
+  // ---------------- platform config: Firebase and Android releases (D-058) ----------------
+  superFirebaseGet: route({ method: 'get', path: '/api/super/config/firebase', absolute: true, summary: 'Firebase config status (client options; service account status only)', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', response: FirebaseConfigStatusSchema }),
+  superFirebaseClientUpload: route({ method: 'put', path: '/api/super/config/firebase/client', absolute: true, summary: 'Upload google-services.json (must contain the app.vistar.employee Android app); stored encrypted; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', bodyContentType: 'multipart/form-data', response: FirebaseConfigStatusSchema }),
+  superFirebaseServiceAccountUpload: route({ method: 'put', path: '/api/super/config/firebase/service-account', absolute: true, summary: 'Upload the Firebase service account JSON (FCM sender); stored encrypted, never returned; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', bodyContentType: 'multipart/form-data', response: FirebaseConfigStatusSchema }),
+  superFirebaseDelete: route({ method: 'delete', path: '/api/super/config/firebase/{part}', absolute: true, summary: 'Remove the client config or the service account; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', params: FirebaseConfigPartSchema, response: FirebaseConfigStatusSchema }),
+  superPushTest: route({ method: 'post', path: '/api/super/config/firebase/test', absolute: true, summary: 'Send a test push to one FCM token', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', body: PushTestSchema, response: PushTestResultSchema }),
+  superAndroidReleaseList: route({ method: 'get', path: '/api/super/android-releases', absolute: true, summary: 'Android APK releases, newest first', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', response: listOf(AndroidReleaseSchema) }),
+  superAndroidReleaseUpload: route({ method: 'post', path: '/api/super/android-releases', absolute: true, summary: 'Upload an APK (max 150 MB) with version and notes; sha256 computed; versionCode must be new; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', bodyContentType: 'multipart/form-data', bodyFields: AndroidReleaseUploadFieldsSchema, response: AndroidReleaseSchema, status: 201 }),
+  superAndroidReleaseUpdate: route({ method: 'patch', path: '/api/super/android-releases/{id}', absolute: true, summary: 'Edit notes or the minimum-supported flag; audited', tag: 'super-config', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.system.manage', params: IdParamSchema, body: AndroidReleaseUpdateSchema, response: AndroidReleaseSchema }),
+  appConfig: route({ method: 'get', path: '/app/config', summary: 'Android app bootstrap: public Firebase options, latest release, minimum version (no auth)', tag: 'app', owner: 'backend-core', phase: 19, auth: 'public', permission: null, response: AppConfigSchema }),
+  appAndroidLatest: route({ method: 'get', path: '/app/android/latest', summary: 'Download the latest APK (no auth; the employee panel links here); 404 when none', tag: 'app', owner: 'backend-core', phase: 19, auth: 'public', permission: null, response: null, responseContentType: 'application/vnd.android.package-archive' }),
+
+  // ---------------- devices and push ----------------
+  myDeviceList: route({ method: 'get', path: '/me/devices', summary: 'My registered devices', tag: 'devices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, response: listOf(DeviceSchema) }),
+  myDeviceRegister: route({ method: 'post', path: '/me/devices', summary: 'Register or refresh this device and its FCM token (idempotent upsert by installationId)', tag: 'devices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, body: DeviceRegisterSchema, response: DeviceSchema }),
+  myDeviceDelete: route({ method: 'delete', path: '/me/devices/{id}', summary: 'Unregister a device (sign-out on the phone)', tag: 'devices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, params: IdParamSchema, response: OkResponseSchema }),
+
+  // ---------------- presence (D-062; REALTIME) ----------------
+  myPresenceGet: route({ method: 'get', path: '/me/presence', summary: 'My current server-decided status', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, response: MyPresenceSchema }),
+  myPresenceHeartbeat: route({ method: 'post', path: '/me/presence/heartbeat', summary: 'Heartbeat from the web or the app (every HEARTBEAT_INTERVAL_MS; also accepted on the socket)', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: PresenceHeartbeatSchema, response: MyPresenceSchema }),
+  myZoneSignal: route({ method: 'post', path: '/me/presence/zone', summary: 'Where I am in the office: BLE beacons / Wi-Fi seen, a scanned QR or NFC marker, or a manual zone (Android app); emits employee.zone_changed', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: ZoneSignalSchema, response: MyPresenceSchema }),
+  officeMarkerList: route({ method: 'get', path: '/team-floor/markers', summary: 'Beacons, access points, QR codes and NFC tags that mark office zones', tag: 'team-floor', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'settings.manage', response: listOf(OfficeMarkerSchema) }),
+  officeMarkerCreate: route({ method: 'post', path: '/team-floor/markers', summary: 'Register a zone marker (QR/NFC token returned once); audited', tag: 'team-floor', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'settings.manage', body: OfficeMarkerCreateSchema, response: OfficeMarkerSchema, status: 201 }),
+  officeMarkerDelete: route({ method: 'delete', path: '/team-floor/markers/{id}', summary: 'Remove a zone marker; audited', tag: 'team-floor', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'settings.manage', params: IdParamSchema, response: OkResponseSchema }),
+  presenceHistory: route({ method: 'get', path: '/users/{id}/presence-history', summary: 'Status changes of one person for a day (scope applies)', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'team.read', params: IdParamSchema, query: PresenceHistoryQuerySchema, response: listOf(PresenceEventSchema) }),
+
+  // ---------------- SIM calls from the app (D-057; REALTIME) ----------------
+  myCallDeviceLog: route({ method: 'post', path: '/me/calls/device-log', summary: 'Upload Android call-log rows (batch of up to 200, idempotent by deviceCallId); emits call.ended / call.updated', tag: 'calls', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'calls.make', body: DeviceCallLogBatchSchema, response: DeviceCallLogResultSchema }),
+  myCallActive: route({ method: 'post', path: '/me/calls/active', summary: 'Live phone state: started / ended (sets presence on_call; emits call.started / call.ended); idempotent by clientCallId', tag: 'calls', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'calls.make', body: ActiveCallEventSchema, response: CallSchema }),
+  callRecordingUpload: route({ method: 'post', path: '/calls/{id}/recording', summary: 'Upload the phone recorder file of my call (multipart file, purpose call_recording, max 50 MB)', tag: 'calls', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'calls.make', params: IdParamSchema, bodyContentType: 'multipart/form-data', response: CallSchema }),
+
+  // ---------------- attendance and field tracking (D-063; REALTIME; flag field_tracking) ----------------
+  myAttendanceToday: route({ method: 'get', path: '/me/attendance/today', summary: 'Today: sessions, working hours, consent, whether to track now', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, response: MyAttendanceTodaySchema }),
+  myAttendanceCheckIn: route({ method: 'post', path: '/me/attendance/check-in', summary: 'Check in with location (field staff, consent, working hours); emits attendance.checked_in', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: AttendanceCheckSchema, response: AttendanceSessionSchema, status: 201 }),
+  myAttendanceCheckOut: route({ method: 'post', path: '/me/attendance/check-out', summary: 'Check out with location; emits attendance.checked_out', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: AttendanceCheckSchema, response: AttendanceSessionSchema }),
+  myLocationBatch: route({ method: 'post', path: '/me/location', summary: 'Location points (batch, idempotent by time); only while checked in and inside working hours; emits location.updated', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: LocationBatchSchema, response: LocationBatchResultSchema }),
+  myTrackingConsentGet: route({ method: 'get', path: '/me/tracking-consent', summary: 'My tracking consent', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, response: TrackingConsentSchema }),
+  myTrackingConsentSet: route({ method: 'put', path: '/me/tracking-consent', summary: 'Accept or withdraw tracking consent (history kept)', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: TrackingConsentUpdateSchema, response: TrackingConsentSchema }),
+  attendanceRegister: route({ method: 'get', path: '/attendance', summary: 'Attendance register for a day (scope applies)', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'team.read', query: AttendanceRegisterQuerySchema, response: AttendanceRegisterSchema }),
+  fieldLive: route({ method: 'get', path: '/field/live', summary: 'Last known position of checked-in field staff (scope applies)', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'team.read', query: FieldLiveQuerySchema, response: FieldLiveSchema }),
+  fieldUserRoute: route({ method: 'get', path: '/field/users/{id}/route', summary: 'Route of one field staff member for a day (scope applies; 404 out of scope)', tag: 'attendance', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'team.read', params: IdParamSchema, query: FieldRouteQuerySchema, response: FieldRouteSchema }),
+
+  // ---------------- custom Team Floors (D-061) ----------------
+  floorRequestCreate: route({ method: 'post', path: '/floor-requests', summary: 'Submit a custom floor request with reference images (>= 3, work_area + cabin or meeting_room); audited', tag: 'team-floor', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', body: FloorRequestCreateSchema, response: FloorRequestSchema, status: 201 }),
+  floorRequestList: route({ method: 'get', path: '/floor-requests', summary: 'This company\'s floor requests, newest first', tag: 'team-floor', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', response: listOf(FloorRequestSchema) }),
+  floorRequestGet: route({ method: 'get', path: '/floor-requests/{id}', summary: 'Floor request with signed image URLs', tag: 'team-floor', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', params: IdParamSchema, response: FloorRequestSchema }),
+  teamFloorLayout: route({ method: 'get', path: '/team-floor/layout', summary: 'The published custom floor (signed model URL + seat map) or the default template id and request status', tag: 'team-floor', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'teamfloor.read', response: TeamFloorLayoutSchema }),
+  superFloorRequestList: route({ method: 'get', path: '/api/super/floor-requests', absolute: true, summary: 'Floor requests across companies', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', query: SuperFloorRequestListQuerySchema, response: pageOf(FloorRequestSchema) }),
+  superFloorRequestGet: route({ method: 'get', path: '/api/super/floor-requests/{id}', absolute: true, summary: 'Floor request with signed reference image URLs', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: FloorRequestSchema }),
+  superFloorRequestStatus: route({ method: 'post', path: '/api/super/floor-requests/{id}/status', absolute: true, summary: 'Mark in progress or reject (note required); audited in both logs; emits floor_request.updated', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, body: FloorRequestStatusChangeSchema, response: FloorRequestSchema }),
+  superFloorList: route({ method: 'get', path: '/api/super/companies/{id}/floors', absolute: true, summary: 'Floor versions of a company', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: listOf(FloorAssetSchema) }),
+  superFloorUpload: route({ method: 'post', path: '/api/super/companies/{id}/floors', absolute: true, summary: 'Upload the AI-made floor for a company: .glb, .zip with a .gltf, or a Vistar floor plan .json (FloorPlanSchema; its seats become the seat map); max 40 MB, validated; creates a draft version; audited', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, bodyContentType: 'multipart/form-data', bodyFields: FloorUploadFieldsSchema, response: FloorAssetSchema, status: 201 }),
+  superFloorGet: route({ method: 'get', path: '/api/super/floors/{id}', absolute: true, summary: 'One floor version with a signed model URL (preview)', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: FloorAssetSchema }),
+  superFloorSeatMap: route({ method: 'put', path: '/api/super/floors/{id}/seat-map', absolute: true, summary: 'Save seats and zones (seat tool); not allowed on superseded versions', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, body: SeatMapSchema, response: FloorAssetSchema }),
+  superFloorPublish: route({ method: 'post', path: '/api/super/floors/{id}/publish', absolute: true, summary: 'Publish (needs a seat map): older published version becomes superseded, request -> published; audited; emits floor.published', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, response: FloorAssetSchema }),
 } as const satisfies Record<string, RouteDef>;
 
 export type ApiRouteId = keyof typeof API_ROUTES;

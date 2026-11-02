@@ -1,159 +1,60 @@
 /**
- * Dev seed. Run: pnpm db:seed (refuses to run in production). Idempotent: wipes the 3 fixture companies
- * (and every platform row that points at them or at the seeded Super Admin) and creates them again.
+ * CLEAN seed (D-064, SPEC 29.8). Run: pnpm db:seed (refuses to run in production). For the local main database:
+ * no companies, no demo data. Companies are created from the Super Admin panel (POST /api/super/companies) or by
+ * sign-up. The demo companies are in prisma/seed-demo.ts (pnpm db:seed:demo).
  *
- * Creates: plan catalogue, 1 Super Admin (2FA enrolment on first login), 3 companies on different plans
- * (Shakti/growth with 2,500 leads, Navkar/starter 320, Sunrise/free trial 120) with system roles, users,
- * teams, invites, pipeline, WhatsApp templates and quick replies, 4 workflows (2 active) and leads with
- * contacts and deals. Each lead has a consistent history (seed/history.ts): timeline activities, 30 days
- * of calls, WhatsApp conversations with consent records, tasks, and runs of the active workflows. Then
- * notifications, targets, saved views, tags, integrations, webhooks + deliveries, API keys (hashed),
- * usage counters, audit logs, settings, feature flag overrides and Super Admin history (seed/extras.ts,
- * seed/platform.ts). Static texts live in seed/content.ts.
+ * Writes, idempotently and without deleting anything:
+ *  - the plan catalogue (prices, limits, feature flags: custom_domain off everywhere, field_tracking on growth and
+ *    enterprise);
+ *  - one Super Admin (SEED_SUPER_ADMIN_EMAIL / SEED_SUPER_ADMIN_PASSWORD, default the dev fixture); an existing
+ *    account keeps its password and 2FA; 2FA is enrolled on first login;
+ *  - the Industry Pack registry (packs/<key>/manifest.json), so new companies get the core pack.
+ * Firebase files and APK releases are uploaded in the Super Admin config section, not seeded.
  */
 import { PrismaPg } from '@prisma/adapter-pg';
-import { GENERIC_SALES_PACK_KEY, PLATFORM_PERMISSIONS, type FeatureFlags, type Plan, type PlanLimits } from '@vistar/shared';
-import { COMPANY_FIXTURES, createRng, SEED_WORKSPACE, SUPER_ADMIN_FIXTURE } from '@vistar/shared/fixtures';
+import { PLATFORM_PERMISSIONS } from '@vistar/shared';
+import { SEED_WORKSPACE, SUPER_ADMIN_FIXTURE } from '@vistar/shared/fixtures';
 import argon2 from 'argon2';
 import { config } from 'dotenv';
-import { generateNKeysBetween } from 'fractional-indexing';
 import path from 'node:path';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { installPack, SYSTEM_PACK_ACTOR } from '../src/modules/packs/pack-installer.js';
 import { syncRegistry } from '../src/modules/packs/pack-registry.js';
-import { createCompanyBase, type CompanyCtx } from './seed/company.js';
-import { buildExtras, type Extras } from './seed/extras.js';
-import { buildHistory, type History } from './seed/history.js';
-import { buildPlatform, buildPlatformGlobal, type PlatformRows } from './seed/platform.js';
-import { countRows, formatTable } from './seed/report.js';
-import { insertMany, shiftDates } from './seed/util.js';
+import { PLAN_CATALOGUE, seedDatabaseUrl, upsertPlans } from './seed/base.js';
 
 config({ path: path.resolve(process.cwd(), '../../.env'), quiet: true });
 
-const PLAN_CATALOGUE: Array<{ key: Plan; name: string; monthly: number; limits: PlanLimits; features: FeatureFlags; trialDays: number }> = [
-  { key: 'free', name: 'Free', monthly: 0, trialDays: 14, limits: { seats: 3, leads: 500, whatsappMessagesPerMonth: 250, workflowRunsPerMonth: 500, storageMb: 500 }, features: { team_floor_3d: false, ai_node: false, telephony: false, api_access: false, whatsapp: true, employee_rank: true } },
-  { key: 'starter', name: 'Starter', monthly: 1999, trialDays: 14, limits: { seats: 10, leads: 10_000, whatsappMessagesPerMonth: 5_000, workflowRunsPerMonth: 10_000, storageMb: 5_000 }, features: { team_floor_3d: false, ai_node: false, telephony: true, api_access: true, whatsapp: true, employee_rank: true } },
-  { key: 'growth', name: 'Growth', monthly: 5999, trialDays: 14, limits: { seats: 50, leads: 100_000, whatsappMessagesPerMonth: 50_000, workflowRunsPerMonth: 100_000, storageMb: 50_000 }, features: { team_floor_3d: true, ai_node: false, telephony: true, api_access: true, whatsapp: true, employee_rank: true } },
-  { key: 'enterprise', name: 'Enterprise', monthly: 19999, trialDays: 30, limits: { seats: null, leads: null, whatsappMessagesPerMonth: null, workflowRunsPerMonth: null, storageMb: null }, features: { team_floor_3d: true, ai_node: false, telephony: true, api_access: true, whatsapp: true, employee_rank: true } },
-];
-
-/** Removes the fixture companies and every row the workspace cascade does not reach. */
-async function wipe(prisma: PrismaClient) {
-  const slugs = COMPANY_FIXTURES.map((c) => c.slug);
-  const workspaceIds = (await prisma.workspace.findMany({ where: { slug: { in: slugs } }, select: { id: true } })).map((w) => w.id);
-  const adminIds = (await prisma.platformAdmin.findMany({ where: { email: SUPER_ADMIN_FIXTURE.email }, select: { id: true } })).map((a) => a.id);
-  // PlatformAuditLog has no foreign keys: delete what points at the seeded companies or Super Admin.
-  await prisma.platformAuditLog.deleteMany({ where: { OR: [{ workspaceId: { in: workspaceIds } }, { adminId: { in: adminIds } }] } });
-  // WorkflowRun -> WorkflowVersion is RESTRICT; remove runs first so the cascade never depends on ordering.
-  await prisma.workflowRun.deleteMany({ where: { workspaceId: { in: workspaceIds } } });
-  await prisma.workspace.deleteMany({ where: { id: { in: workspaceIds } } });
-  // Dev impersonation sessions in other (test) workspaces still reference the seeded admin.
-  await prisma.impersonationSession.deleteMany({ where: { adminId: { in: adminIds } } });
-  await prisma.platformAdmin.deleteMany({ where: { id: { in: adminIds } } });
-}
-
-async function insertCompany(prisma: PrismaClient, ctx: CompanyCtx, h: History, x: Extras, p: PlatformRows, delta: number) {
-  const stageIds = ctx.stages.map((s) => s.id);
-  for (const stageId of stageIds) {
-    const inStage = ctx.drafts.filter((r) => r.lead.stageId === stageId).sort((a, b) => +b.lead.createdAt - +a.lead.createdAt);
-    const keys = generateNKeysBetween(null, null, inStage.length);
-    inStage.forEach((r, i) => (r.lead.position = keys[i]!));
-  }
-  const groups: Array<ReadonlyArray<object | null>> = [
-    ctx.drafts.map((r) => r.lead), ctx.drafts.map((r) => r.contact), ctx.drafts.map((r) => r.deal),
-    h.activities, h.calls, h.conversations, h.messages, h.consents, h.tasks, h.runs, h.steps,
-    x.notifications, x.targets, x.savedViews, x.tags, x.quickReplies, x.integrations, x.endpoints, x.deliveries, x.apiKeys, x.usage, x.audit, x.settings, x.invites,
-    p.platformAudit, p.tenantAudit, p.impersonations, p.flags,
-  ];
-  for (const g of groups) shiftDates(g, delta);
-  await insertMany(ctx.drafts.map((r) => r.contact), (b) => prisma.contact.createMany({ data: b }));
-  await insertMany(ctx.drafts.map((r) => r.lead), (b) => prisma.lead.createMany({ data: b }));
-  await insertMany(ctx.drafts.flatMap((r) => (r.deal ? [r.deal] : [])), (b) => prisma.deal.createMany({ data: b }));
-  await insertMany(h.calls, (b) => prisma.call.createMany({ data: b }));
-  await insertMany(h.runs, (b) => prisma.workflowRun.createMany({ data: b }));
-  await insertMany(h.steps, (b) => prisma.workflowRunStep.createMany({ data: b }), 2000);
-  await insertMany(h.conversations, (b) => prisma.conversation.createMany({ data: b }));
-  await insertMany(h.messages, (b) => prisma.message.createMany({ data: b }));
-  await insertMany(h.consents, (b) => prisma.consentRecord.createMany({ data: b }), 2000);
-  await insertMany(h.tasks, (b) => prisma.task.createMany({ data: b }));
-  await insertMany(h.activities, (b) => prisma.activity.createMany({ data: b }), 2000);
-  await insertMany(x.notifications, (b) => prisma.notification.createMany({ data: b }));
-  await prisma.target.createMany({ data: x.targets });
-  await prisma.savedView.createMany({ data: x.savedViews });
-  await prisma.tag.createMany({ data: x.tags });
-  await prisma.quickReply.createMany({ data: x.quickReplies });
-  await prisma.integration.createMany({ data: x.integrations });
-  await prisma.webhookEndpoint.createMany({ data: x.endpoints });
-  await insertMany(x.deliveries, (b) => prisma.webhookDelivery.createMany({ data: b }));
-  if (x.apiKeys.length) await prisma.apiKey.createMany({ data: x.apiKeys });
-  await prisma.usageCounter.createMany({ data: x.usage });
-  await insertMany([...x.audit, ...p.tenantAudit], (b) => prisma.auditLog.createMany({ data: b }));
-  await prisma.setting.createMany({ data: x.settings });
-  await prisma.invite.createMany({ data: x.invites });
-  if (p.impersonations.length) await prisma.impersonationSession.createMany({ data: p.impersonations });
-  if (p.flags.length) await prisma.featureFlagOverride.createMany({ data: p.flags });
-  if (p.platformAudit.length) await prisma.platformAuditLog.createMany({ data: p.platformAudit });
-}
-
 async function main() {
-  if (process.env.NODE_ENV === 'production') throw new Error('Refusing to seed in production');
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL is not set (run pnpm setup:env)');
+  const url = seedDatabaseUrl();
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
-  const rng = createRng(2026);
   const t0 = Date.now();
-  // Data is generated on a clock rounded down to the hour (so runs within the same hour build identical
-  // data and counts) and every timestamp is then shifted by `delta` so "now" in the data is the real now.
-  const now = Math.floor(t0 / 3_600_000) * 3_600_000;
-  const delta = t0 - now;
+  const email = (process.env.SEED_SUPER_ADMIN_EMAIL || SUPER_ADMIN_FIXTURE.email).toLowerCase();
+  const password = process.env.SEED_SUPER_ADMIN_PASSWORD || SEED_WORKSPACE.devPassword;
+  if (password.length < 10) throw new Error('SEED_SUPER_ADMIN_PASSWORD must be at least 10 characters');
 
   try {
-    await wipe(prisma);
-    for (const p of PLAN_CATALOGUE) {
-      const data = { name: p.name, priceInrMonthly: p.monthly, priceInrYearly: p.monthly * 10, limits: p.limits, features: p.features, trialDays: p.trialDays };
-      await prisma.planDefinition.upsert({ where: { key: p.key }, create: { key: p.key, ...data }, update: data });
+    await upsertPlans(prisma);
+
+    const existing = await prisma.platformAdmin.findUnique({ where: { email }, select: { id: true } });
+    let adminLine: string;
+    if (existing) {
+      // Keep the password and 2FA; make sure the owner still has every platform permission.
+      await prisma.platformAdmin.update({ where: { id: existing.id }, data: { permissions: [...PLATFORM_PERMISSIONS], isActive: true } });
+      adminLine = `  Super Admin   ${email} (existing account kept: password and 2FA unchanged)`;
+    } else {
+      await prisma.platformAdmin.create({ data: { email, name: SUPER_ADMIN_FIXTURE.name, passwordHash: await argon2.hash(password), permissions: [...PLATFORM_PERMISSIONS] } });
+      adminLine = `  Super Admin   ${email}  -> /super-admin (enrol 2FA on first login)${process.env.SEED_SUPER_ADMIN_PASSWORD ? '' : ` password "${password}" (dev default)`}`;
     }
 
-    const passwordHash = await argon2.hash(SEED_WORKSPACE.devPassword);
-    // Super Admin: 2FA is mandatory and enrolled on first login (no secret is generated or printed here).
-    const superAdmin = await prisma.platformAdmin.create({
-      data: { email: SUPER_ADMIN_FIXTURE.email, name: SUPER_ADMIN_FIXTURE.name, passwordHash, permissions: [...PLATFORM_PERMISSIONS], createdAt: new Date(now - 130 * 86_400_000) },
-    });
-    const adminRef = { id: superAdmin.id, name: superAdmin.name };
-
-    const summary: string[] = [];
-    const companies: Array<{ id: string; label: string }> = [];
-    // Industry Packs: register packs/*/manifest.json, then install generic-sales (adopts the pipeline and templates seeded below).
-    await syncRegistry(prisma);
-    for (const fx of COMPANY_FIXTURES) {
-      const ctx = await createCompanyBase(prisma, fx, passwordHash, rng, now, delta);
-      const history = buildHistory(ctx);
-      const extras = buildExtras(ctx, history);
-      const platform = buildPlatform(ctx, adminRef);
-      await insertCompany(prisma, ctx, history, extras, platform, delta);
-      const pack = await installPack(prisma, ctx.workspaceId, GENERIC_SALES_PACK_KEY, { action: 'sync', actor: SYSTEM_PACK_ACTOR });
-      companies.push({ id: ctx.workspaceId, label: fx.slug });
-      summary.push(`  ${fx.name} (${fx.plan}): ${fx.employees.length} users, ${ctx.drafts.length} leads, ${history.calls.length} calls, ${history.conversations.length} conversations, ${history.runs.length} workflow runs, ${GENERIC_SALES_PACK_KEY} ${pack.status}`);
-    }
-    const globalRows = buildPlatformGlobal(adminRef, now);
-    shiftDates(globalRows, delta);
-    await prisma.platformAuditLog.createMany({ data: globalRows });
+    const registry = await syncRegistry(prisma);
+    const [companies, users] = await Promise.all([prisma.workspace.count({ where: { deletedAt: null } }), prisma.user.count()]);
     const seconds = ((Date.now() - t0) / 1000).toFixed(1);
 
-    const counts = await countRows(prisma, companies);
-    const platformCounts: Array<[string, number]> = [
-      ['PlatformAdmin', await prisma.platformAdmin.count({ where: { email: SUPER_ADMIN_FIXTURE.email } })],
-      ['PlatformAuditLog', await prisma.platformAuditLog.count({ where: { adminId: superAdmin.id } })],
-      ['PlanDefinition', await prisma.planDefinition.count()],
-    ];
-    console.info(`Seeded in ${seconds}s\n${summary.join('\n')}\n`);
-    console.info(formatTable(counts, companies, platformCounts));
-    console.info(`\nDev logins (password "${SEED_WORKSPACE.devPassword}"):`);
-    console.info(`  Super Admin   ${SUPER_ADMIN_FIXTURE.email}  -> /super-admin (enrol 2FA on first login)`);
-    for (const fx of COMPANY_FIXTURES) {
-      const byRole = (r: string) => fx.employees.find((e) => e.role === r)?.email;
-      console.info(`  ${fx.name.padEnd(20)} admin ${byRole('company_admin')}, manager ${byRole('manager')}, employee ${byRole('employee')}`);
-    }
+    console.info(`Seeded (clean) in ${seconds}s`);
+    console.info(`  Plans         ${PLAN_CATALOGUE.map((p) => p.key).join(', ')}`);
+    console.info(adminLine);
+    console.info(`  Pack registry ${registry.packs.map((p) => `${p.key}@${p.version}`).join(', ') || '(none)'}`);
+    console.info(`  Companies     ${companies} (${users} users)${companies ? ' already in this database; the clean seed never deletes data' : ': create them in the Super Admin panel or by sign-up'}`);
+    console.info('  Demo data     pnpm db:seed:demo (worktree databases, smoke, e2e)');
   } finally {
     await prisma.$disconnect();
   }

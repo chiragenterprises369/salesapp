@@ -56,7 +56,7 @@ foreach ($s in $Streams) {
     npx prisma generate 2>&1 | Out-Null
     npx prisma migrate deploy 2>&1 | Select-String -Pattern 'applied|No pending|Error' | ForEach-Object { "  migrate: $($_.Line.Trim())" }
     Pop-Location
-    if ($fresh) { pnpm --filter @vistar/api seed 2>&1 | Select-String -Pattern '^Seeded|Error' | ForEach-Object { "  seed: $($_.Line.Trim())" } }
+    if ($fresh) { pnpm --filter @vistar/api seed:demo 2>&1 | Select-String -Pattern '^Seeded|Error' | ForEach-Object { "  seed: $($_.Line.Trim())" } }
   }
   Pop-Location
   Write-Output "ready: $s -> $wt (db $($cfg.DB))"

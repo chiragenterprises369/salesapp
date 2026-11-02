@@ -14,7 +14,7 @@ import type { PrismaClient } from '../../generated/prisma/client.js';
  * - `workspaceId` can never be changed by an update (it is stripped from update data).
  * - Workspace: reads/updates are pinned to the caller's workspace; create/delete are rejected.
  * - Platform tables (PlatformAdmin, PlatformSession, PlatformAuditLog, PlanDefinition, PackDefinition,
- *   PackVersion, PackPlanEntitlement) throw.
+ *   PackVersion, PackPlanEntitlement, PlatformFile, PlatformSetting, AndroidRelease) throw.
  */
 const WHERE_OPS = new Set([
   'findUnique',
@@ -33,7 +33,18 @@ const WHERE_OPS = new Set([
 ]);
 const UPDATE_OPS = new Set(['update', 'updateMany', 'updateManyAndReturn']);
 const WORKSPACE_ALLOWED_OPS = new Set(['findUnique', 'findUniqueOrThrow', 'findFirst', 'findFirstOrThrow', 'findMany', 'count', 'update']);
-const PLATFORM_MODELS = new Set(['PlatformAdmin', 'PlatformSession', 'PlatformAuditLog', 'PlanDefinition', 'PackDefinition', 'PackVersion', 'PackPlanEntitlement']);
+const PLATFORM_MODELS = new Set([
+  'PlatformAdmin',
+  'PlatformSession',
+  'PlatformAuditLog',
+  'PlanDefinition',
+  'PackDefinition',
+  'PackVersion',
+  'PackPlanEntitlement',
+  'PlatformFile',
+  'PlatformSetting',
+  'AndroidRelease',
+]);
 
 type AnyArgs = Record<string, unknown> & {
   where?: Record<string, unknown>;
@@ -97,7 +108,7 @@ type CountDelegate = { count: (args: { where: Record<string, unknown> }) => Prom
  */
 export async function assertInTenant(
   db: TenantPrisma,
-  refs: Partial<Record<'user' | 'role' | 'team' | 'stage' | 'pipeline' | 'lead' | 'contact' | 'company' | 'workflow' | 'template' | 'webhookEndpoint' | 'customObject' | 'customRecord', string | null | undefined>>,
+  refs: Partial<Record<'user' | 'role' | 'team' | 'stage' | 'pipeline' | 'lead' | 'contact' | 'company' | 'workflow' | 'template' | 'webhookEndpoint' | 'customObject' | 'customRecord' | 'file' | 'floorRequest' | 'device', string | null | undefined>>,
 ): Promise<void> {
   const delegates = db as unknown as Record<string, CountDelegate>;
   await Promise.all(
