@@ -10,7 +10,9 @@ import { mockCrmSource } from './mock-source';
  * The HTTP source is the default; the in-memory mock source is only for the test-only mock data mode.
  */
 type Res<K extends ApiRouteId> = Promise<RouteResponse<K>>;
-type Q<K extends ApiRouteId> = Partial<NonNullable<RouteQuery<K>>>;
+/** Query values as callers hold them (booleans and numbers are serialised), like the HTTP client's LooseQuery. */
+type Loose<T> = { [P in keyof T]?: T[P] | string | number | boolean | readonly string[] | null };
+type Q<K extends ApiRouteId> = Loose<NonNullable<RouteQuery<K>>>;
 type B<K extends ApiRouteId> = RouteBody<K>;
 export interface PdfFile {
   blob: Blob;
