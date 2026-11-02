@@ -3,7 +3,7 @@
 import { useSpringValue } from '@react-spring/web';
 import { formatInr, type LeadListItem, type Stage } from '@vistar/shared';
 import { CalendarClock, Check, UserRound } from 'lucide-react';
-import { memo, useCallback, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { LeadQuickActions, useLeadActions } from '@/components/leads-shared/lead-actions';
 import { Avatar } from '@/components/ui/avatar';
 import { Chip } from '@/components/ui/chip';
@@ -106,7 +106,7 @@ export function LeadCardBody({ lead, compact, now, selectMode = false, selected 
           </span>
         )}
         <span aria-hidden title={temperature} className={cn('mt-1.5 size-2 shrink-0 rounded-full', TEMPERATURE_DOT[lead.temperature])} />
-        <span id={nameId} className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
+        <span id={nameId} data-lead-name="" className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
           {lead.name}
         </span>
         <span className="shrink-0 text-sm font-semibold text-fg tabular">{formatInr(lead.valueInr, { compact: true })}</span>
@@ -221,8 +221,6 @@ export const BoardCard = memo(function BoardCard({
   const liRef = useRef<HTMLLIElement | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLSpanElement>(null);
-  const nameId = useId();
-  const detailsId = useId();
 
   const setLi = useCallback(
     (el: HTMLLIElement | null) => {
@@ -310,8 +308,9 @@ export const BoardCard = memo(function BoardCard({
             tabIndex={0}
             aria-checked={selectMode ? selected : undefined}
             aria-roledescription={canDrag ? 'draggable card' : undefined}
-            aria-labelledby={nameId}
-            aria-describedby={instructionsId ? `${detailsId} ${instructionsId}` : detailsId}
+            // Name from content (name, value, company, owner, follow-up): it then always contains
+            // the visible text (WCAG 2.5.3 Label in Name), and nothing is read twice.
+            aria-describedby={instructionsId}
             data-placeholder={isPlaceholder ? placeholder : undefined}
             onPointerDown={canDrag ? onPointerDown : undefined}
             onPointerMove={trackSheen}
@@ -337,8 +336,6 @@ export const BoardCard = memo(function BoardCard({
               selectMode={selectMode}
               selected={selected}
               reserveActions={compact && !selectMode ? actionCount : 0}
-              nameId={nameId}
-              detailsId={detailsId}
             />
           </div>
           <span ref={ringRef} aria-hidden className="vb-ring" />
