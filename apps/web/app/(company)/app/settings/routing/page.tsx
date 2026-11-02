@@ -1,12 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { SettingsPage } from '@/components/settings/settings-layout';
-import { RoutingSettings } from '@/components/settings/settings-placeholders';
-
-export default function RoutingSettingsPage() {
-  return (
-    <SettingsPage id="settings-routing" description="Who gets each new lead, and when.">
-      <RoutingSettings />
-    </SettingsPage>
-  );
+/** Lead routing moved to /app/settings/lead-routing (change #19 wave B). */
+export default function RoutingSettingsRedirect() {
+  redirect('/app/settings/lead-routing');
 }
