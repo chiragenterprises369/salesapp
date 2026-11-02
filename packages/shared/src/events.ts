@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ComponentStyleSchema, EmployeeStatusSchema, MessageStatusSchema, PresenceSourceSchema, PresenceStatusSchema, WorkflowRunStatusSchema } from './enums.js';
+import { ComponentStyleSchema, EmployeeStatusSchema, MessageStatusSchema, PresenceSourceSchema, PresenceStatusSchema, WorkflowRunStatusSchema, ZoneSignalSourceSchema } from './enums.js';
 import { ThemeModeSchema } from './theme.js';
 import { CustomRecordSchema } from './customization/objects.js';
 import { ActivitySchema } from './schemas/activity.js';
@@ -98,10 +98,24 @@ export const eventPayloadSchemas = {
     at: IsoDateTimeSchema,
     /** Detailed live status (D-062). Always set by the presence engine; optional only for older simulators. */
     presence: PresenceStatusSchema.optional(),
+    /** Per-user monotonic change counter (Presence.version); drop events at or below the version you hold. */
+    version: z.number().int().min(0).optional(),
+    /** When the current status started. */
+    since: IsoDateTimeSchema.optional(),
     previousPresence: PresenceStatusSchema.nullable().optional(),
     source: PresenceSourceSchema.optional(),
     lastSeenAt: IsoDateTimeSchema.nullable().optional(),
     activity: PresenceActivitySchema.optional(),
+  }),
+
+  /** Room / zone change inside the office (BLE, Wi-Fi, QR/NFC marker or manual); zoneId null = left the known zones. */
+  'employee.zone_changed': z.object({
+    userId: IdSchema,
+    zoneId: z.string().nullable(),
+    previousZoneId: z.string().nullable(),
+    source: ZoneSignalSourceSchema,
+    confidence: z.number().min(0).max(1),
+    at: IsoDateTimeSchema,
   }),
 
   // attendance & field tracking (D-063); fan-out: the user, admins, and managers of the user's team
@@ -248,6 +262,7 @@ export const HeartbeatSchema = z.object({
   activity: z.enum(['active', 'idle', 'hidden']),
   currentLeadId: IdSchema.nullable().optional(),
   client: z.enum(['web', 'android']).optional(),
+  deviceId: z.string().max(64).optional(),
 });
 export type Heartbeat = z.infer<typeof HeartbeatSchema>;
 /** Heartbeat every 15 s (socket or POST /me/presence/heartbeat). */

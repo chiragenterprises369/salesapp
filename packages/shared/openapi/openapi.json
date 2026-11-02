@@ -6936,6 +6936,10 @@
               "offline"
             ]
           },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          },
           "employeeStatus": {
             "type": "string",
             "enum": [
@@ -7053,6 +7057,29 @@
                   "string",
                   "null"
                 ]
+              },
+              "screen": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "home",
+                  "leads",
+                  "lead_detail",
+                  "board",
+                  "calls",
+                  "call",
+                  "inbox",
+                  "conversation",
+                  "tasks",
+                  "team_floor",
+                  "attendance",
+                  "reports",
+                  "settings",
+                  "other",
+                  null
+                ]
               }
             },
             "required": [
@@ -7064,11 +7091,64 @@
               "clientActivity",
               "note"
             ]
+          },
+          "location": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "zoneId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "zoneName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "ble",
+                  "wifi",
+                  "qr",
+                  "nfc",
+                  "manual"
+                ]
+              },
+              "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "since": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Last signal"
+              }
+            },
+            "required": [
+              "zoneId",
+              "zoneName",
+              "source",
+              "confidence",
+              "since",
+              "at"
+            ]
           }
         },
         "required": [
           "userId",
           "status",
+          "version",
           "employeeStatus",
           "source",
           "since",
@@ -11256,6 +11336,10 @@
                         "offline"
                       ]
                     },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
                     "employeeStatus": {
                       "type": "string",
                       "enum": [
@@ -11373,6 +11457,29 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "screen": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "home",
+                            "leads",
+                            "lead_detail",
+                            "board",
+                            "calls",
+                            "call",
+                            "inbox",
+                            "conversation",
+                            "tasks",
+                            "team_floor",
+                            "attendance",
+                            "reports",
+                            "settings",
+                            "other",
+                            null
+                          ]
                         }
                       },
                       "required": [
@@ -11383,6 +11490,58 @@
                         "client",
                         "clientActivity",
                         "note"
+                      ]
+                    },
+                    "location": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "zoneId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "zoneName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "ble",
+                            "wifi",
+                            "qr",
+                            "nfc",
+                            "manual"
+                          ]
+                        },
+                        "confidence": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "since": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last signal"
+                        }
+                      },
+                      "required": [
+                        "zoneId",
+                        "zoneName",
+                        "source",
+                        "confidence",
+                        "since",
+                        "at"
                       ]
                     },
                     "heartbeatIntervalSec": {
@@ -11398,6 +11557,7 @@
                   "required": [
                     "userId",
                     "status",
+                    "version",
                     "employeeStatus",
                     "source",
                     "since",
@@ -26383,6 +26543,10 @@
                                   "offline"
                                 ]
                               },
+                              "version": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
                               "employeeStatus": {
                                 "type": "string",
                                 "enum": [
@@ -26500,6 +26664,29 @@
                                       "string",
                                       "null"
                                     ]
+                                  },
+                                  "screen": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "enum": [
+                                      "home",
+                                      "leads",
+                                      "lead_detail",
+                                      "board",
+                                      "calls",
+                                      "call",
+                                      "inbox",
+                                      "conversation",
+                                      "tasks",
+                                      "team_floor",
+                                      "attendance",
+                                      "reports",
+                                      "settings",
+                                      "other",
+                                      null
+                                    ]
                                   }
                                 },
                                 "required": [
@@ -26510,6 +26697,58 @@
                                   "client",
                                   "clientActivity",
                                   "note"
+                                ]
+                              },
+                              "location": {
+                                "type": [
+                                  "object",
+                                  "null"
+                                ],
+                                "properties": {
+                                  "zoneId": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "zoneName": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "source": {
+                                    "type": "string",
+                                    "enum": [
+                                      "ble",
+                                      "wifi",
+                                      "qr",
+                                      "nfc",
+                                      "manual"
+                                    ]
+                                  },
+                                  "confidence": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                  },
+                                  "since": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "at": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "description": "Last signal"
+                                  }
+                                },
+                                "required": [
+                                  "zoneId",
+                                  "zoneName",
+                                  "source",
+                                  "confidence",
+                                  "since",
+                                  "at"
                                 ]
                               },
                               "seatId": {
@@ -26527,6 +26766,7 @@
                             },
                             "required": [
                               "status",
+                              "version",
                               "employeeStatus",
                               "source",
                               "since",
@@ -41760,6 +42000,10 @@
                         "offline"
                       ]
                     },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
                     "employeeStatus": {
                       "type": "string",
                       "enum": [
@@ -41877,6 +42121,29 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "screen": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "home",
+                            "leads",
+                            "lead_detail",
+                            "board",
+                            "calls",
+                            "call",
+                            "inbox",
+                            "conversation",
+                            "tasks",
+                            "team_floor",
+                            "attendance",
+                            "reports",
+                            "settings",
+                            "other",
+                            null
+                          ]
                         }
                       },
                       "required": [
@@ -41887,6 +42154,58 @@
                         "client",
                         "clientActivity",
                         "note"
+                      ]
+                    },
+                    "location": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "zoneId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "zoneName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "ble",
+                            "wifi",
+                            "qr",
+                            "nfc",
+                            "manual"
+                          ]
+                        },
+                        "confidence": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "since": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last signal"
+                        }
+                      },
+                      "required": [
+                        "zoneId",
+                        "zoneName",
+                        "source",
+                        "confidence",
+                        "since",
+                        "at"
                       ]
                     },
                     "heartbeatIntervalSec": {
@@ -41902,6 +42221,7 @@
                   "required": [
                     "userId",
                     "status",
+                    "version",
                     "employeeStatus",
                     "source",
                     "since",
@@ -41988,6 +42308,117 @@
                       "foreground",
                       "background"
                     ]
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "screen": {
+                    "type": "string",
+                    "enum": [
+                      "home",
+                      "leads",
+                      "lead_detail",
+                      "board",
+                      "calls",
+                      "call",
+                      "inbox",
+                      "conversation",
+                      "tasks",
+                      "team_floor",
+                      "attendance",
+                      "reports",
+                      "settings",
+                      "other"
+                    ]
+                  },
+                  "zone": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "ble",
+                          "wifi",
+                          "qr",
+                          "nfc",
+                          "manual"
+                        ]
+                      },
+                      "at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "beacons": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "uuid": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "major": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 65535
+                            },
+                            "minor": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 65535
+                            },
+                            "rssi": {
+                              "type": "integer",
+                              "minimum": -127,
+                              "maximum": 0
+                            }
+                          },
+                          "required": [
+                            "uuid",
+                            "major",
+                            "minor",
+                            "rssi"
+                          ]
+                        },
+                        "maxItems": 30
+                      },
+                      "wifi": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "bssid": {
+                              "type": "string",
+                              "pattern": "^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$"
+                            },
+                            "rssi": {
+                              "type": "integer",
+                              "minimum": -127,
+                              "maximum": 0
+                            }
+                          },
+                          "required": [
+                            "bssid",
+                            "rssi"
+                          ]
+                        },
+                        "maxItems": 40
+                      },
+                      "markerToken": {
+                        "type": "string",
+                        "minLength": 16,
+                        "maxLength": 300
+                      },
+                      "zoneId": {
+                        "type": "string",
+                        "maxLength": 40
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "at"
+                    ]
                   }
                 },
                 "required": [
@@ -42022,6 +42453,10 @@
                         "away",
                         "offline"
                       ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 0
                     },
                     "employeeStatus": {
                       "type": "string",
@@ -42140,6 +42575,29 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "screen": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "home",
+                            "leads",
+                            "lead_detail",
+                            "board",
+                            "calls",
+                            "call",
+                            "inbox",
+                            "conversation",
+                            "tasks",
+                            "team_floor",
+                            "attendance",
+                            "reports",
+                            "settings",
+                            "other",
+                            null
+                          ]
                         }
                       },
                       "required": [
@@ -42150,6 +42608,58 @@
                         "client",
                         "clientActivity",
                         "note"
+                      ]
+                    },
+                    "location": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "zoneId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "zoneName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "ble",
+                            "wifi",
+                            "qr",
+                            "nfc",
+                            "manual"
+                          ]
+                        },
+                        "confidence": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "since": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last signal"
+                        }
+                      },
+                      "required": [
+                        "zoneId",
+                        "zoneName",
+                        "source",
+                        "confidence",
+                        "since",
+                        "at"
                       ]
                     },
                     "heartbeatIntervalSec": {
@@ -42165,6 +42675,7 @@
                   "required": [
                     "userId",
                     "status",
+                    "version",
                     "employeeStatus",
                     "source",
                     "since",
@@ -42175,6 +42686,767 @@
                     "heartbeatIntervalSec",
                     "timeoutSec",
                     "insideWorkingHours"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/presence/zone": {
+      "post": {
+        "operationId": "myZoneSignal",
+        "summary": "Where I am in the office: BLE beacons / Wi-Fi seen, a scanned QR or NFC marker, or a manual zone (Android app); emits employee.zone_changed",
+        "description": "Owner: realtime-integrations. Phase 19.",
+        "tags": [
+          "presence"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "ble",
+                      "wifi",
+                      "qr",
+                      "nfc",
+                      "manual"
+                    ]
+                  },
+                  "at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "beacons": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "uuid": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "major": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "minor": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "rssi": {
+                          "type": "integer",
+                          "minimum": -127,
+                          "maximum": 0
+                        }
+                      },
+                      "required": [
+                        "uuid",
+                        "major",
+                        "minor",
+                        "rssi"
+                      ]
+                    },
+                    "maxItems": 30
+                  },
+                  "wifi": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "bssid": {
+                          "type": "string",
+                          "pattern": "^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$"
+                        },
+                        "rssi": {
+                          "type": "integer",
+                          "minimum": -127,
+                          "maximum": 0
+                        }
+                      },
+                      "required": [
+                        "bssid",
+                        "rssi"
+                      ]
+                    },
+                    "maxItems": 40
+                  },
+                  "markerToken": {
+                    "type": "string",
+                    "minLength": 16,
+                    "maxLength": 300
+                  },
+                  "zoneId": {
+                    "type": "string",
+                    "maxLength": 40
+                  }
+                },
+                "required": [
+                  "source",
+                  "at"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "available",
+                        "on_call",
+                        "in_meeting",
+                        "on_break",
+                        "lunch",
+                        "field_visit",
+                        "away",
+                        "offline"
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "employeeStatus": {
+                      "type": "string",
+                      "enum": [
+                        "on_call",
+                        "busy",
+                        "idle",
+                        "away",
+                        "offline"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "session",
+                        "heartbeat",
+                        "manual",
+                        "phone_state",
+                        "call_log",
+                        "telephony",
+                        "attendance",
+                        "working_hours",
+                        "timeout",
+                        "system"
+                      ]
+                    },
+                    "since": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "manualStatus": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "available",
+                        "in_meeting",
+                        "on_break",
+                        "lunch",
+                        "field_visit",
+                        "away",
+                        "offline",
+                        null
+                      ]
+                    },
+                    "lastHeartbeatAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "lastSeenAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "activity": {
+                      "type": "object",
+                      "properties": {
+                        "callId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "callStartedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "date-time"
+                        },
+                        "leadId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        },
+                        "leadName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "client": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "web",
+                            "android",
+                            null
+                          ]
+                        },
+                        "clientActivity": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "active",
+                            "idle",
+                            "hidden",
+                            null
+                          ]
+                        },
+                        "note": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "screen": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "enum": [
+                            "home",
+                            "leads",
+                            "lead_detail",
+                            "board",
+                            "calls",
+                            "call",
+                            "inbox",
+                            "conversation",
+                            "tasks",
+                            "team_floor",
+                            "attendance",
+                            "reports",
+                            "settings",
+                            "other",
+                            null
+                          ]
+                        }
+                      },
+                      "required": [
+                        "callId",
+                        "callStartedAt",
+                        "leadId",
+                        "leadName",
+                        "client",
+                        "clientActivity",
+                        "note"
+                      ]
+                    },
+                    "location": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "zoneId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "zoneName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "ble",
+                            "wifi",
+                            "qr",
+                            "nfc",
+                            "manual"
+                          ]
+                        },
+                        "confidence": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        "since": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "Last signal"
+                        }
+                      },
+                      "required": [
+                        "zoneId",
+                        "zoneName",
+                        "source",
+                        "confidence",
+                        "since",
+                        "at"
+                      ]
+                    },
+                    "heartbeatIntervalSec": {
+                      "type": "integer"
+                    },
+                    "timeoutSec": {
+                      "type": "integer"
+                    },
+                    "insideWorkingHours": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "status",
+                    "version",
+                    "employeeStatus",
+                    "source",
+                    "since",
+                    "manualStatus",
+                    "lastHeartbeatAt",
+                    "lastSeenAt",
+                    "activity",
+                    "heartbeatIntervalSec",
+                    "timeoutSec",
+                    "insideWorkingHours"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/team-floor/markers": {
+      "get": {
+        "operationId": "officeMarkerList",
+        "summary": "Beacons, access points, QR codes and NFC tags that mark office zones",
+        "description": "Requires permission `settings.manage`. Owner: realtime-integrations. Phase 19.",
+        "tags": [
+          "team-floor"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "ble_beacon",
+                              "wifi_ap",
+                              "qr",
+                              "nfc"
+                            ]
+                          },
+                          "zoneId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "beacon": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "properties": {
+                              "uuid": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "major": {
+                                "type": "integer"
+                              },
+                              "minor": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "uuid",
+                              "major",
+                              "minor"
+                            ]
+                          },
+                          "bssid": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "token": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "zoneId",
+                          "label",
+                          "beacon",
+                          "bssid",
+                          "createdAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "officeMarkerCreate",
+        "summary": "Register a zone marker (QR/NFC token returned once); audited",
+        "description": "Requires permission `settings.manage`. Owner: realtime-integrations. Phase 19.",
+        "tags": [
+          "team-floor"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "ble_beacon",
+                      "wifi_ap",
+                      "qr",
+                      "nfc"
+                    ]
+                  },
+                  "zoneId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,40}$",
+                    "description": "Zone id of the published seat map"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  "beacon": {
+                    "type": "object",
+                    "properties": {
+                      "uuid": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "major": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      "minor": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      }
+                    },
+                    "required": [
+                      "uuid",
+                      "major",
+                      "minor"
+                    ]
+                  },
+                  "bssid": {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "zoneId",
+                  "label"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "ble_beacon",
+                        "wifi_ap",
+                        "qr",
+                        "nfc"
+                      ]
+                    },
+                    "zoneId": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "beacon": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "uuid": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "major": {
+                          "type": "integer"
+                        },
+                        "minor": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "uuid",
+                        "major",
+                        "minor"
+                      ]
+                    },
+                    "bssid": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "zoneId",
+                    "label",
+                    "beacon",
+                    "bssid",
+                    "createdAt"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/team-floor/markers/{id}": {
+      "delete": {
+        "operationId": "officeMarkerDelete",
+        "summary": "Remove a zone marker; audited",
+        "description": "Requires permission `settings.manage`. Owner: realtime-integrations. Phase 19.",
+        "tags": [
+          "team-floor"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
                   ]
                 }
               }
@@ -42259,6 +43531,10 @@
                             "type": "string",
                             "format": "uuid"
                           },
+                          "version": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
                           "status": {
                             "type": "string",
                             "enum": [
@@ -42319,6 +43595,7 @@
                         "required": [
                           "id",
                           "userId",
+                          "version",
                           "status",
                           "previousStatus",
                           "source",

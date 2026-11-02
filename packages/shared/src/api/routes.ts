@@ -61,7 +61,15 @@ import {
   SuperFloorRequestListQuerySchema,
   TeamFloorLayoutSchema,
 } from '../schemas/floor.js';
-import { MyPresenceSchema, PresenceEventSchema, PresenceHeartbeatSchema, PresenceHistoryQuerySchema } from '../schemas/presence.js';
+import {
+  MyPresenceSchema,
+  OfficeMarkerCreateSchema,
+  OfficeMarkerSchema,
+  PresenceEventSchema,
+  PresenceHeartbeatSchema,
+  PresenceHistoryQuerySchema,
+  ZoneSignalSchema,
+} from '../schemas/presence.js';
 import { FileUploadFieldsSchema, FileUrlSchema, SignedFileTokenParamSchema, StoredFileSchema } from '../schemas/storage.js';
 import { ActivitySchema } from '../schemas/activity.js';
 import {
@@ -527,6 +535,10 @@ export const API_ROUTES = {
   // ---------------- presence (D-062; REALTIME) ----------------
   myPresenceGet: route({ method: 'get', path: '/me/presence', summary: 'My current server-decided status', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, response: MyPresenceSchema }),
   myPresenceHeartbeat: route({ method: 'post', path: '/me/presence/heartbeat', summary: 'Heartbeat from the web or the app (every HEARTBEAT_INTERVAL_MS; also accepted on the socket)', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: PresenceHeartbeatSchema, response: MyPresenceSchema }),
+  myZoneSignal: route({ method: 'post', path: '/me/presence/zone', summary: 'Where I am in the office: BLE beacons / Wi-Fi seen, a scanned QR or NFC marker, or a manual zone (Android app); emits employee.zone_changed', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: null, body: ZoneSignalSchema, response: MyPresenceSchema }),
+  officeMarkerList: route({ method: 'get', path: '/team-floor/markers', summary: 'Beacons, access points, QR codes and NFC tags that mark office zones', tag: 'team-floor', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'settings.manage', response: listOf(OfficeMarkerSchema) }),
+  officeMarkerCreate: route({ method: 'post', path: '/team-floor/markers', summary: 'Register a zone marker (QR/NFC token returned once); audited', tag: 'team-floor', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'settings.manage', body: OfficeMarkerCreateSchema, response: OfficeMarkerSchema, status: 201 }),
+  officeMarkerDelete: route({ method: 'delete', path: '/team-floor/markers/{id}', summary: 'Remove a zone marker; audited', tag: 'team-floor', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'settings.manage', params: IdParamSchema, response: OkResponseSchema }),
   presenceHistory: route({ method: 'get', path: '/users/{id}/presence-history', summary: 'Status changes of one person for a day (scope applies)', tag: 'presence', owner: 'realtime-integrations', phase: 19, auth: 'jwt', permission: 'team.read', params: IdParamSchema, query: PresenceHistoryQuerySchema, response: listOf(PresenceEventSchema) }),
 
   // ---------------- SIM calls from the app (D-057; REALTIME) ----------------

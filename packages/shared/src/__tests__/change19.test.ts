@@ -168,7 +168,7 @@ describe('presence and calls (D-062, D-057)', () => {
   it('my presence shape', () => {
     const activity = { callId: null, callStartedAt: null, leadId: null, leadName: null, client: 'android', clientActivity: 'active', note: null };
     expect(
-      MyPresenceSchema.safeParse({ userId: UUID, status: 'available', employeeStatus: 'idle', source: 'heartbeat', since: NOW, manualStatus: null, lastHeartbeatAt: NOW, lastSeenAt: NOW, activity, heartbeatIntervalSec: 15, timeoutSec: 45, insideWorkingHours: true }).success,
+      MyPresenceSchema.safeParse({ userId: UUID, status: 'available', version: 4, employeeStatus: 'idle', source: 'heartbeat', since: NOW, manualStatus: null, lastHeartbeatAt: NOW, lastSeenAt: NOW, activity, heartbeatIntervalSec: 15, timeoutSec: 45, insideWorkingHours: true }).success,
     ).toBe(true);
     expect(eventPayloadSchemas['employee.status_changed'].safeParse({ userId: UUID, status: 'busy', previousStatus: 'idle', currentLeadId: null, callId: null, at: NOW, presence: 'in_meeting', source: 'manual' }).success).toBe(true);
   });
@@ -316,5 +316,28 @@ describe('AI-written floor plan (layout_json)', () => {
     expect(FloorPlanSchema.safeParse({ ...plan, seats: [{ ...plan.seats[0], roomId: 'nowhere' }] }).success).toBe(false);
     expect(FloorPlanSchema.safeParse({ ...plan, seats: [plan.seats[0], plan.seats[0]] }).success).toBe(false);
     expect(FloorPlanSchema.safeParse({ ...plan, kind: 'something-else' }).success).toBe(false);
+  });
+});
+
+describe('follow-ups: overnight hours, presence version, office zones', () => {
+  it('overnight slots run into the next day and belong to their start day', () => {
+    const night = { ...DEFAULT_BUSINESS_HOURS, mon: [{ start: '22:00', end: '06:00' }], tue: [] };
+    // Mon 23:00 IST = 17:30Z; Tue 05:00 IST = Mon 23:30Z; Tue 07:00 IST = Tue 01:30Z
+    expect(isWithinWorkingHours(night, 'Asia/Kolkata', new Date('2026-11-02T17:30:00Z'))).toBe(true);
+    expect(isWithinWorkingHours(night, 'Asia/Kolkata', new Date('2026-11-02T23:30:00Z'))).toBe(true);
+    expect(isWithinWorkingHours(night, 'Asia/Kolkata', new Date('2026-11-03T01:30:00Z'))).toBe(false);
+    // A holiday on Monday closes the night that starts on Monday
+    expect(isWithinWorkingHours(night, 'Asia/Kolkata', new Date('2026-11-02T23:30:00Z'), [{ date: '2026-11-02' }])).toBe(false);
+  });
+
+  it('zone signals, markers and the zone event', async () => {
+    const { ZoneSignalSchema, OfficeMarkerCreateSchema } = await import('../schemas/presence.js');
+    expect(ZoneSignalSchema.safeParse({ source: 'ble', at: NOW, beacons: [{ uuid: UUID, major: 1, minor: 7, rssi: -61 }] }).success).toBe(true);
+    expect(ZoneSignalSchema.safeParse({ source: 'wifi', at: NOW, wifi: [{ bssid: 'AA:BB:CC:DD:EE:FF', rssi: -50 }] }).success).toBe(true);
+    expect(ZoneSignalSchema.safeParse({ source: 'wifi', at: NOW, wifi: [{ bssid: 'nope', rssi: -50 }] }).success).toBe(false);
+    expect(OfficeMarkerCreateSchema.safeParse({ kind: 'ble_beacon', zoneId: 'cabin-1', label: 'Cabin beacon' }).success).toBe(false);
+    expect(OfficeMarkerCreateSchema.safeParse({ kind: 'qr', zoneId: 'cabin-1', label: 'Cabin door' }).success).toBe(true);
+    expect(eventPayloadSchemas['employee.zone_changed'].safeParse({ userId: UUID, zoneId: 'cabin-1', previousZoneId: null, source: 'qr', confidence: 1, at: NOW }).success).toBe(true);
+    expect(eventPayloadSchemas['employee.status_changed'].safeParse({ userId: UUID, status: 'idle', previousStatus: null, currentLeadId: null, callId: null, at: NOW, version: 3, since: NOW }).success).toBe(true);
   });
 });

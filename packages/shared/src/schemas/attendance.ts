@@ -185,15 +185,26 @@ export function localClock(at: Date, timezone: string): { date: string; weekday:
 
 const toMinutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
-/** Today's slots for `at` (empty on holidays and closed days). Slots must not cross midnight (end > start). */
+/** Today's slots for `at` (empty on holidays and closed days). A slot with end <= start runs past midnight. */
 export function workingSlotsAt(hours: BusinessHours, timezone: string, at: Date, holidays: ReadonlyArray<{ date: string }> = []) {
   const clock = localClock(at, timezone);
   const holiday = holidays.some((h) => h.date === clock.date);
   return { ...clock, holiday, slots: holiday ? [] : (hours[clock.weekday] ?? []) };
 }
 
-/** True when `at` falls inside a working slot (start inclusive, end exclusive) in the workspace timezone. */
+/**
+ * True when `at` falls inside a working slot (start inclusive, end exclusive) in the workspace timezone.
+ * Overnight slots (end <= start, e.g. 22:00-06:00) belong to the day they start on and continue into the
+ * next local day; a holiday closes the slots that START on it.
+ */
 export function isWithinWorkingHours(hours: BusinessHours, timezone: string, at: Date, holidays: ReadonlyArray<{ date: string }> = []): boolean {
-  const { slots, minutes } = workingSlotsAt(hours, timezone, at, holidays);
-  return slots.some((s) => minutes >= toMinutes(s.start) && minutes < toMinutes(s.end));
+  const today = workingSlotsAt(hours, timezone, at, holidays);
+  const inToday = today.slots.some((s) => {
+    const start = toMinutes(s.start);
+    const end = toMinutes(s.end);
+    return end > start ? today.minutes >= start && today.minutes < end : today.minutes >= start;
+  });
+  if (inToday) return true;
+  const yesterday = workingSlotsAt(hours, timezone, new Date(at.getTime() - 86_400_000), holidays);
+  return yesterday.slots.some((s) => toMinutes(s.end) <= toMinutes(s.start) && today.minutes < toMinutes(s.end));
 }

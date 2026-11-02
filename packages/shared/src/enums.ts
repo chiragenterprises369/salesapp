@@ -314,6 +314,24 @@ export const DEVICE_PLATFORMS = ['android', 'web'] as const;
 export const DevicePlatformSchema = z.enum(DEVICE_PLATFORMS);
 export type DevicePlatform = z.infer<typeof DevicePlatformSchema>;
 
+/**
+ * Where in the office someone is (room / zone level, D-062 extension): BLE beacons and Wi-Fi access points
+ * observed by the Android app, a QR or NFC marker scanned at a room door, or the employee's own pick.
+ * GPS is not used indoors (too coarse).
+ */
+export const ZONE_SIGNAL_SOURCES = ['ble', 'wifi', 'qr', 'nfc', 'manual'] as const;
+export const ZoneSignalSourceSchema = z.enum(ZONE_SIGNAL_SOURCES);
+export type ZoneSignalSource = z.infer<typeof ZoneSignalSourceSchema>;
+
+export const OFFICE_MARKER_KINDS = ['ble_beacon', 'wifi_ap', 'qr', 'nfc'] as const;
+export const OfficeMarkerKindSchema = z.enum(OFFICE_MARKER_KINDS);
+export type OfficeMarkerKind = z.infer<typeof OfficeMarkerKindSchema>;
+
+/** Screen the web or app user has open (client-reported with heartbeats; "what are they doing"). */
+export const APP_SCREENS = ['home', 'leads', 'lead_detail', 'board', 'calls', 'call', 'inbox', 'conversation', 'tasks', 'team_floor', 'attendance', 'reports', 'settings', 'other'] as const;
+export const AppScreenSchema = z.enum(APP_SCREENS);
+export type AppScreen = z.infer<typeof AppScreenSchema>;
+
 /** Targets (monthly). Prisma enum TargetMetric must match. */
 export const TARGET_METRICS = ['revenue_inr', 'deals_won', 'calls', 'leads_converted'] as const;
 export const TargetMetricSchema = z.enum(TARGET_METRICS);

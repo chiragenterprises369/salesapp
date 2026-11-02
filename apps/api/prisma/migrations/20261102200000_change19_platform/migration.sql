@@ -85,6 +85,7 @@ CREATE TABLE "Presence" (
     "workspaceId" UUID NOT NULL,
     "userId" UUID NOT NULL,
     "status" "PresenceStatus" NOT NULL DEFAULT 'offline',
+    "version" INTEGER NOT NULL DEFAULT 0,
     "source" "PresenceSource" NOT NULL DEFAULT 'system',
     "since" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "manualStatus" "PresenceStatus",
@@ -97,6 +98,12 @@ CREATE TABLE "Presence" (
     "callId" UUID,
     "callStartedAt" TIMESTAMP(3),
     "leadId" UUID,
+    "screen" TEXT,
+    "zoneId" TEXT,
+    "zoneSource" TEXT,
+    "zoneConfidence" DOUBLE PRECISION,
+    "zoneSince" TIMESTAMP(3),
+    "zoneAt" TIMESTAMP(3),
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Presence_pkey" PRIMARY KEY ("id")
@@ -109,6 +116,7 @@ CREATE TABLE "PresenceEvent" (
     "userId" UUID NOT NULL,
     "status" "PresenceStatus" NOT NULL,
     "previousStatus" "PresenceStatus",
+    "version" INTEGER NOT NULL,
     "source" "PresenceSource" NOT NULL,
     "callId" UUID,
     "meta" JSONB,
@@ -171,6 +179,24 @@ CREATE TABLE "TrackingConsent" (
     "at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "TrackingConsent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "OfficeMarker" (
+    "id" UUID NOT NULL,
+    "workspaceId" UUID NOT NULL,
+    "kind" TEXT NOT NULL,
+    "zoneId" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "beaconUuid" TEXT,
+    "beaconMajor" INTEGER,
+    "beaconMinor" INTEGER,
+    "bssid" TEXT,
+    "tokenHash" TEXT,
+    "createdById" UUID,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OfficeMarker_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -306,6 +332,9 @@ CREATE INDEX "PresenceEvent_workspaceId_userId_at_idx" ON "PresenceEvent"("works
 CREATE INDEX "PresenceEvent_workspaceId_at_idx" ON "PresenceEvent"("workspaceId", "at");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "PresenceEvent_workspaceId_userId_version_key" ON "PresenceEvent"("workspaceId", "userId", "version");
+
+-- CreateIndex
 CREATE INDEX "AttendanceSession_workspaceId_date_idx" ON "AttendanceSession"("workspaceId", "date");
 
 -- CreateIndex
@@ -319,6 +348,18 @@ CREATE UNIQUE INDEX "LocationPing_workspaceId_userId_at_key" ON "LocationPing"("
 
 -- CreateIndex
 CREATE INDEX "TrackingConsent_workspaceId_userId_at_idx" ON "TrackingConsent"("workspaceId", "userId", "at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OfficeMarker_tokenHash_key" ON "OfficeMarker"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "OfficeMarker_workspaceId_zoneId_idx" ON "OfficeMarker"("workspaceId", "zoneId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OfficeMarker_workspaceId_beaconUuid_beaconMajor_beaconMinor_key" ON "OfficeMarker"("workspaceId", "beaconUuid", "beaconMajor", "beaconMinor");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OfficeMarker_workspaceId_bssid_key" ON "OfficeMarker"("workspaceId", "bssid");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "CustomDomain_workspaceId_key" ON "CustomDomain"("workspaceId");
@@ -406,6 +447,9 @@ ALTER TABLE "TrackingConsent" ADD CONSTRAINT "TrackingConsent_workspaceId_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "TrackingConsent" ADD CONSTRAINT "TrackingConsent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "OfficeMarker" ADD CONSTRAINT "OfficeMarker_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CustomDomain" ADD CONSTRAINT "CustomDomain_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE CASCADE ON UPDATE CASCADE;

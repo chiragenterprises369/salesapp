@@ -481,6 +481,7 @@ model Workspace {
   attendanceSessions AttendanceSession[]
   locationPings     LocationPing[]
   trackingConsents  TrackingConsent[]
+  officeMarkers     OfficeMarker[]
   customDomain      CustomDomain?
   floorRequests     FloorRequest[]
   floorRequestImages FloorRequestImage[]
@@ -1736,6 +1737,8 @@ model Presence {
   workspaceId     String          @db.Uuid
   userId          String          @unique @db.Uuid
   status          PresenceStatus  @default(offline)
+  /// +1 per status change; events and history rows carry it (ordering across API instances)
+  version         Int             @default(0)
   source          PresenceSource  @default(system)
   since           DateTime        @default(now())
   /// The employee's own last choice (restored after a call); null = none
@@ -1750,6 +1753,14 @@ model Presence {
   callId          String?         @db.Uuid
   callStartedAt   DateTime?
   leadId          String?         @db.Uuid
+  /// Screen the client has open (AppScreen)
+  screen          String?
+  /// Office zone (seat-map zone id) from BLE / Wi-Fi / QR / NFC / manual signals
+  zoneId          String?
+  zoneSource      String?
+  zoneConfidence  Float?
+  zoneSince       DateTime?
+  zoneAt          DateTime?
   updatedAt       DateTime        @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -1765,6 +1776,8 @@ model PresenceEvent {
   userId         String          @db.Uuid
   status         PresenceStatus
   previousStatus PresenceStatus?
+  /// Presence.version after this change
+  version        Int
   source         PresenceSource
   callId         String?         @db.Uuid
   meta           Json?
@@ -1773,6 +1786,7 @@ model PresenceEvent {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([workspaceId, userId, version])
   @@index([workspaceId, userId, at])
   @@index([workspaceId, at])
 }
@@ -1846,6 +1860,31 @@ model TrackingConsent {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, userId, at])
+}
+
+/// Marks an office zone for indoor location: BLE beacon, Wi-Fi access point, QR code or NFC tag.
+model OfficeMarker {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  /// ble_beacon | wifi_ap | qr | nfc
+  kind        String
+  zoneId      String
+  label       String
+  beaconUuid  String?
+  beaconMajor Int?
+  beaconMinor Int?
+  /// lower-case aa:bb:cc:dd:ee:ff
+  bssid       String?
+  /// SHA-256 of the QR / NFC token
+  tokenHash   String?  @unique
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, beaconUuid, beaconMajor, beaconMinor])
+  @@unique([workspaceId, bssid])
+  @@index([workspaceId, zoneId])
 }
 
 // ---------------------------------------------------------------- change #19: custom domain, custom floors (tenant tables)
