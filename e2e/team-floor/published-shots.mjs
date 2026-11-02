@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global window -- used inside page callbacks that run in the browser */
 // Screenshots of a PUBLISHED custom floor (layout_json, module kit) in Day and Evening, 3D and flat.
 // API mode: signs in as the company admin through /login, so the floor comes from GET /team-floor/layout.
 // Usage: node e2e/team-floor/published-shots.mjs --base http://localhost:3005 [--email anil@shakti.example] [--out docs/screenshots/team-floor-custom]
@@ -63,7 +64,7 @@ for (const theme of ['light', 'dark']) {
     await page.screenshot({ path: join(out, `custom-${variant}-flat.png`), fullPage: true });
     const zones = await page.locator('[data-floor-map] [data-zone]').count();
     report.shots.push({ variant, renderer: info.renderer, office: info.office, people: info.people, lightMix: info.lightMix, zones, errors });
-    console.log(`${variant}: office=${info.office} people=${info.people} lightMix=${info.lightMix} zones=${zones} errors=${errors.length}`);
+    console.info(`${variant}: office=${info.office} people=${info.people} lightMix=${info.lightMix} zones=${zones} errors=${errors.length}`);
   } catch (e) {
     console.error(`${variant}: FAILED ${e.message}`);
     report.shots.push({ variant, failed: e.message, errors });
@@ -74,4 +75,4 @@ for (const theme of ['light', 'dark']) {
 }
 await browser.close();
 writeFileSync(join(out, 'shots.json'), JSON.stringify(report, null, 2));
-console.log(`wrote ${out}`);
+console.info(`wrote ${out}`);

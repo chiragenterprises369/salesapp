@@ -399,6 +399,7 @@ export function SeatToolCanvas({
                 className={tool === 'select' ? 'cursor-move' : undefined}
                 onPointerDown={(e) => {
                   if (tool !== 'select' || e.button !== 0) return;
+                  e.stopPropagation();
                   onSelect({ kind: 'zone', id: z.id });
                   if (!readOnly)
                     begin(e, {
@@ -437,6 +438,7 @@ export function SeatToolCanvas({
                     className="cursor-grab"
                     onPointerDown={(e) => {
                       if (e.button !== 0) return;
+                      e.stopPropagation();
                       onSelect({ kind: 'zone', id: z.id, vertex: i });
                       if (!readOnly)
                         begin(e, { kind: 'vertex', id: z.id, vertex: i, moved: false });
@@ -475,6 +477,7 @@ export function SeatToolCanvas({
                 className={tool === 'select' ? 'cursor-grab' : undefined}
                 onPointerDown={(e) => {
                   if (tool !== 'select' || e.button !== 0) return;
+                  e.stopPropagation();
                   onSelect({ kind: 'seat', id: s.id });
                   const [px, pz] = toFloor(e);
                   if (!readOnly)
