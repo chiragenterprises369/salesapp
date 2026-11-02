@@ -10,6 +10,7 @@
 @import 'tailwindcss';
 @import './tokens.css';
 @import './space.css';
+@import './scrollbar.css';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 @custom-variant reduced-motion (&:where([data-reduced-motion='on'], [data-reduced-motion='on'] *));

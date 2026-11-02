@@ -1,0 +1,157 @@
+/*
+  Themed scrollbars. OWNER: frontend-app. Replaces the browser's default scrollbar everywhere with a
+  slim rounded one drawn from the theme tokens, so it follows Light / Dark and the interface style:
+  - Classic: plain slate thumb, no rail.
+  - Depth: faint rail, thumb tinted toward the accent.
+  - Neon Space (dark): cyan to indigo gradient thumb on a faint cyan rail.
+  - Aurora (Neon Space in light): pastel indigo to sky gradient, no glow.
+  Idle thumbs are quiet; they get stronger while the pointer is inside the scroll area, stronger again
+  on the thumb itself (which also widens from 6 to 8 px), and take the accent while dragged.
+
+  Engines:
+  - Chromium, Edge, Safari: ::-webkit-scrollbar (thumb inside a transparent gutter, no arrow buttons).
+  - Firefox: scrollbar-width: thin + scrollbar-color (solid colours only). Applied only where
+    ::-webkit-scrollbar is unsupported, because Chromium ignores ::-webkit-scrollbar once
+    scrollbar-color is set.
+  - Touch screens (coarse pointer) keep the native overlay scrollbars: they take no space and auto-hide.
+  - Forced colours (Windows High Contrast) keeps the system scrollbars.
+
+  Per-container tint: set --sb-track, --sb-thumb, --sb-thumb-near, --sb-thumb-hover, --sb-thumb-active
+  and, for Neon Space, --sb-neon-a/-b(-near/-hover) on the scroll container (see the Leads Board
+  columns in features/pipeline/skins/neon.css).
+*/
+
+:root {
+  --sb-size: 10px;
+  /* Transparent border around the thumb and rail: the visible thumb is 10 - 2 * 2 = 6 px. */
+  --sb-gap: 2px;
+  --sb-track: transparent;
+  --sb-thumb: color-mix(in oklab, var(--muted) 50%, transparent);
+  --sb-thumb-near: color-mix(in oklab, var(--muted) 72%, transparent);
+  --sb-thumb-hover: var(--muted-strong);
+  --sb-thumb-active: var(--accent);
+}
+
+/* Depth: a faint rail and an accent-tinted thumb (two-colour mixes under 100% stay translucent). */
+[data-interface-style='depth'] {
+  --sb-track: color-mix(in oklab, var(--fg) 5%, transparent);
+  --sb-thumb: color-mix(in oklab, var(--muted) 40%, var(--accent-text) 14%);
+  --sb-thumb-near: color-mix(in oklab, var(--muted) 52%, var(--accent-text) 24%);
+  --sb-thumb-hover: color-mix(in oklab, var(--muted-strong) 60%, var(--accent-text) 40%);
+}
+
+/* Neon Space (dark): cyan (--edge-glow) to indigo. Solid --sb-thumb* values are the Firefox fallback. */
+[data-interface-style='neon'][data-theme='dark'] {
+  --sb-track: color-mix(in oklab, var(--edge-glow) 7%, transparent);
+  --sb-thumb: color-mix(in oklab, var(--edge-glow) 50%, transparent);
+  --sb-thumb-near: color-mix(in oklab, var(--edge-glow) 72%, transparent);
+  --sb-thumb-hover: var(--edge-glow);
+  --sb-thumb-active: var(--edge-glow);
+  --sb-neon-a: color-mix(in oklab, var(--edge-glow) 52%, transparent);
+  --sb-neon-b: color-mix(in oklab, var(--accent-text) 58%, transparent);
+  --sb-neon-a-near: color-mix(in oklab, var(--edge-glow) 76%, transparent);
+  --sb-neon-b-near: color-mix(in oklab, var(--accent-text) 80%, transparent);
+  --sb-neon-a-hover: var(--edge-glow);
+  --sb-neon-b-hover: var(--accent-text);
+}
+
+/* Aurora (Neon Space in light): pastel indigo (--edge-glow) to sky (--chart-2), no glow. */
+[data-interface-style='neon']:not([data-theme='dark']) {
+  --sb-track: color-mix(in oklab, var(--edge-glow) 6%, transparent);
+  --sb-thumb: color-mix(in oklab, var(--edge-glow) 40%, transparent);
+  --sb-thumb-near: color-mix(in oklab, var(--edge-glow) 60%, transparent);
+  --sb-thumb-hover: color-mix(in oklab, var(--edge-glow) 85%, transparent);
+  --sb-thumb-active: var(--accent);
+  --sb-neon-a: color-mix(in oklab, var(--edge-glow) 38%, transparent);
+  --sb-neon-b: color-mix(in oklab, var(--chart-2) 38%, transparent);
+  --sb-neon-a-near: color-mix(in oklab, var(--edge-glow) 58%, transparent);
+  --sb-neon-b-near: color-mix(in oklab, var(--chart-2) 58%, transparent);
+  --sb-neon-a-hover: color-mix(in oklab, var(--edge-glow) 85%, transparent);
+  --sb-neon-b-hover: color-mix(in oklab, var(--chart-2) 85%, transparent);
+}
+
+@layer base {
+  @media (pointer: fine) and (forced-colors: none) {
+    @supports selector(::-webkit-scrollbar) {
+      ::-webkit-scrollbar {
+        width: var(--sb-size);
+        height: var(--sb-size);
+        background-color: transparent;
+      }
+      ::-webkit-scrollbar-button {
+        display: none;
+        width: 0;
+        height: 0;
+      }
+      ::-webkit-scrollbar-corner {
+        background-color: transparent;
+      }
+      ::-webkit-scrollbar-track {
+        background-color: var(--sb-track);
+        background-clip: padding-box;
+        border: var(--sb-gap) solid transparent;
+        border-radius: 9999px;
+      }
+      ::-webkit-scrollbar-thumb {
+        min-width: 32px;
+        min-height: 32px;
+        background-color: var(--sb-thumb);
+        background-clip: padding-box;
+        border: var(--sb-gap) solid transparent;
+        border-radius: 9999px;
+      }
+      /* Pointer anywhere inside the scroll area. */
+      :hover::-webkit-scrollbar-thumb {
+        background-color: var(--sb-thumb-near);
+      }
+      /* Pointer on the thumb: stronger and 2 px wider. */
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--sb-thumb-hover);
+        border-width: 1px;
+      }
+      ::-webkit-scrollbar-thumb:active {
+        background-color: var(--sb-thumb-active);
+        border-width: 1px;
+      }
+
+      /* Neon Space and Aurora: gradient thumbs along the scroll direction. */
+      [data-interface-style='neon'] ::-webkit-scrollbar-thumb:vertical,
+      [data-interface-style='neon']::-webkit-scrollbar-thumb:vertical {
+        background-color: transparent;
+        background-image: linear-gradient(180deg, var(--sb-neon-a), var(--sb-neon-b));
+      }
+      [data-interface-style='neon'] ::-webkit-scrollbar-thumb:horizontal,
+      [data-interface-style='neon']::-webkit-scrollbar-thumb:horizontal {
+        background-color: transparent;
+        background-image: linear-gradient(90deg, var(--sb-neon-a), var(--sb-neon-b));
+      }
+      [data-interface-style='neon'] :hover::-webkit-scrollbar-thumb:vertical {
+        background-image: linear-gradient(180deg, var(--sb-neon-a-near), var(--sb-neon-b-near));
+      }
+      [data-interface-style='neon'] :hover::-webkit-scrollbar-thumb:horizontal {
+        background-image: linear-gradient(90deg, var(--sb-neon-a-near), var(--sb-neon-b-near));
+      }
+      [data-interface-style='neon'] ::-webkit-scrollbar-thumb:vertical:hover,
+      [data-interface-style='neon'] ::-webkit-scrollbar-thumb:vertical:active {
+        background-image: linear-gradient(180deg, var(--sb-neon-a-hover), var(--sb-neon-b-hover));
+      }
+      [data-interface-style='neon'] ::-webkit-scrollbar-thumb:horizontal:hover,
+      [data-interface-style='neon'] ::-webkit-scrollbar-thumb:horizontal:active {
+        background-image: linear-gradient(90deg, var(--sb-neon-a-hover), var(--sb-neon-b-hover));
+      }
+    }
+  }
+
+  /* Firefox: thin bar with the solid colours (no gradients, no hover states on the thumb itself). */
+  @media (forced-colors: none) {
+    @supports not selector(::-webkit-scrollbar) {
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--sb-thumb) var(--sb-track);
+      }
+      *:hover {
+        scrollbar-color: var(--sb-thumb-near) var(--sb-track);
+      }
+    }
+  }
+}

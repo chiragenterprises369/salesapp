@@ -96,6 +96,32 @@
   padding-bottom: 18px;
 }
 
+/* Column scrollbars take the stage's neon edge colour (styles/scrollbar.css per-container variables). */
+[data-board-skin='neon'] .vb-list {
+  --sb-track: color-mix(in oklab, var(--vn-edge) 8%, transparent);
+  --sb-thumb: color-mix(in oklab, var(--vn-edge) 45%, transparent);
+  --sb-thumb-near: color-mix(in oklab, var(--vn-edge) 70%, transparent);
+  --sb-thumb-hover: var(--vn-edge);
+  --sb-thumb-active: var(--vn-edge);
+  --sb-neon-a: color-mix(in oklab, var(--vn-edge) 55%, transparent);
+  --sb-neon-b: color-mix(in oklab, var(--vn-edge) 35%, transparent);
+  --sb-neon-a-near: color-mix(in oklab, var(--vn-edge) 80%, transparent);
+  --sb-neon-b-near: color-mix(in oklab, var(--vn-edge) 55%, transparent);
+  --sb-neon-a-hover: var(--vn-edge);
+  --sb-neon-b-hover: color-mix(in oklab, var(--vn-edge) 75%, transparent);
+}
+[data-board-skin='neon'] .vb-list::-webkit-scrollbar-thumb:vertical {
+  background-color: transparent;
+  background-image: linear-gradient(180deg, var(--sb-neon-a), var(--sb-neon-b));
+}
+[data-board-skin='neon'] .vb-list:hover::-webkit-scrollbar-thumb:vertical {
+  background-image: linear-gradient(180deg, var(--sb-neon-a-near), var(--sb-neon-b-near));
+}
+[data-board-skin='neon'] .vb-list::-webkit-scrollbar-thumb:vertical:hover,
+[data-board-skin='neon'] .vb-list::-webkit-scrollbar-thumb:vertical:active {
+  background-image: linear-gradient(180deg, var(--sb-neon-a-hover), var(--sb-neon-b-hover));
+}
+
 .vn-backdrop {
   position: absolute;
   inset: 0;
