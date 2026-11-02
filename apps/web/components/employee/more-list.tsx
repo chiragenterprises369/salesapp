@@ -4,6 +4,7 @@ import { NAV_EMPLOYEE_MORE } from '@vistar/shared';
 import { Building2, ChevronRight, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, type ReactNode } from 'react';
+import { AndroidAppCard } from '@/components/common/android-app-card';
 import { PageHeader } from '@/components/common/page-header';
 import { NavIcon } from '@/components/shell/nav-icon';
 import { employeeMoreNav } from '@/components/shell/nav-utils';
@@ -66,6 +67,7 @@ export function MoreList() {
             ))}
           </ul>
         </Card>
+        <AndroidAppCard />
         <Card className="overflow-hidden">
           <ul className="divide-y divide-border">
             {me.role.kind === 'manager' && (

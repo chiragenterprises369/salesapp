@@ -3,7 +3,7 @@
 import { palettes, type ThemePalette } from '@vistar/shared';
 import { useMemo } from 'react';
 import { useDocumentTheme } from '@/lib/use-document-theme';
-import { resolveBrandColors } from './brand-css';
+import { resolveBrandTokens } from './brand-css';
 import { useBranding } from './workspace-branding';
 
 /**
@@ -14,7 +14,7 @@ export function useBrandPalette(): ThemePalette {
   const theme = useDocumentTheme();
   const branding = useBranding();
   return useMemo(() => {
-    const colors = resolveBrandColors(branding);
+    const colors = resolveBrandTokens(branding);
     return colors ? ({ ...palettes[theme], ...colors[theme] } as ThemePalette) : palettes[theme];
   }, [theme, branding]);
 }

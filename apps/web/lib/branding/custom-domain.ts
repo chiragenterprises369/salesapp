@@ -1,37 +1,38 @@
 'use client';
 
-import type { Workspace, WorkspaceUpdate } from '@vistar/shared';
-import { useCallback } from 'react';
+import { CUSTOM_DOMAIN_TXT_PREFIX, CUSTOM_DOMAIN_TXT_VALUE_PREFIX, type CustomDomain, type CustomDomainState, type Workspace, type WorkspaceUpdate } from '@vistar/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMe, useSessionActions } from '@/lib/session/session';
+import { api, apiMode } from './http';
 import { readCompanySwitches } from './platform-config';
-import type { CustomDomain } from './types';
-import { readCustomDomain } from './workspace-branding';
 
 /**
- * Custom domain for a company (SPEC 29.4, D-060): only when the Super Admin switched it on for the
- * company (feature `custom_domain`). The company adds a CNAME to Vistar and a TXT record that proves
- * ownership; Verify checks both; then the host resolves to the workspace (sign-in page branding).
+ * Custom domain for a company (SPEC 29.4, D-060), only when the Super Admin switched `custom_domain`
+ * on for it. The company adds a CNAME to Vistar and a TXT record proving ownership; Verify checks
+ * them; then the host resolves to the workspace (sign-in page branding).
  *
- * ADAPTER until contracts-19: state on the session's workspace (me.workspace.customDomain), the switch
- * from the mock platform store, and a local check that verifies `*.localhost` names (browsers send
- * them to 127.0.0.1 without DNS) and reports the TXT record as missing for real domains.
- * TODO(contracts-19): PUT/DELETE the domain and POST verify on the workspace domain routes.
+ * API: GET/PUT/DELETE /workspace/domain, POST /workspace/domain/verify (CustomDomainState).
+ * Mock layer: state on the mock workspace (`customDomain`), the switch from the mock platform store,
+ * and a local check that verifies `*.localhost` names (as the API does in development) and reports
+ * the TXT record as missing for real domains.
  */
 
-export const CNAME_TARGET = process.env.NEXT_PUBLIC_CNAME_TARGET || 'domains.vistar.app';
-const TXT_PREFIX = '_vistar-verify';
+export const CNAME_TARGET = process.env.NEXT_PUBLIC_CNAME_TARGET || 'localhost';
+const KEY = ['workspace', 'domain'] as const;
 
+type MockWorkspace = Workspace & { customDomain?: CustomDomain | null };
+
+/** Effective switch: the workspace flag (API) or the Super Admin switch in the mock store. */
 export function customDomainEnabled(ws: Workspace | null | undefined): boolean {
   if (!ws) return false;
-  const flag = (ws.features as Record<string, boolean | undefined>).custom_domain;
-  if (typeof flag === 'boolean') return flag;
+  if (apiMode()) return !!ws.features.custom_domain;
   if (typeof window === 'undefined') return false;
   return readCompanySwitches(ws.id).customDomain;
 }
 
 const LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
 
-/** Hostname rules: lower case labels, no IP addresses, a sub-domain (CNAME cannot sit on the apex) or `*.localhost`. */
+/** Hostname rules (the API validates with HostnameSchema too): labels, no IP or port, a sub-domain or `*.localhost`. */
 export function validateHostname(input: string): { hostname: string; error: string | null } {
   const hostname = input.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/\.$/, '');
   if (!hostname) return { hostname, error: 'Enter the address people will use, for example crm.yourcompany.com.' };
@@ -42,52 +43,81 @@ export function validateHostname(input: string): { hostname: string; error: stri
   const local = labels.at(-1) === 'localhost';
   if (local && labels.length < 2) return { hostname, error: 'Add a name before .localhost, for example shakti.localhost.' };
   if (!local && labels.length < 3) return { hostname, error: 'Use a sub-domain such as crm.yourcompany.com; the bare domain cannot point to Vistar with a CNAME.' };
-  if (!local && (hostname.endsWith('.vistar.app') || hostname === CNAME_TARGET)) return { hostname, error: 'This address belongs to Vistar. Use your own domain.' };
+  if (!local && hostname.endsWith('.vistar.app')) return { hostname, error: 'This address belongs to Vistar. Use your own domain.' };
   return { hostname, error: null };
 }
 
-function token(workspaceId: string, hostname: string): string {
-  // Deterministic in the adapter; the API issues a random token.
+function mockToken(workspaceId: string, hostname: string): string {
   let h = 2166136261;
   for (const ch of `${workspaceId}:${hostname}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
   return (h >>> 0).toString(16).padStart(8, '0') + workspaceId.replace(/-/g, '').slice(-12);
 }
 
-export function domainRecords(workspaceId: string, hostname: string): Pick<CustomDomain, 'cnameTarget' | 'txtName' | 'txtValue'> {
-  return { cnameTarget: CNAME_TARGET, txtName: `${TXT_PREFIX}.${hostname}`, txtValue: `vistar-verify=${token(workspaceId, hostname)}` };
+function mockDomain(ws: Workspace, hostname: string): CustomDomain {
+  return {
+    id: crypto.randomUUID(),
+    hostname,
+    status: 'pending',
+    verifiedAt: null,
+    lastCheckedAt: null,
+    lastError: null,
+    dns: {
+      cname: { name: hostname, value: CNAME_TARGET },
+      txt: { name: `${CUSTOM_DOMAIN_TXT_PREFIX}.${hostname}`, value: `${CUSTOM_DOMAIN_TXT_VALUE_PREFIX}${mockToken(ws.id, hostname)}` },
+    },
+    createdAt: new Date().toISOString(),
+  };
 }
 
 export function useCustomDomain() {
   const me = useMe();
   const { updateWorkspace } = useSessionActions();
-  const domain = readCustomDomain(me?.workspace);
-  const enabled = customDomainEnabled(me?.workspace);
+  const qc = useQueryClient();
+  const live = apiMode();
+  const ws = me?.workspace as MockWorkspace | undefined;
 
-  const save = useCallback((customDomain: CustomDomain | null) => updateWorkspace({ customDomain } as unknown as WorkspaceUpdate), [updateWorkspace]);
-
-  const setHostname = useCallback(
-    async (hostname: string) => {
-      if (!me) return;
-      await save({ hostname, status: 'pending', ...domainRecords(me.workspace.id, hostname), lastCheckedAt: null, error: null });
+  const query = useQuery({
+    queryKey: KEY,
+    enabled: !!me,
+    queryFn: async (): Promise<CustomDomainState> => {
+      if (live) return api<CustomDomainState>('/workspace/domain');
+      return { enabled: customDomainEnabled(ws), domain: ws?.customDomain ?? null };
     },
-    [me, save],
-  );
+  });
 
-  const verify = useCallback(async () => {
-    if (!domain) return null;
-    await new Promise((r) => setTimeout(r, 700));
-    const local = domain.hostname.endsWith('.localhost');
-    const next: CustomDomain = {
-      ...domain,
-      status: local ? 'verified' : 'failed',
-      lastCheckedAt: new Date().toISOString(),
-      error: local ? null : `No TXT record ${domain.txtName} was found yet. DNS changes can take up to 48 hours; check the record and try again.`,
-    };
-    await save(next);
-    return next;
-  }, [domain, save]);
+  const saveMock = async (customDomain: CustomDomain | null): Promise<CustomDomainState> => {
+    await updateWorkspace({ customDomain } as unknown as WorkspaceUpdate);
+    return { enabled: customDomainEnabled(ws), domain: customDomain };
+  };
 
-  const remove = useCallback(() => save(null), [save]);
+  const onDone = (s: CustomDomainState) => qc.setQueryData(KEY, s);
 
-  return { enabled, domain, setHostname, verify, remove };
+  const setHostname = useMutation({
+    mutationFn: (hostname: string) => (live ? api<CustomDomainState>('/workspace/domain', { method: 'PUT', json: { hostname } }) : saveMock(mockDomain(ws!, hostname))),
+    onSuccess: onDone,
+  });
+  const verify = useMutation({
+    mutationFn: async (): Promise<CustomDomainState> => {
+      if (live) return api<CustomDomainState>('/workspace/domain/verify', { method: 'POST' });
+      const d = query.data?.domain;
+      if (!d) return { enabled: true, domain: null };
+      await new Promise((r) => setTimeout(r, 600));
+      const local = d.hostname.endsWith('.localhost');
+      const now = new Date().toISOString();
+      return saveMock({
+        ...d,
+        status: local ? 'verified' : 'failed',
+        verifiedAt: local ? now : null,
+        lastCheckedAt: now,
+        lastError: local ? null : `No TXT record ${d.dns.txt.name} was found yet. DNS changes can take up to 48 hours; check the record and try again.`,
+      });
+    },
+    onSuccess: onDone,
+  });
+  const remove = useMutation({
+    mutationFn: () => (live ? api<CustomDomainState>('/workspace/domain', { method: 'DELETE' }) : saveMock(null)),
+    onSuccess: onDone,
+  });
+
+  return { query, enabled: query.data?.enabled ?? false, domain: query.data?.domain ?? null, setHostname, verify, remove };
 }

@@ -3,12 +3,13 @@
 import { palettes } from '@vistar/shared';
 import { Check, CircleCheck } from 'lucide-react';
 import { RadioGroup } from 'radix-ui';
-import { useMemo } from 'react';
-import { CHART_PALETTE_PRESETS, CHART_SLOTS, chartContrast, deriveChartPalette, type ChartPaletteChoice } from '@/lib/branding';
+import { useMemo, useState } from 'react';
+import { CHART_PALETTE_PRESETS, CHART_SLOTS, chartContrast, chartPresetOf, DEFAULT_BRAND_COLOR, deriveChartPalette } from '@/lib/branding';
 import { normalizeHex } from '@/lib/branding/color';
 import { cn } from '@/lib/cn';
 
 const BARS = [62, 88, 48, 74, 36, 56];
+const VISTAR = CHART_PALETTE_PRESETS[0]!.colors;
 
 function MiniChart({ colors, theme }: { colors: Record<(typeof CHART_SLOTS)[number], string>; theme: 'light' | 'dark' }) {
   const p = palettes[theme];
@@ -26,39 +27,48 @@ function MiniChart({ colors, theme }: { colors: Record<(typeof CHART_SLOTS)[numb
   );
 }
 
-/** Dashboard and chart colours: presets (incl. a colour-blind safe set) or six custom colours, checked for 3:1 on cards. */
+/**
+ * Dashboard and chart colours (`branding.chartPalette`, six #RRGGBB or null): presets including a
+ * colour-blind safe set, "Brand first" (the brand colour leads), or custom; each series is checked
+ * for 3:1 against cards in both themes and moved in lightness where needed.
+ */
 export function ChartPaletteField({
   value,
   brandColor,
   onChange,
   disabled,
 }: {
-  value: ChartPaletteChoice | null;
+  value: string[] | null;
   brandColor: string | null;
-  onChange: (v: ChartPaletteChoice | null) => void;
+  onChange: (v: string[] | null) => void;
   disabled?: boolean;
 }) {
-  const preset = value?.preset ?? 'vistar';
-  const base = useMemo(() => {
-    const colors = [...(value?.colors ?? CHART_PALETTE_PRESETS[0]!.colors)];
-    if (preset === 'brand' && brandColor) colors[0] = brandColor;
-    return colors;
-  }, [value, preset, brandColor]);
+  const detected = chartPresetOf(value, brandColor);
+  // Remember "Custom" while the colours still match a preset (the person is about to edit them).
+  const [customPicked, setCustomPicked] = useState(false);
+  const preset = customPicked ? 'custom' : detected;
+  const base = useMemo(() => value ?? [...VISTAR], [value]);
   const derived = useMemo(() => deriveChartPalette(base), [base]);
   const check = chartContrast(derived);
+  const brandFirst = [brandColor ?? DEFAULT_BRAND_COLOR, ...VISTAR.slice(1)];
+
+  const options = [
+    ...CHART_PALETTE_PRESETS.slice(0, 1).map((p) => ({ id: p.id, label: p.label, hint: p.hint, colors: [...p.colors] })),
+    { id: 'brand', label: 'Brand first', hint: 'Your brand colour leads the series', colors: brandFirst },
+    ...CHART_PALETTE_PRESETS.slice(1).map((p) => ({ id: p.id, label: p.label, hint: p.hint, colors: [...p.colors] })),
+    { id: 'custom', label: 'Custom', hint: 'Pick each of the six series colours', colors: base },
+  ];
 
   const pick = (id: string) => {
-    if (id === 'vistar') return onChange(null);
-    if (id === 'custom') return onChange({ preset: 'custom', colors: [...base] });
-    const p = CHART_PALETTE_PRESETS.find((x) => x.id === id)!;
-    onChange({ preset: id, colors: [...p.colors] });
+    setCustomPicked(id === 'custom');
+    if (id === 'custom') return onChange([...base]);
+    const o = options.find((x) => x.id === id)!;
+    onChange(id === 'vistar' ? null : o.colors.map((c) => c.toUpperCase()));
   };
-
-  const options = [...CHART_PALETTE_PRESETS.map((p) => ({ id: p.id, label: p.label, hint: p.hint, colors: p.id === 'brand' && brandColor ? [brandColor, ...p.colors.slice(1)] : [...p.colors] })), { id: 'custom', label: 'Custom', hint: 'Pick each of the six series colours', colors: base }];
 
   return (
     <div className="flex flex-col gap-4">
-      <RadioGroup.Root value={preset} onValueChange={pick} aria-label="Chart palette" disabled={disabled} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 3xl:grid-cols-4">
+      <RadioGroup.Root value={preset} onValueChange={pick} aria-label="Chart palette" disabled={disabled} className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-3 3xl:grid-cols-4">
         {options.map((o) => (
           <RadioGroup.Item
             key={o.id}
@@ -98,7 +108,7 @@ export function ChartPaletteField({
                 onChange={(e) => {
                   const colors = [...base];
                   colors[i] = e.target.value.toUpperCase();
-                  onChange({ preset: 'custom', colors });
+                  onChange(colors);
                 }}
                 className="focus-ring h-8 w-10 cursor-pointer rounded-md border border-input bg-surface p-0.5"
               />

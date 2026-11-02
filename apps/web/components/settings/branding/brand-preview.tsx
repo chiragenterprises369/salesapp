@@ -4,18 +4,20 @@ import { palettes } from '@vistar/shared';
 import { Search } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { LogoMark } from '@/components/shell/logo';
-import { resolveBrandColors, type WorkspaceBranding } from '@/lib/branding';
+import { resolveBrandTokens, type BrandingDraft } from '@/lib/branding';
 
 /**
  * Live preview of the draft branding in both themes: sidebar with logo and selected item, top bar,
  * primary button, link, chips and the chart palette. Colours come from the same derivation the app
  * applies after saving.
  */
-function Frame({ draft, theme, name }: { draft: WorkspaceBranding; theme: 'light' | 'dark'; name: string }) {
+function Frame({ draft, theme, name }: { draft: BrandingDraft; theme: 'light' | 'dark'; name: string }) {
   const p = palettes[theme];
-  const brand = resolveBrandColors(draft)?.[theme] ?? {};
+  const brand = resolveBrandTokens(draft)?.[theme] ?? {};
   const c = (k: keyof typeof p) => (brand as Record<string, string | undefined>)[k] ?? p[k];
-  const logo = theme === 'dark' ? (draft.logoDarkUrl ?? draft.logoLightUrl) : (draft.logoLightUrl ?? draft.logoDarkUrl);
+  const lightLogo = draft.logoLight?.url ?? null;
+  const darkLogo = draft.logoDark?.url ?? null;
+  const logo = theme === 'dark' ? (darkLogo ?? lightLogo) : (lightLogo ?? darkLogo);
   const vars = { '--accent': c('accent'), '--accent-fg': c('accent-fg') } as CSSProperties;
   return (
     <figure className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -73,7 +75,7 @@ function Frame({ draft, theme, name }: { draft: WorkspaceBranding; theme: 'light
   );
 }
 
-export function BrandPreview({ draft, name }: { draft: WorkspaceBranding; name: string }) {
+export function BrandPreview({ draft, name }: { draft: BrandingDraft; name: string }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row xl:flex-col 3xl:flex-row">
       <Frame draft={draft} theme="light" name={name} />

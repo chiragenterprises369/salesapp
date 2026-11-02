@@ -1,54 +1,68 @@
 'use client';
 
-import type { Workspace, WorkspaceUpdate } from '@vistar/shared';
+import {
+  EMPTY_BRANDING,
+  resolveBrandColors as resolveSharedBrandColors,
+  resolveChartPalette,
+  type FileRef,
+  type StoredFile,
+  type Workspace,
+  type WorkspaceBranding,
+  type WorkspaceUpdate,
+} from '@vistar/shared';
 import { useCallback, useMemo } from 'react';
 import { useMe, useSessionActions } from '@/lib/session/session';
 import { normalizeHex } from './color';
-import {
-  BRAND_ASSET_FIELD,
-  DEFAULT_COMPONENT_STYLE,
-  EMPTY_BRANDING,
-  isComponentStyle,
-  type BrandAsset,
-  type ComponentStyle,
-  type CustomDomain,
-  type WorkspaceBranding,
-} from './types';
+import { api, apiMode } from './http';
+import { DEFAULT_COMPONENT_STYLE, EMPTY_DRAFT, isComponentStyle, type BrandAsset, type BrandAssetValue, type BrandingDraft, type ComponentStyle } from './types';
 
 /**
- * ADAPTER (see types.ts). Fields read from the workspace the session carries:
- *   me.workspace.branding         WorkspaceBranding   (falls back to logoUrl / accentColor)
- *   me.workspace.componentStyle   'standard' | 'premium'   (setting key ui.componentStyle)
- *   me.workspace.customDomain     CustomDomain | null
- *   me.workspace.features.custom_domain   Super Admin switch
- * TODO(contracts-19): read the shared WorkspaceSchema fields and upload through the platform routes.
+ * Branding and component design on the workspace (contracts(19)):
+ *   read   me.workspace.branding (WorkspaceBranding), me.workspace.componentStyle
+ *   write  PATCH /workspace/branding (file ids from POST /files), PATCH /workspace { componentStyle }
+ * Mock sessions (automated tests, no access token) keep everything on the mock workspace, with
+ * images downscaled in the browser and kept as data URLs.
  */
-type WorkspaceExtras = Workspace & {
-  branding?: Partial<WorkspaceBranding> | null;
-  componentStyle?: unknown;
-  customDomain?: CustomDomain | null;
-};
 
-export function readBranding(ws: Workspace | null | undefined): WorkspaceBranding {
-  if (!ws) return EMPTY_BRANDING;
-  const x = ws as WorkspaceExtras;
-  const b = x.branding ?? {};
+const fromRef = (r: FileRef | null | undefined): BrandAssetValue | null => (r ? { fileId: r.fileId, url: r.url, name: r.name, mime: r.mime, size: r.size } : null);
+const toRef = (v: BrandAssetValue | null): FileRef | null => (v ? { fileId: v.fileId, url: v.url, name: v.name, mime: v.mime, size: v.size } : null);
+
+export function brandingToDraft(b: WorkspaceBranding | null | undefined, legacy?: Pick<Workspace, 'accentColor'>): BrandingDraft {
+  if (!b) return EMPTY_DRAFT;
   return {
-    ...EMPTY_BRANDING,
-    ...b,
-    logoLightUrl: b.logoLightUrl ?? ws.logoUrl ?? null,
-    brandColor: (b.brandColor && normalizeHex(b.brandColor)) || (ws.accentColor && normalizeHex(ws.accentColor)) || null,
     displayName: b.displayName?.trim() || null,
+    logoLight: fromRef(b.logoLight),
+    logoDark: fromRef(b.logoDark),
+    favicon: fromRef(b.favicon),
+    loginImage: fromRef(b.loginImage),
+    brandColor: (b.brandColor && normalizeHex(b.brandColor)) || (legacy?.accentColor && normalizeHex(legacy.accentColor)) || null,
+    chartPalette: b.chartPalette?.length === 6 ? b.chartPalette.map((c) => normalizeHex(c) ?? c) : null,
+  };
+}
+
+export function readBranding(ws: Workspace | null | undefined): BrandingDraft {
+  if (!ws) return EMPTY_DRAFT;
+  return brandingToDraft(ws.branding ?? EMPTY_BRANDING, ws);
+}
+
+/** Shared WorkspaceBranding for a draft (mock store), with the shared contrast-guarded colours. */
+export function draftToBranding(d: BrandingDraft): WorkspaceBranding {
+  return {
+    displayName: d.displayName,
+    logoLight: toRef(d.logoLight),
+    logoDark: toRef(d.logoDark),
+    favicon: toRef(d.favicon),
+    loginImage: toRef(d.loginImage),
+    brandColor: d.brandColor,
+    chartPalette: d.chartPalette,
+    colors: d.brandColor ? resolveSharedBrandColors(d.brandColor) : null,
+    chartColors: d.chartPalette ? resolveChartPalette(d.chartPalette) : null,
   };
 }
 
 export function readComponentStyle(ws: Workspace | null | undefined): ComponentStyle {
-  const v = (ws as WorkspaceExtras | null | undefined)?.componentStyle;
+  const v = ws?.componentStyle;
   return isComponentStyle(v) ? v : DEFAULT_COMPONENT_STYLE;
-}
-
-export function readCustomDomain(ws: Workspace | null | undefined): CustomDomain | null {
-  return (ws as WorkspaceExtras | null | undefined)?.customDomain ?? null;
 }
 
 /** Name shown for the company: branding display name, else the workspace name. */
@@ -56,7 +70,7 @@ export function brandName(ws: Workspace | null | undefined): string {
   return readBranding(ws).displayName ?? ws?.name ?? 'Vistar';
 }
 
-export function useBranding(): WorkspaceBranding {
+export function useBranding(): BrandingDraft {
   const me = useMe();
   return useMemo(() => readBranding(me?.workspace), [me?.workspace]);
 }
@@ -65,36 +79,50 @@ export function useComponentStyleSetting() {
   const me = useMe();
   const { updateWorkspace } = useSessionActions();
   const value = readComponentStyle(me?.workspace);
-  // Company admins only (D-059). Managers with settings.manage still cannot change the company look.
+  // Company admins only (D-059). A manager with settings.manage still cannot change the company look.
   const canChange = !!me && me.role.kind === 'company_admin' && me.permissions.includes('settings.manage');
-  const setValue = useCallback(
-    (componentStyle: ComponentStyle) => updateWorkspace({ componentStyle } as unknown as WorkspaceUpdate),
-    [updateWorkspace],
-  );
+  const setValue = useCallback((componentStyle: ComponentStyle) => updateWorkspace({ componentStyle } satisfies WorkspaceUpdate), [updateWorkspace]);
   return { value, setValue, canChange };
 }
 
-/** PATCH the branding (merged with what is saved). */
+/** Save a whole draft. API: PATCH /workspace/branding, then refresh the session's workspace. */
 export function useSaveBranding() {
-  const me = useMe();
   const { updateWorkspace } = useSessionActions();
   return useCallback(
-    async (patch: Partial<WorkspaceBranding>) => {
-      const next = { ...readBranding(me?.workspace), ...patch };
-      // Keep the existing contract columns in step so older readers see the logo and accent.
-      return updateWorkspace({ branding: next, logoUrl: next.logoLightUrl, accentColor: next.brandColor } as unknown as WorkspaceUpdate);
+    async (draft: BrandingDraft) => {
+      if (apiMode()) {
+        await api<Workspace>('/workspace/branding', {
+          method: 'PATCH',
+          json: {
+            displayName: draft.displayName,
+            logoLightFileId: draft.logoLight?.fileId ?? null,
+            logoDarkFileId: draft.logoDark?.fileId ?? null,
+            faviconFileId: draft.favicon?.fileId ?? null,
+            loginImageFileId: draft.loginImage?.fileId ?? null,
+            brandColor: draft.brandColor,
+            chartPalette: draft.chartPalette,
+          },
+        });
+        // PATCH /workspace with no changes returns the workspace with the new branding; the session keeps it.
+        return updateWorkspace({});
+      }
+      const branding = draftToBranding(draft);
+      return updateWorkspace({ branding, logoUrl: draft.logoLight?.url ?? null, accentColor: draft.brandColor } as unknown as WorkspaceUpdate);
     },
-    [me?.workspace, updateWorkspace],
+    [updateWorkspace],
   );
 }
 
-// ---------------------------------------------------------------- uploads (adapter: downscaled data URLs)
+// ---------------------------------------------------------------- uploads
 
+const PURPOSE: Record<BrandAsset, 'logo' | 'favicon' | 'login_image'> = { logoLight: 'logo', logoDark: 'logo', favicon: 'favicon', loginImage: 'login_image' };
+
+/** Client checks mirror UPLOAD_LIMITS (the API checks again, including magic bytes). */
 export const ASSET_RULES: Record<BrandAsset, { label: string; maxBytes: number; maxSide: number; accept: string; hint: string }> = {
-  logoLight: { label: 'Logo for the light theme', maxBytes: 1_000_000, maxSide: 512, accept: 'image/png,image/svg+xml,image/webp,image/jpeg', hint: 'PNG, SVG or WebP up to 1 MB. Wide or square; shown 28 px high.' },
-  logoDark: { label: 'Logo for the dark theme', maxBytes: 1_000_000, maxSide: 512, accept: 'image/png,image/svg+xml,image/webp,image/jpeg', hint: 'A light version of your logo for dark backgrounds.' },
-  favicon: { label: 'Favicon', maxBytes: 300_000, maxSide: 64, accept: 'image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon', hint: 'Square PNG, SVG or ICO, at least 32 x 32 px.' },
-  loginImage: { label: 'Sign-in page image', maxBytes: 5_000_000, maxSide: 1600, accept: 'image/jpeg,image/png,image/webp', hint: 'JPEG, PNG or WebP up to 5 MB, landscape, at least 1200 px wide.' },
+  logoLight: { label: 'Logo for the light theme', maxBytes: 2 * 1024 * 1024, maxSide: 512, accept: 'image/png,image/svg+xml,image/webp,image/jpeg', hint: 'PNG, SVG, WebP or JPEG up to 2 MB. Shown 28 px high.' },
+  logoDark: { label: 'Logo for the dark theme', maxBytes: 2 * 1024 * 1024, maxSide: 512, accept: 'image/png,image/svg+xml,image/webp,image/jpeg', hint: 'A light version of your logo for dark backgrounds. Empty = the light logo.' },
+  favicon: { label: 'Favicon', maxBytes: 512 * 1024, maxSide: 64, accept: 'image/png,image/svg+xml,image/x-icon,image/vnd.microsoft.icon', hint: 'Square PNG, SVG or ICO up to 512 KB, at least 32 x 32 px.' },
+  loginImage: { label: 'Sign-in page image', maxBytes: 5 * 1024 * 1024, maxSide: 1600, accept: 'image/jpeg,image/png,image/webp', hint: 'JPEG, PNG or WebP up to 5 MB, landscape, at least 1200 px wide.' },
 };
 
 export class UploadError extends Error {}
@@ -108,36 +136,43 @@ function readAsDataUrl(file: Blob): Promise<string> {
   });
 }
 
-/**
- * Validate and prepare an image for saving. Adapter: raster images are downscaled in the browser to
- * the size they are shown at and kept as data URLs; SVG and ICO are kept as they are.
- * TODO(contracts-19): POST the original file to the platform upload route and save the returned URL.
- */
-export async function prepareBrandAsset(asset: BrandAsset, file: File): Promise<string> {
+async function downscale(asset: BrandAsset, file: File): Promise<string> {
   const rule = ASSET_RULES[asset];
-  if (!rule.accept.split(',').includes(file.type)) throw new UploadError(`${file.name} is not a supported image type. ${rule.hint}`);
-  if (file.size > rule.maxBytes) throw new UploadError(`${file.name} is larger than ${Math.round(rule.maxBytes / 1000) / 1000} MB. ${rule.hint}`);
-  if (file.type === 'image/svg+xml' || file.type.includes('icon')) {
-    if (file.size > 200_000) throw new UploadError('SVG and ICO files must be under 200 KB.');
-    return readAsDataUrl(file);
-  }
+  if (file.type === 'image/svg+xml' || file.type.includes('icon')) return readAsDataUrl(file);
   const bitmap = await createImageBitmap(file).catch(() => {
     throw new UploadError(`${file.name} could not be opened as an image.`);
   });
-  if (asset === 'favicon' && Math.min(bitmap.width, bitmap.height) < 32) throw new UploadError('The favicon must be at least 32 x 32 px.');
   const scale = Math.min(1, rule.maxSide / Math.max(bitmap.width, bitmap.height));
-  const w = Math.max(1, Math.round(bitmap.width * scale));
-  const h = Math.max(1, Math.round(bitmap.height * scale));
   const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new UploadError('This browser cannot prepare images. Try another browser.');
-  ctx.drawImage(bitmap, 0, 0, w, h);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
   return asset === 'loginImage' ? canvas.toDataURL('image/jpeg', 0.82) : canvas.toDataURL('image/png');
 }
 
-export function assetField(asset: BrandAsset): keyof WorkspaceBranding {
-  return BRAND_ASSET_FIELD[asset];
+async function checkSize(asset: BrandAsset, file: File) {
+  if (asset !== 'favicon' || file.type === 'image/svg+xml' || file.type.includes('icon')) return;
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (bitmap && Math.min(bitmap.width, bitmap.height) < 32) throw new UploadError('The favicon must be at least 32 x 32 px.');
+  bitmap?.close();
+}
+
+/** Validate and upload one brand image. API: POST /files (public file); mock: a downscaled data URL. */
+export async function uploadBrandAsset(asset: BrandAsset, file: File): Promise<BrandAssetValue> {
+  const rule = ASSET_RULES[asset];
+  if (!rule.accept.split(',').includes(file.type)) throw new UploadError(`${file.name} is not a supported image type. ${rule.hint}`);
+  if (file.size > rule.maxBytes) throw new UploadError(`${file.name} is too large. ${rule.hint}`);
+  await checkSize(asset, file);
+  if (apiMode()) {
+    const form = new FormData();
+    form.append('purpose', PURPOSE[asset]);
+    form.append('file', file);
+    const stored = await api<StoredFile>('/files', { method: 'POST', form });
+    return { fileId: stored.id, url: stored.publicUrl, name: stored.name, mime: stored.mime, size: stored.size };
+  }
+  const url = await downscale(asset, file);
+  return { fileId: crypto.randomUUID(), url, name: file.name, mime: file.type, size: file.size };
 }

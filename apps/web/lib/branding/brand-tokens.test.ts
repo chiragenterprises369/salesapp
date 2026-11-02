@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { brandCss, resolveBrandColors } from './brand-css';
+import { brandCss, resolveBrandTokens } from './brand-css';
 import { CHART_PALETTE_PRESETS, chartContrast, deriveBrandTokens, deriveChartPalette } from './brand-tokens';
 import { contrast, hexToOklch, normalizeHex, oklchToHex } from './color';
 
@@ -53,8 +53,8 @@ describe('chart palettes', () => {
 
 describe('brandCss', () => {
   it('is empty without a brand and scoped to data-brand otherwise', () => {
-    expect(brandCss(resolveBrandColors({ brandColor: null, chartPalette: null }))).toBe('');
-    const css = brandCss(resolveBrandColors({ brandColor: '#0E9F6E', chartPalette: null }));
+    expect(brandCss(resolveBrandTokens({ brandColor: null, chartPalette: null }))).toBe('');
+    const css = brandCss(resolveBrandTokens({ brandColor: '#0E9F6E', chartPalette: null }));
     expect(css).toContain("html[data-brand][data-theme='light']");
     expect(css).toContain('--accent:');
     expect(css).toContain("html[data-brand][data-theme='dark']");

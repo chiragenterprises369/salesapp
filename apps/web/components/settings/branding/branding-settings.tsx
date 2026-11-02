@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { FormField, Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
 import { useReadOnly } from '@/lib/auth/use-auth';
-import { useBranding, useSaveBranding, type WorkspaceBranding } from '@/lib/branding';
+import { chartPresetOf, useBranding, useSaveBranding, type BrandingDraft } from '@/lib/branding';
 import { useMe } from '@/lib/session/session';
 import { SaveBar, SettingsCard } from '../settings-card';
 import { AssetField } from './asset-field';
@@ -12,7 +12,7 @@ import { BrandColorField } from './brand-color-field';
 import { BrandPreview } from './brand-preview';
 import { ChartPaletteField } from './chart-palette-field';
 
-const same = (a: WorkspaceBranding, b: WorkspaceBranding) => JSON.stringify(a) === JSON.stringify(b);
+const same = (a: BrandingDraft, b: BrandingDraft) => JSON.stringify(a) === JSON.stringify(b);
 
 /**
  * Settings > Branding (SPEC 29.4, D-060): display name, logos for light and dark, favicon, brand colour
@@ -24,7 +24,7 @@ export function BrandingSettings() {
   const saved = useBranding();
   const save = useSaveBranding();
   const { reason } = useReadOnly();
-  const [draft, setDraft] = useState<WorkspaceBranding>(saved);
+  const [draft, setDraft] = useState<BrandingDraft>(saved);
   const [seen, setSeen] = useState(saved);
   if (!same(seen, saved)) {
     setSeen(saved);
@@ -34,7 +34,13 @@ export function BrandingSettings() {
   const [saving, setSaving] = useState(false);
   const dirty = !same(draft, saved);
   const disabled = !!reason;
-  const set = <K extends keyof WorkspaceBranding>(k: K, v: WorkspaceBranding[K]) => setDraft((d) => ({ ...d, [k]: v }));
+  const set = <K extends keyof BrandingDraft>(k: K, v: BrandingDraft[K]) => setDraft((d) => ({ ...d, [k]: v }));
+  // "Brand first" charts follow the brand colour.
+  const setBrandColor = (brandColor: string | null) =>
+    setDraft((d) => {
+      const brandFirst = !!d.chartPalette && chartPresetOf(d.chartPalette, d.brandColor) === 'brand';
+      return { ...d, brandColor, chartPalette: brandFirst && d.chartPalette ? [brandColor ?? '#4F46E5', ...d.chartPalette.slice(1)] : d.chartPalette };
+    });
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -65,14 +71,14 @@ export function BrandingSettings() {
             <FormField label="Display name" error={nameError ?? undefined} hint={`Leave empty to use “${me.workspace.name}”.`} className="md:col-span-2 2xl:col-span-4">
               <Input value={draft.displayName ?? ''} maxLength={60} placeholder={me.workspace.name} disabled={disabled} onChange={(e) => set('displayName', e.target.value || null)} />
             </FormField>
-            <AssetField asset="logoLight" value={draft.logoLightUrl} onChange={(v) => set('logoLightUrl', v)} disabled={disabled} previewTheme="light" />
-            <AssetField asset="logoDark" value={draft.logoDarkUrl} onChange={(v) => set('logoDarkUrl', v)} disabled={disabled} previewTheme="dark" />
-            <AssetField asset="favicon" value={draft.faviconUrl} onChange={(v) => set('faviconUrl', v)} disabled={disabled} />
+            <AssetField asset="logoLight" value={draft.logoLight} onChange={(v) => set('logoLight', v)} disabled={disabled} previewTheme="light" />
+            <AssetField asset="logoDark" value={draft.logoDark} onChange={(v) => set('logoDark', v)} disabled={disabled} previewTheme="dark" />
+            <AssetField asset="favicon" value={draft.favicon} onChange={(v) => set('favicon', v)} disabled={disabled} />
           </div>
         </SettingsCard>
 
         <SettingsCard title="Brand colour" description="Buttons, links, selection and focus rings use it. Vistar adjusts the lightness so text stays readable (WCAG AA) in light and dark.">
-          <BrandColorField value={draft.brandColor} onChange={(v) => set('brandColor', v)} disabled={disabled} />
+          <BrandColorField value={draft.brandColor} onChange={setBrandColor} disabled={disabled} />
         </SettingsCard>
 
         <SettingsCard title="Dashboard and chart colours" description="The six series colours of the dashboard, reports and sparklines.">
@@ -80,7 +86,7 @@ export function BrandingSettings() {
         </SettingsCard>
 
         <SettingsCard title="Sign-in page" description="The image next to the sign-in form on your custom domain." footer={footer}>
-          <AssetField asset="loginImage" value={draft.loginImageUrl} onChange={(v) => set('loginImageUrl', v)} disabled={disabled} className="max-w-2xl" />
+          <AssetField asset="loginImage" value={draft.loginImage} onChange={(v) => set('loginImage', v)} disabled={disabled} className="max-w-2xl" />
         </SettingsCard>
       </div>
 

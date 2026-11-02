@@ -1,25 +1,26 @@
 import { BRAND_TOKEN_KEYS, CHART_SLOTS, deriveBrandTokens, deriveChartPalette, type BrandTokens, type ChartPaletteTokens } from './brand-tokens';
-import type { WorkspaceBranding } from './types';
+import type { BrandingDraft } from './types';
 
-export interface ResolvedBrandColors {
+export interface ResolvedBrandTokens {
   light: Partial<BrandTokens & ChartPaletteTokens>;
   dark: Partial<BrandTokens & ChartPaletteTokens>;
 }
 
-/** Token overrides for a branding, or null when nothing differs from the Vistar defaults. */
-export function resolveBrandColors(b: Pick<WorkspaceBranding, 'brandColor' | 'chartPalette'>): ResolvedBrandColors | null {
+/**
+ * Accent and chart token overrides for a branding, or null when nothing differs from the Vistar
+ * defaults. The web derives the whole accent family in OKLCH with AA checks (brand-tokens.ts); this is
+ * stricter than the shared 3:1 guard (`branding.colors`), which the Android app uses.
+ */
+export function resolveBrandTokens(b: Pick<BrandingDraft, 'brandColor' | 'chartPalette'>): ResolvedBrandTokens | null {
   if (!b.brandColor && !b.chartPalette) return null;
-  const out: ResolvedBrandColors = { light: {}, dark: {} };
+  const out: ResolvedBrandTokens = { light: {}, dark: {} };
   if (b.brandColor) {
     const d = deriveBrandTokens(b.brandColor);
     Object.assign(out.light, d.light);
     Object.assign(out.dark, d.dark);
   }
-  if (b.chartPalette?.colors?.length) {
-    // "Brand first" follows the brand colour in slot 1.
-    const colors = [...b.chartPalette.colors];
-    if (b.chartPalette.preset === 'brand' && b.brandColor) colors[0] = b.brandColor;
-    const p = deriveChartPalette(colors);
+  if (b.chartPalette?.length) {
+    const p = deriveChartPalette(b.chartPalette);
     Object.assign(out.light, p.light);
     Object.assign(out.dark, p.dark);
   }
@@ -38,7 +39,7 @@ function block(selector: string, vars: Record<string, string | undefined>): stri
  * CSS applied on <html data-brand>. Nested `[data-theme]` previews (style thumbnails) get the brand too.
  * Higher specificity than tokens.css, so it wins regardless of order.
  */
-export function brandCss(colors: ResolvedBrandColors | null): string {
+export function brandCss(colors: ResolvedBrandTokens | null): string {
   if (!colors) return '';
   const keys = [...BRAND_TOKEN_KEYS, ...CHART_SLOTS] as const;
   const pick = (t: Partial<Record<string, string>>) => Object.fromEntries(keys.map((k) => [k, t[k]]));

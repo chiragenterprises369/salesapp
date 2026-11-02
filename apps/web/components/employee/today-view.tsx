@@ -5,6 +5,7 @@ import { formatDistanceStrict } from 'date-fns';
 import { AlertCircle, CalendarClock, ListTodo, Phone, RotateCw, Sparkles, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AndroidAppCard } from '@/components/common/android-app-card';
 import { EmptyState } from '@/components/common/empty-state';
 import { formatDateTimeIn, formatTimeIn } from '@/components/common/time';
 import { useNow } from '@/components/common/use-now';
@@ -174,7 +175,7 @@ export function TodayView() {
         ))}
       </dl>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 3xl:grid-cols-4">
         <Section title="Calls to make" count={today.callsToMake.length} icon={<Phone />}>
           <TaskList tasks={today.callsToMake} phones={phones} now={now} timeZone={tz} empty="No calls due. New call tasks appear here." />
         </Section>
@@ -243,6 +244,8 @@ export function TodayView() {
           )}
         </div>
       </Section>
+
+      <AndroidAppCard />
     </div>
   );
 }
@@ -285,7 +288,7 @@ function TodaySkeleton() {
           <Skeleton key={i} className="h-16 rounded-lg" />
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 3xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-48 rounded-lg" />
         ))}

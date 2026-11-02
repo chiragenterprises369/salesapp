@@ -1,22 +1,24 @@
 'use client';
 
-import { CheckCircle2, Copy, Globe, Info, Loader2, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
+import type { CustomDomain, CustomDomainStatus } from '@vistar/shared';
+import { AlertCircle, CheckCircle2, Copy, Globe, Info, RefreshCw, RotateCw, ShieldAlert, Trash2 } from 'lucide-react';
 import { useState, useSyncExternalStore, type FormEvent } from 'react';
 import { EmptyState } from '@/components/common/empty-state';
 import { formatDateTimeIn } from '@/components/common/time';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { FormField, Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/toast';
 import { useReadOnly } from '@/lib/auth/use-auth';
 import { useCustomDomain, validateHostname } from '@/lib/branding/custom-domain';
-import type { CustomDomain, DomainStatus } from '@/lib/branding/types';
+import { errorMessage } from '@/lib/branding/http';
 import { useMe } from '@/lib/session/session';
 import { SettingsCard } from './settings-card';
 
 const noopSubscribe = () => () => {};
 
-const STATUS: Record<DomainStatus, { label: string; tone: 'amber' | 'green' | 'red' }> = {
+const STATUS: Record<CustomDomainStatus, { label: string; tone: 'amber' | 'green' | 'red' }> = {
   pending: { label: 'Waiting for DNS', tone: 'amber' },
   verified: { label: 'Verified', tone: 'green' },
   failed: { label: 'Not verified', tone: 'red' },
@@ -45,8 +47,8 @@ function CopyValue({ value, label }: { value: string; label: string }) {
 
 function DnsRecords({ domain }: { domain: CustomDomain }) {
   const rows = [
-    { type: 'CNAME', name: domain.hostname, value: domain.cnameTarget, why: 'Sends visitors of this address to Vistar.' },
-    { type: 'TXT', name: domain.txtName, value: domain.txtValue, why: 'Proves that your company owns the domain.' },
+    { type: 'CNAME', name: domain.dns.cname.name, value: domain.dns.cname.value, why: 'Sends visitors of this address to Vistar.' },
+    { type: 'TXT', name: domain.dns.txt.name, value: domain.dns.txt.value, why: 'Proves that your company owns the domain.' },
   ];
   return (
     <div className="overflow-x-auto rounded-md border border-border">
@@ -79,19 +81,69 @@ function DnsRecords({ domain }: { domain: CustomDomain }) {
   );
 }
 
+function LocalTestCard({ hostname, port }: { hostname: string | null; port: string }) {
+  const host = hostname?.endsWith('.localhost') ? hostname : 'shakti.localhost';
+  return (
+    <SettingsCard title="Test it on this computer" description="Before you change real DNS." className="h-fit">
+      <ol className="flex list-decimal flex-col gap-2 pl-4 text-sm text-fg-secondary">
+        <li>
+          Use a name that ends in <code className="font-mono text-xs text-fg">.localhost</code>, for example <code className="font-mono text-xs text-fg">shakti.localhost</code>. Browsers send
+          every <code className="font-mono text-xs text-fg">*.localhost</code> name to this computer, so no DNS record is needed.
+        </li>
+        <li>Press Connect domain, then Verify: local names verify at once.</li>
+        <li>
+          Sign out and open{' '}
+          <code className="font-mono text-xs text-fg">
+            http://{host}
+            {port ? `:${port}` : ''}/login
+          </code>
+          . The sign-in page shows your logo, colour and image.
+        </li>
+      </ol>
+      <p className="mt-3 flex items-start gap-2 text-xs text-muted-strong">
+        <Info aria-hidden className="mt-px size-3.5 shrink-0" />
+        Real domains need both records. Keep the TXT record after verifying: Vistar checks it again before renewing the certificate.
+      </p>
+    </SettingsCard>
+  );
+}
+
 /**
  * Settings > Domain (SPEC 29.4): hostname, the CNAME and TXT records to add at the DNS provider,
- * Verify and the status. Shown only when the Super Admin enabled custom domains for this company.
+ * Verify and the status. Only when the Super Admin enabled custom domains for this company.
  */
 export function CustomDomainSettings() {
   const me = useMe()!;
   const { reason } = useReadOnly();
-  const { enabled, domain, setHostname, verify, remove } = useCustomDomain();
-  const [input, setInput] = useState(domain?.hostname ?? '');
+  const { query, enabled, domain, setHostname, verify, remove } = useCustomDomain();
+  const [input, setInput] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<'save' | 'verify' | 'remove' | null>(null);
   const port = useSyncExternalStore(noopSubscribe, () => window.location.port, () => '');
+  const value = input ?? domain?.hostname ?? '';
 
+  if (query.isPending) {
+    return (
+      <div className="flex flex-col gap-4" aria-busy="true">
+        <Skeleton className="h-36 w-full rounded-lg" />
+        <Skeleton className="h-52 w-full rounded-lg" />
+      </div>
+    );
+  }
+  if (query.isError) {
+    return (
+      <EmptyState
+        icon={<AlertCircle />}
+        title="Domain settings did not load"
+        description="Check your connection, then try again."
+        action={
+          <Button onClick={() => void query.refetch()}>
+            <RotateCw aria-hidden />
+            Try again
+          </Button>
+        }
+      />
+    );
+  }
   if (!enabled) {
     return (
       <EmptyState
@@ -104,67 +156,55 @@ export function CustomDomainSettings() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const v = validateHostname(input);
+    const v = validateHostname(value);
     setInput(v.hostname);
     if (v.error) {
       setError(v.error);
       return;
     }
     setError(null);
-    setBusy('save');
     try {
-      await setHostname(v.hostname);
+      await setHostname.mutateAsync(v.hostname);
+      setInput(null);
       toast.success(`Add the two DNS records for ${v.hostname}, then press Verify`);
-    } catch {
-      toast.error('Domain not saved. Check your connection and try again.');
-    } finally {
-      setBusy(null);
+    } catch (err) {
+      setError(errorMessage(err, 'Domain not saved. Check your connection and try again.'));
     }
   }
 
   async function onVerify() {
-    setBusy('verify');
     try {
-      const next = await verify();
-      if (next?.status === 'verified') toast.success(`${next.hostname} is connected`);
+      const next = await verify.mutateAsync();
+      if (next.domain?.status === 'verified') toast.success(`${next.domain.hostname} is connected`);
       else toast.error('Not verified yet. Check the TXT record and try again later.');
-    } finally {
-      setBusy(null);
+    } catch (err) {
+      toast.error(errorMessage(err, 'The check did not run. Try again.'));
     }
   }
 
   async function onRemove() {
-    setBusy('remove');
     try {
-      await remove();
+      await remove.mutateAsync();
       setInput('');
       toast.success('Custom domain removed. Vistar keeps working on its own address.');
-    } finally {
-      setBusy(null);
+    } catch (err) {
+      toast.error(errorMessage(err, 'The domain was not removed. Try again.'));
     }
   }
 
   const status = domain ? STATUS[domain.status] : null;
-  const changed = !!domain && input.trim().toLowerCase() !== domain.hostname;
+  const changed = !!domain && value.trim().toLowerCase() !== domain.hostname;
 
   return (
-    <div className="grid gap-4 2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)] 3xl:grid-cols-[minmax(0,1fr)_minmax(0,40rem)]">
       <div className="flex min-w-0 flex-col gap-4">
         <form onSubmit={onSubmit} noValidate>
           <SettingsCard title="Address" description="The sub-domain your team will open. You keep using your own DNS provider.">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
               <FormField label="Hostname" error={error ?? undefined} hint="For example crm.yourcompany.com, or shakti.localhost to try it on this computer." className="flex-1">
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="crm.yourcompany.com"
-                  autoComplete="off"
-                  spellCheck={false}
-                  disabled={!!reason}
-                  inputMode="url"
-                />
+                <Input value={value} onChange={(e) => setInput(e.target.value)} placeholder="crm.yourcompany.com" autoComplete="off" spellCheck={false} disabled={!!reason} inputMode="url" />
               </FormField>
-              <Button type="submit" variant={domain ? 'secondary' : 'primary'} loading={busy === 'save'} disabled={!!reason || (!!domain && !changed)} className="sm:mb-[1.375rem]">
+              <Button type="submit" variant={domain ? 'secondary' : 'primary'} loading={setHostname.isPending} disabled={!!reason || (!!domain && !changed)} className="sm:mt-[1.375rem]">
                 {domain ? 'Change address' : 'Connect domain'}
               </Button>
             </div>
@@ -174,17 +214,17 @@ export function CustomDomainSettings() {
         {domain && status && (
           <SettingsCard
             title="DNS records"
-            description="Add both records at your domain provider (GoDaddy, Cloudflare, Hostinger, ...), then verify. Changes can take from minutes up to 48 hours."
+            description="Add both records at your domain provider (GoDaddy, Cloudflare, Hostinger and others), then verify. Changes can take from minutes up to 48 hours."
             footer={
               <>
                 <p className="mr-auto text-xs text-muted-strong" aria-live="polite">
                   {domain.lastCheckedAt ? `Last checked ${formatDateTimeIn(domain.lastCheckedAt, me.workspace.timezone)}` : 'Not checked yet'}
                 </p>
-                <Button variant="ghost" onClick={() => void onRemove()} loading={busy === 'remove'} disabled={!!reason}>
+                <Button variant="ghost" onClick={() => void onRemove()} loading={remove.isPending} disabled={!!reason}>
                   <Trash2 aria-hidden />
                   Remove
                 </Button>
-                <Button variant="primary" onClick={() => void onVerify()} loading={busy === 'verify'} disabled={!!reason}>
+                <Button variant="primary" onClick={() => void onVerify()} loading={verify.isPending} disabled={!!reason}>
                   <RefreshCw aria-hidden />
                   Verify
                 </Button>
@@ -194,53 +234,26 @@ export function CustomDomainSettings() {
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="font-mono text-sm font-medium text-fg">{domain.hostname}</span>
               <Chip tone={status.tone} dot size="md">
-                {busy === 'verify' ? (
-                  <>
-                    <Loader2 aria-hidden className="animate-spin" /> Checking
-                  </>
-                ) : (
-                  status.label
-                )}
+                {verify.isPending ? 'Checking' : status.label}
               </Chip>
             </div>
             <DnsRecords domain={domain} />
-            {domain.status === 'failed' && domain.error && (
+            {domain.status === 'failed' && domain.lastError && (
               <p role="alert" className="mt-3 flex items-start gap-2 text-sm text-danger-text">
                 <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-                {domain.error}
+                {domain.lastError}
               </p>
             )}
             {domain.status === 'verified' && (
               <p className="mt-3 flex items-start gap-2 text-sm text-success-text">
                 <CheckCircle2 aria-hidden className="mt-0.5 size-4 shrink-0" />
-                Connected. {domain.hostname} opens your workspace, and the sign-in page there shows your branding. HTTPS certificates are issued automatically.
+                Connected. {domain.hostname} opens your workspace, and the sign-in page there shows your branding.
               </p>
             )}
           </SettingsCard>
         )}
       </div>
-
-      <SettingsCard title="Test it on this computer" description="Before you change real DNS." className="h-fit">
-        <ol className="flex list-decimal flex-col gap-2 pl-4 text-sm text-fg-secondary">
-          <li>
-            Use a name that ends in <code className="font-mono text-xs text-fg">.localhost</code>, for example <code className="font-mono text-xs text-fg">shakti.localhost</code>.
-            Browsers send every <code className="font-mono text-xs text-fg">*.localhost</code> name to this computer, so no DNS record is needed.
-          </li>
-          <li>Press Connect domain, then Verify: local names verify at once.</li>
-          <li>
-            Sign out and open{' '}
-            <code className="font-mono text-xs text-fg">
-              http://{domain?.hostname.endsWith('.localhost') ? domain.hostname : 'shakti.localhost'}
-              {port ? `:${port}` : ''}/login
-            </code>
-            . The sign-in page shows your logo, colour and image.
-          </li>
-        </ol>
-        <p className="mt-3 flex items-start gap-2 text-xs text-muted-strong">
-          <Info aria-hidden className="mt-px size-3.5 shrink-0" />
-          Real domains need both records. Keep the TXT record after verifying: Vistar checks it again before renewing the certificate.
-        </p>
-      </SettingsCard>
+      <LocalTestCard hostname={domain?.hostname ?? null} port={port} />
     </div>
   );
 }

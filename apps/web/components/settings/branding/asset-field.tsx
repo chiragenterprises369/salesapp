@@ -4,7 +4,8 @@ import { palettes } from '@vistar/shared';
 import { ImageUp, Trash2, Upload } from 'lucide-react';
 import { useId, useRef, useState, type DragEvent } from 'react';
 import { Button } from '@/components/ui/button';
-import { ASSET_RULES, prepareBrandAsset, UploadError, type BrandAsset } from '@/lib/branding';
+import { ASSET_RULES, uploadBrandAsset, UploadError, type BrandAsset, type BrandAssetValue } from '@/lib/branding';
+import { errorMessage } from '@/lib/branding/http';
 import { cn } from '@/lib/cn';
 
 /**
@@ -20,8 +21,8 @@ export function AssetField({
   className,
 }: {
   asset: BrandAsset;
-  value: string | null;
-  onChange: (url: string | null) => void;
+  value: BrandAssetValue | null;
+  onChange: (value: BrandAssetValue | null) => void;
   disabled?: boolean;
   previewTheme?: 'light' | 'dark';
   className?: string;
@@ -34,15 +35,16 @@ export function AssetField({
   const [over, setOver] = useState(false);
   const p = palettes[previewTheme];
   const wide = asset === 'loginImage';
+  const src = value?.url ?? null;
 
   async function take(file: File | undefined) {
     if (!file) return;
     setBusy(true);
     setError(null);
     try {
-      onChange(await prepareBrandAsset(asset, file));
+      onChange(await uploadBrandAsset(asset, file));
     } catch (e) {
-      setError(e instanceof UploadError ? e.message : 'This image could not be used. Try another file.');
+      setError(e instanceof UploadError ? e.message : errorMessage(e, 'This image could not be used. Try another file.'));
     } finally {
       setBusy(false);
       if (input.current) input.current.value = '';
@@ -75,14 +77,16 @@ export function AssetField({
         )}
         style={{ background: value || asset === 'loginImage' ? (asset === 'loginImage' ? p['surface-2'] : p.surface) : undefined }}
       >
-        {value ? (
+        {src ? (
           asset === 'loginImage' ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt="" className="absolute inset-0 size-full object-cover" />
+            <img src={src} alt="" className="absolute inset-0 size-full object-cover" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt="" className={cn('object-contain', asset === 'favicon' ? 'size-8' : 'max-h-12 max-w-[80%]')} />
+            <img src={src} alt="" className={cn('object-contain', asset === 'favicon' ? 'size-8' : 'max-h-12 max-w-[80%]')} />
           )
+        ) : value ? (
+          <span className="px-3 text-center text-xs text-muted">{value.name}</span>
         ) : (
           <span className="flex flex-col items-center gap-1 px-3 text-center">
             <ImageUp aria-hidden className="size-5 text-fg-secondary" />

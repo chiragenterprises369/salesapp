@@ -12,10 +12,10 @@ import {
   readDesignCookie,
   writeDesignCookie,
 } from './boot';
-import { brandCss, resolveBrandColors } from './brand-css';
+import { brandCss, resolveBrandTokens } from './brand-css';
 import { usePlatformComponentStyle } from './platform-style';
 import { usePublicBranding, type PublicBranding } from './public-branding';
-import type { ComponentStyle, WorkspaceBranding } from './types';
+import type { BrandingDraft, ComponentStyle } from './types';
 import { readBranding, readComponentStyle } from './workspace-branding';
 
 function paintStyle(style: ComponentStyle) {
@@ -84,7 +84,7 @@ function useBrandedTitle(name: string | null) {
   }, [name]);
 }
 
-type BrandSource = Pick<WorkspaceBranding, 'brandColor' | 'chartPalette' | 'faviconUrl' | 'displayName'>;
+type BrandSource = Pick<BrandingDraft, 'brandColor' | 'chartPalette' | 'favicon' | 'displayName'>;
 
 /**
  * Applies the company design app-wide (D-059, D-060). Mounted once in app/layout.tsx; renders nothing.
@@ -107,16 +107,18 @@ export function BrandingProvider() {
     if (status === 'loading') return null;
     if (superAdmin) return platformStyle;
     if (workspace) return readComponentStyle(workspace);
-    return null; // signed out: keep what the boot script painted
-  }, [status, superAdmin, platformStyle, workspace]);
+    // Signed out: the company's choice on its custom domain, else keep what the boot script painted.
+    return publicBranding.data?.componentStyle ?? null;
+  }, [status, superAdmin, platformStyle, workspace, publicBranding.data]);
 
   useEffect(() => {
     if (!componentStyle) return;
     paintStyle(componentStyle);
+    if (!superAdmin && !workspace) return;
     const c = readDesignCookie();
     const next = superAdmin ? { ...c, p: componentStyle } : { ...c, w: componentStyle };
     if (next.w !== c.w || next.p !== c.p) writeDesignCookie(next);
-  }, [componentStyle, superAdmin]);
+  }, [componentStyle, superAdmin, workspace]);
 
   const source: BrandSource | null = useMemo(() => {
     if (status === 'loading' || superAdmin) return null;
@@ -125,7 +127,7 @@ export function BrandingProvider() {
     return pb ?? null;
   }, [status, superAdmin, workspace, publicBranding.data]);
 
-  const css = useMemo(() => (source ? brandCss(resolveBrandColors(source)) : ''), [source]);
+  const css = useMemo(() => (source ? brandCss(resolveBrandTokens(source)) : ''), [source]);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -144,8 +146,8 @@ export function BrandingProvider() {
 
   useEffect(() => {
     if (status === 'loading') return;
-    paintFavicon(source?.faviconUrl ?? null);
-  }, [status, source?.faviconUrl]);
+    paintFavicon(source?.favicon?.url ?? null);
+  }, [status, source?.favicon?.url]);
 
   useBrandedTitle(source?.displayName ?? null);
   return null;

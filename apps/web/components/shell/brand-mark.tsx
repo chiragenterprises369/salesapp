@@ -13,8 +13,8 @@ import { LogoMark } from './logo';
 export function BrandMark({ className, logo }: { className?: string; logo?: { light: string | null; dark: string | null } }) {
   const branding = useBranding();
   const theme = useDocumentTheme();
-  const light = logo ? logo.light : branding.logoLightUrl;
-  const dark = logo ? logo.dark : branding.logoDarkUrl;
+  const light = logo ? logo.light : (branding.logoLight?.url ?? null);
+  const dark = logo ? logo.dark : (branding.logoDark?.url ?? null);
   const src = theme === 'dark' ? (dark ?? light) : (light ?? dark);
   if (!src) return <LogoMark className={className} />;
   return (

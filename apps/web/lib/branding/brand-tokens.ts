@@ -134,13 +134,23 @@ export interface ChartPalettePreset {
 /** Six-colour series palettes. Colours are the light-theme intent; both themes are derived. */
 export const CHART_PALETTE_PRESETS: readonly ChartPalettePreset[] = [
   { id: 'vistar', label: 'Vistar', hint: 'The default series colours', colors: [L['chart-1'], L['chart-2'], L['chart-3'], L['chart-4'], L['chart-5'], L['chart-6']] },
-  { id: 'brand', label: 'Brand first', hint: 'Your brand colour leads the series', colors: [DEFAULT_BRAND_COLOR, '#0284C7', '#059669', '#D97706', '#E11D48', '#64748B'] },
   { id: 'ocean', label: 'Ocean', hint: 'Blues and teals', colors: ['#0369A1', '#0891B2', '#0D9488', '#2563EB', '#7C3AED', '#475569'] },
   { id: 'sunset', label: 'Sunset', hint: 'Warm oranges and reds', colors: ['#C2410C', '#D97706', '#BE123C', '#9333EA', '#0F766E', '#57534E'] },
   { id: 'forest', label: 'Forest', hint: 'Greens and earth tones', colors: ['#15803D', '#4D7C0F', '#0F766E', '#A16207', '#9A3412', '#52525B'] },
   // Okabe-Ito: distinguishable with protanopia, deuteranopia and tritanopia.
   { id: 'colorblind', label: 'Colour-blind safe', hint: 'Okabe-Ito colours, readable for every type of colour blindness', colors: ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#D55E00', '#56B4E9'] },
 ];
+
+/** Preset whose colours match, 'brand' when only slot 1 differs from Vistar and equals the brand colour, else 'custom'. */
+export function chartPresetOf(colors: readonly string[] | null, brandColor: string | null): string {
+  if (!colors) return 'vistar';
+  const up = colors.map((c) => c.toUpperCase());
+  const hit = CHART_PALETTE_PRESETS.find((p) => p.colors.every((c, i) => c.toUpperCase() === up[i]));
+  if (hit) return hit.id;
+  const vistar = CHART_PALETTE_PRESETS[0]!.colors;
+  if (brandColor && up[0] === brandColor.toUpperCase() && vistar.slice(1).every((c, i) => c.toUpperCase() === up[i + 1])) return 'brand';
+  return 'custom';
+}
 
 export type ChartPaletteTokens = Record<ChartSlot, string>;
 

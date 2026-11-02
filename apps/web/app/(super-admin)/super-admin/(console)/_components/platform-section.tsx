@@ -59,12 +59,17 @@ function Cell({ value, primary }: { value: PlatformCell | undefined; primary: bo
   );
 }
 
+export interface ExtraColumn extends DataColumn {
+  render: (row: PlatformRow) => ReactNode;
+}
+
 export function PlatformSection({
   section,
   title,
   description,
   icon,
   columns,
+  extraColumns = [],
   emptyTitle,
   emptyDescription,
   searchLabel,
@@ -75,6 +80,8 @@ export function PlatformSection({
   description: string;
   icon: string;
   columns: DataColumn[];
+  /** Columns rendered by the page (controls such as the per-company switches), after `columns`. */
+  extraColumns?: ExtraColumn[];
   emptyTitle: string;
   emptyDescription: string;
   /** Adds a search field above the table (filters once data exists). */
@@ -87,14 +94,15 @@ export function PlatformSection({
   const needle = useDeferredValue(q).trim().toLowerCase();
   const rows = (query.data ?? []).filter((r) => !needle || r.search.includes(needle));
   const status = query.isPending ? 'loading' : query.isError ? 'error' : (query.data?.length ?? 0) === 0 ? 'empty' : 'ready';
+  const allColumns = [...columns, ...extraColumns];
 
   return (
-    <div className="flex max-w-7xl flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <PageHeader title={title} description={description} className="mb-1" />
       {children}
       <DataTable
         label={title}
-        columns={columns}
+        columns={allColumns}
         status={status}
         onRetry={() => void query.refetch()}
         toolbar={
@@ -117,7 +125,7 @@ export function PlatformSection({
       >
         {rows.length === 0 ? (
           <TableRow className="hover:bg-surface">
-            <TableCell colSpan={columns.length} className="py-6 text-center text-sm text-muted">
+            <TableCell colSpan={allColumns.length} className="py-6 text-center text-sm text-muted">
               Nothing matches “{q}”. Try another name.
             </TableCell>
           </TableRow>
@@ -127,6 +135,11 @@ export function PlatformSection({
               {columns.map((c, i) => (
                 <TableCell key={c.key} className={cn(columnClass(c), i === 0 && 'max-w-xs', 'py-2')}>
                   <Cell value={r.cells[c.key]} primary={i === 0} />
+                </TableCell>
+              ))}
+              {extraColumns.map((c) => (
+                <TableCell key={c.key} className={cn(columnClass(c), 'py-2')}>
+                  {c.render(r)}
                 </TableCell>
               ))}
             </TableRow>
