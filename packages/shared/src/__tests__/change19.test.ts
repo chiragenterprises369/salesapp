@@ -279,3 +279,42 @@ describe('route contract (change #19)', () => {
     expect(Object.keys(upload.requestBody.content['multipart/form-data']!.schema.properties)).toEqual(expect.arrayContaining(['file', 'versionName', 'versionCode']));
   });
 });
+
+describe('AI-written floor plan (layout_json)', () => {
+  const plan = {
+    schemaVersion: 1,
+    kind: 'vistar.floor-plan',
+    name: 'Acme office',
+    units: 'm',
+    size: { width: 20, depth: 12 },
+    rooms: [
+      { id: 'floor', name: 'Sales floor', kind: 'work_area', polygon: [[0, 0], [14, 0], [14, 12], [0, 12]] },
+      { id: 'cabin-1', name: 'Manager cabin', kind: 'cabin', polygon: [[14, 0], [20, 0], [20, 6], [14, 6]], walls: 'glass' },
+    ],
+    items: [{ kind: 'desk_pod_4', position: [4, 4], rotation: 0, roomId: 'floor' }],
+    seats: [
+      { id: 'd1', kind: 'desk', position: [3, 3], rotation: 180, roomId: 'floor' },
+      { id: 'c1', kind: 'cabin', position: [17, 3], rotation: 90, roomId: 'cabin-1' },
+    ],
+  };
+
+  it('parses with defaults and derives a valid seat map', async () => {
+    const { FloorPlanSchema, seatMapFromPlan, FLOOR_PLAN_PROMPT } = await import('../schemas/floor.js');
+    const parsed = FloorPlanSchema.parse(plan);
+    expect(parsed.wallHeight).toBe(3);
+    expect(parsed.rooms[0]!.walls).toBe('solid');
+    const map = seatMapFromPlan(parsed);
+    expect(SeatMapSchema.safeParse(map).success).toBe(true);
+    expect(map.seats[1]).toMatchObject({ id: 'c1', position: [17, 0, 3], zoneId: 'cabin-1' });
+    expect(FLOOR_PLAN_PROMPT).toContain('vistar.floor-plan');
+    expect(FLOOR_PLAN_PROMPT).toContain('desk_pod_4');
+  });
+
+  it('rejects points outside the floor, unknown rooms and duplicate seats', async () => {
+    const { FloorPlanSchema } = await import('../schemas/floor.js');
+    expect(FloorPlanSchema.safeParse({ ...plan, seats: [{ ...plan.seats[0], position: [25, 3] }] }).success).toBe(false);
+    expect(FloorPlanSchema.safeParse({ ...plan, seats: [{ ...plan.seats[0], roomId: 'nowhere' }] }).success).toBe(false);
+    expect(FloorPlanSchema.safeParse({ ...plan, seats: [plan.seats[0], plan.seats[0]] }).success).toBe(false);
+    expect(FloorPlanSchema.safeParse({ ...plan, kind: 'something-else' }).success).toBe(false);
+  });
+});

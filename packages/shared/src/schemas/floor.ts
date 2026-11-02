@@ -147,7 +147,122 @@ export const SeatMapSchema = z
   });
 export type SeatMap = z.infer<typeof SeatMapSchema>;
 
-// ---------------------------------------------------------------- floor assets
+// ---------------------------------------------------------------- floor plan (format layout_json)
+
+/** Furniture and fixtures the web module kit can draw (D-054 modules plus props). */
+export const FLOOR_PLAN_ITEM_KINDS = [
+  'desk',
+  'desk_pod_4',
+  'desk_pod_6',
+  'manager_desk',
+  'meeting_table',
+  'phone_booth',
+  'sofa',
+  'armchair',
+  'coffee_table',
+  'reception_desk',
+  'pantry_counter',
+  'plant',
+  'whiteboard',
+  'printer',
+  'tv_screen',
+  'water_cooler',
+  'shelf',
+  'lead_hub',
+] as const;
+export const FloorPlanItemKindSchema = z.enum(FLOOR_PLAN_ITEM_KINDS);
+
+const Pt = z.tuple([z.number(), z.number()]).describe('[x, z] in metres from the top-left corner (x right, z down)');
+const Deg = z.number().min(-360).max(360);
+
+/**
+ * Vistar floor plan (format `layout_json`): a 2D plan the web turns into the 3D office. Designed to be
+ * written by an AI chat from the reference photos (prompt: FLOOR_PLAN_PROMPT), then uploaded by the Super
+ * Admin like a GLB. Its seats become the seat map automatically (seatMapFromPlan), so it can be published
+ * right away; the seat tool can still adjust them.
+ */
+export const FloorPlanSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    kind: z.literal('vistar.floor-plan'),
+    name: z.string().min(1).max(80),
+    units: z.literal('m'),
+    size: z.object({ width: z.number().min(4).max(200), depth: z.number().min(4).max(200) }),
+    wallHeight: z.number().min(2).max(6).default(3),
+    floorMaterial: z.enum(['wood', 'carpet', 'tile', 'concrete']).default('wood'),
+    rooms: z
+      .array(
+        z.object({
+          id: SlugIdSchema,
+          name: z.string().min(1).max(60),
+          kind: z.enum(FLOOR_ZONE_KINDS),
+          polygon: z.array(Pt).min(3).max(64),
+          walls: z.enum(['solid', 'glass', 'none']).default('solid'),
+          floorMaterial: z.enum(['wood', 'carpet', 'tile', 'concrete']).optional(),
+        }),
+      )
+      .max(60),
+    doors: z.array(z.object({ position: Pt, rotation: Deg, width: z.number().min(0.6).max(4).default(1) })).max(120).default([]),
+    items: z.array(z.object({ kind: FloorPlanItemKindSchema, position: Pt, rotation: Deg.default(0), roomId: SlugIdSchema.optional() })).max(1500).default([]),
+    seats: z.array(z.object({ id: SlugIdSchema, kind: FloorSeatKindSchema, position: Pt, rotation: Deg, roomId: SlugIdSchema.optional(), label: z.string().max(60).optional() })).min(1).max(500),
+  })
+  .superRefine((plan, ctx) => {
+    const inside = ([x, z]: [number, number]) => x >= 0 && z >= 0 && x <= plan.size.width && z <= plan.size.depth;
+    const rooms = new Set<string>();
+    plan.rooms.forEach((r, i) => {
+      if (rooms.has(r.id)) ctx.addIssue({ code: 'custom', message: `Room id "${r.id}" is used twice`, path: ['rooms', i, 'id'] });
+      rooms.add(r.id);
+      r.polygon.forEach((p, j) => {
+        if (!inside(p)) ctx.addIssue({ code: 'custom', message: 'Point is outside the floor size', path: ['rooms', i, 'polygon', j] });
+      });
+    });
+    const seats = new Set<string>();
+    plan.seats.forEach((s, i) => {
+      if (seats.has(s.id)) ctx.addIssue({ code: 'custom', message: `Seat id "${s.id}" is used twice`, path: ['seats', i, 'id'] });
+      seats.add(s.id);
+      if (!inside(s.position)) ctx.addIssue({ code: 'custom', message: 'Seat is outside the floor size', path: ['seats', i, 'position'] });
+      if (s.roomId && !rooms.has(s.roomId)) ctx.addIssue({ code: 'custom', message: `Unknown room "${s.roomId}"`, path: ['seats', i, 'roomId'] });
+    });
+    plan.items.forEach((it, i) => {
+      if (!inside(it.position)) ctx.addIssue({ code: 'custom', message: 'Item is outside the floor size', path: ['items', i, 'position'] });
+      if (it.roomId && !rooms.has(it.roomId)) ctx.addIssue({ code: 'custom', message: `Unknown room "${it.roomId}"`, path: ['items', i, 'roomId'] });
+    });
+  });
+export type FloorPlan = z.infer<typeof FloorPlanSchema>;
+
+/** Seat map for a floor plan: plan metres = scene metres, origin at the plan's top-left corner, y = 0. */
+export function seatMapFromPlan(plan: FloorPlan): SeatMap {
+  return {
+    schemaVersion: 1,
+    units: 'm',
+    scale: 1,
+    origin: [0, 0, 0],
+    seats: plan.seats.map((s) => ({ id: s.id, kind: s.kind, position: [s.position[0], 0, s.position[1]], rotation: s.rotation, label: s.label ?? null, zoneId: s.roomId ?? null })),
+    zones: plan.rooms.map((r) => ({ id: r.id, name: r.name, kind: r.kind, polygon: r.polygon })),
+    camera: { position: [plan.size.width / 2, Math.max(plan.size.width, plan.size.depth) * 0.9, plan.size.depth * 1.4], target: [plan.size.width / 2, 0, plan.size.depth / 2] },
+  };
+}
+
+/**
+ * Prompt the Super Admin pastes into an AI chat (e.g. Claude) together with the company's reference photos,
+ * head count and notes. The reply is a single JSON file to upload as the floor model (.json).
+ */
+export const FLOOR_PLAN_PROMPT = `You are designing the office floor plan for a live sales team map.
+Look at the attached office photos (work area, cabins, meeting rooms, reception, pantry or lounge, floor plan if any).
+Return ONLY one JSON object, no prose, that follows this format exactly:
+{
+  "schemaVersion": 1, "kind": "vistar.floor-plan", "name": "<company> office", "units": "m",
+  "size": { "width": <metres, x>, "depth": <metres, z> }, "wallHeight": 3, "floorMaterial": "wood|carpet|tile|concrete",
+  "rooms": [ { "id": "work-area", "name": "Sales floor", "kind": "work_area|cabin|meeting_room|reception|pantry_lounge|other",
+               "polygon": [[x,z],[x,z],[x,z],...], "walls": "solid|glass|none" } ],
+  "doors": [ { "position": [x,z], "rotation": <degrees>, "width": 1 } ],
+  "items": [ { "kind": "${FLOOR_PLAN_ITEM_KINDS.join('|')}", "position": [x,z], "rotation": <degrees>, "roomId": "<room id>" } ],
+  "seats": [ { "id": "d1", "kind": "desk|cabin|meeting|lounge|reception", "position": [x,z], "rotation": <degrees the person faces>, "roomId": "<room id>", "label": "Desk 1" } ]
+}
+Rules: coordinates are metres from the top-left corner (x to the right, z downwards) and stay inside size;
+ids use letters, digits, - or _; one seat per person who sits there (head count: {{headcount}}), cabins get kind "cabin",
+meeting chairs "meeting"; keep 1.2 m walkways; match the real layout in the photos as closely as you can.
+Company notes: {{notes}}`;
 
 /** Multipart text fields of POST /api/super/companies/{id}/floors (field `file` = .glb or .zip with a .gltf). */
 export const FloorUploadFieldsSchema = z.object({

@@ -5644,6 +5644,7 @@ components:
           enum:
             - glb
             - gltf_zip
+            - layout_json
         model:
           $ref: "#/components/schemas/FileRef"
         seatMap:
@@ -30897,6 +30898,7 @@ paths:
                         enum:
                           - glb
                           - gltf_zip
+                          - layout_json
                       modelUrl:
                         type: string
                         format: uri
@@ -31178,8 +31180,9 @@ paths:
                 $ref: "#/components/schemas/ApiError"
     post:
       operationId: superFloorUpload
-      summary: "Upload the AI-made floor for a company: .glb or .zip with a .gltf (max
-        40 MB, validated); creates a draft version; audited"
+      summary: "Upload the AI-made floor for a company: .glb, .zip with a .gltf, or a
+        Vistar floor plan .json (FloorPlanSchema; its seats become the seat
+        map); max 40 MB, validated; creates a draft version; audited"
       description: "Requires permission `platform.companies.manage`. Owner:
         backend-core. Phase 19."
       tags:

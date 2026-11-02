@@ -398,6 +398,7 @@ enum FloorAssetStatus {
 enum FloorModelFormat {
   glb
   gltf_zip
+  layout_json
 }
 
 enum DevicePlatform {

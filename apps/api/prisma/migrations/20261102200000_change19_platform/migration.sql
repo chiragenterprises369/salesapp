@@ -34,7 +34,7 @@ CREATE TYPE "FloorImageCategory" AS ENUM ('work_area', 'cabin', 'meeting_room', 
 CREATE TYPE "FloorAssetStatus" AS ENUM ('draft', 'published', 'superseded');
 
 -- CreateEnum
-CREATE TYPE "FloorModelFormat" AS ENUM ('glb', 'gltf_zip');
+CREATE TYPE "FloorModelFormat" AS ENUM ('glb', 'gltf_zip', 'layout_json');
 
 -- CreateEnum
 CREATE TYPE "DevicePlatform" AS ENUM ('android', 'web');

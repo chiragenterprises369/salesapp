@@ -296,7 +296,12 @@ export const FLOOR_ASSET_STATUSES = ['draft', 'published', 'superseded'] as cons
 export const FloorAssetStatusSchema = z.enum(FLOOR_ASSET_STATUSES);
 export type FloorAssetStatus = z.infer<typeof FloorAssetStatusSchema>;
 
-export const FLOOR_MODEL_FORMATS = ['glb', 'gltf_zip'] as const;
+/**
+ * glb = binary glTF; gltf_zip = zip with one .gltf and its buffers/textures; layout_json = a Vistar floor plan
+ * (FloorPlanSchema): plain JSON an AI chat (e.g. Claude) can write from the reference photos and a prompt
+ * (FLOOR_PLAN_PROMPT); the web builds the 3D office from it with the module kit.
+ */
+export const FLOOR_MODEL_FORMATS = ['glb', 'gltf_zip', 'layout_json'] as const;
 export const FloorModelFormatSchema = z.enum(FLOOR_MODEL_FORMATS);
 export type FloorModelFormat = z.infer<typeof FloorModelFormatSchema>;
 

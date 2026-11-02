@@ -34,7 +34,13 @@ export const UPLOAD_LIMITS: Record<FilePurpose, UploadLimit> = {
   favicon: { maxBytes: 512 * 1024, mimes: ['image/png', 'image/x-icon', 'image/vnd.microsoft.icon', 'image/svg+xml'], extensions: ['png', 'ico', 'svg'], visibility: 'public', uploadedVia: 'workspace' },
   login_image: { maxBytes: 5 * MB, mimes: ['image/png', 'image/jpeg', 'image/webp'], extensions: ['png', 'jpg', 'jpeg', 'webp'], visibility: 'public', uploadedVia: 'workspace' },
   reference_image: { maxBytes: 15 * MB, mimes: ['image/png', 'image/jpeg', 'image/webp'], extensions: ['png', 'jpg', 'jpeg', 'webp'], visibility: 'private', uploadedVia: 'workspace' },
-  floor_model: { maxBytes: 40 * MB, mimes: ['model/gltf-binary', 'application/octet-stream', 'application/zip', 'application/x-zip-compressed'], extensions: ['glb', 'zip'], visibility: 'private', uploadedVia: 'super' },
+  floor_model: {
+    maxBytes: 40 * MB,
+    mimes: ['model/gltf-binary', 'application/octet-stream', 'application/zip', 'application/x-zip-compressed', 'application/json', 'text/plain'],
+    extensions: ['glb', 'zip', 'json'],
+    visibility: 'private',
+    uploadedVia: 'super',
+  },
   apk: { maxBytes: 150 * MB, mimes: ['application/vnd.android.package-archive', 'application/octet-stream', 'application/zip'], extensions: ['apk'], visibility: 'private', uploadedVia: 'super' },
   call_recording: {
     maxBytes: 50 * MB,
