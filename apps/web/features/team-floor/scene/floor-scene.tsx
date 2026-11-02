@@ -200,6 +200,7 @@ interface QaHook {
   focus(id: string): void;
   focusPoint(x: number, z: number, factor: number): void;
   rooms(): { id: string; x: number; z: number }[];
+  debugScreens(): unknown;
 }
 
 function EngineBridge({ state, template, theme, tier, reducedMotion, selectedId, focusRequest, onContextLost, callbacksRef, onEngine, container }: BridgeProps) {
@@ -238,6 +239,7 @@ function EngineBridge({ state, template, theme, tier, reducedMotion, selectedId,
         fit: () => engine.resetView(),
         focus: (id) => engine.focus(id),
         focusPoint: (x, z, f) => engine.focusPoint(x, z, f),
+        debugScreens: () => engine.debugScreens(),
         rooms: () => template.rooms.map((r) => ({ id: r.id, x: r.outline.reduce((a, p) => a + p[0], 0) / r.outline.length, z: r.outline.reduce((a, p) => a + p[1], 0) / r.outline.length })),
       };
     }
@@ -370,7 +372,7 @@ function LabelLayer({
               tabIndex={-1}
               onClick={() => onBubble({ userId: key || null, itemIds: items.map((i) => i.id) })}
               title={readOnly ? items.map((i) => i.title).join(', ') : `Resolve: ${items.map((i) => i.title).join(', ')}`}
-              className={cn('pointer-events-auto flex h-[22px] items-center gap-1 rounded-full border px-2 text-2xs font-semibold whitespace-nowrap shadow-card', TONE[tone])}
+              className={cn('pointer-events-auto flex h-[22px] items-center gap-1 rounded-full border px-2 text-xs font-semibold whitespace-nowrap shadow-card', TONE[tone])}
             >
               <span className="flex size-3.5 items-center justify-center rounded-full bg-current text-[9px] leading-none">
                 <span className="text-surface">!</span>
@@ -396,7 +398,7 @@ function LabelLayer({
             data-priority={p.outcome === 'missed' ? '1' : '2'}
             className="invisible absolute top-0 left-0 will-change-transform"
           >
-            <span className={cn('flex h-[22px] items-center gap-1 rounded-full border px-2 text-2xs font-semibold whitespace-nowrap shadow-card', TONE[tone])}>
+            <span className={cn('flex h-[22px] items-center gap-1 rounded-full border px-2 text-xs font-semibold whitespace-nowrap shadow-card', TONE[tone])}>
               <span className="size-1.5 rounded-full bg-current" />
               {text}
               {p.durationSec > 0 && <span className="tabular font-medium opacity-80">{formatDuration(p.durationSec)}</span>}
@@ -434,18 +436,18 @@ const NameTag = memo(function NameTag({
       <span
         data-variant="full"
         className={cn(
-          'absolute top-0 left-0 flex h-5 items-center gap-1 rounded-full border bg-surface px-1.5 text-2xs font-medium whitespace-nowrap text-fg shadow-card group-data-[mode=compact]:invisible',
+          'absolute top-0 left-0 flex h-[22px] items-center gap-1.5 rounded-full border bg-surface pr-2 pl-1.5 text-xs font-medium whitespace-nowrap text-fg shadow-card group-data-[mode=compact]:invisible',
           selected ? 'border-ring ring-1 ring-ring' : 'border-border-strong',
         )}
       >
-        <span className={cn('size-1.5 shrink-0 rounded-full', DOT[employee.status])} />
+        <span className={cn('size-2 shrink-0 rounded-full', DOT[employee.status])} />
         {first}
         {startedAt !== null && <CallTimer startedAt={startedAt} />}
       </span>
       <span
         data-variant="compact"
         className={cn(
-          'invisible absolute top-0 left-0 flex h-4 items-center gap-0.5 rounded-full border bg-surface pr-1 pl-1 text-[9px] leading-none font-semibold text-fg-secondary shadow-card group-data-[mode=compact]:visible',
+          'invisible absolute top-0 left-0 flex h-[18px] items-center gap-1 rounded-full border bg-surface pr-1.5 pl-1 text-[10px] leading-none font-semibold text-fg-secondary shadow-card group-data-[mode=compact]:visible',
           selected ? 'border-ring' : 'border-border-strong',
         )}
       >

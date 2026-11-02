@@ -304,8 +304,15 @@ def build_hair(style):
     return bm, layer, mats
 
 
+HEAD_SCALE = 1.12  # stylised head for readability at the default zoom
+HEAD_PIVOT = Vector((0, -0.008, 1.55))
+
+
 def to_mesh_object(name, bm, layer, mats, arm, skin_for_tag):
     me = bpy.data.meshes.new(name)
+    for v in bm.verts:
+        if v[layer] == TAG['head']:
+            v.co = HEAD_PIVOT + (v.co - HEAD_PIVOT) * HEAD_SCALE
     bm.normal_update()
     tags = {v.index: v[layer] for v in bm.verts}
     coords = {v.index: v.co.copy() for v in bm.verts}
@@ -422,8 +429,11 @@ def _parent_to_bone(obj, arm, bone, world_pos, rot):
 # ---------------------------------------------------------------- poses and clips
 
 D = math.radians
-SEAT_Y = 0.125  # pelvis sits back from the seat centre (towards +Y = behind)
-SEAT_DROP = -0.42  # hips lowered by 0.42 m (local Y of the hips bone points up)
+# The runtime draws people at CHAR_SCALE (character-glb.ts); seated clips are authored so that the
+# scaled pelvis lands on the 0.47 m seat (hip joint ~0.52 m) and the hands on the 0.75 m desk.
+CHAR_SCALE = 1.12
+SEAT_Y = 0.125 / CHAR_SCALE  # pelvis sits back from the seat centre (towards +Y = behind)
+SEAT_DROP = -(0.95 - 0.52 / CHAR_SCALE)  # hips lowered (local Y of the hips bone points up)
 
 
 def base_sit():
@@ -645,11 +655,12 @@ def preview(arm, out_path):
     scene = bpy.context.scene
     cam_data = bpy.data.cameras.new('Cam')
     cam_data.type = 'ORTHO'
-    cam_data.ortho_scale = 2.3
+    cam_data.ortho_scale = 2.5
     cam = bpy.data.objects.new('Cam', cam_data)
     scene.collection.objects.link(cam)
     d = Vector((math.cos(D(32)) * math.sin(D(35)), -math.cos(D(32)) * math.cos(D(35)), math.sin(D(32))))
-    cam.location = Vector((0, 0, 0.85)) + d * 10
+    cam.location = Vector((0, 0, 0.95)) + d * 10
+    arm.scale = (CHAR_SCALE, CHAR_SCALE, CHAR_SCALE)
     cam.rotation_euler = (-d).to_track_quat('-Z', 'Y').to_euler()
     scene.camera = cam
     scene.render.engine = 'BLENDER_WORKBENCH'

@@ -103,6 +103,7 @@ export class Office {
   private readonly poolMesh: THREE.InstancedMesh | null;
   private readonly hubCanvas: HTMLCanvasElement;
   private readonly hubTexture: THREE.CanvasTexture;
+  private readonly screenTexture: THREE.CanvasTexture;
   private screenColor = new THREE.Color('#cfe0ff');
   private screenLevel = 1;
   readonly instancedProps: THREE.InstancedMesh[] = [];
@@ -112,11 +113,14 @@ export class Office {
     const root = assets.gltf.scene.clone(true);
     root.updateMatrixWorld(true);
 
+    this.screenTexture = screenTexture();
+    this.owned.push(this.screenTexture);
     this.hubCanvas = document.createElement('canvas');
     this.hubCanvas.width = 512;
     this.hubCanvas.height = 256;
     this.hubTexture = new THREE.CanvasTexture(this.hubCanvas);
     this.hubTexture.colorSpace = THREE.SRGBColorSpace;
+    this.hubTexture.flipY = false; // glTF UV convention
     this.hubTexture.anisotropy = 4;
     this.owned.push(this.hubTexture);
 
@@ -136,7 +140,7 @@ export class Office {
         const id = name.slice('screen:'.length);
         o.traverse((m) => {
           if (!(m instanceof THREE.Mesh)) return;
-          const mat = new THREE.MeshBasicMaterial({ color: '#cfe0ff' });
+          const mat = new THREE.MeshBasicMaterial({ color: '#ffffff', map: this.screenTexture });
           this.owned.push(mat);
           m.material = mat;
           this.screens.set(id, { mat, on: 1 });
@@ -322,7 +326,7 @@ export class Office {
   }
 
   private paintScreen(s: { mat: THREE.MeshBasicMaterial; on: number }) {
-    const off = new THREE.Color('#1c222b');
+    const off = new THREE.Color('#161b23');
     s.mat.color.copy(off).lerp(this.screenColor.clone().multiplyScalar(this.screenLevel), s.on);
   }
 
@@ -352,10 +356,84 @@ export class Office {
     this.hubTexture.needsUpdate = true;
   }
 
+  /** QA: UV ranges of the screen meshes (verifies the screen texture mapping). */
+  debugScreens() {
+    const out: { name: string; uv: number[] | null; color?: string; map?: string }[] = [];
+    this.group.traverse((m) => {
+      if (!(m instanceof THREE.Mesh) || !m.name.startsWith('screen')) return;
+      const mat = m.material as THREE.MeshBasicMaterial;
+      const uv = m.geometry.getAttribute('uv') as THREE.BufferAttribute | undefined;
+      if (!uv) {
+        out.push({ name: m.name, uv: null });
+        return;
+      }
+      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+      for (let i = 0; i < uv.count; i++) {
+        u0 = Math.min(u0, uv.getX(i));
+        u1 = Math.max(u1, uv.getX(i));
+        v0 = Math.min(v0, uv.getY(i));
+        v1 = Math.max(v1, uv.getY(i));
+      }
+      const img = mat.map?.image as HTMLCanvasElement | undefined;
+      out.push({ name: m.name, uv: [u0, u1, v0, v1], color: mat.color.getHexString(), map: img ? `${img.width}x${img.height} ${mat.map?.uuid.slice(0, 6)}` : 'none' });
+    });
+    return out.slice(0, 6);
+  }
+
   dispose() {
     for (const o of this.owned) o.dispose();
     for (const i of this.instancedProps) i.dispose();
   }
+}
+
+/** Shared monitor content: a light CRM dashboard (header, sidebar, KPI tiles, chart, rows). */
+function screenTexture(): THREE.CanvasTexture {
+  const w = 256;
+  const h = 150;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  const g = ctx.createLinearGradient(0, 0, w, h);
+  g.addColorStop(0, '#f4f8ff');
+  g.addColorStop(1, '#dce8ff');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#4f46e5';
+  ctx.fillRect(0, 0, w, 16);
+  ctx.fillStyle = '#c9d8f5';
+  ctx.fillRect(0, 16, 40, h - 16);
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = i === 1 ? '#8aa6e8' : '#aec3ec';
+    ctx.fillRect(7, 26 + i * 16, 26, 6);
+  }
+  const tiles = ['#3b82f6', '#10b981', '#f59e0b'];
+  tiles.forEach((c, i) => {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(50 + i * 68, 24, 60, 30);
+    ctx.fillStyle = c;
+    ctx.fillRect(56 + i * 68, 30, 24, 6);
+    ctx.fillStyle = '#9fb0cc';
+    ctx.fillRect(56 + i * 68, 42, 40, 5);
+  });
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(50, 62, 128, 78);
+  const bars = [30, 46, 38, 58, 50, 66, 44];
+  bars.forEach((b, i) => {
+    ctx.fillStyle = i === 5 ? '#4f46e5' : '#93b4f5';
+    ctx.fillRect(58 + i * 16, 132 - b, 10, b);
+  });
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(186, 62, 62, 78);
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = '#b8c6de';
+    ctx.fillRect(192, 70 + i * 11, 48 - (i % 3) * 8, 5);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.flipY = false;
+  tex.anisotropy = 4;
+  return tex;
 }
 
 function isDescendant(o: THREE.Object3D, ancestor: THREE.Object3D) {

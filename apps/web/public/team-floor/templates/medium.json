@@ -42,7 +42,7 @@
   ]
  ],
  "wallHeights": {
-  "back": 2.8,
+  "back": 2.5,
   "front": 1.05
  },
  "walls": [
@@ -57,7 +57,7 @@
     18,
     0
    ],
-   "height": 2.8,
+   "height": 2.5,
    "thickness": 0.24,
    "openings": [
     {
@@ -65,7 +65,7 @@
      "from": 16,
      "to": 17.6,
      "sill": 1,
-     "head": 2.3
+     "head": 2.15
     }
    ],
    "finish": [
@@ -97,7 +97,7 @@
     0,
     9.5
    ],
-   "height": 2.8,
+   "height": 2.5,
    "thickness": 0.24,
    "openings": [
     {
@@ -105,7 +105,7 @@
      "from": 1.3,
      "to": 4.7,
      "sill": 0.95,
-     "head": 2.35
+     "head": 2.2
     }
    ],
    "finish": [
@@ -118,7 +118,7 @@
   },
   {
    "id": "back-notch",
-   "kind": "back",
+   "kind": "front",
    "a": [
     4.5,
     9.5
@@ -127,16 +127,9 @@
     4.5,
     13
    ],
-   "height": 2.8,
-   "thickness": 0.24,
-   "openings": [],
-   "finish": [
-    {
-     "from": 0,
-     "to": 3.5,
-     "inner": "paint"
-    }
-   ]
+   "height": 1.05,
+   "thickness": 0.2,
+   "openings": []
   },
   {
    "id": "front-notch",
@@ -929,9 +922,9 @@
    10.2,
    8.6
   ],
-  "ringRadius": 1.5,
-  "platformRadius": 1.65,
-  "machineRadius": 0.62,
+  "ringRadius": 1.55,
+  "platformRadius": 1.7,
+  "machineRadius": 0.72,
   "approach": "hub-e"
  },
  "entrance": {
@@ -1406,10 +1399,6 @@
    [
     "hub-w",
     "south-mid"
-   ],
-   [
-    "hub-w",
-    "hub-front"
    ],
    [
     "hub-sw",
@@ -2461,9 +2450,9 @@
    ],
    "facing": 45,
    "size": [
-    1.24,
-    1.25,
-    1.24
+    1.44,
+    1.3,
+    1.44
    ]
   },
   {
@@ -2474,9 +2463,9 @@
    ],
    "facing": 0,
    "size": [
-    3,
+    3.1,
     0.02,
-    3
+    3.1
    ]
   },
   {
@@ -2526,7 +2515,7 @@
     0.55
    ],
    "facing": 90,
-   "y": 1.85,
+   "y": 1.72,
    "wall": "back-west"
   },
   {
@@ -2536,7 +2525,7 @@
     6.2
    ],
    "facing": 90,
-   "y": 1.85,
+   "y": 1.72,
    "wall": "back-west"
   },
   {
@@ -2546,7 +2535,7 @@
     0.13
    ],
    "facing": 0,
-   "y": 1.85,
+   "y": 1.72,
    "wall": "back-north"
   },
   {
@@ -2556,7 +2545,7 @@
     0.13
    ],
    "facing": 0,
-   "y": 1.85,
+   "y": 1.72,
    "wall": "back-north"
   },
   {
@@ -2566,18 +2555,8 @@
     0.13
    ],
    "facing": 0,
-   "y": 1.85,
+   "y": 1.72,
    "wall": "back-north"
-  },
-  {
-   "type": "sconce",
-   "pos": [
-    4.63,
-    12.1
-   ],
-   "facing": 90,
-   "y": 1.85,
-   "wall": "back-notch"
   },
   {
    "type": "sconce_outdoor",
@@ -3109,7 +3088,7 @@
     10.2,
     8.6
    ],
-   "r": 0.87
+   "r": 0.97
   },
   {
    "kind": "circle",
@@ -3138,9 +3117,9 @@
  ],
  "camera": {
   "yawDeg": 45,
-  "pitchDeg": 32,
-  "padding": 0.035,
-  "fitHeight": 2.8,
+  "pitchDeg": 27,
+  "padding": 0.015,
+  "fitHeight": 2.5,
   "minZoom": 0.85,
   "maxZoom": 3.2
  }

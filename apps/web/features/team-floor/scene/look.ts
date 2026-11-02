@@ -32,6 +32,9 @@ export interface Look {
   hemiIntensity: number;
   sun: THREE.Color;
   sunIntensity: number;
+  /** Soft fill from the camera side so faces towards the viewer are not in shadow. */
+  fill: THREE.Color;
+  fillIntensity: number;
   rim: THREE.Color;
   rimStrength: number;
   outline: THREE.Color;
@@ -71,26 +74,28 @@ export function sceneLook(theme: ResolvedTheme): Look {
     status[s] = c(p[`status-${tone}-fg` as keyof ThemePalette]);
   }
   return {
-    lightmap: dark ? 0.42 : 1.0,
+    lightmap: dark ? 0.46 : 1.16,
     tint: dark ? c('#8d9ac4') : c('#ffffff'),
     ao: dark ? 0.8 : 1.0,
-    screen: c(dark ? '#a9c6ff' : '#cfe0ff'),
+    screen: c(dark ? '#b4cbff' : '#eef3ff'),
     screenLevel: dark ? 1.25 : 1.0,
     hub: c('#3b82f6'),
-    hubLevel: dark ? 1.6 : 1.25,
+    hubLevel: dark ? 1.6 : 1.4,
     reception: c('#4d6dff'),
-    receptionLevel: dark ? 1.8 : 1.35,
+    receptionLevel: dark ? 1.9 : 1.6,
     lamp: c('#ffd59c'),
     lampLevel: dark ? 1.5 : 1.05,
     windowColor: dark ? c('#41557d') : c('#dcebf7'),
     glassOpacity: dark ? 0.22 : 0.16,
-    hemiSky: dark ? c('#8090c8') : c('#fff4e6'),
-    hemiGround: dark ? c('#2a2730') : c('#9a7658'),
-    hemiIntensity: dark ? 0.9 : 1.75,
+    hemiSky: dark ? c('#8090c8') : c('#fff6ea'),
+    hemiGround: dark ? c('#3a3440') : c('#c9a684'),
+    hemiIntensity: dark ? 1.5 : 2.6,
     sun: dark ? c('#9fb2ff') : c('#ffe9cf'),
-    sunIntensity: dark ? 0.55 : 1.9,
+    sunIntensity: dark ? 0.9 : 2.4,
+    fill: dark ? c('#c7d2ff') : c('#fff8f0'),
+    fillIntensity: dark ? 0.8 : 1.5,
     rim: dark ? c('#b7c8ff') : c('#fff1dc'),
-    rimStrength: dark ? 0.5 : 0.32,
+    rimStrength: dark ? 0.55 : 0.4,
     outline: c(dark ? '#0b0d12' : '#2a2320'),
     shadowOpacity: dark ? 0.3 : 0.24,
     poolLevel: dark ? 0.55 : 0,
@@ -101,8 +106,8 @@ export function sceneLook(theme: ResolvedTheme): Look {
   };
 }
 
-const COLOR_KEYS = ['tint', 'screen', 'hub', 'reception', 'lamp', 'windowColor', 'hemiSky', 'hemiGround', 'sun', 'rim', 'outline', 'pool', 'accent'] as const;
-const NUM_KEYS = ['lightmap', 'ao', 'screenLevel', 'hubLevel', 'receptionLevel', 'lampLevel', 'glassOpacity', 'hemiIntensity', 'sunIntensity', 'rimStrength', 'shadowOpacity', 'poolLevel', 'contactShadow'] as const;
+const COLOR_KEYS = ['tint', 'screen', 'hub', 'reception', 'lamp', 'windowColor', 'hemiSky', 'hemiGround', 'sun', 'fill', 'rim', 'outline', 'pool', 'accent'] as const;
+const NUM_KEYS = ['lightmap', 'ao', 'screenLevel', 'hubLevel', 'receptionLevel', 'lampLevel', 'glassOpacity', 'hemiIntensity', 'sunIntensity', 'fillIntensity', 'rimStrength', 'shadowOpacity', 'poolLevel', 'contactShadow'] as const;
 
 export function cloneLook(a: Look): Look {
   const out = { ...a } as Look;

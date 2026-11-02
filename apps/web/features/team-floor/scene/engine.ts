@@ -90,6 +90,7 @@ export class FloorEngine {
   private readonly cam: CameraController;
   private readonly hemi: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
+  private readonly fill: THREE.DirectionalLight;
   private readonly selectRing: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   private readonly labels = new Map<string, LabelEl>();
   private placements = new Map<string, Placement>();
@@ -157,6 +158,11 @@ export class FloorEngine {
     this.sun.shadow.bias = -0.0006;
     this.sun.shadow.normalBias = 0.02;
     this.sun.shadow.radius = 3;
+    // Fill from the camera side (no shadows) so people's faces towards the viewer stay readable.
+    const yaw = (layout.template.camera.yawDeg * Math.PI) / 180;
+    this.fill = new THREE.DirectionalLight(this.look.fill, this.look.fillIntensity);
+    this.fill.position.set(cx + Math.sin(yaw) * 30, 22, cz + Math.cos(yaw) * 30);
+    this.fill.target.position.set(cx, 0, cz);
 
     const ringGeo = new THREE.RingGeometry(0.58, 0.68, 40);
     ringGeo.rotateX(-Math.PI / 2);
@@ -164,7 +170,7 @@ export class FloorEngine {
     this.selectRing.visible = false;
     this.selectRing.renderOrder = 4;
 
-    this.root.add(this.effects.group, this.hemi, this.sun, this.sun.target, this.selectRing);
+    this.root.add(this.effects.group, this.hemi, this.sun, this.sun.target, this.fill, this.fill.target, this.selectRing);
     this.root.visible = false;
     o.scene.add(this.root);
 
@@ -385,6 +391,11 @@ export class FloorEngine {
       pixelRatio: this.o.gl.getPixelRatio(),
       canvas: { width: this.cam.size.width, height: this.cam.size.height },
     };
+  }
+
+  /** Visible label rectangles in canvas CSS px (QA hook). */
+  debugScreens() {
+    return this.office?.debugScreens() ?? [];
   }
 
   /** Visible label rectangles in canvas CSS px (QA hook). */
@@ -651,6 +662,8 @@ export class FloorEngine {
     this.hemi.intensity = this.look.hemiIntensity;
     this.sun.color.copy(this.look.sun);
     this.sun.intensity = this.look.sunIntensity;
+    this.fill.color.copy(this.look.fill);
+    this.fill.intensity = this.look.fillIntensity;
     this.office?.setLook(this.look);
     this.model.setLook(this.look);
     this.agents.setStatusColors(this.look.status);

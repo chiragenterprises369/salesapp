@@ -21,7 +21,7 @@ PI = math.pi
 MATS = {
     'wall_paint': dict(color='#efe8dc', roughness=0.9),
     'wall_teal': dict(color='#2d5a5f', roughness=0.85),
-    'wall_slate': dict(color='#33454f', roughness=0.85),
+    'wall_slate': dict(color='#3a5560', roughness=0.85),
     'wall_trim': dict(color='#f5f1e9', roughness=0.7),
     'wall_cap': dict(color='#d9d3c9', roughness=0.8),
     'slab': dict(color='#2a3640', roughness=0.9),
@@ -79,7 +79,8 @@ MATS = {
     'water_blue': dict(color='#7fb6e6', roughness=0.1, alpha=0.75),
     'hub_body': dict(color='#e2e6eb', roughness=0.35, metallic=0.2),
     'hub_dark': dict(color='#1d2530', roughness=0.4, metallic=0.3),
-    'hub_platform': dict(color='#2a323d', roughness=0.5, metallic=0.2),
+    'hub_platform': dict(color='#c9d0d8', roughness=0.4, metallic=0.25),
+    'hub_platform_dark': dict(color='#2b3440', roughness=0.4, metallic=0.2),
     'blind': dict(color='#d8d3ca', roughness=0.8),
     # Textured (images assigned by build_office.py; colours are the untextured fallback).
     'floor_oak': dict(color='#b47c4e', roughness=0.6),
@@ -93,9 +94,9 @@ MATS = {
     'glass_hub': dict(color='#9cc4f6', roughness=0.05, alpha=0.35),
     'window_glass': dict(color='#d3e6f3', roughness=0.05, alpha=0.3),
     'emissive_screen': dict(color='#9cc2ff', roughness=0.3, emission='#9cc2ff', emission_strength=1.2),
-    'emissive_hub': dict(color='#3b82f6', roughness=0.3, emission='#3b82f6', emission_strength=6.0),
+    'emissive_hub': dict(color='#3b82f6', roughness=0.3, emission='#3b82f6', emission_strength=9.0),
     'emissive_hub_soft': dict(color='#7fb0ff', roughness=0.3, emission='#7fb0ff', emission_strength=2.5),
-    'emissive_reception': dict(color='#4d6dff', roughness=0.3, emission='#4d6dff', emission_strength=7.0),
+    'emissive_reception': dict(color='#4d6dff', roughness=0.3, emission='#4d6dff', emission_strength=16.0),
     'emissive_lamp': dict(color='#ffd59c', roughness=0.5, emission='#ffd59c', emission_strength=5.0),
     'hub_screen': dict(color='#16233a', roughness=0.3, emission='#2b5fd9', emission_strength=1.0),
 }
@@ -202,21 +203,25 @@ def bench_desk(p, M, ctx):
 def reception_counter(p, M, ctx):
     b = ctx.static
     w, h, d = p['size']
-    # Front counter: walnut plinth, white marble body and top; receptionist desk behind at 0.75.
-    b.box((w, 0.34, 0.12), (0, -d / 2 + 0.19, 0.06), mat('walnut'), bevel=0.01, matrix=M)
-    b.box((w, 0.32, h - 0.17), (0, -d / 2 + 0.18, 0.12 + (h - 0.17) / 2), mat('marble'), bevel=0.02, matrix=M)
-    b.box((w + 0.06, 0.42, 0.05), (0, -d / 2 + 0.17, h - 0.025), mat('marble'), bevel=0.012, matrix=M)
+    # Front counter: walnut lower panel, white marble upper band and top (like the reference);
+    # receptionist desk behind at 0.75 m.
+    fy = -d / 2 + 0.18
+    b.box((w, 0.32, 0.1), (0, fy, 0.05), mat('slab'), bevel=0.008, matrix=M)
+    b.box((w, 0.32, 0.5), (0, fy, 0.1 + 0.25), mat('walnut'), bevel=0.012, matrix=M)
+    b.box((w, 0.33, h - 0.62), (0, fy, 0.6 + (h - 0.62) / 2), mat('marble'), bevel=0.015, matrix=M)
+    b.box((w + 0.08, 0.44, 0.05), (0, fy - 0.01, h - 0.025), mat('marble'), bevel=0.014, matrix=M)
     b.box((w - 0.1, d - 0.32, 0.04), (0, 0.13, 0.73), mat('desk_white'), bevel=0.01, matrix=M)
     for sx in (-1, 1):
         b.box((0.05, d - 0.34, 0.71), (sx * (w / 2 - 0.08), 0.15, 0.355), mat('walnut'), bevel=0.008, matrix=M)
-    # Glowing base edge (front and sides).
+    # Glowing base edge (front and sides), double strip so it reads at the default zoom.
     e = ctx.emissive
-    e.box((w - 0.02, 0.02, 0.025), (0, -d / 2 + 0.015, 0.125), mat('emissive_reception'), matrix=M)
+    e.box((w + 0.02, 0.035, 0.035), (0, -d / 2 + 0.01, 0.115), mat('emissive_reception'), matrix=M)
+    e.box((w - 0.06, 0.012, 0.012), (0, -d / 2 + 0.016, 0.6), mat('emissive_reception'), matrix=M)
     for sx in (-1, 1):
-        e.box((0.02, 0.32, 0.025), (sx * (w / 2 - 0.005), -d / 2 + 0.18, 0.125), mat('emissive_reception'), matrix=M)
-    # Logo plate: indigo hexagon with a light mark.
-    b.cyl(0.13, 0.012, (0, -d / 2 + 0.012, 0.6), mat('hub_dark'), segments=6, rot=(PI / 2, 0, 0), matrix=M)
-    b.cyl(0.07, 0.012, (0, -d / 2 + 0.004, 0.6), mat('marble'), segments=6, rot=(PI / 2, 0, PI / 6), matrix=M)
+        e.box((0.035, 0.32, 0.035), (sx * (w / 2 + 0.01), fy, 0.115), mat('emissive_reception'), matrix=M)
+    # Logo plate: dark hexagon with a light mark on the marble band.
+    b.cyl(0.15, 0.014, (0, -d / 2 + 0.012, 0.82), mat('hub_dark'), segments=6, rot=(PI / 2, 0, 0), matrix=M)
+    b.cyl(0.08, 0.014, (0, -d / 2 + 0.002, 0.82), mat('marble'), segments=6, rot=(PI / 2, 0, PI / 6), matrix=M)
     b.box((0.36, 0.26, 0.015), (0.55, 0.05, 0.76), mat('paper'), matrix=M)
     b.box((0.4, 0.13, 0.018), (0.1, 0.16, 0.76), mat('plastic_dark'), bevel=0.004, matrix=M)
 
@@ -278,32 +283,32 @@ def screen_size(variant):
 def sofa_green(p, M, ctx):
     b = ctx.static
     w, h, d = p['size']
-    b.box((w, d, 0.2), (0, 0, 0.16), mat('sofa_green'), bevel=0.04, segments=3, matrix=M)
+    b.box((w, d, 0.28), (0, 0, 0.2), mat('sofa_green'), bevel=0.04, segments=3, matrix=M)
     seats = 3
     sw = (w - 0.3) / seats
     for k in range(seats):
         x = -w / 2 + 0.15 + sw * (k + 0.5)
-        b.box((sw - 0.02, d - 0.3, 0.14), (x, -0.08, 0.32), mat('sofa_green_light'), bevel=0.05, segments=3, matrix=M)
-        b.box((sw - 0.04, 0.2, 0.4), (x, d / 2 - 0.2, 0.52), mat('sofa_green_light'), bevel=0.06, segments=3, rot=(-0.12, 0, 0), matrix=M)
-    b.box((w, 0.18, 0.62), (0, d / 2 - 0.09, 0.4), mat('sofa_green'), bevel=0.05, segments=3, matrix=M)
+        b.box((sw - 0.02, d - 0.3, 0.14), (x, -0.08, 0.4), mat('sofa_green_light'), bevel=0.05, segments=3, matrix=M)
+        b.box((sw - 0.04, 0.2, 0.42), (x, d / 2 - 0.2, 0.63), mat('sofa_green_light'), bevel=0.06, segments=3, rot=(-0.12, 0, 0), matrix=M)
+    b.box((w, 0.18, 0.74), (0, d / 2 - 0.09, 0.46), mat('sofa_green'), bevel=0.05, segments=3, matrix=M)
     for sx in (-1, 1):
-        b.box((0.16, d, 0.55), (sx * (w / 2 - 0.08), 0, 0.33), mat('sofa_green'), bevel=0.05, segments=3, matrix=M)
+        b.box((0.16, d, 0.62), (sx * (w / 2 - 0.08), 0, 0.37), mat('sofa_green'), bevel=0.05, segments=3, matrix=M)
     for sx in (-1, 1):
         for sy in (-1, 1):
             b.cyl(0.025, 0.06, (sx * (w / 2 - 0.1), sy * (d / 2 - 0.1), 0.03), mat('oak_light'), segments=8, matrix=M)
     # Two cushions.
-    b.box((0.36, 0.14, 0.32), (-w / 2 + 0.42, d / 2 - 0.3, 0.55), mat('art_sand'), bevel=0.06, segments=3, matrix=M)
-    b.box((0.34, 0.14, 0.3), (w / 2 - 0.42, d / 2 - 0.3, 0.54), mat('wall_paint'), bevel=0.06, segments=3, matrix=M)
+    b.box((0.36, 0.14, 0.32), (-w / 2 + 0.42, d / 2 - 0.3, 0.63), mat('art_sand'), bevel=0.06, segments=3, matrix=M)
+    b.box((0.34, 0.14, 0.3), (w / 2 - 0.42, d / 2 - 0.3, 0.62), mat('wall_paint'), bevel=0.06, segments=3, matrix=M)
 
 
 def armchair_green(p, M, ctx):
     b = ctx.static
     w, h, d = p['size']
-    b.box((w, d, 0.2), (0, 0, 0.16), mat('sofa_green'), bevel=0.04, segments=3, matrix=M)
-    b.box((w - 0.3, d - 0.28, 0.14), (0, -0.07, 0.32), mat('sofa_green_light'), bevel=0.05, segments=3, matrix=M)
-    b.box((w, 0.18, 0.62), (0, d / 2 - 0.09, 0.4), mat('sofa_green'), bevel=0.05, segments=3, matrix=M)
+    b.box((w, d, 0.28), (0, 0, 0.2), mat('sofa_green'), bevel=0.04, segments=3, matrix=M)
+    b.box((w - 0.3, d - 0.28, 0.14), (0, -0.07, 0.4), mat('sofa_green_light'), bevel=0.05, segments=3, matrix=M)
+    b.box((w, 0.18, 0.74), (0, d / 2 - 0.09, 0.46), mat('sofa_green'), bevel=0.05, segments=3, matrix=M)
     for sx in (-1, 1):
-        b.box((0.15, d, 0.52), (sx * (w / 2 - 0.075), 0, 0.31), mat('sofa_green'), bevel=0.05, segments=3, matrix=M)
+        b.box((0.15, d, 0.6), (sx * (w / 2 - 0.075), 0, 0.36), mat('sofa_green'), bevel=0.05, segments=3, matrix=M)
 
 
 def coffee_table(p, M, ctx):
@@ -544,15 +549,16 @@ def hub(p, M, ctx):
     b.cyl(r - 0.12, 0.05, (0, 0, h - 0.1), mat('hub_dark'), segments=40, bevel=0.01, matrix=M)
     ctx.emissive.torus(r - 0.14, 0.012, (0, 0, h - 0.075), mat('emissive_hub'), major_segments=48, minor_segments=6, matrix=M)
     # Front screen (runtime draws "LEAD HUB" on it): a curved panel on the -Y side.
-    ctx.hub_screen = (M, r + 0.005, 0.18 + 0.12, 0.62, 0.3)
+    ctx.hub_screen = (M, r + 0.006, 0.34, 0.98, 0.44)
 
 
 def hub_ring(p, M, ctx):
     w, h, d = p['size']
     r = w / 2
-    ctx.static.cyl(r + 0.2, 0.035, (0, 0, 0.0175), mat('hub_platform'), segments=64, bevel=0.01, matrix=M)
-    ctx.emissive.torus(r, 0.035, (0, 0, 0.04), mat('emissive_hub'), major_segments=96, minor_segments=6, matrix=M)
-    ctx.emissive.torus(r * 0.72, 0.012, (0, 0, 0.037), mat('emissive_hub_soft'), major_segments=72, minor_segments=4, matrix=M)
+    ctx.static.cyl(r + 0.22, 0.03, (0, 0, 0.015), mat('hub_platform'), segments=72, bevel=0.01, matrix=M)
+    ctx.static.cyl(0.98, 0.012, (0, 0, 0.036), mat('hub_platform_dark'), segments=48, matrix=M)
+    ctx.emissive.torus(r, 0.04, (0, 0, 0.04), mat('emissive_hub'), major_segments=96, minor_segments=6, matrix=M)
+    ctx.emissive.torus(r * 0.78, 0.014, (0, 0, 0.034), mat('emissive_hub_soft'), major_segments=72, minor_segments=4, matrix=M)
 
 
 # ---------------------------------------------------------------- plants (instanced)

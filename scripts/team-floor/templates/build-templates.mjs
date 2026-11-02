@@ -28,7 +28,7 @@ function medium() {
   const W = 18;
   const D = 13;
   const NOTCH = { x: 4.5, z: 9.5 }; // L-shape: the south-west corner (x < 4.5, z > 9.5) is outside.
-  const BACK_H = 2.8;
+  const BACK_H = 2.5;
   const FRONT_H = 1.05;
 
   const footprint = [
@@ -60,7 +60,7 @@ function medium() {
       height: BACK_H,
       thickness: 0.24,
       openings: [
-        { kind: 'window', from: 16.0, to: 17.6, sill: 1.0, head: 2.3 },
+        { kind: 'window', from: 16.0, to: 17.6, sill: 1.0, head: 2.15 },
       ],
       finish: [
         { from: 0, to: CALL.x0, inner: 'paint' },
@@ -75,19 +75,11 @@ function medium() {
       b: [0, NOTCH.z],
       height: BACK_H,
       thickness: 0.24,
-      openings: [{ kind: 'window', from: 1.3, to: 4.7, sill: 0.95, head: 2.35 }],
+      openings: [{ kind: 'window', from: 1.3, to: 4.7, sill: 0.95, head: 2.2 }],
       finish: [{ from: 0, to: NOTCH.z, inner: 'paint' }],
     },
-    {
-      id: 'back-notch',
-      kind: 'back',
-      a: [NOTCH.x, NOTCH.z],
-      b: [NOTCH.x, D],
-      height: BACK_H,
-      thickness: 0.24,
-      openings: [],
-      finish: [{ from: 0, to: D - NOTCH.z, inner: 'paint' }],
-    },
+    // The notch side of the L stays low like the front walls, so the left of the office reads open.
+    { id: 'back-notch', kind: 'front', a: [NOTCH.x, NOTCH.z], b: [NOTCH.x, D], height: FRONT_H, thickness: 0.2, openings: [] },
     // Front walls (low, outer face visible): dark slate with a light cap and outdoor sconces.
     { id: 'front-notch', kind: 'front', a: [0, NOTCH.z], b: [NOTCH.x, NOTCH.z], height: FRONT_H, thickness: 0.2, openings: [] },
     {
@@ -202,7 +194,7 @@ function medium() {
     },
   ];
 
-  const hub = { pos: [10.2, 8.6], ringRadius: 1.5, platformRadius: 1.65, machineRadius: 0.62 };
+  const hub = { pos: [10.2, 8.6], ringRadius: 1.55, platformRadius: 1.7, machineRadius: 0.72 };
 
   const seats = [];
   const props = [];
@@ -354,7 +346,7 @@ function medium() {
   blockCircle(W - 0.35, 12.68, 0.28);
 
   // ---- Lead Hub (centre) and the entrance mat outside the door.
-  prop('hub', ...hub.pos, 45, { size: [hub.machineRadius * 2, 1.25, hub.machineRadius * 2] });
+  prop('hub', ...hub.pos, 45, { size: [hub.machineRadius * 2, 1.3, hub.machineRadius * 2] });
   prop('hub_ring', ...hub.pos, 0, { size: [hub.ringRadius * 2, 0.02, hub.ringRadius * 2] });
   blockCircle(...hub.pos, hub.machineRadius + 0.25);
   prop('mat', (DOOR.x0 + DOOR.x1) / 2, D + 0.75, 0, { size: [1.9, 0.015, 1.1] });
@@ -374,9 +366,8 @@ function medium() {
     ['back-north', 4.6, 0.13, 0],
     ['back-north', 11.9, 0.13, 0],
     ['back-north', 15.6, 0.13, 0],
-    ['back-notch', NOTCH.x + 0.13, 12.1, 90],
   ];
-  for (const [wall, x, z, f] of sconces) prop('sconce', x, z, f, { y: 1.85, wall });
+  for (const [wall, x, z, f] of sconces) prop('sconce', x, z, f, { y: 1.72, wall });
   const outdoor = [
     ['front-south', 7.2, D + 0.11, 0],
     ['front-south', 11.6, D + 0.11, 0],
@@ -470,7 +461,7 @@ function medium() {
     entrance,
     props,
     lamps,
-    camera: { yawDeg: 45, pitchDeg: 32, padding: 0.035, fitHeight: BACK_H, minZoom: 0.85, maxZoom: 3.2 },
+    camera: { yawDeg: 45, pitchDeg: 27, padding: 0.015, fitHeight: BACK_H, minZoom: 0.85, maxZoom: 3.2 },
     waypoints,
     obstacles,
   });

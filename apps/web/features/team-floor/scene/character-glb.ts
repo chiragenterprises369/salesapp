@@ -26,8 +26,10 @@ const SHOES = ['#1f1f22', '#3b2a20', '#e7e5e4', '#2b2b2b', '#5a3a28'];
 const ACCENTS = ['#f1ede6', '#e5e7eb', '#e9e1d4'];
 
 const CROSSFADE_S = 0.28;
-const HEAD_STANDING = 1.8;
-const HEAD_SEATED = 1.36;
+/** Heroic scale (like the reference); seated clips are authored for it (build_characters.py CHAR_SCALE). */
+const CHAR_SCALE = 1.12;
+const HEAD_STANDING = 1.84 * CHAR_SCALE;
+const HEAD_SEATED = 1.52;
 
 interface Primitive {
   geometry: THREE.BufferGeometry;
@@ -215,8 +217,8 @@ export function createGlbCharacters(assets: CharacterAssets, capacity: number, l
   ringGeo.rotateX(-Math.PI / 2);
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false });
   const ring = new THREE.InstancedMesh(ringGeo, ringMat, cap);
-  const proxyGeo = new THREE.CylinderGeometry(0.34, 0.34, 1.8, 8);
-  proxyGeo.translate(0, 0.9, 0);
+  const proxyGeo = new THREE.CylinderGeometry(0.36, 0.36, 2.0, 8);
+  proxyGeo.translate(0, 1.0, 0);
   const proxyMat = new THREE.MeshBasicMaterial({ visible: false });
   const proxy = new THREE.InstancedMesh(proxyGeo, proxyMat, cap);
   proxy.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
@@ -275,7 +277,7 @@ export function createGlbCharacters(assets: CharacterAssets, capacity: number, l
       if (n === 'Prop_Document') doc = o;
     });
     for (const p of [phone, doc] as (THREE.Object3D | null)[]) if (p) p.visible = false;
-    const scale = 0.95 + hash(userId + ':h') * 0.08;
+    const scale = CHAR_SCALE * (0.97 + hash(userId + ':h') * 0.06);
     rig.scale.setScalar(scale);
     rig.visible = false;
     const mixer = new THREE.AnimationMixer(rig);

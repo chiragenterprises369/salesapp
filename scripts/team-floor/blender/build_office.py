@@ -52,7 +52,7 @@ TEX_DIR = os.path.join(OUT_TMP, 'textures')
 def make_textures():
     os.makedirs(TEX_DIR, exist_ok=True)
     specs = {
-        'floor_oak': (lambda: TX.planks(1024, 2.4, 0.2, base='#b47c4e', dark='#86552f', light='#cf9a6b', gap='#5a371f', seed=7)),
+        'floor_oak': (lambda: TX.planks(1024, 2.4, 0.2, base='#c08b59', dark='#93603a', light='#dcae7a', gap='#6a4428', seed=7)),
         'floor_walnut': (lambda: TX.planks(512, 1.2, 0.15, base='#5b3b26', dark='#3d2516', light='#7a5236', gap='#2a190e', seed=13, min_len=0.6, max_len=1.1)),
         'walnut': (lambda: TX.planks(512, 1.2, 0.3, base='#5e3d28', dark='#402818', light='#7d553a', gap='#3a2416', seed=21, min_len=2.4, max_len=2.4, grain=1.1)),
         'floor_carpet': (lambda: TX.carpet(256)),
@@ -396,13 +396,25 @@ def build(t):
         for k, (M, p) in enumerate(items):
             link_object(f'inst:{key}:{k}', me, instances, M)
 
-    # Screens: one quad per seat, named screen:<seatId>.
+    # Screens: one quad per seat (UV 0..1 for the runtime screen texture), named screen:<seatId>.
     for sid, M, variant in screens:
         w, h = P.screen_size(variant)
-        b = MeshBuilder()
-        faces = b.box((w, 0.004, h), (0, -0.0175, 0.13 + h / 2), P.mat('emissive_screen'), uvfix=1)
-        me = b.to_mesh(f'screen_{sid}')
-        b.free()
+        bm = bmesh.new()
+        uv = bm.loops.layers.uv.new('UVMap')
+        y = -0.0172
+        z0 = 0.13
+        vs = [bm.verts.new(c) for c in ((-w / 2, y, z0), (w / 2, y, z0), (w / 2, y, z0 + h), (-w / 2, y, z0 + h))]
+        f = bm.faces.new(vs)
+        f.normal_update()
+        if f.normal.y > 0:
+            f.normal_flip()
+        for loop in f.loops:
+            co = loop.vert.co
+            loop[uv].uv = ((co.x + w / 2) / w, (co.z - z0) / h)
+        me = bpy.data.meshes.new(f'screen_{sid}')
+        bm.to_mesh(me)
+        bm.free()
+        me.materials.append(P.mat('emissive_screen'))
         link_object(f'screen:{sid}', me, instances, M)
 
     build_hub_screen(ctx, instances)

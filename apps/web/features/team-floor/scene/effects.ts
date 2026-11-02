@@ -16,6 +16,8 @@ const QUEUE_SLOTS = 12;
 const PARCEL_CAP = 48;
 const RING_CAP = 512;
 const FLIGHT_SPEED = 3.4;
+/** Height of the waiting-lead orbit above the hub. */
+const QUEUE_Y = 1.55;
 
 type ParcelPhase = 'drop' | 'queue' | 'flight' | 'land' | 'landed' | 'vanish';
 
@@ -92,9 +94,10 @@ export class EffectsSystem {
     this.look = look;
     this.group.name = 'effects';
 
-    const parcelGeo = new THREE.BoxGeometry(0.3, 0.22, 0.3);
+    // Leads are small glowing cards: waiting ones orbit above the Lead Hub, assigned ones fly to the desk.
+    const parcelGeo = new THREE.BoxGeometry(0.26, 0.035, 0.19);
     this.geometries.push(parcelGeo);
-    this.parcelMat = new THREE.MeshLambertMaterial({ color: look.accent, emissive: look.accent, emissiveIntensity: 0.55 });
+    this.parcelMat = new THREE.MeshLambertMaterial({ color: '#ffffff', emissive: look.hub, emissiveIntensity: 0.9 });
     this.parcelMesh = new THREE.InstancedMesh(parcelGeo, this.parcelMat, PARCEL_CAP);
     this.parcelMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.parcelMesh.frustumCulled = false;
@@ -122,8 +125,7 @@ export class EffectsSystem {
 
   setLook(look: Look) {
     this.look = look;
-    this.parcelMat.color.copy(look.accent);
-    this.parcelMat.emissive.copy(look.accent);
+    this.parcelMat.emissive.copy(look.hub);
   }
 
   /** Called on every new FloorState. */
@@ -159,8 +161,8 @@ export class EffectsSystem {
   }
 
   private slotPosition(slot: number) {
-    const a = (slot / QUEUE_SLOTS) * Math.PI * 2 + Math.PI / 4;
-    const r = this.layout.hub.r * 0.72;
+    const a = (slot / QUEUE_SLOTS) * Math.PI * 2 + Math.PI / 4 + this.time * (this.reducedMotion ? 0 : 0.35);
+    const r = 0.95 + (slot % 2) * 0.12;
     return { x: this.layout.hub.x + Math.cos(a) * r, z: this.layout.hub.z + Math.sin(a) * r };
   }
 
@@ -188,13 +190,13 @@ export class EffectsSystem {
         phase: fresh && !this.reducedMotion ? 'drop' : 'queue',
         t: 0,
         x: pos.x,
-        y: fresh && !this.reducedMotion ? 2.6 : 0.2,
+        y: fresh && !this.reducedMotion ? 3.2 : QUEUE_Y,
         z: pos.z,
         slot,
         path: null,
         s: 0,
         cursor: 0,
-        from: { x: pos.x, y: 2.6, z: pos.z },
+        from: { x: pos.x, y: 3.2, z: pos.z },
         to: null,
         ownerId: null,
         scale: 1,
@@ -248,7 +250,7 @@ export class EffectsSystem {
         case 'drop': {
           const u = Math.min(1, p.t / 0.6);
           const bounce = 1 - (1 - u) ** 3;
-          p.y = p.from.y + (0.2 - p.from.y) * bounce;
+          p.y = p.from.y + (QUEUE_Y - p.from.y) * bounce;
           if (u >= 1) {
             p.phase = 'queue';
             p.t = 0;
@@ -256,9 +258,13 @@ export class EffectsSystem {
           moving = true;
           break;
         }
-        case 'queue':
-          p.y = 0.2 + (rm ? 0 : 0.035 * Math.sin(this.time * 2.2 + p.slot));
+        case 'queue': {
+          const pos = this.slotPosition(p.slot);
+          p.x = pos.x;
+          p.z = pos.z;
+          p.y = QUEUE_Y + (p.slot % 3) * 0.09 + (rm ? 0 : 0.04 * Math.sin(this.time * 2.2 + p.slot));
           break;
+        }
         case 'flight': {
           if (!p.path || !p.to) {
             p.phase = 'land';
