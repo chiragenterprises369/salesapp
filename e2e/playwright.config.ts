@@ -8,6 +8,8 @@ import { defineConfig, devices } from '@playwright/test';
  */
 const port = Number(process.env.E2E_PORT ?? 3000);
 const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${port}`;
+// Several worktrees build and test on one machine, so the local default is 2 workers (REQUESTS #4).
+const workers = Number(process.env.E2E_WORKERS ?? 2);
 
 export default defineConfig({
   testDir: '.',
@@ -16,7 +18,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  workers,
   timeout: 45_000,
   expect: { timeout: 7_000 },
   reporter: [['list'], ['html', { outputFolder: './.report', open: 'never' }]],
