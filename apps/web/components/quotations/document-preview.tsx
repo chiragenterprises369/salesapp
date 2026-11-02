@@ -51,7 +51,7 @@ export function DocumentPreview({ doc, className }: { doc: PreviewDocument; clas
   const intra = doc.totals.taxMode === 'intra';
   const title = doc.kind === 'quotation' ? 'Quotation' : doc.seller?.gstin ? 'Tax invoice' : 'Invoice';
   return (
-    <article aria-label={`${title} preview`} className={cn('mx-auto w-full max-w-[56rem] rounded-lg border border-border bg-surface p-6 text-sm text-fg shadow-card sm:p-8', className)}>
+    <article aria-label={`${title} preview`} className={cn('w-full min-w-0 rounded-lg border border-border bg-surface p-6 text-sm text-fg shadow-card sm:p-8', className)}>
       <header className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           {doc.logoUrl && (
