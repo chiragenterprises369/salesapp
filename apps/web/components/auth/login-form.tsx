@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormField, Input } from '@/components/ui/input';
-import { mockLogin, type AuthFailure } from '@/lib/auth/mock-auth';
+import { login, type AuthFailure } from '@/lib/auth/actions';
 import { SUPER_LOGIN_PATH } from '@/lib/auth/redirect';
 import { useRedirectWhenSignedIn } from '@/lib/auth/use-auth';
-import { useSessionActions } from '@/lib/session/session';
+import { useSessionEndReason } from '@/lib/session/session';
 import { AuthCard, FormAlert, OrDivider } from './auth-frame';
 import { DemoAccounts } from './demo-accounts';
 import { fieldErrors, focusFirstInvalid } from './form-errors';
@@ -22,10 +22,10 @@ const MESSAGES: Record<Field, string> = {
   password: 'Enter your password',
 };
 
-/** Workspace sign-in (Company and Employee panels). Mock until Wave 3 (POST /auth/login). */
+/** Workspace sign-in (Company and Employee panels): POST /auth/login. */
 export function LoginForm({ next }: { next: string | null }) {
   const status = useRedirectWhenSignedIn(next);
-  const { signInMock } = useSessionActions();
+  const endReason = useSessionEndReason();
   const formRef = useRef<HTMLFormElement>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,14 +43,13 @@ export function LoginForm({ next }: { next: string | null }) {
     }
     setErrors({});
     setSubmitting(true);
-    const result = await mockLogin(parsed.data);
+    const result = await login(parsed.data);
     if (!result.ok) {
       setSubmitting(false);
       setFailure(result);
       return;
     }
     // The redirect hook sends the user to `next` or their panel once the session exists.
-    signInMock(result.persona);
   }
 
   const onSubmit = (e: FormEvent) => {
@@ -64,6 +63,7 @@ export function LoginForm({ next }: { next: string | null }) {
     <>
       <AuthCard title="Sign in to Vistar" description="Use the email your company added you with.">
         <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+          {!failure && endReason && endReason.code !== 'AUTH_UNAUTHENTICATED' && <FormAlert tone="info">{endReason.message.replace(/\.?$/, '.')}</FormAlert>}
           {failure && (
             <FormAlert>
               {failure.message}

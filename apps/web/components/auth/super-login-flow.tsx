@@ -2,13 +2,14 @@
 
 import { LoginRequestSchema, SuperVerifyRequestSchema, type SuperLoginChallenge } from '@vistar/shared';
 import { Check, Copy, ShieldCheck } from 'lucide-react';
-import { useRef, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormField, Input } from '@/components/ui/input';
 import { DEMO_PASSWORD, DEMO_SUPER_ADMIN } from '@/lib/auth/demo-accounts';
-import { mockSuperLogin, mockSuperVerify, type AuthFailure } from '@/lib/auth/mock-auth';
+import { superLogin, superVerify, type AuthFailure } from '@/lib/auth/actions';
+import { qrMatrix, qrSvgPath } from '@/lib/auth/qr';
+import { isMockData } from '@/lib/api/data-source';
 import { useRedirectWhenSignedIn } from '@/lib/auth/use-auth';
-import { useSessionActions } from '@/lib/session/session';
 import { AuthCard, FormAlert } from './auth-frame';
 import { fieldErrors, focusFirstInvalid } from './form-errors';
 import { PasswordInput } from './password-input';
@@ -20,7 +21,7 @@ type Step = { kind: 'password' } | { kind: 'code'; challenge: SuperLoginChalleng
 
 /**
  * Super Admin sign-in: password, then a mandatory 6-digit TOTP code. First sign-in shows the
- * enrolment screen with the authenticator key. Mock accepts any 6 digits (Wave 3: /api/super/auth/*).
+ * enrolment screen with a QR code and the authenticator key (POST /api/super/auth/login, then /verify).
  */
 export function SuperLoginFlow({ next, reason }: { next: string | null; reason: string | null }) {
   // A workspace session may exist; only a platform session counts as "signed in" here.
@@ -61,7 +62,7 @@ function PasswordStep({ onChallenge }: { onChallenge: (c: SuperLoginChallenge, s
     }
     setErrors({});
     setSubmitting(true);
-    const result = await mockSuperLogin(parsed.data);
+    const result = await superLogin(parsed.data);
     setSubmitting(false);
     if (!result.ok) return setFailure(result);
     onChallenge(result.challenge, result.secret, parsed.data.email);
@@ -97,7 +98,8 @@ function PasswordStep({ onChallenge }: { onChallenge: (c: SuperLoginChallenge, s
             <span className="text-xs text-muted">Development only</span>
           </div>
           <p className="mt-1 text-xs text-muted">
-            {DEMO_SUPER_ADMIN.email} with the demo password. Any 6-digit code passes the second step.
+            {DEMO_SUPER_ADMIN.email} with the demo password.{' '}
+            {isMockData() ? 'Any 6-digit code passes the second step.' : 'The first sign-in sets up two-step verification with an authenticator app.'}
           </p>
           <Button
             size="sm"
@@ -121,8 +123,35 @@ function groupKey(secret: string) {
   return secret.match(/.{1,4}/g)?.join(' ') ?? secret;
 }
 
+/** Scannable QR of the otpauth URL. Dark modules on white in both themes so phone cameras read it. */
+function EnrolmentQr({ url }: { url: string }) {
+  const qr = useMemo(() => {
+    try {
+      return qrSvgPath(qrMatrix(url));
+    } catch {
+      return null;
+    }
+  }, [url]);
+  if (!qr) return null;
+  return (
+    <figure className="flex flex-col items-center gap-2">
+      <svg
+        role="img"
+        aria-label="QR code for your authenticator app"
+        viewBox={`0 0 ${qr.size} ${qr.size}`}
+        shapeRendering="crispEdges"
+        className="size-44 rounded-md border border-border"
+        data-totp-qr
+      >
+        <rect width={qr.size} height={qr.size} fill="#fff" />
+        <path d={qr.d} fill="#000" />
+      </svg>
+      <figcaption className="text-xs text-muted-strong">Scan with Google Authenticator, Microsoft Authenticator or 1Password</figcaption>
+    </figure>
+  );
+}
+
 function CodeStep({ step, onRestart }: { step: Extract<Step, { kind: 'code' }>; onRestart: () => void }) {
-  const { signInMock } = useSessionActions();
   const formRef = useRef<HTMLFormElement>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -142,13 +171,13 @@ function CodeStep({ step, onRestart }: { step: Extract<Step, { kind: 'code' }>; 
     }
     setError(null);
     setSubmitting(true);
-    const result = await mockSuperVerify(parsed.data);
+    const result = await superVerify(parsed.data);
     if (!result.ok) {
       setSubmitting(false);
       setFailure(result);
       return;
     }
-    signInMock('super_admin');
+    // The redirect hook opens the console once the platform session exists.
   }
 
   async function copyKey() {
@@ -185,6 +214,7 @@ function CodeStep({ step, onRestart }: { step: Extract<Step, { kind: 'code' }>; 
             )}
           </FormAlert>
         )}
+        {enrolling && step.challenge.otpauthUrl && <EnrolmentQr url={step.challenge.otpauthUrl} />}
         {enrolling && step.secret && (
           <div className="flex flex-col gap-2 rounded-md border border-border bg-surface-2 p-3">
             <p className="flex items-center gap-1.5 text-xs font-medium text-fg-secondary">

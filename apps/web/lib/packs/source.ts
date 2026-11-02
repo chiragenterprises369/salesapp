@@ -12,11 +12,13 @@ import type {
 } from '@vistar/shared';
 import type { z } from 'zod';
 import type { SuperPackCompanyUpdateSchema, SuperPackPlansUpdateSchema } from '@vistar/shared';
+import { isMockData } from '../api/data-source';
+import { httpPacksSource } from './http-source';
 import { mockPacksSource } from './mock-source';
 
 /**
  * Industry Packs client. OWNER: orchestrator. Mirrors API_ROUTES packList ... packLog and
- * superPack*. Mock source runs the real planner over lib/mock-db.
+ * superPack*. HTTP by default; the mock source (real planner over lib/mock-db) only in the test-only mock data mode.
  */
 export interface PacksSource {
   list(): Promise<PackListItem[]>;
@@ -36,5 +38,5 @@ export interface PacksSource {
 }
 
 export function getPacksSource(): PacksSource {
-  return mockPacksSource;
+  return isMockData() ? mockPacksSource : httpPacksSource;
 }
