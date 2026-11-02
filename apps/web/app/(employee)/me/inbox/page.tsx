@@ -1,8 +1,13 @@
 import type { Metadata } from 'next';
-import { InboxView } from '@/components/employee/inbox-view';
+import { Suspense } from 'react';
+import { InboxPage } from '@/components/inbox/inbox-page';
 
 export const metadata: Metadata = { title: 'Inbox' };
 
 export default function MyInboxPage() {
-  return <InboxView />;
+  return (
+    <Suspense>
+      <InboxPage panel="employee" />
+    </Suspense>
+  );
 }
