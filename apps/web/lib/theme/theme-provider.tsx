@@ -16,7 +16,6 @@ import { readThemeCookie, writeThemeCookie } from './cookie';
 import { DEFAULT_TIME_ZONE, useThemeStore, type ReducedMotionSetting } from './theme-store';
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
-const REDUCED_MOTION_ATTRIBUTE = 'data-reduced-motion';
 
 /**
  * Latest locally requested values that the session has not caught up with yet. While set, older
@@ -55,14 +54,13 @@ function paint(resolved: ResolvedTheme, mode: ThemePreference['mode']) {
  * - otherwise (signed out, Super Admin): the `vistar_theme` cookie.
  * Writes data-theme / data-theme-mode / color-scheme, mirrors the cookie for the boot script, keeps a
  * live prefers-color-scheme listener (System) and a timer for the next flip (Scheduled).
- * Also writes data-reduced-motion from settings.reducedMotion ("system" removes the attribute).
+ * Also syncs settings.reducedMotion into the store; InterfaceProvider writes data-reduced-motion from it.
  */
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const me = useMe();
   const status = useSessionStatus();
   const preference = useThemeStore((s) => s.preference);
   const timeZone = useThemeStore((s) => s.timeZone);
-  const reducedMotion = useThemeStore((s) => s.reducedMotion);
 
   // Signed out or platform session: start from the cookie the boot script already applied.
   useEffect(() => {
@@ -72,6 +70,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       preference: cookie ? { mode: cookie.mode, darkFrom: cookie.darkFrom, darkTo: cookie.darkTo } : useThemeStore.getState().preference,
       timeZone: cookie?.tz ?? DEFAULT_TIME_ZONE,
       reducedMotion: 'system',
+      synced: true,
     });
   }, [status, me]);
 
@@ -84,8 +83,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mode || !darkFrom || !darkTo) return;
     const fromSession: ThemePreference = { mode, darkFrom, darkTo };
-    const next: Partial<{ preference: ThemePreference; timeZone: string; reducedMotion: ReducedMotionSetting }> = {
+    const next: Partial<{ preference: ThemePreference; timeZone: string; reducedMotion: ReducedMotionSetting; synced: boolean }> = {
       timeZone: workspaceTz ?? DEFAULT_TIME_ZONE,
+      synced: true,
     };
     if (!pending.theme || samePreference(pending.theme, fromSession)) {
       pending.theme = null;
@@ -138,12 +138,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [preference, timeZone]);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (reducedMotion === 'system') root.removeAttribute(REDUCED_MOTION_ATTRIBUTE);
-    else root.setAttribute(REDUCED_MOTION_ATTRIBUTE, reducedMotion);
-  }, [reducedMotion]);
-
+  // data-reduced-motion is written by InterfaceProvider (it also depends on motion intensity).
   return <>{children}</>;
 }
 

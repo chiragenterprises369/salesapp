@@ -13,6 +13,8 @@ interface ThemeState {
   reducedMotion: ReducedMotionSetting;
   /** What is painted right now (`<html data-theme>`). */
   resolved: ResolvedTheme;
+  /** True once preference and reducedMotion come from the session (or the cookie when signed out). */
+  synced: boolean;
 }
 
 /** Theme state shared by the provider, the top-bar toggle and the preferences pages. */
@@ -21,4 +23,5 @@ export const useThemeStore = create<ThemeState>()(() => ({
   timeZone: DEFAULT_TIME_ZONE,
   reducedMotion: 'system',
   resolved: 'light',
+  synced: false,
 }));

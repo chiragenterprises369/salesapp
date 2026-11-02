@@ -4,6 +4,8 @@ import {
   ThemeCookieSchema,
   type ThemeCookie,
 } from '@vistar/shared';
+import { INTERFACE_COOKIE, type InterfaceCookie } from './interface-boot';
+import { DEFAULT_INTERFACE_STYLE, DEFAULT_MOTION_INTENSITY, isInterfaceStyle, isMotionIntensity } from './interface-style';
 
 const ONE_YEAR_SEC = 60 * 60 * 24 * 365;
 
@@ -26,4 +28,29 @@ export function writeThemeCookie(value: ThemeCookie): void {
   if (typeof document === 'undefined') return;
   const secure = window.location.protocol === 'https:' ? '; Secure' : '';
   document.cookie = `${THEME_COOKIE}=${encodeThemeCookie(value)}; Path=/; Max-Age=${ONE_YEAR_SEC}; SameSite=Lax${secure}`;
+}
+
+/** Reads the `vistar_ui` cookie (interface style, motion). Invalid fields fall back to defaults. */
+export function readInterfaceCookie(): InterfaceCookie | null {
+  if (typeof document === 'undefined') return null;
+  const raw = document.cookie.split('; ').find((c) => c.startsWith(`${INTERFACE_COOKIE}=`));
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(decodeURIComponent(raw.slice(INTERFACE_COOKIE.length + 1))) as Partial<Record<keyof InterfaceCookie, unknown>>;
+    return {
+      s: isInterfaceStyle(v.s) ? v.s : null,
+      d: isInterfaceStyle(v.d) ? v.d : DEFAULT_INTERFACE_STYLE,
+      m: isMotionIntensity(v.m) ? v.m : DEFAULT_MOTION_INTENSITY,
+      rm: v.rm === 'on' || v.rm === 'off' ? v.rm : 'system',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Mirrors the interface preferences for the boot script (same lifetime and flags as the theme cookie). */
+export function writeInterfaceCookie(value: InterfaceCookie): void {
+  if (typeof document === 'undefined') return;
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${INTERFACE_COOKIE}=${encodeURIComponent(JSON.stringify(value))}; Path=/; Max-Age=${ONE_YEAR_SEC}; SameSite=Lax${secure}`;
 }

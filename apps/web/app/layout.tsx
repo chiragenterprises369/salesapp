@@ -4,7 +4,7 @@ import { Inter } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { Toaster } from '@/components/ui';
 import { AppProviders } from '@/lib/providers';
-import { ThemeProvider } from '@/lib/theme';
+import { getInterfaceBootScript, InterfaceProvider, ThemeProvider } from '@/lib/theme';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -24,19 +24,25 @@ export const viewport: Viewport = {
 };
 
 /**
- * Root layout. The boot script stays FIRST in <head>: it applies data-theme from the `vistar_theme`
- * cookie before first paint (no flash). ThemeProvider (inside AppProviders, so it can read the session)
- * keeps the attribute, the cookie and the user's saved preference in sync afterwards.
+ * Root layout. The theme boot script stays FIRST in <head>: it applies data-theme from the `vistar_theme`
+ * cookie before first paint (no flash). The interface boot script follows it and applies
+ * data-interface-style / data-motion from the `vistar_ui` cookie and the device (SPEC 28.2).
+ * ThemeProvider and InterfaceProvider (inside AppProviders, so they can read the session) keep the
+ * attributes, the cookies and the user's saved preferences in sync afterwards.
  */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-IN" className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: getThemeBootScript() }} />
+        <script dangerouslySetInnerHTML={{ __html: getInterfaceBootScript() }} />
       </head>
       <body className="min-h-dvh bg-bg font-sans text-fg antialiased">
         <AppProviders>
-          <ThemeProvider>{children}</ThemeProvider>
+          <ThemeProvider>
+            <InterfaceProvider />
+            {children}
+          </ThemeProvider>
           <Toaster />
         </AppProviders>
       </body>
