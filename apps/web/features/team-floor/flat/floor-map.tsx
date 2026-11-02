@@ -280,7 +280,14 @@ function placeMarkers(state: FloorState, layout: FloorLayout): Marker[] {
   const out: Marker[] = [];
   for (const emp of state.employees) {
     const loc = locationOf(state, emp);
-    const spot = loc.kind === 'booth' ? layout.booths[loc.index] : loc.kind === 'lounge' ? layout.lounge[loc.index] : layout.homes[emp.desk];
+    const spot =
+      loc.kind === 'booth'
+        ? layout.booths[loc.index]
+        : loc.kind === 'lounge'
+          ? layout.lounge[loc.index]
+          : loc.kind === 'zone'
+            ? (layout.zones[layout.zoneIndex.get(loc.zoneId) ?? -1]?.spots[loc.index] ?? layout.homes[emp.desk])
+            : layout.homes[emp.desk];
     if (!spot) continue;
     out.push({ emp, x: spot.x, z: spot.z, present: loc.kind !== 'gone' });
   }

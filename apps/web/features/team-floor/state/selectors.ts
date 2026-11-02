@@ -33,9 +33,13 @@ export function offlineAsleep(id: string): boolean {
   return (h >>> 0) / 4294967296 < 0.4;
 }
 
-/** Where the employee is: calling room booth, lounge seat, own desk, or gone (offline, empty chair). */
+/** Where the employee is: their known zone (custom floor), calling room booth, lounge seat, own desk, or gone. */
 export function locationOf(state: FloorState, emp: FloorEmployee): FloorLocation {
   if (emp.status === 'offline') return offlineAsleep(emp.id) ? { kind: 'desk' } : { kind: 'gone' };
+  if (emp.zoneId) {
+    const i = state.zoneSlots[emp.zoneId]?.indexOf(emp.id) ?? -1;
+    if (i !== -1) return { kind: 'zone', zoneId: emp.zoneId, index: i };
+  }
   if (emp.status === 'on_call') {
     const i = state.booths.indexOf(emp.id);
     if (i !== -1) return { kind: 'booth', index: i };
@@ -51,8 +55,19 @@ export const LOCATION_LABEL: Record<FloorLocation['kind'], string> = {
   desk: 'At desk',
   booth: 'In the calling room',
   lounge: 'In the lounge',
+  zone: 'In another room',
   gone: 'Not in',
 };
+
+/** Location text with the zone name ("In Meeting room 1") when the person is in a known zone. */
+export function locationLabel(state: FloorState, emp: FloorEmployee): string {
+  const loc = locationOf(state, emp);
+  if (loc.kind === 'zone') {
+    const name = state.zoneNames[loc.zoneId] ?? emp.zoneName;
+    return name ? `In ${name}` : LOCATION_LABEL.zone;
+  }
+  return LOCATION_LABEL[loc.kind];
+}
 
 const SEVERITY_RANK: Record<AttentionItem['severity'], number> = { critical: 0, warning: 1, info: 2 };
 
