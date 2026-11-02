@@ -1,4 +1,4 @@
-import { Logger, type OnModuleDestroy } from '@nestjs/common';
+import { Logger, type OnApplicationShutdown, type OnModuleDestroy } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -50,11 +50,18 @@ export const PLATFORM_ROOM = 'platform:admins';
 const MIN_BEAT_GAP_MS = 2_000;
 const LEAD_OWNER_TTL_MS = 5_000;
 
-const corsOrigins = () =>
-  getEnv()
-    .WEB_ORIGIN.split(',')
+/** WEB_ORIGIN plus, outside production, http://localhost and 127.0.0.1 on DEV_CORS_PORTS (Flutter web preview on 3010). */
+const corsOrigins = () => {
+  const env = getEnv();
+  const origins = env.WEB_ORIGIN.split(',')
     .map((o) => o.trim())
     .filter(Boolean);
+  if (env.NODE_ENV !== 'production') {
+    const [from, to] = env.DEV_CORS_PORTS.split('-').map(Number) as [number, number];
+    for (let port = from; port <= to && port - from < 100; port++) origins.push(`http://localhost:${port}`, `http://127.0.0.1:${port}`);
+  }
+  return [...new Set(origins)];
+};
 
 /**
  * Realtime gateway (namespace /realtime, CONTRACTS section 7).
@@ -76,7 +83,7 @@ const corsOrigins = () =>
  *   deactivated user gets `auth.expired { reason: "revoked" }` within VIEWER_TTL_MS.
  */
 @WebSocketGateway({ namespace: REALTIME_NAMESPACE, cors: { origin: corsOrigins(), credentials: true } })
-export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnModuleDestroy {
+export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnModuleDestroy, OnApplicationShutdown {
   private readonly logger = new Logger(RealtimeGateway.name);
   @WebSocketServer() private nsp!: Namespace;
   private readonly sockets = new Map<string, SocketState>();
@@ -119,9 +126,13 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnMo
     this.unsubscribe = this.events.subscribe((event) => this.fanOut(event));
   }
 
-  async onModuleDestroy(): Promise<void> {
+  onModuleDestroy(): void {
     this.unsubscribe?.();
     for (const s of this.sockets.values()) if (s.expiryTimer) clearTimeout(s.expiryTimer);
+  }
+
+  /** After Nest closed the Socket.IO server (its Redis adapter unsubscribes on close), quit the adapter clients. */
+  async onApplicationShutdown(): Promise<void> {
     await Promise.all(this.adapterClients.map((c) => c.quit().catch(() => undefined)));
   }
 

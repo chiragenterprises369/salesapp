@@ -1,25 +1,40 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { randomUUID } from 'node:crypto';
+import { getEnv } from '../../config/env.js';
 import { REDIS } from '../../infra/redis/redis.module.js';
 import type { PresenceState } from './engine/status-engine.js';
 
 /**
- * Redis storage for presence (shared by every API instance):
- *   vistar:presence:state:<workspaceId>:<userId>  JSON PresenceState (7 day TTL, refreshed on write)
- *   vistar:presence:due                           sorted set, member "<workspaceId>:<userId>", score = next deadline (ms)
- *   vistar:presence:lock:<userId>                 per-user mutex (SET NX PX), so one instance applies one input at a time
- *   vistar:presence:sweeper                       sweeper lease (SET NX PX): one sweep per tick across instances
- * Without Redis (tests, quick dev) everything lives in process memory with the same semantics.
+ * Redis storage for presence (shared by every API instance of one deployment):
+ *   vistar:presence:<db>:state:<workspaceId>:<userId>  JSON PresenceState (7 day TTL, refreshed on write)
+ *   vistar:presence:<db>:due                           sorted set, member "<workspaceId>:<userId>", score = next deadline (ms)
+ *   vistar:presence:<db>:lock:<userId>                 per-user mutex (SET NX PX), so one instance applies one input at a time
+ *   vistar:presence:<db>:sweeper                       sweeper lease (SET NX PX): one sweep per tick across instances
+ * `<db>` is the database name, so APIs on different databases that share one Redis (the dev worktrees)
+ * never sweep or lock each other's users. Without Redis (quick dev) everything lives in process memory
+ * with the same semantics.
  */
 const STATE_TTL_SEC = 7 * 24 * 3600;
 const LOCK_TTL_MS = 3_000;
 const LOCK_WAIT_MS = LOCK_TTL_MS + 500;
+
+/** Key namespace of this deployment: the database name from DATABASE_URL. */
+export function presenceNamespace(databaseUrl: string | undefined): string {
+  try {
+    const name = new URL(databaseUrl ?? '').pathname.replace(/^\//, '');
+    return name.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 63) || 'default';
+  } catch {
+    return 'default';
+  }
+}
+const NS = `vistar:presence:${presenceNamespace(getEnv().DATABASE_URL)}`;
 const K = {
-  state: (wid: string, uid: string) => `vistar:presence:state:${wid}:${uid}`,
-  due: 'vistar:presence:due',
-  lock: (uid: string) => `vistar:presence:lock:${uid}`,
-  sweeper: 'vistar:presence:sweeper',
+  state: (wid: string, uid: string) => `${NS}:state:${wid}:${uid}`,
+  statePrefix: (wid: string) => `${NS}:state:${wid}:`,
+  due: `${NS}:due`,
+  lock: (uid: string) => `${NS}:lock:${uid}`,
+  sweeper: `${NS}:sweeper`,
 };
 const RELEASE_LUA = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
 
@@ -174,11 +189,11 @@ export class PresenceStore {
 
   /** Test helper: forget everything for a workspace (memory and Redis). */
   async clearWorkspace(workspaceId: string): Promise<void> {
-    for (const k of [...this.memState.keys()]) if (k.startsWith(`vistar:presence:state:${workspaceId}:`)) this.memState.delete(k);
+    for (const k of [...this.memState.keys()]) if (k.startsWith(K.statePrefix(workspaceId))) this.memState.delete(k);
     for (const m of [...this.memDue.keys()]) if (m.startsWith(`${workspaceId}:`)) this.memDue.delete(m);
     const r = this.client();
     if (!r) return;
-    const keys = await r.keys(`vistar:presence:state:${workspaceId}:*`);
+    const keys = await r.keys(`${K.statePrefix(workspaceId)}*`);
     if (keys.length) await r.del(...keys);
     const members = (await r.zrange(K.due, '0', '-1')).filter((m) => m.startsWith(`${workspaceId}:`));
     if (members.length) await r.zrem(K.due, ...members);

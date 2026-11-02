@@ -149,7 +149,7 @@ export interface PresenceState {
   /** Fields as published with `version` (the view of an offline user never moves without an event). */
   shown: { manualStatus: ManualStatus | null; lastSeenAt: number | null; lastHeartbeatAt: number | null };
   seen: string[];
-  /** Office zone (zone-engine.ts); changes publish employee.zone_changed and do not move ersion. */
+  /** Office zone (zone-engine.ts); changes publish employee.zone_changed and do not move the version. */
   zone?: ZoneState | null;
 }
 
