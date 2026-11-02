@@ -5,7 +5,7 @@ import {
   MessageDirectionSchema,
   WorkflowStepStatusSchema,
 } from '../enums.js';
-import { IdSchema, IsoDateTimeSchema } from './common.js';
+import { IdSchema, IsoDateTimeSchema, UtmSchema } from './common.js';
 import { UserSummarySchema } from './workspace.js';
 
 /** Timeline entry on a lead. Discriminated by `type`; each type has a typed payload. */
@@ -17,7 +17,13 @@ const base = {
 };
 
 export const ActivitySchema = z.discriminatedUnion('type', [
-  z.object({ ...base, type: z.literal('lead_created'), payload: z.object({ source: z.string() }) }),
+  z.object({ ...base, type: z.literal('lead_created'), payload: z.object({
+    source: z.string(),
+    /** Lead capture form that created the lead (change #19 wave B). */
+    formId: IdSchema.optional(),
+    formName: z.string().optional(),
+    utm: UtmSchema.optional(),
+  }) }),
   z.object({ ...base, type: z.literal('note'), payload: z.object({ body: z.string() }) }),
   z.object({
     ...base,

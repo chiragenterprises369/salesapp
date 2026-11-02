@@ -153,12 +153,106 @@ import {
 import {
   BoardSchema,
   LeadMoveSchema,
+  PipelineListQuerySchema,
   PipelineSchema,
   StageCreateSchema,
   StageReorderSchema,
   StageSchema,
   StageUpdateSchema,
 } from '../schemas/pipeline.js';
+import {
+  PriceListCreateSchema,
+  PriceListSchema,
+  PriceListUpdateSchema,
+  ProductCreateSchema,
+  ProductListQuerySchema,
+  ProductSchema,
+  ProductUpdateSchema,
+} from '../schemas/catalog.js';
+import {
+  AccountCreateSchema,
+  AccountListItemSchema,
+  AccountListQuerySchema,
+  AccountSchema,
+  AccountUpdateSchema,
+  ContactCreateSchema,
+  ContactListItemSchema,
+  ContactListQuerySchema,
+  ContactSchema,
+  ContactUpdateSchema,
+  CrmBulkActionSchema,
+  CrmMergeSchema,
+  CrmNoteCreateSchema,
+  CrmTimelineItemSchema,
+  DealBoardQuerySchema,
+  DealBulkActionSchema,
+  DealCreateSchema,
+  DealListItemSchema,
+  DealListQuerySchema,
+  DealMoveSchema,
+  DealSchema,
+  DealUpdateSchema,
+  LeadConvertSchema,
+} from '../schemas/crm.js';
+import { CrmRelatedSchema, DealBoardSchema, LeadConvertResultSchema } from '../schemas/crm-related.js';
+import {
+  DocumentPdfQuerySchema,
+  DocumentShareCreateSchema,
+  DocumentShareSchema,
+  DocumentTokenParamSchema,
+  InvoiceCancelSchema,
+  InvoiceCreateSchema,
+  InvoiceIssueSchema,
+  InvoiceListItemSchema,
+  InvoiceListQuerySchema,
+  InvoiceSchema,
+  InvoiceSendResultSchema,
+  InvoiceUpdateSchema,
+  PaymentCreateSchema,
+  PaymentParamSchema,
+  PublicDocumentSchema,
+  QuotationCreateSchema,
+  QuotationListItemSchema,
+  QuotationListQuerySchema,
+  QuotationSchema,
+  QuotationSendResultSchema,
+  QuotationStatusChangeSchema,
+  QuotationUpdateSchema,
+  SellerProfileResponseSchema,
+  SellerProfileSchema,
+} from '../schemas/documents.js';
+import {
+  AvailabilityQuerySchema,
+  MeetingCancelSchema,
+  MeetingCreateSchema,
+  MeetingListQuerySchema,
+  MeetingRespondSchema,
+  MeetingSchema,
+  MeetingUpdateSchema,
+  TimeOffCreateSchema,
+  TimeOffListQuerySchema,
+  TimeOffSchema,
+  UserAvailabilitySchema,
+} from '../schemas/calendar.js';
+import {
+  RoutingDecisionSchema,
+  RoutingRuleCreateSchema,
+  RoutingRuleOrderSchema,
+  RoutingRuleSchema,
+  RoutingRuleUpdateSchema,
+  RoutingTestSchema,
+} from '../schemas/routing.js';
+import {
+  CaptureFormCreateSchema,
+  CaptureFormKeyParamSchema,
+  CaptureFormSchema,
+  CaptureFormUpdateSchema,
+  CaptureSubmissionListQuerySchema,
+  CaptureSubmissionSchema,
+  PublicCaptureFormSchema,
+  PublicCaptureSubmitResultSchema,
+  PublicCaptureSubmitSchema,
+} from '../schemas/capture.js';
 import { TaskCreateSchema, TaskListQuerySchema, TaskSchema, TaskSnoozeSchema, TaskUpdateSchema } from '../schemas/task.js';
 import {
   WorkflowCreateSchema,
@@ -270,7 +364,7 @@ export interface RouteDef {
   bodyFields?: z.ZodObject;
   response: z.ZodType | null;
   /** Non-JSON response, e.g. file download. */
-  responseContentType?: 'text/csv' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' | 'application/octet-stream' | 'application/vnd.android.package-archive';
+  responseContentType?: 'text/csv' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' | 'application/octet-stream' | 'application/vnd.android.package-archive' | 'application/pdf';
   status?: number;
 }
 
@@ -386,7 +480,7 @@ export const API_ROUTES = {
   pushSubscribe: route({ method: 'post', path: '/notifications/push-subscriptions', summary: 'Register a web push subscription', tag: 'notifications', owner: 'backend-core', phase: 2, auth: 'jwt', permission: null, body: PushSubscriptionSchema, response: OkResponseSchema }),
 
   // ---------------- pipeline (phase 3) ----------------
-  pipelineList: route({ method: 'get', path: '/pipelines', summary: 'Pipelines with stages', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'leads.read', response: listOf(PipelineSchema) }),
+  pipelineList: route({ method: 'get', path: '/pipelines', summary: 'Pipelines with stages; ?entity=deal lists deal pipelines (the default deal pipeline is created on first use)', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'leads.read', query: PipelineListQuerySchema, response: listOf(PipelineSchema) }),
   pipelineBoard: route({ method: 'get', path: '/pipelines/{id}/board', summary: 'Kanban board (first page per column); accepts the same filters as the lead list', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'leads.read', params: IdParamSchema, query: LeadFiltersSchema.extend({ perColumn: z.coerce.number().int().min(1).max(200).default(50) }), response: BoardSchema }),
   boardColumnPage: route({ method: 'get', path: '/pipelines/{id}/board/columns/{stageId}', summary: 'Next page of one board column', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'leads.read', params: z.object({ id: IdSchema, stageId: IdSchema }), query: LeadFiltersSchema.extend({ cursor: z.string().optional(), limit: z.coerce.number().int().min(1).max(200).default(50) }), response: pageOf(LeadListItemSchema) }),
   stageCreate: route({ method: 'post', path: '/pipelines/{id}/stages', summary: 'Add a stage', tag: 'pipeline', owner: 'backend-core', phase: 3, auth: 'jwt', permission: 'pipeline.manage', params: IdParamSchema, body: StageCreateSchema, response: StageSchema, status: 201 }),
@@ -570,6 +664,128 @@ export const API_ROUTES = {
   superFloorGet: route({ method: 'get', path: '/api/super/floors/{id}', absolute: true, summary: 'One floor version with a signed model URL (preview)', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.read', params: IdParamSchema, response: FloorAssetSchema }),
   superFloorSeatMap: route({ method: 'put', path: '/api/super/floors/{id}/seat-map', absolute: true, summary: 'Save seats and zones (seat tool); not allowed on superseded versions', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, body: SeatMapSchema, response: FloorAssetSchema }),
   superFloorPublish: route({ method: 'post', path: '/api/super/floors/{id}/publish', absolute: true, summary: 'Publish (needs a seat map): older published version becomes superseded, request -> published; audited; emits floor.published', tag: 'super-floors', owner: 'backend-core', phase: 19, auth: 'super', permission: 'platform.companies.manage', params: IdParamSchema, response: FloorAssetSchema }),
+
+  // ================= change #19 wave B (SPEC 29.9): CRM features. owner backend-core = CRM-API stream ===
+
+  // ---------------- contacts ----------------
+  contactList: route({ method: 'get', path: '/contacts', summary: 'Contacts (people) with search and filters; scope: owner or a visible lead', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', query: ContactListQuerySchema, response: pageOf(ContactListItemSchema) }),
+  contactCreate: route({ method: 'post', path: '/contacts', summary: 'Create a contact (a primary phone already used by another contact answers 409 CONFLICT)', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.create', body: ContactCreateSchema, response: ContactSchema, status: 201 }),
+  contactMerge: route({ method: 'post', path: '/contacts/merge', summary: 'Merge duplicates into a primary contact (leads, deals, documents and meetings move; duplicates soft-deleted); audited', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.merge', body: CrmMergeSchema, response: ContactSchema }),
+  contactBulk: route({ method: 'post', path: '/contacts/bulk', summary: 'Bulk assign owner, add or remove tags, delete', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.update', body: CrmBulkActionSchema, response: BulkResultSchema }),
+  contactGet: route({ method: 'get', path: '/contacts/{id}', summary: 'Contact detail', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', params: IdParamSchema, response: ContactSchema }),
+  contactUpdate: route({ method: 'patch', path: '/contacts/{id}', summary: 'Update a contact (changing ownerId also requires leads.assign; optimistic version)', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.update', params: IdParamSchema, body: ContactUpdateSchema, response: ContactSchema }),
+  contactDelete: route({ method: 'delete', path: '/contacts/{id}', summary: 'Delete a contact (soft; leads keep their data, contactId cleared); audited', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.delete', params: IdParamSchema, response: OkResponseSchema }),
+  contactDuplicates: route({ method: 'get', path: '/contacts/{id}/duplicates', summary: 'Possible duplicates (phones, emails, GSTIN, name + account)', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', params: IdParamSchema, response: listOf(ContactListItemSchema) }),
+  contactRelated: route({ method: 'get', path: '/contacts/{id}/related', summary: 'Leads, deals, quotations, invoices and meetings of a contact', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', params: IdParamSchema, response: CrmRelatedSchema }),
+  contactTimeline: route({ method: 'get', path: '/contacts/{id}/timeline', summary: 'Notes, lead activities, meetings and documents, newest first', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.read', params: IdParamSchema, query: CursorPaginationQuerySchema, response: pageOf(CrmTimelineItemSchema) }),
+  contactNoteCreate: route({ method: 'post', path: '/contacts/{id}/notes', summary: 'Add a note to a contact', tag: 'contacts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'contacts.update', params: IdParamSchema, body: CrmNoteCreateSchema, response: CrmTimelineItemSchema, status: 201 }),
+
+  // ---------------- accounts (companies; Prisma model Company) ----------------
+  accountList: route({ method: 'get', path: '/accounts', summary: 'Accounts (companies) with search and filters; scope: owner or a visible lead', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', query: AccountListQuerySchema, response: pageOf(AccountListItemSchema) }),
+  accountCreate: route({ method: 'post', path: '/accounts', summary: 'Create an account (GSTIN validated with its check digit; PAN and state code follow the GSTIN)', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.create', body: AccountCreateSchema, response: AccountSchema, status: 201 }),
+  accountMerge: route({ method: 'post', path: '/accounts/merge', summary: 'Merge duplicate accounts (contacts, leads, deals, documents and meetings move); audited', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.merge', body: CrmMergeSchema, response: AccountSchema }),
+  accountBulk: route({ method: 'post', path: '/accounts/bulk', summary: 'Bulk assign owner, add or remove tags, delete', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.update', body: CrmBulkActionSchema, response: BulkResultSchema }),
+  accountGet: route({ method: 'get', path: '/accounts/{id}', summary: 'Account detail', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', params: IdParamSchema, response: AccountSchema }),
+  accountUpdate: route({ method: 'patch', path: '/accounts/{id}', summary: 'Update an account (changing ownerId also requires leads.assign; optimistic version)', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.update', params: IdParamSchema, body: AccountUpdateSchema, response: AccountSchema }),
+  accountDelete: route({ method: 'delete', path: '/accounts/{id}', summary: 'Delete an account (soft; contacts and leads keep their data, links cleared); audited', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.delete', params: IdParamSchema, response: OkResponseSchema }),
+  accountDuplicates: route({ method: 'get', path: '/accounts/{id}/duplicates', summary: 'Possible duplicates (GSTIN, PAN, phone, email, website, name)', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', params: IdParamSchema, response: listOf(AccountListItemSchema) }),
+  accountRelated: route({ method: 'get', path: '/accounts/{id}/related', summary: 'Contacts, leads, deals, quotations, invoices and meetings of an account', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', params: IdParamSchema, response: CrmRelatedSchema }),
+  accountTimeline: route({ method: 'get', path: '/accounts/{id}/timeline', summary: 'Notes, lead activities, meetings and documents, newest first', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.read', params: IdParamSchema, query: CursorPaginationQuerySchema, response: pageOf(CrmTimelineItemSchema) }),
+  accountNoteCreate: route({ method: 'post', path: '/accounts/{id}/notes', summary: 'Add a note to an account', tag: 'accounts', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'accounts.update', params: IdParamSchema, body: CrmNoteCreateSchema, response: CrmTimelineItemSchema, status: 201 }),
+
+  // ---------------- deals (Deal model on a deal pipeline) ----------------
+  dealBoard: route({ method: 'get', path: '/deals/board', summary: 'Deals board: stage columns with counts, value and weighted value (same filters as the table)', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', query: DealBoardQuerySchema, response: DealBoardSchema }),
+  dealBulk: route({ method: 'post', path: '/deals/bulk', summary: 'Bulk assign owner, change stage, delete', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.update', body: DealBulkActionSchema, response: BulkResultSchema }),
+  dealList: route({ method: 'get', path: '/deals', summary: 'Deals table with filters and sort (sort=position for one board column)', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', query: DealListQuerySchema, response: pageOf(DealListItemSchema) }),
+  dealCreate: route({ method: 'post', path: '/deals', summary: 'Create a deal (top of its column); value from the lines when given', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.create', body: DealCreateSchema, response: DealSchema, status: 201 }),
+  dealGet: route({ method: 'get', path: '/deals/{id}', summary: 'Deal detail with products', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', params: IdParamSchema, response: DealSchema }),
+  dealUpdate: route({ method: 'patch', path: '/deals/{id}', summary: 'Update a deal (lines replace all lines; ownerId needs leads.assign; optimistic version)', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.update', params: IdParamSchema, body: DealUpdateSchema, response: DealSchema }),
+  dealDelete: route({ method: 'delete', path: '/deals/{id}', summary: 'Delete a deal (soft); audited', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.delete', params: IdParamSchema, response: OkResponseSchema }),
+  dealMove: route({ method: 'post', path: '/deals/{id}/move', summary: 'Move on the board (stage and position between neighbours); won/lost set closedAt', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.update', params: IdParamSchema, body: DealMoveSchema, response: DealSchema }),
+  dealRelated: route({ method: 'get', path: '/deals/{id}/related', summary: 'Quotations, invoices and meetings of a deal (contacts and leads lists are empty)', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', params: IdParamSchema, response: CrmRelatedSchema }),
+  dealTimeline: route({ method: 'get', path: '/deals/{id}/timeline', summary: 'Notes, lead activities, meetings and documents of a deal', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.read', params: IdParamSchema, query: CursorPaginationQuerySchema, response: pageOf(CrmTimelineItemSchema) }),
+  dealNoteCreate: route({ method: 'post', path: '/deals/{id}/notes', summary: 'Add a note to a deal', tag: 'deals', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'deals.update', params: IdParamSchema, body: CrmNoteCreateSchema, response: CrmTimelineItemSchema, status: 201 }),
+  leadConvert: route({ method: 'post', path: '/leads/{id}/convert', summary: 'Convert a lead: link or create the contact and account, optionally create a deal (also needs contacts.create / accounts.create / deals.create for what it creates)', tag: 'leads', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'leads.update', params: IdParamSchema, body: LeadConvertSchema, response: LeadConvertResultSchema }),
+
+  // ---------------- products and price lists ----------------
+  productList: route({ method: 'get', path: '/products', summary: 'Products and services with search and filters', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.read', query: ProductListQuerySchema, response: pageOf(ProductSchema) }),
+  productCreate: route({ method: 'post', path: '/products', summary: 'Create a product (SKU unique: PRODUCT_SKU_TAKEN; HSN for goods, SAC for services)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', body: ProductCreateSchema, response: ProductSchema, status: 201 }),
+  productGet: route({ method: 'get', path: '/products/{id}', summary: 'One product', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.read', params: IdParamSchema, response: ProductSchema }),
+  productUpdate: route({ method: 'patch', path: '/products/{id}', summary: 'Update a product (existing documents keep their line snapshots)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', params: IdParamSchema, body: ProductUpdateSchema, response: ProductSchema }),
+  productDelete: route({ method: 'delete', path: '/products/{id}', summary: 'Delete a product (document lines keep their snapshot; price list items go); audited', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', params: IdParamSchema, response: OkResponseSchema }),
+  priceListList: route({ method: 'get', path: '/price-lists', summary: 'Price lists (without items)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.read', response: listOf(PriceListSchema) }),
+  priceListCreate: route({ method: 'post', path: '/price-lists', summary: 'Create a price list with items', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', body: PriceListCreateSchema, response: PriceListSchema, status: 201 }),
+  priceListGet: route({ method: 'get', path: '/price-lists/{id}', summary: 'Price list with items', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.read', params: IdParamSchema, response: PriceListSchema }),
+  priceListUpdate: route({ method: 'patch', path: '/price-lists/{id}', summary: 'Update a price list (items replace all items when given)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', params: IdParamSchema, body: PriceListUpdateSchema, response: PriceListSchema }),
+  priceListDelete: route({ method: 'delete', path: '/price-lists/{id}', summary: 'Delete a price list (documents keep their prices)', tag: 'products', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'products.manage', params: IdParamSchema, response: OkResponseSchema }),
+
+  // ---------------- seller profile (GST identity of the company) ----------------
+  sellerProfileGet: route({ method: 'get', path: '/billing/profile', summary: 'Seller profile for quotations and invoices (GSTIN, address with state code, bank, prefixes, terms)', tag: 'documents', owner: 'backend-core', phase: 19, auth: 'jwt', permission: null, response: SellerProfileResponseSchema }),
+  sellerProfileUpdate: route({ method: 'put', path: '/billing/profile', summary: 'Save the seller profile (GSTIN state must match the address state); audited', tag: 'documents', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'settings.manage', body: SellerProfileSchema, response: SellerProfileResponseSchema }),
+
+  // ---------------- quotations ----------------
+  quotationList: route({ method: 'get', path: '/quotations', summary: 'Quotations with filters (expired is applied after validUntil)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.read', query: QuotationListQuerySchema, response: pageOf(QuotationListItemSchema) }),
+  quotationCreate: route({ method: 'post', path: '/quotations', summary: 'Create a draft quotation (number QT/<FY>/<seq> assigned now; GST computed)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.create', body: QuotationCreateSchema, response: QuotationSchema, status: 201 }),
+  quotationGet: route({ method: 'get', path: '/quotations/{id}', summary: 'Quotation detail with lines and totals', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.read', params: IdParamSchema, response: QuotationSchema }),
+  quotationUpdate: route({ method: 'patch', path: '/quotations/{id}', summary: 'Edit a draft quotation (DOCUMENT_STATE_INVALID otherwise; optimistic version)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.update', params: IdParamSchema, body: QuotationUpdateSchema, response: QuotationSchema }),
+  quotationDelete: route({ method: 'delete', path: '/quotations/{id}', summary: 'Delete a draft quotation (soft); audited', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.delete', params: IdParamSchema, response: OkResponseSchema }),
+  quotationStatus: route({ method: 'post', path: '/quotations/{id}/status', summary: 'Change status along QUOTATION_TRANSITIONS (accepted, rejected, expired, reopen to draft)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.update', params: IdParamSchema, body: QuotationStatusChangeSchema, response: QuotationSchema }),
+  quotationSend: route({ method: 'post', path: '/quotations/{id}/send', summary: 'Mark sent (from draft or expired; freezes seller and buyer) and create a share link (needs a complete seller profile)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.send', params: IdParamSchema, body: DocumentShareCreateSchema, response: QuotationSendResultSchema }),
+  quotationShare: route({ method: 'post', path: '/quotations/{id}/share', summary: 'Create a new share link (rotates the old one)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.send', params: IdParamSchema, body: DocumentShareCreateSchema, response: DocumentShareSchema }),
+  quotationShareRevoke: route({ method: 'delete', path: '/quotations/{id}/share', summary: 'Revoke the share link', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.send', params: IdParamSchema, response: OkResponseSchema }),
+  quotationPdf: route({ method: 'get', path: '/quotations/{id}/pdf', summary: 'A4 PDF with branding logo and colour (?download=1 for an attachment)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.read', params: IdParamSchema, query: DocumentPdfQuerySchema, response: null, responseContentType: 'application/pdf' }),
+  quotationConvert: route({ method: 'post', path: '/quotations/{id}/convert', summary: 'Make a draft invoice from a sent or accepted quotation (marks it accepted); idempotent: returns the existing invoice', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.create', params: IdParamSchema, response: InvoiceSchema, status: 201 }),
+  quotationDuplicate: route({ method: 'post', path: '/quotations/{id}/duplicate', summary: 'Copy into a new draft quotation (revisions)', tag: 'quotations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'quotations.create', params: IdParamSchema, response: QuotationSchema, status: 201 }),
+
+  // ---------------- invoices and payments ----------------
+  invoiceList: route({ method: 'get', path: '/invoices', summary: 'Invoices with filters (overdue = issued or partially paid past the due date)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.read', query: InvoiceListQuerySchema, response: pageOf(InvoiceListItemSchema) }),
+  invoiceCreate: route({ method: 'post', path: '/invoices', summary: 'Create a draft invoice (no number until issued)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.create', body: InvoiceCreateSchema, response: InvoiceSchema, status: 201 }),
+  invoiceGet: route({ method: 'get', path: '/invoices/{id}', summary: 'Invoice detail with lines, totals and payments', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.read', params: IdParamSchema, response: InvoiceSchema }),
+  invoiceUpdate: route({ method: 'patch', path: '/invoices/{id}', summary: 'Edit a draft invoice (DOCUMENT_STATE_INVALID otherwise)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.update', params: IdParamSchema, body: InvoiceUpdateSchema, response: InvoiceSchema }),
+  invoiceDelete: route({ method: 'delete', path: '/invoices/{id}', summary: 'Delete a draft invoice (issued invoices are cancelled, never deleted); audited', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.delete', params: IdParamSchema, response: OkResponseSchema }),
+  invoiceIssue: route({ method: 'post', path: '/invoices/{id}/issue', summary: 'Issue: assigns INV/<FY>/<seq> (no gaps), freezes seller and buyer; needs a complete seller profile; audited', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.issue', params: IdParamSchema, body: InvoiceIssueSchema, response: InvoiceSchema }),
+  invoiceCancel: route({ method: 'post', path: '/invoices/{id}/cancel', summary: 'Cancel an issued invoice with a reason (the number stays used); audited', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.cancel', params: IdParamSchema, body: InvoiceCancelSchema, response: InvoiceSchema }),
+  invoiceSend: route({ method: 'post', path: '/invoices/{id}/send', summary: 'Issue a draft if needed and create a share link', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.issue', params: IdParamSchema, body: DocumentShareCreateSchema, response: InvoiceSendResultSchema }),
+  invoiceShare: route({ method: 'post', path: '/invoices/{id}/share', summary: 'Create a new share link for an issued invoice (rotates the old one)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.issue', params: IdParamSchema, body: DocumentShareCreateSchema, response: DocumentShareSchema }),
+  invoiceShareRevoke: route({ method: 'delete', path: '/invoices/{id}/share', summary: 'Revoke the share link', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.issue', params: IdParamSchema, response: OkResponseSchema }),
+  invoicePdf: route({ method: 'get', path: '/invoices/{id}/pdf', summary: 'A4 tax invoice PDF with HSN summary, branding logo and colour (?download=1)', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.read', params: IdParamSchema, query: DocumentPdfQuerySchema, response: null, responseContentType: 'application/pdf' }),
+  paymentCreate: route({ method: 'post', path: '/invoices/{id}/payments', summary: 'Record a payment (issued or partially paid; at most the balance; idempotent with clientPaymentId); updates the status', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.payments', params: IdParamSchema, body: PaymentCreateSchema, response: InvoiceSchema, status: 201 }),
+  paymentDelete: route({ method: 'delete', path: '/invoices/{id}/payments/{paymentId}', summary: 'Void a payment (kept for the audit trail); updates the status; audited', tag: 'invoices', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'invoices.payments', params: PaymentParamSchema, response: InvoiceSchema }),
+
+  // ---------------- public share links ----------------
+  publicDocumentGet: route({ method: 'get', path: '/public/documents/{token}', summary: 'Shared quotation or invoice for the hosted page /d/<token> (410 SHARE_LINK_EXPIRED)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: DocumentTokenParamSchema, response: PublicDocumentSchema }),
+  publicDocumentPdf: route({ method: 'get', path: '/public/documents/{token}/pdf', summary: 'PDF of a shared document', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: DocumentTokenParamSchema, query: DocumentPdfQuerySchema, response: null, responseContentType: 'application/pdf' }),
+
+  // ---------------- calendar and meetings ----------------
+  meetingList: route({ method: 'get', path: '/meetings', summary: 'Meetings in a range (max 62 days), recurring series expanded; scope: organizer or attendee', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', query: MeetingListQuerySchema, response: listOf(MeetingSchema) }),
+  meetingCreate: route({ method: 'post', path: '/meetings', summary: 'Schedule a meeting (attendees, links to lead/contact/account/deal, reminders, recurrence)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.create', body: MeetingCreateSchema, response: MeetingSchema, status: 201 }),
+  meetingGet: route({ method: 'get', path: '/meetings/{id}', summary: 'One meeting (series)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', params: IdParamSchema, response: MeetingSchema }),
+  meetingUpdate: route({ method: 'patch', path: '/meetings/{id}', summary: 'Edit or reschedule (scope series | occurrence); organizer, or calendar.update with scope', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.update', params: IdParamSchema, body: MeetingUpdateSchema, response: MeetingSchema }),
+  meetingDelete: route({ method: 'delete', path: '/meetings/{id}', summary: 'Delete a meeting (soft)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.delete', params: IdParamSchema, response: OkResponseSchema }),
+  meetingCancel: route({ method: 'post', path: '/meetings/{id}/cancel', summary: 'Cancel a meeting or one occurrence of a series', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.update', params: IdParamSchema, body: MeetingCancelSchema, response: MeetingSchema }),
+  meetingRespond: route({ method: 'post', path: '/meetings/{id}/respond', summary: 'Accept, decline or tentative (the caller as attendee)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', params: IdParamSchema, body: MeetingRespondSchema, response: MeetingSchema }),
+  calendarAvailability: route({ method: 'get', path: '/calendar/availability', summary: 'Working hours, busy blocks (meetings, time off) and live status per user in scope', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', query: AvailabilityQuerySchema, response: listOf(UserAvailabilitySchema) }),
+  timeOffList: route({ method: 'get', path: '/time-off', summary: 'Time off (leave, holiday, training) of users in scope', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.read', query: TimeOffListQuerySchema, response: listOf(TimeOffSchema) }),
+  timeOffCreate: route({ method: 'post', path: '/time-off', summary: 'Add time off (own: calendar.create; others: team.manage)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.create', body: TimeOffCreateSchema, response: TimeOffSchema, status: 201 }),
+  timeOffDelete: route({ method: 'delete', path: '/time-off/{id}', summary: 'Remove time off (own, or team.manage)', tag: 'calendar', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'calendar.create', params: IdParamSchema, response: OkResponseSchema }),
+
+  // ---------------- lead routing ----------------
+  routingRuleList: route({ method: 'get', path: '/routing-rules', summary: 'Lead routing rules in priority order', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', response: listOf(RoutingRuleSchema) }),
+  routingRuleCreate: route({ method: 'post', path: '/routing-rules', summary: 'Add a rule (end of the order); audited', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', body: RoutingRuleCreateSchema, response: RoutingRuleSchema, status: 201 }),
+  routingRuleOrder: route({ method: 'put', path: '/routing-rules/order', summary: 'Reorder rules (all ids, first = checked first)', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', body: RoutingRuleOrderSchema, response: listOf(RoutingRuleSchema) }),
+  routingTest: route({ method: 'post', path: '/routing-rules/test', summary: 'Who would get this lead? (dry run; nothing is written)', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', body: RoutingTestSchema, response: RoutingDecisionSchema }),
+  routingRuleUpdate: route({ method: 'patch', path: '/routing-rules/{id}', summary: 'Update a rule (conditions replace all conditions); audited', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', params: IdParamSchema, body: RoutingRuleUpdateSchema, response: RoutingRuleSchema }),
+  routingRuleDelete: route({ method: 'delete', path: '/routing-rules/{id}', summary: 'Delete a rule; audited', tag: 'routing', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'routing.manage', params: IdParamSchema, response: OkResponseSchema }),
+
+  // ---------------- lead capture forms ----------------
+  captureFormList: route({ method: 'get', path: '/capture-forms', summary: 'Lead capture forms with hosted URL and embed snippet', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', response: listOf(CaptureFormSchema) }),
+  captureFormCreate: route({ method: 'post', path: '/capture-forms', summary: 'Create a form (builder schema; name + phone or email mapped); audited', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', body: CaptureFormCreateSchema, response: CaptureFormSchema, status: 201 }),
+  captureFormGet: route({ method: 'get', path: '/capture-forms/{id}', summary: 'One form', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', params: IdParamSchema, response: CaptureFormSchema }),
+  captureFormUpdate: route({ method: 'patch', path: '/capture-forms/{id}', summary: 'Update fields, settings, status (pause)', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', params: IdParamSchema, body: CaptureFormUpdateSchema, response: CaptureFormSchema }),
+  captureFormDelete: route({ method: 'delete', path: '/capture-forms/{id}', summary: 'Delete a form (soft; its URL answers 410); audited', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', params: IdParamSchema, response: OkResponseSchema }),
+  captureSubmissionList: route({ method: 'get', path: '/capture-forms/{id}/submissions', summary: 'Submissions of a form, newest first', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', params: IdParamSchema, query: CaptureSubmissionListQuerySchema, response: pageOf(CaptureSubmissionSchema) }),
+  publicCaptureFormGet: route({ method: 'get', path: '/public/forms/{key}', summary: 'Form for the hosted page /f/<key> and iframes (410 CAPTURE_FORM_CLOSED when paused)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: CaptureFormKeyParamSchema, response: PublicCaptureFormSchema }),
+  publicCaptureFormSubmit: route({ method: 'post', path: '/public/forms/{key}/submit', summary: 'Submit a form: creates a routed lead (rate limited per IP and form, honeypot, consent, idempotent with clientSubmissionId)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: CaptureFormKeyParamSchema, body: PublicCaptureSubmitSchema, response: PublicCaptureSubmitResultSchema }),
 } as const satisfies Record<string, RouteDef>;
 
 export type ApiRouteId = keyof typeof API_ROUTES;

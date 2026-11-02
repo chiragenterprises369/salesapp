@@ -81,7 +81,37 @@ export const AUDIENCE_RULES: Record<EventName, Rule> = {
   'record.created': ev<'record.created'>((e) => ({ kind: 'owners', ownerIds: [e.payload.record.ownerId], permission: 'records.read' })),
   'record.updated': ev<'record.updated'>((e) => ({ kind: 'owners', ownerIds: [e.payload.record.ownerId], permission: 'records.read' })),
   'record.deleted': () => ({ kind: 'permission', permission: 'records.read' }),
+  // change #19 wave B: CRM. Owner-scoped like leads; ids-only deletes go to everyone with the read permission.
+  'contact.created': ev<'contact.created'>((e) => ({ kind: 'owners', ownerIds: [e.payload.contact.owner?.id ?? null], permission: 'contacts.read' })),
+  'contact.updated': ev<'contact.updated'>((e) => ({ kind: 'owners', ownerIds: [e.payload.contact.owner?.id ?? null], permission: 'contacts.read' })),
+  'contact.deleted': () => ({ kind: 'permission', permission: 'contacts.read' }),
+  'contact.merged': () => ({ kind: 'permission', permission: 'contacts.read' }),
+  'account.created': ev<'account.created'>((e) => ({ kind: 'owners', ownerIds: [e.payload.account.owner?.id ?? null], permission: 'accounts.read' })),
+  'account.updated': ev<'account.updated'>((e) => ({ kind: 'owners', ownerIds: [e.payload.account.owner?.id ?? null], permission: 'accounts.read' })),
+  'account.deleted': () => ({ kind: 'permission', permission: 'accounts.read' }),
+  'account.merged': () => ({ kind: 'permission', permission: 'accounts.read' }),
+  'deal.created': ev<'deal.created'>((e) => ({ kind: 'owners', ownerIds: [e.payload.deal.owner?.id ?? null], permission: 'deals.read' })),
+  'deal.updated': ev<'deal.updated'>((e) => ({ kind: 'owners', ownerIds: [e.payload.deal.owner?.id ?? null], permission: 'deals.read' })),
+  'deal.moved': ev<'deal.moved'>((e) => ({ kind: 'owners', ownerIds: [e.payload.deal.owner?.id ?? null], permission: 'deals.read' })),
+  'deal.deleted': () => ({ kind: 'permission', permission: 'deals.read' }),
+  'quotation.created': ev<'quotation.created'>((e) => ({ kind: 'owners', ownerIds: [e.payload.quotation.owner?.id ?? null], permission: 'quotations.read' })),
+  'quotation.updated': ev<'quotation.updated'>((e) => ({ kind: 'owners', ownerIds: [e.payload.quotation.owner?.id ?? null], permission: 'quotations.read' })),
+  'quotation.deleted': () => ({ kind: 'permission', permission: 'quotations.read' }),
+  'invoice.created': ev<'invoice.created'>((e) => ({ kind: 'owners', ownerIds: [e.payload.invoice.owner?.id ?? null], permission: 'invoices.read' })),
+  'invoice.updated': ev<'invoice.updated'>((e) => ({ kind: 'owners', ownerIds: [e.payload.invoice.owner?.id ?? null], permission: 'invoices.read' })),
+  'invoice.deleted': () => ({ kind: 'permission', permission: 'invoices.read' }),
+  'invoice.payment_recorded': ev<'invoice.payment_recorded'>((e) => ({ kind: 'owners', ownerIds: [e.payload.invoice.owner?.id ?? null], permission: 'invoices.read' })),
+  'catalog.changed': () => ({ kind: 'permission', permission: 'products.read' }),
+  'meeting.created': ev<'meeting.created'>((e) => meetingAudience(e.payload.meeting.organizer?.id ?? null, e.payload.meeting.attendees.map((a) => a.userId))),
+  'meeting.updated': ev<'meeting.updated'>((e) => meetingAudience(e.payload.meeting.organizer?.id ?? null, e.payload.meeting.attendees.map((a) => a.userId))),
+  'meeting.deleted': ev<'meeting.deleted'>((e) => meetingAudience(e.payload.organizerId, e.payload.attendeeUserIds)),
+  'meeting.reminder': () => ({ kind: 'workspace' }), // always addressed to one user room (envelope userId)
 };
+
+/** Organizer and attending users; attendees always get their own meetings. */
+function meetingAudience(organizerId: string | null, attendeeUserIds: ReadonlyArray<string | null>): Audience {
+  return { kind: 'owners', ownerIds: [organizerId, ...attendeeUserIds.filter((id): id is string => !!id)], permission: 'calendar.read', allowSelf: true };
+}
 
 function conversationAudience(assigneeId: string | null): Audience {
   return { kind: 'owners', ownerIds: [assigneeId], nullOwnerPermission: 'messages.team_inbox', permission: 'messages.read' };
