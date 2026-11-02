@@ -141,6 +141,8 @@ export const FloorTemplateSchema = z
     }),
     /** Module placements (Small and Large; Medium is hand-composed after the reference). */
     modules: z.array(ModuleSchema).optional(),
+    /** Per-template look tweaks (the Evening bake of a big floor is darker per square metre). */
+    lighting: z.object({ eveningExposure: z.number().positive().max(3).optional() }).optional(),
   })
   .superRefine((t, ctx) => {
     const nodes = new Set(t.graph.nodes.map((n) => n.id));

@@ -137,6 +137,10 @@ export class Office {
   private readonly hubCanvas: HTMLCanvasElement;
   private readonly hubTexture: THREE.CanvasTexture;
   private readonly screenTexture: THREE.CanvasTexture;
+  /** Evening dashboard: dark navy with bright bars, so screens glow instead of reading as white cards. */
+  private readonly screenTextureDark: THREE.CanvasTexture;
+  private darkScreens = false;
+  private readonly eveningExposure: number;
   private screenColor = new THREE.Color('#cfe0ff');
   private screenLevel = 1;
   readonly instancedProps: THREE.InstancedMesh[] = [];
@@ -149,8 +153,10 @@ export class Office {
     root.updateMatrixWorld(true);
     const screenNodes = new Map<string, THREE.Mesh>();
 
-    this.screenTexture = screenTexture();
-    this.owned.push(this.screenTexture);
+    this.screenTexture = screenTexture(false);
+    this.screenTextureDark = screenTexture(true);
+    this.owned.push(this.screenTexture, this.screenTextureDark);
+    this.eveningExposure = layout.template.lighting?.eveningExposure ?? 1;
     this.hubCanvas = document.createElement('canvas');
     this.hubCanvas.width = 512;
     this.hubCanvas.height = 256;
@@ -333,7 +339,7 @@ export class Office {
     const tint = this.hasEvening ? look.tint : look.interimTint;
     const dayLevel = look.lightmap;
     this.blend.lightMix.value = mix;
-    this.blend.lightMapIntensity2.value = eveScale * Math.PI * look.eveningLightmap;
+    this.blend.lightMapIntensity2.value = eveScale * Math.PI * look.eveningLightmap * this.eveningExposure;
     for (const { mat, base } of this.lit) {
       mat.color.copy(base).multiply(tint);
       if (mat.lightMap) mat.lightMapIntensity = dayScale * Math.PI * dayLevel;
@@ -355,6 +361,11 @@ export class Office {
     }
     this.screenColor.copy(look.screen);
     this.screenLevel = look.screenLevel;
+    const dark = look.lightMix > 0.5;
+    if (dark !== this.darkScreens) {
+      this.darkScreens = dark;
+      for (const s of this.screens.values()) s.mat.map = dark ? this.screenTextureDark : this.screenTexture;
+    }
     for (const s of this.screens.values()) this.paintScreen(s);
     for (const p of this.props) p.color.copy(p.userData.base ?? (p.userData.base = p.color.clone())).multiply(look.propTint);
     this.shadowMat.opacity = look.shadowOpacity;
@@ -418,47 +429,51 @@ export class Office {
   }
 }
 
-/** Shared monitor content: a light CRM dashboard (header, sidebar, KPI tiles, chart, rows). */
-function screenTexture(): THREE.CanvasTexture {
+/** Shared monitor content: a CRM dashboard (header, sidebar, KPI tiles, chart, rows); light or Evening dark. */
+function screenTexture(dark: boolean): THREE.CanvasTexture {
   const w = 256;
   const h = 150;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
+  // Light: pale CRM dashboard. Evening: dark navy with saturated bars (a glowing screen at night).
+  const p = dark
+    ? { bg0: '#0b1736', bg1: '#132552', header: '#6366f1', side: '#0f1d42', nav: '#3b5aa8', navOn: '#7c9cff', card: '#18306a', label: '#5b74b8', bar: '#4f8cff', barOn: '#a78bfa', row: '#4560a6' }
+    : { bg0: '#f4f8ff', bg1: '#dce8ff', header: '#4f46e5', side: '#c9d8f5', nav: '#aec3ec', navOn: '#8aa6e8', card: '#ffffff', label: '#9fb0cc', bar: '#93b4f5', barOn: '#4f46e5', row: '#b8c6de' };
+  const tiles = dark ? ['#38bdf8', '#34d399', '#fbbf24'] : ['#3b82f6', '#10b981', '#f59e0b'];
   const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, '#f4f8ff');
-  g.addColorStop(1, '#dce8ff');
+  g.addColorStop(0, p.bg0);
+  g.addColorStop(1, p.bg1);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = '#4f46e5';
+  ctx.fillStyle = p.header;
   ctx.fillRect(0, 0, w, 16);
-  ctx.fillStyle = '#c9d8f5';
+  ctx.fillStyle = p.side;
   ctx.fillRect(0, 16, 40, h - 16);
   for (let i = 0; i < 6; i++) {
-    ctx.fillStyle = i === 1 ? '#8aa6e8' : '#aec3ec';
+    ctx.fillStyle = i === 1 ? p.navOn : p.nav;
     ctx.fillRect(7, 26 + i * 16, 26, 6);
   }
-  const tiles = ['#3b82f6', '#10b981', '#f59e0b'];
   tiles.forEach((c, i) => {
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = p.card;
     ctx.fillRect(50 + i * 68, 24, 60, 30);
     ctx.fillStyle = c;
     ctx.fillRect(56 + i * 68, 30, 24, 6);
-    ctx.fillStyle = '#9fb0cc';
+    ctx.fillStyle = p.label;
     ctx.fillRect(56 + i * 68, 42, 40, 5);
   });
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = p.card;
   ctx.fillRect(50, 62, 128, 78);
   const bars = [30, 46, 38, 58, 50, 66, 44];
   bars.forEach((b, i) => {
-    ctx.fillStyle = i === 5 ? '#4f46e5' : '#93b4f5';
+    ctx.fillStyle = i === 5 ? p.barOn : p.bar;
     ctx.fillRect(58 + i * 16, 132 - b, 10, b);
   });
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = p.card;
   ctx.fillRect(186, 62, 62, 78);
   for (let i = 0; i < 6; i++) {
-    ctx.fillStyle = '#b8c6de';
+    ctx.fillStyle = p.row;
     ctx.fillRect(192, 70 + i * 11, 48 - (i % 3) * 8, 5);
   }
   const tex = new THREE.CanvasTexture(canvas);

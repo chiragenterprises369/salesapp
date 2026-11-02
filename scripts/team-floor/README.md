@@ -19,7 +19,12 @@ node scripts/team-floor/templates/build-templates.mjs --svg   # < 1 s
 node scripts/team-floor/preview-plan.mjs medium                # optional PNG of the SVG plan
 ```
 
-Writes `apps/web/public/team-floor/templates/<id>.json` (`small`, `medium`, `large`). The JSON is
+Writes `apps/web/public/team-floor/templates/<id>.json` (`small`, `medium`, `large`) and
+`templates/modules.json` (module kit catalogue). Medium is hand-composed after the reference render;
+Small (8 seats) and Large (50 seats) are composed from the module kit in `templates/modules.mjs
+(`sales_pod`, `calling_room`, `manager_cabin`, `lounge`, `reception`, `hub_plaza`, `print_corner`,
+`hot_bench`) by `templates/composed.mjs`; every placement is stored under `modules` in the template
+(D-054, extended by the 28.3 kit). The JSON is
 the single source of truth: the Blender build reads it for geometry and the web runtime validates it
 with zod (`features/team-floor/state/template.ts`). The script fails (exit 1) when a seat has no
 visible graph node, a waypoint sits inside furniture or a node is unreachable from the entrance.
@@ -42,7 +47,7 @@ lightmap UVs, bakes in Cycles and exports. Flags:
 | `--samples <n>` | Cycles samples for the lit bakes (AO uses half) |
 | `--size <px>` | lightmap size (square) |
 | `--export` | write the Draco GLB with WebP textures |
-| `--preview` | Cycles preview render from the runtime camera to `.out/office-<id>-preview.png` |
+| `--preview [--light day\|evening] [--preview-samples 48]` | Cycles preview render from the runtime camera to `.out/office-<id>-<light>-preview.png` |
 | `--save-blend` | save `.out/office-<id>.blend` for inspection |
 
 Outputs in `apps/web/public/team-floor/`: `office-<id>.glb`, `office-<id>-day.webp`,
@@ -50,7 +55,24 @@ Outputs in `apps/web/public/team-floor/`: `office-<id>.glb`, `office-<id>-day.we
 triangle stats, timings, file sizes). Lightmap texels are `srgb(irradiance / scale)`; the runtime
 multiplies by `scale * PI`.
 
-Measured (Medium, 2048 px, 128 samples): build 20.8 s, Day bake 417 s, AO bake 120 s.
+All templates, one after the other (validates the templates first):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/team-floor/bake-all.ps1 [-Templates small,medium,large]
+``
+
+Settings and measured timings (whole run = build + Day + Evening + AO + export; the spread comes
+from other work on the machine during some runs):
+
+| Template | Size | Samples | Build | Day | Evening | AO | Whole run |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| small | 2048 | 128 | 10.5 s | 91 to 104 s | 98 to 106 s | 26 to 141 s | 4.0 to 6.5 min |
+| medium | 2048 | 128 | 8 to 32 s | 90 to 473 s | 129 to 397 s | 32 to 130 s | 6.2 to 15.7 min (6.2 min on an idle machine) |
+| large | 3072 | 96 | 20 to 82 s | 136 to 199 s | 152 to 153 s | 61 to 72 s | 6.9 to 8.5 min |
+
+The Evening lightmap stores `srgb(irradiance / scale)` with its own scale (99th percentile of the
+bake), Day uses scale 2.0. Large sets `lighting.eveningExposure` 1.25 in its template.
+Per-template bakes fit every budget, so modules do not share bakes (`docs/ASSETS.md`).
 
 ## 3. Characters GLB
 
@@ -76,11 +98,12 @@ Build and start the web app first: `pnpm --filter @vistar/web build`, then
 | Command | What it does |
 | --- | --- |
 | `node e2e/team-floor/bundle-check.mjs` | three/R3F are not in the initial chunks of `/app/team-floor` and `/me/team-floor` |
-| `E2E_BASE_URL=http://localhost:3005 pnpm e2e e2e/team-floor --project=desktop` | label overlap test |
-| `node e2e/team-floor/fps.mjs http://localhost:3005 30 10` | frame time with 30 people for 10 s |
-| `node e2e/team-floor/theme.mjs http://localhost:3005 medium <dir>` | theme switch frames and console errors |
-| `node e2e/team-floor/shoot.mjs --base http://localhost:3005 --iter 05 --theme light` | screenshot set into `docs/screenshots/team-floor-v3/iter-05/` (git-ignored) |
-| `node e2e/team-floor/compare.mjs <ours.png> <out.png> "<caption>"` | reference-left, ours-right comparison sheet |
+| `E2E_BASE_URL=http://localhost:3005 pnpm e2e e2e/team-floor` | label overlaps (Small, Medium, Large x Light, Dark) and the flat view keyboard path (desktop) and default (Pixel 7) |
+| `node e2e/team-floor/fps.mjs http://localhost:3005 30 10 medium dark` | frame time with N people for 10 s (template and theme optional) |
+| `node e2e/team-floor/theme.mjs http://localhost:3005 medium <dir> [--reduced]` | Day/Evening cross-fade per frame, mid-fade frame, console errors; instant with `--reduced` |
+| `node e2e/team-floor/matrix.mjs --base http://localhost:3005 --iter 08 [--group medium\|small\|large\|flat]` | full screenshot matrix into `docs/screenshots/team-floor-v3/iter-08/` (git-ignored) |
+| `node e2e/team-floor/shoot.mjs --base http://localhost:3005 --iter 05 --theme light` | Medium-only set (Phase A) |
+| `node e2e/team-floor/compare.mjs <ours.png[,ours2.png]> <out.png> "<caption>[\|caption 2]"` | reference-left comparison sheet |
 
 The scripts sign in with the mock persona and set `localStorage['vistar.floor.qa'] = '1'`, which
 enables the `window.__vistarFloor` QA hook and the `?floorTemplate`, `?floorStress`, `?floorMode`

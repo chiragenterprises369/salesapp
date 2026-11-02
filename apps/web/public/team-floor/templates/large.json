@@ -10443,6 +10443,9 @@
   "minZoom": 0.85,
   "maxZoom": 4.2
  },
+ "lighting": {
+  "eveningExposure": 1.25
+ },
  "modules": [
   {
    "id": "lounge-a",

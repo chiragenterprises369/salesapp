@@ -628,6 +628,7 @@ function finalize(t) {
       o.kind === 'circle' ? { kind: 'circle', pos: [r2(o.cx), r2(o.cz)], r: r2(o.r) } : { kind: 'rect', pos: [r2(o.cx), r2(o.cz)], size: [r2(o.w), r2(o.d)], facing: o.facing ?? 0 },
     ),
     camera: t.camera,
+    ...(t.lighting ? { lighting: t.lighting } : {}),
     ...(t.modules?.length ? { modules: t.modules } : {}),
   };
   return { template: out, problems, counts };

@@ -55,7 +55,7 @@ export function small() {
   place(plan, 'manager_cabin', 'cabin', [CABIN_X, 0], 0, { w: r2(CABIN_W), d: 4.8, door: [3.9, 4.8] });
   place(plan, 'print_corner', 'print', [CABIN_X, 4.8], 0);
   place(plan, 'sales_pod', 'pod-a', [4.0, 8.0], 0, { desks: 4 });
-  place(plan, 'hub_plaza', 'hub', [9.0, 7.6], 0, { ring: 1.2, platform: 1.35, machine: 0.6 });
+  place(plan, 'hub_plaza', 'hub', [8.6, 7.5], 0, { ring: 1.2, platform: 1.35, machine: 0.6 });
   place(plan, 'reception', 'reception', RECEP, 0, { plant: true });
   place(plan, 'hot_bench', 'hot', [0.55, 8.3], 0, { seats: 2, aisle: 1.4 });
   plan.rooms.push({ id: 'reception', type: 'reception', name: 'Reception', floor: 'oak', outline: [[RECEP[0] - 2.2, RECEP[1] - 1.15], [W, RECEP[1] - 1.15], [W, D], [RECEP[0] - 2.2, D]].map(([x, z]) => [r2(x), r2(z)]) });
@@ -256,5 +256,7 @@ export function large() {
     ...plan,
     entrance,
     camera: { ...CAMERA, maxZoom: 4.2 },
+    // The Evening bake of the big floor is darker per square metre; lift it to match Medium.
+    lighting: { eveningExposure: 1.25 },
   };
 }

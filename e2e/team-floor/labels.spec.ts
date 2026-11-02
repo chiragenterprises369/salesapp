@@ -32,7 +32,8 @@ for (const theme of ['light', 'dark'] as const) {
   for (const view of VIEWS) {
     for (const size of view.sizes) {
       const [width, height] = size.split('x').map(Number) as [number, number];
-      test(`no label overlaps: ${view.name}, ${size}, ${theme}`, async ({ page, context, baseURL }) => {
+      test(`no label overlaps: ${view.name}, ${size}, ${theme}`, async ({ page, context, baseURL, isMobile }) => {
+        test.skip(isMobile, 'desktop 3D view (mobile gets Flat, see flat.spec.ts)');
         test.setTimeout(90_000);
         await context.addCookies([
           {
@@ -43,6 +44,8 @@ for (const theme of ['light', 'dark'] as const) {
           },
         ]);
         await page.setViewportSize({ width, height });
+        // Signed-in mock users follow the system theme; the cookie covers the boot script.
+        await page.emulateMedia({ colorScheme: theme });
         await page.goto('/kit');
         await page.evaluate(() => {
           localStorage.setItem('vistar.mock.persona', JSON.stringify({ persona: 'manager' }));
