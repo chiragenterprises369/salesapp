@@ -36,7 +36,12 @@ function StylePreview({ style }: { style: InterfaceStyle }) {
       data-theme={theme}
       className={cn('relative block h-14 w-full overflow-hidden rounded-md border border-border', glass ? 'vs-preview' : 'bg-bg')}
     >
-      <span className={cn('absolute top-0 bottom-0 left-0 w-1/5 border-r', glass ? 'border-glass-border bg-glass' : 'border-border bg-surface')}>
+      <span
+        className={cn(
+          'absolute',
+          glass ? 'top-1 bottom-1 left-1 w-[18%] rounded-sm border border-glass-border bg-glass shadow-depth-1' : 'top-0 bottom-0 left-0 w-1/5 border-r border-border bg-surface',
+        )}
+      >
         <span className={cn('absolute top-2.5 right-1.5 left-1.5 h-1.5 rounded-xs bg-accent-soft', style === 'neon' && 'edge-glow')} />
       </span>
       <span className={cn('absolute top-2 right-2 left-[28%] h-4 rounded-sm border', glass ? 'glass-panel' : 'border-border bg-surface shadow-card')} />

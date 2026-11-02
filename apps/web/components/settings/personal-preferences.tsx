@@ -29,8 +29,8 @@ const NOTIFY_LABEL: Record<NotificationType, string> = {
 
 const MOTION: ReadonlyArray<{ value: ReducedMotionSetting; label: string; hint: string }> = [
   { value: 'system', label: 'Follow this device', hint: 'Uses your phone or computer setting' },
-  { value: 'on', label: 'Reduce motion', hint: 'Changes happen instantly, no animation' },
-  { value: 'off', label: 'Full motion', hint: 'Smooth transitions and live counters' },
+  { value: 'on', label: 'Always reduce', hint: 'Changes happen instantly, no animation' },
+  { value: 'off', label: 'Never reduce', hint: 'Ignore the device setting and use your motion intensity' },
 ];
 
 const FLOOR: ReadonlyArray<{ value: TeamFloorMode; label: string }> = [

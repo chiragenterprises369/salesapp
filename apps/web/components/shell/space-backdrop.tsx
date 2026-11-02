@@ -44,13 +44,22 @@ export function SpaceBackdrop() {
 
   return (
     <div ref={ref} aria-hidden className="vs-backdrop">
+      <BackdropLayers />
+    </div>
+  );
+}
+
+/** Static layers of the space background (CSS only). Also used by ShellSkeleton so the first paint matches. */
+export function BackdropLayers() {
+  return (
+    <>
       <div className="vs-backdrop__wash" data-parallax="far" />
       <div className="vs-backdrop__floor">
         <div className="vs-backdrop__grid" data-parallax="mid" />
       </div>
       <div className="vs-backdrop__horizon" />
       <div className="vs-backdrop__vignette" />
-    </div>
+    </>
   );
 }
 
