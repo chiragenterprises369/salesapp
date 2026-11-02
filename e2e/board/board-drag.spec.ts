@@ -14,6 +14,7 @@ import {
   mouseOverColumn,
   mousePickUp,
   openBoard,
+  recordFlights,
   signIn,
   waitSettled,
 } from './helpers';
@@ -80,13 +81,14 @@ test('failed save: the card returns to its column and an error toast shows', asy
   const card = cardsIn(from).first();
   const id = await leadIdOf(card);
   const name = await leadNameOf(card);
+  const flights = await recordFlights(page);
 
   await mousePickUp(page, card);
   await mouseOverColumn(page, to);
   await page.mouse.up();
 
   // Rollback animation (arc back to the origin), then the card sits in New again.
-  await expect(page.locator('[data-flight="rollback"]')).toBeAttached();
+  await expect.poll(flights).toContain('rollback');
   await expect(page.getByText(`Could not move ${name}`)).toBeVisible();
   await waitSettled(page);
   await expect(from.locator(`li[data-lead-id="${id}"]`)).toHaveCount(1);

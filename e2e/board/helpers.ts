@@ -44,6 +44,27 @@ export async function setTheme(page: Page, baseURL: string, theme: 'light' | 'da
 }
 
 export const boardRoot = (page: Page) => page.locator('[data-board-phase]').first();
+
+/**
+ * Record arc flights as they appear. A flight lasts about half a second, which can fall between
+ * two polls of a locator assertion, so specs check the recording instead of polling the DOM.
+ * Returns a reader for the kinds seen so far ("move" | "rollback").
+ */
+export async function recordFlights(page: Page): Promise<() => Promise<string[]>> {
+  await page.evaluate(() => {
+    const w = window as unknown as { __vbFlights?: string[] };
+    w.__vbFlights = [];
+    new MutationObserver((muts) => {
+      for (const m of muts)
+        for (const n of m.addedNodes) {
+          if (!(n instanceof Element)) continue;
+          const found = n.matches('[data-flight]') ? [n] : [...n.querySelectorAll('[data-flight]')];
+          for (const f of found) w.__vbFlights!.push(f.getAttribute('data-flight') ?? '');
+        }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  return () => page.evaluate(() => (window as unknown as { __vbFlights?: string[] }).__vbFlights ?? []);
+}
 export const column = (page: Page, key: string) => page.locator(`section[data-stage-key="${key}"]`);
 export const cardsIn = (col: Locator) => col.locator('li[data-lead-id]');
 export const cardById = (page: Page, id: string) => page.locator(`li[data-lead-id="${id}"]`);
