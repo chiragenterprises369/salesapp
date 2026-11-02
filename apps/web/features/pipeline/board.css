@@ -1,0 +1,221 @@
+/*
+  Leads Board depth and motion (SPEC 11.1). Colours come only from design tokens.
+  Root (.vb-depth, set on the board and the drag overlay) carries the live config as variables:
+  --vb-perspective, --vb-thickness, --vb-neighbour-opacity, --vb-sheen, --vb-hover-lift
+  and data attributes: data-depth (full | lite | none), data-sheen (on | off), data-motion
+  (full | reduced | flat), data-dim (on | off), data-dragging (while a card is lifted).
+*/
+
+.vb-depth {
+  --vb-ink: var(--overlay);
+  --vb-lip: color-mix(in srgb, var(--border-strong) 62%, var(--surface));
+  --vb-lip-edge: var(--border-strong);
+  --vb-highlight: transparent;
+  --vb-sheen-hi: transparent;
+  --vb-sheen-lo: color-mix(in srgb, var(--surface-3) 80%, transparent);
+  --vb-shimmer: color-mix(in srgb, var(--surface) 75%, transparent);
+  --vb-shadow-rest: 0 1px 1px color-mix(in srgb, var(--vb-ink) 14%, transparent), 0 2px 6px -2px color-mix(in srgb, var(--vb-ink) 18%, transparent);
+  --vb-shadow-hover: 0 1px 2px color-mix(in srgb, var(--vb-ink) 16%, transparent), 0 10px 20px -8px color-mix(in srgb, var(--vb-ink) 34%, transparent);
+  --vb-shadow-lite: var(--elevation-1);
+}
+
+[data-theme='dark'] .vb-depth {
+  --vb-lip: color-mix(in srgb, var(--border-strong) 78%, var(--bg));
+  --vb-highlight: color-mix(in srgb, var(--fg) 9%, transparent);
+  --vb-sheen-hi: color-mix(in srgb, var(--fg) 8%, transparent);
+  --vb-sheen-lo: transparent;
+  --vb-shimmer: color-mix(in srgb, var(--fg) 5%, transparent);
+  --vb-shadow-rest: 0 1px 1px color-mix(in srgb, var(--vb-ink) 60%, transparent), 0 3px 8px -2px color-mix(in srgb, var(--vb-ink) 55%, transparent);
+  --vb-shadow-hover: 0 1px 2px color-mix(in srgb, var(--vb-ink) 60%, transparent), 0 12px 24px -8px color-mix(in srgb, var(--vb-ink) 80%, transparent);
+}
+
+/* ---------------------------------------------------------------- card */
+
+.vb-li {
+  perspective: var(--vb-perspective, 1200px);
+}
+
+.vb-lift {
+  position: relative;
+  transition: transform var(--duration-fast) var(--easing);
+}
+
+/* Thickness edge: the card's side, visible under the face. */
+.vb-lip {
+  position: absolute;
+  inset: var(--vb-thickness, 3px) 0 calc(var(--vb-thickness, 3px) * -1) 0;
+  border-radius: 12px;
+  border: 1px solid var(--vb-lip-edge);
+  background: var(--vb-lip);
+  pointer-events: none;
+}
+
+.vb-face {
+  box-shadow: var(--vb-shadow-rest), inset 0 1px 0 var(--vb-highlight);
+  transition:
+    box-shadow var(--duration-fast) var(--easing),
+    border-color var(--duration-fast) var(--easing),
+    background-color var(--duration-fast) var(--easing);
+}
+
+/* Specular sheen (follows the pointer on desktop; shifts with tilt on the dragged card). */
+.vb-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing);
+  background: radial-gradient(180px circle at var(--vb-sx, 50%) var(--vb-sy, 0%), var(--vb-sheen-hi), var(--vb-sheen-lo));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-depth='full'] .vb-li:hover .vb-lift:not([data-placeholder]) {
+    transform: translate3d(0, -1px, var(--vb-hover-lift, 6px));
+  }
+  [data-depth]:not([data-depth='none']) .vb-li:hover .vb-face:not([data-placeholder]) {
+    box-shadow: var(--vb-shadow-hover), inset 0 1px 0 var(--vb-highlight);
+  }
+  [data-sheen='on'] .vb-li:hover .vb-face:not([data-placeholder]) .vb-sheen {
+    opacity: var(--vb-sheen, 0.6);
+  }
+}
+
+[data-depth='lite'] .vb-face {
+  box-shadow: var(--vb-shadow-lite), inset 0 1px 0 var(--vb-highlight);
+}
+
+[data-depth='none'] .vb-lip,
+.vb-lift[data-placeholder] .vb-lip {
+  display: none;
+}
+
+[data-depth='none'] .vb-face,
+.vb-face[data-placeholder] {
+  box-shadow: none;
+}
+
+/* Confirmation ring (Web Animations drive opacity/scale; colour set per pulse). */
+.vb-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 15px;
+  border: 2px solid currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 20%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Hover actions slide in with a spring-like overshoot. */
+@keyframes vb-actions-in {
+  from {
+    opacity: 0;
+    translate: 8px 0;
+  }
+}
+.vb-actions-in {
+  animation: vb-actions-in 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---------------------------------------------------------------- column */
+
+.vb-list {
+  transition: opacity var(--duration-fast) var(--easing);
+}
+[data-dim='on'][data-dragging='true'] .vb-list {
+  opacity: var(--vb-neighbour-opacity, 0.9);
+}
+
+.vb-share-track {
+  background: color-mix(in srgb, var(--vb-stage, var(--accent)) 16%, transparent);
+}
+.vb-share {
+  background: var(--vb-stage, var(--accent));
+  transform-origin: left center;
+  transition: transform var(--duration-slow) var(--easing);
+}
+
+/* First-load entrance (columns, then cards), once. */
+@keyframes vb-enter {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+}
+.vb-enter {
+  animation: vb-enter 220ms var(--easing) backwards;
+}
+
+/* ---------------------------------------------------------------- drag overlay */
+
+.vb-ghost {
+  border-radius: 12px;
+}
+.vb-ghost-shadow {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  box-shadow: var(--elevation-drag);
+  pointer-events: none;
+}
+[data-depth='lite'] .vb-ghost-shadow {
+  box-shadow: var(--elevation-2);
+}
+[data-depth='none'] .vb-ghost-shadow {
+  box-shadow: var(--elevation-1);
+}
+.vb-ghost-sheen {
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  background: radial-gradient(closest-side circle at 50% 30%, var(--vb-sheen-hi), var(--vb-sheen-lo));
+  opacity: var(--vb-sheen, 0.6);
+}
+[data-sheen='off'] .vb-ghost-sheen {
+  display: none;
+}
+.vb-deck-layer {
+  position: absolute;
+  inset: 0;
+  box-shadow: var(--elevation-1);
+}
+
+/* ---------------------------------------------------------------- skeleton */
+
+.vb-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.vb-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--vb-shimmer), transparent);
+  animation: vb-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes vb-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* ---------------------------------------------------------------- reduced / flat */
+
+[data-motion='reduced'] .vb-lift,
+[data-motion='flat'] .vb-lift {
+  transition: none;
+  transform: none !important;
+}
+[data-motion='reduced'] .vb-enter,
+[data-motion='flat'] .vb-enter,
+[data-motion='reduced'] .vb-actions-in,
+[data-motion='flat'] .vb-actions-in,
+[data-motion='reduced'] .vb-shimmer::after,
+[data-motion='flat'] .vb-shimmer::after {
+  animation: none;
+}
+[data-motion='reduced'] .vb-share,
+[data-motion='flat'] .vb-share {
+  transition: none;
+}

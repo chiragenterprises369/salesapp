@@ -1,26 +1,29 @@
 'use client';
 
-import { animated, useSpringValue } from '@react-spring/web';
+import { useSpringValue } from '@react-spring/web';
 import { formatInr, type LeadListItem, type Stage } from '@vistar/shared';
 import { CalendarClock, Check, UserRound } from 'lucide-react';
-import { memo, useCallback, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { LeadQuickActions, useLeadActions } from '@/components/leads-shared/lead-actions';
 import { Avatar } from '@/components/ui/avatar';
 import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
 import { useLeadsViewState } from '@/lib/leads/state';
 import { useBoardController, useDragState } from './drag/context';
+import { writeNudge } from './drag/controller';
 import type { CardHandle, DragState } from './drag/types';
 import { followUpLabel } from './hooks';
 import { MoveMenu } from './move-menu';
-import { TEMPERATURE_DOT, TEMPERATURE_LABEL } from './tones';
+import { TEMPERATURE_DOT, TEMPERATURE_NAME } from './tones';
+import { TOUCH_CHILDREN } from './touch';
+import { useBoardWords } from './words';
 
 /** Width one touch action takes in compact cards (44 px button + 2 px gap). */
 const TOUCH_ACTION_WIDTH = 46;
 
-/** Card surface shared by the real card and the drag ghost. */
+/** Card face shared by the real card and the drag ghost. */
 export function cardSurface(compact: boolean): string {
-  return cn('relative flex flex-col rounded-lg border border-border bg-surface text-left shadow-card', compact ? 'gap-1 p-2.5' : 'gap-1.5 p-3');
+  return cn('relative flex flex-col rounded-lg border border-border bg-surface text-left', compact ? 'gap-1 p-2.5' : 'gap-1.5 p-3');
 }
 
 export interface LeadCardBodyProps {
@@ -76,6 +79,8 @@ function Tags({ tags, max }: { tags: readonly string[]; max: number }) {
 
 /** Card content (name, company, value, owner, tags, follow-up, temperature). Presentational. */
 export function LeadCardBody({ lead, compact, now, selectMode = false, selected = false, reserveActions = 0, nameId, detailsId }: LeadCardBodyProps) {
+  const words = useBoardWords();
+  const temperature = `${TEMPERATURE_NAME[lead.temperature]} ${words.oneLower}`;
   const followUp = lead.nextFollowUpAt ? followUpLabel(lead.nextFollowUpAt, now) : null;
   const followUpEl = followUp && (
     <span className={cn('flex min-w-0 items-center gap-1 text-xs', followUp.overdue ? 'font-medium text-danger-text' : 'text-muted')}>
@@ -88,7 +93,7 @@ export function LeadCardBody({ lead, compact, now, selectMode = false, selected 
   );
   return (
     <>
-      <div className="flex items-start gap-2">
+      <div className="relative flex items-start gap-2">
         {selectMode && (
           <span
             aria-hidden
@@ -100,14 +105,14 @@ export function LeadCardBody({ lead, compact, now, selectMode = false, selected 
             {selected && <Check className="size-3" strokeWidth={3} />}
           </span>
         )}
-        <span aria-hidden title={TEMPERATURE_LABEL[lead.temperature]} className={cn('mt-1.5 size-2 shrink-0 rounded-full', TEMPERATURE_DOT[lead.temperature])} />
-        <span id={nameId} className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
+        <span aria-hidden title={temperature} className={cn('mt-1.5 size-2 shrink-0 rounded-full', TEMPERATURE_DOT[lead.temperature])} />
+        <span id={nameId} data-lead-name="" className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
           {lead.name}
         </span>
         <span className="shrink-0 text-sm font-semibold text-fg tabular">{formatInr(lead.valueInr, { compact: true })}</span>
       </div>
-      <div id={detailsId} className={cn('flex min-w-0 flex-col', compact ? 'gap-1' : 'gap-1.5')}>
-        <span className="sr-only">{TEMPERATURE_LABEL[lead.temperature]}.</span>
+      <div id={detailsId} className={cn('relative flex min-w-0 flex-col', compact ? 'gap-1' : 'gap-1.5')}>
+        <span className="sr-only">{temperature}.</span>
         {compact ? (
           <div className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 flex-1 truncate text-xs text-muted">{lead.companyName}</span>
@@ -118,7 +123,7 @@ export function LeadCardBody({ lead, compact, now, selectMode = false, selected 
         )}
         {!compact && lead.tags.length > 0 && <Tags tags={lead.tags} max={2} />}
         <div
-          className={cn('flex min-w-0 items-center gap-1.5', compact ? (reserveActions ? 'h-11' : 'h-6') : 'h-7')}
+          className={cn('flex min-w-0 items-center gap-1.5', compact ? (reserveActions ? 'h-[44px]' : 'h-6') : 'h-7')}
           style={reserveActions ? { paddingRight: reserveActions * TOUCH_ACTION_WIDTH } : undefined}
         >
           <Owner lead={lead} />
@@ -129,14 +134,24 @@ export function LeadCardBody({ lead, compact, now, selectMode = false, selected 
   );
 }
 
-type PlaceholderKind = 'none' | 'origin' | 'target';
+type PlaceholderKind = 'none' | 'origin' | 'target' | 'deck';
 
 function placeholderOf(s: DragState, id: string, stageId: string): PlaceholderKind {
   const a = s.active;
-  if (!a || a.lead.id !== id) return 'none';
+  if (!a) return 'none';
+  if (a.lead.id !== id) return s.phase === 'dragging' && a.deckIds.has(id) ? 'deck' : 'none';
   if (s.phase === 'dropping') return 'target';
   if (s.over && s.over.stageId === stageId && stageId === a.fromStageId && s.over.index === a.originIndex) return 'target';
   return 'origin';
+}
+
+/** Specular sheen follows a fine pointer (CSS shows it only when the board allows sheen). */
+function trackSheen(e: PointerEvent<HTMLElement>) {
+  if (e.pointerType !== 'mouse') return;
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty('--vb-sx', `${Math.round(e.clientX - r.left)}px`);
+  el.style.setProperty('--vb-sy', `${Math.round(e.clientY - r.top)}px`);
 }
 
 export interface BoardCardProps {
@@ -144,7 +159,7 @@ export interface BoardCardProps {
   stageId: string;
   index: number;
   compact: boolean;
-  /** Pointer and keyboard drag (leads.update, not in select mode). */
+  /** Pointer and keyboard drag (leads.update; in select mode, pointer drags carry the selection). */
   canDrag: boolean;
   /** "Move to stage..." menu (leads.update). */
   canMove: boolean;
@@ -157,6 +172,8 @@ export interface BoardCardProps {
   now: number;
   /** Id of the hidden instructions for this mode (aria-describedby). */
   instructionsId?: string;
+  /** Entrance animation delay (ms), first load only. */
+  enterDelay?: number;
   /** Virtual lists only. */
   virtualStart?: number;
   measure?: (el: Element | null) => void;
@@ -164,8 +181,9 @@ export interface BoardCardProps {
 }
 
 /**
- * Board card. Memoised: during a drag it never re-renders (neighbour nudges are springs on `y`);
- * only the dragged card re-renders to become a placeholder.
+ * Board card: a thick card (thickness edge, layered shadows, 1 px top highlight, pointer sheen)
+ * that lifts slightly on hover. Memoised: during a drag it never re-renders (neighbour nudges are
+ * springs on `y`); only the dragged card re-renders to become a placeholder.
  */
 export const BoardCard = memo(function BoardCard({
   lead,
@@ -180,6 +198,7 @@ export const BoardCard = memo(function BoardCard({
   stages,
   now,
   instructionsId,
+  enterDelay,
   virtualStart,
   measure,
   setSize,
@@ -189,14 +208,19 @@ export const BoardCard = memo(function BoardCard({
   const placeholder = useDragState((s) => placeholderOf(s, lead.id, stageId));
   const selected = useLeadsViewState((s) => s.selectedIds.has(lead.id));
   const toggleSelected = useLeadsViewState((s) => s.toggleSelected);
-  const y = useSpringValue(0);
+  const nudgeRef = useRef<HTMLDivElement>(null);
+  // The nudge transform is written imperatively (spring frames here, instant changes in the
+  // controller), never through React props, so a re-render can never restore a stale value.
+  const y = useSpringValue(0, {
+    onChange: (r: { value: number }) => writeNudge(nudgeRef.current, r.value),
+    onRest: (r: { value: number }) => writeNudge(nudgeRef.current, r.value),
+  });
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const liRef = useRef<HTMLLIElement | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const nameId = useId();
-  const detailsId = useId();
+  const ringRef = useRef<HTMLSpanElement>(null);
 
   const setLi = useCallback(
     (el: HTMLLIElement | null) => {
@@ -209,9 +233,10 @@ export const BoardCard = memo(function BoardCard({
   useLayoutEffect(() => {
     const li = liRef.current;
     const card = cardRef.current;
+    const nudge = nudgeRef.current;
     const list = li?.parentElement;
-    if (!li || !card || !list) return;
-    const h: CardHandle = { id: lead.id, stageId, li, card, list, y, restTop: 0, height: 0, shift: 0 };
+    if (!li || !card || !nudge || !list) return;
+    const h: CardHandle = { id: lead.id, stageId, li, card, list, ring: ringRef.current, y, nudge, restTop: 0, height: 0, shift: 0, shiftTimer: 0 };
     ctrl.registerCard(h);
     return () => ctrl.unregisterCard(h);
   }, [ctrl, lead.id, stageId, y]);
@@ -241,7 +266,6 @@ export const BoardCard = memo(function BoardCard({
     }
   };
 
-  const draggable = canDrag && !selectMode;
   const isPlaceholder = placeholder !== 'none';
   // Desktop hover actions mount on demand (hover, focus, open menu): hidden-but-mounted buttons on
   // every card cost real paint/layerize time while dragging. Touch layouts always show them.
@@ -249,15 +273,15 @@ export const BoardCard = memo(function BoardCard({
   const showActions = engaged && !selectMode && !isPlaceholder && (showQuick || canMove);
   const actionCount = (showQuick ? 3 : 0) + (canMove ? 1 : 0);
   const virtual = virtualStart !== undefined;
-  const transform = useMemo(() => y.to((v) => (v === 0 ? 'none' : `translateY(${v}px)`)), [y]);
 
   return (
     <li
       ref={setLi}
       data-index={index}
+      data-lead-id={lead.id}
       aria-setsize={virtual ? setSize : undefined}
       aria-posinset={virtual ? index + 1 : undefined}
-      className={cn('relative', virtual && 'absolute inset-x-0 top-0')}
+      className={cn('vb-li relative', virtual && 'absolute inset-x-0 top-0')}
       style={virtual ? { transform: `translateY(${virtualStart}px)` } : undefined}
       onPointerEnter={alwaysShowActions ? undefined : () => setHovered(true)}
       onPointerLeave={alwaysShowActions ? undefined : () => setHovered(false)}
@@ -270,66 +294,74 @@ export const BoardCard = memo(function BoardCard({
             }
       }
     >
-      {/* 2D translate on purpose: translate3d would promote every nudged card to its own layer. */}
-      <animated.div style={{ transform }} className="relative">
+      {/* Vertical nudge (neighbours making room, FLIP); transform written by writeNudge only. */}
+      <div ref={nudgeRef} className="relative">
         <div
-          ref={cardRef}
-          role={selectMode ? 'checkbox' : 'button'}
-          tabIndex={0}
-          aria-checked={selectMode ? selected : undefined}
-          aria-roledescription={draggable ? 'draggable card' : undefined}
-          aria-labelledby={nameId}
-          aria-describedby={instructionsId ? `${detailsId} ${instructionsId}` : detailsId}
+          className={cn('vb-lift relative', enterDelay !== undefined && 'vb-enter')}
           data-placeholder={isPlaceholder ? placeholder : undefined}
-          onPointerDown={draggable ? onPointerDown : undefined}
-          onClick={onClick}
-          onKeyDown={onKeyDown}
-          onBlur={() => ctrl.blur(lead.id)}
-          className={cn(
-            cardSurface(compact),
-            'outline-none select-none [-webkit-touch-callout:none]',
-            'transition-[box-shadow,border-color,background-color] duration-150 ease-standard',
-            draggable ? 'cursor-grab touch-manipulation' : 'cursor-pointer',
-            !isPlaceholder && 'focus-ring',
-            !isPlaceholder && (selected ? 'border-accent ring-1 ring-accent' : 'hover:border-border-strong hover:shadow-raised'),
-            isPlaceholder && 'border-transparent bg-transparent shadow-none outline-2 -outline-offset-2 outline-dashed [&>*]:invisible',
-            placeholder === 'origin' && 'outline-border-strong',
-            placeholder === 'target' && 'bg-accent-soft/50 outline-accent',
-          )}
+          style={enterDelay !== undefined ? { animationDelay: `${enterDelay}ms` } : undefined}
         >
-          <LeadCardBody
-            lead={lead}
-            compact={compact}
-            now={now}
-            selectMode={selectMode}
-            selected={selected}
-            reserveActions={compact && !selectMode ? actionCount : 0}
-            nameId={nameId}
-            detailsId={detailsId}
-          />
-        </div>
-        {showActions && (
+          <div aria-hidden className="vb-lip" />
           <div
+            ref={cardRef}
+            role={selectMode ? 'checkbox' : 'button'}
+            tabIndex={0}
+            aria-checked={selectMode ? selected : undefined}
+            aria-roledescription={canDrag ? 'draggable card' : undefined}
+            // Name from content (name, value, company, owner, follow-up): it then always contains
+            // the visible text (WCAG 2.5.3 Label in Name), and nothing is read twice.
+            aria-describedby={instructionsId}
+            data-placeholder={isPlaceholder ? placeholder : undefined}
+            onPointerDown={canDrag ? onPointerDown : undefined}
+            onPointerMove={trackSheen}
+            onClick={onClick}
+            onKeyDown={onKeyDown}
+            onBlur={() => ctrl.blur(lead.id)}
             className={cn(
-              'absolute flex items-center gap-0.5 rounded-md bg-surface',
-              compact ? 'right-2.5 bottom-2.5' : 'right-2 bottom-2',
-              !alwaysShowActions && 'animate-fade-in',
+              cardSurface(compact),
+              'vb-face outline-none select-none [-webkit-touch-callout:none]',
+              canDrag ? 'cursor-grab touch-manipulation' : 'cursor-pointer',
+              !isPlaceholder && 'focus-ring',
+              !isPlaceholder && (selected ? 'border-accent ring-1 ring-accent' : 'hover:border-border-strong'),
+              isPlaceholder && 'border-transparent bg-transparent outline-2 -outline-offset-2 outline-dashed [&>*]:invisible',
+              (placeholder === 'origin' || placeholder === 'deck') && 'outline-border-strong',
+              placeholder === 'target' && 'bg-accent-soft/50 outline-accent',
             )}
           >
-            {showQuick && <LeadQuickActions lead={lead} size={compact ? 'touch' : 'sm'} />}
-            {canMove && (
-              <MoveMenu
-                leadName={lead.name}
-                stageId={stageId}
-                stages={stages}
-                touch={compact}
-                onOpenChange={setMenuOpen}
-                onMove={(to) => ctrl.moveToStage(lead, stageId, to)}
-              />
-            )}
+            <span aria-hidden className="vb-sheen" />
+            <LeadCardBody
+              lead={lead}
+              compact={compact}
+              now={now}
+              selectMode={selectMode}
+              selected={selected}
+              reserveActions={compact && !selectMode ? actionCount : 0}
+            />
           </div>
-        )}
-      </animated.div>
+          <span ref={ringRef} aria-hidden className="vb-ring" />
+          {showActions && (
+            <div
+              className={cn(
+                'absolute flex items-center gap-0.5 rounded-md bg-surface',
+                compact ? 'right-2.5 bottom-2.5' : 'right-2 bottom-2',
+                !alwaysShowActions && 'vb-actions-in',
+              )}
+            >
+              {showQuick && <LeadQuickActions lead={lead} size={compact ? 'touch' : 'sm'} className={cn(compact && TOUCH_CHILDREN)} />}
+              {canMove && (
+                <MoveMenu
+                  leadName={lead.name}
+                  stageId={stageId}
+                  stages={stages}
+                  touch={compact}
+                  onOpenChange={setMenuOpen}
+                  onMove={(to) => ctrl.moveToStage(lead, stageId, to)}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </li>
   );
 });

@@ -19,6 +19,7 @@ import {
 import { Maximize, Minus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef, type DragEvent, type FocusEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import { PICKUP_DEFAULTS } from '@/features/shared/physics';
 import { useDocumentTheme } from '@/lib/use-document-theme';
 import { categoryOf, isTrigger, TONE_CLASSES } from '../lib/catalog';
 import { SNAP } from '../lib/geometry';
@@ -159,7 +160,7 @@ export function Canvas({ commands }: { commands: Commands }) {
         selectionMode={SelectionMode.Partial}
         snapToGrid={!env.physics}
         snapGrid={[SNAP, SNAP]}
-        nodeDragThreshold={2}
+        nodeDragThreshold={PICKUP_DEFAULTS.mouseSlop}
         zoomOnDoubleClick={false}
         minZoom={0.2}
         maxZoom={1.75}

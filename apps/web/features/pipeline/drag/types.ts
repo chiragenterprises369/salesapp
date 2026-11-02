@@ -14,6 +14,9 @@ export type DragPhase = 'idle' | 'dragging' | 'dropping';
 
 export interface ActiveDrag {
   lead: LeadListItem;
+  /** Select mode: the other selected leads travelling with this one as a deck (board order). */
+  deck: readonly LeadListItem[];
+  deckIds: ReadonlySet<string>;
   fromStageId: string;
   /** Index of the card in its origin column (with the card itself). */
   originIndex: number;
@@ -23,6 +26,8 @@ export interface ActiveDrag {
   grabX: number;
   grabY: number;
   mode: DragMode;
+  /** Touch pick-up by long-press (press-and-release without moving opens the actions sheet). */
+  viaLongPress: boolean;
 }
 
 /**
@@ -35,12 +40,16 @@ export interface DropTarget {
   top: number;
 }
 
-/** A card flying between two places in the overlay layer (e.g. rollback springs it back). */
+/**
+ * A card travelling between two places in the overlay layer along an arc: a realtime move by
+ * someone else, a menu move, a deck card, or a rollback after a failed save.
+ */
 export interface Flight {
   key: string;
   lead: LeadListItem;
   from: Rect;
   to: Rect;
+  kind: 'move' | 'rollback';
 }
 
 export interface DragState {
@@ -57,13 +66,22 @@ export interface CardHandle {
   li: HTMLElement;
   card: HTMLElement;
   list: HTMLElement;
-  /** Vertical nudge (neighbours make room, FLIP after data changes). Transform only. */
+  /** Confirmation ring (pulses in the stage colour after a drop). */
+  ring: HTMLElement | null;
+  /**
+   * Vertical nudge (neighbours make room, FLIP after data changes). Transform only. Spring frames
+   * write the transform themselves (onChange); instant changes go through `BoardController.snap`.
+   */
   y: SpringValue<number>;
+  /** Element the nudge transform is written to. */
+  nudge: HTMLElement;
   /** Rest layout in list coordinates (kept fresh by the column layout pass). */
   restTop: number;
   height: number;
   /** Last nudge target applied. */
   shift: number;
+  /** Staggered nudge timer (gap wave). */
+  shiftTimer: number;
 }
 
 /** A column frame, registered by BoardColumn. */
@@ -86,11 +104,19 @@ export interface ColumnGeometry {
   reveal: (index: number) => void;
 }
 
+/** Springs of the lifted card in the overlay (DragLayer). */
 export interface OverlayHandle {
   x: SpringValue<number>;
   y: SpringValue<number>;
-  rot: SpringValue<number>;
+  rx: SpringValue<number>;
+  ry: SpringValue<number>;
+  rz: SpringValue<number>;
   scale: SpringValue<number>;
+  /** 0..1: lift (translateZ, shadow growth). */
+  lift: SpringValue<number>;
+  /** Shadow offset, opposite to the motion. */
+  sx: SpringValue<number>;
+  sy: SpringValue<number>;
 }
 
 /** What the board commits through useMoveLead. */

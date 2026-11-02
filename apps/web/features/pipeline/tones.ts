@@ -41,8 +41,15 @@ export const TEMPERATURE_DOT: Record<LeadTemperature, string> = {
   cold: 'bg-status-blue-fg',
 };
 
-export const TEMPERATURE_LABEL: Record<LeadTemperature, string> = {
-  hot: 'Hot lead',
-  warm: 'Warm lead',
-  cold: 'Cold lead',
+/** Temperature word; the Board appends the configured label ("Hot lead", "Hot enquiry"). */
+export const TEMPERATURE_NAME: Record<LeadTemperature, string> = {
+  hot: 'Hot',
+  warm: 'Warm',
+  cold: 'Cold',
 };
+
+/** CSS colour for a stage: its own colour when set, else the soft tone's foreground. */
+export function stageColorVar(stage: { color?: string | null }, tone: ChipTone): string {
+  if (stage.color && /^#[0-9a-f]{3,8}$/i.test(stage.color)) return stage.color;
+  return tone === 'neutral' ? 'var(--muted-strong)' : `var(--status-${tone}-fg)`;
+}

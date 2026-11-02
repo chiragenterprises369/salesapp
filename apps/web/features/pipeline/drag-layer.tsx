@@ -1,98 +1,148 @@
 'use client';
 
 import { animated, to, useSpringValue } from '@react-spring/web';
-import { useCallback, useEffect, useLayoutEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { formatNumber } from '@vistar/shared';
+import { useCallback, useEffect, useLayoutEffect, type CSSProperties } from 'react';
+import { DragOverlayPortal, springConfig } from '@/features/shared/physics';
 import { cn } from '@/lib/cn';
-import { SPRINGS } from './drag/controller';
 import { useBoardController, useDragState } from './drag/context';
 import type { Flight } from './drag/types';
 import { cardSurface, LeadCardBody } from './lead-card';
 
 /**
- * Fixed overlay above the page: the lifted card while dragging and cards flying back after a
- * rollback. Pointer events pass through; all motion is transform-only.
+ * Fixed overlay above the page: the lifted card while dragging (depth, tilt, moving shadow, sheen
+ * that shifts with tilt, optional deck stack) and cards flying along an arc (realtime moves, menu
+ * moves, rollbacks). Pointer events pass through; all motion is transform/opacity only.
  */
-export function DragLayer({ compact, now, reducedMotion }: { compact: boolean; now: number; reducedMotion: boolean }) {
+export function DragLayer({ compact, now, rootStyle, depthAttrs }: { compact: boolean; now: number; rootStyle: CSSProperties; depthAttrs: Record<string, string> }) {
   const ctrl = useBoardController();
   const active = useDragState((s) => s.active);
   const flights = useDragState((s) => s.flights);
   const x = useSpringValue(0);
   const y = useSpringValue(0);
-  const rot = useSpringValue(0);
+  const rx = useSpringValue(0);
+  const ry = useSpringValue(0);
+  const rz = useSpringValue(0);
   const scale = useSpringValue(1);
+  const lift = useSpringValue(0);
+  const sx = useSpringValue(0);
+  const sy = useSpringValue(0);
 
-  useLayoutEffect(() => ctrl.attachOverlay({ x, y, rot, scale }), [ctrl, x, y, rot, scale]);
+  useLayoutEffect(() => ctrl.attachOverlay({ x, y, rx, ry, rz, scale, lift, sx, sy }), [ctrl, x, y, rx, ry, rz, scale, lift, sx, sy]);
   const onFlightDone = useCallback((key: string) => ctrl.flightDone(key), [ctrl]);
 
   if (!active && flights.length === 0) return null;
+  const perspective = ctrl.physics.perspective;
+  const liftZ = ctrl.physics.liftZ;
+  const deck = active?.deck.length ?? 0;
 
-  return createPortal(
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
-      {flights.map((f) => (
-        <FlightGhost key={f.key} flight={f} compact={compact} now={now} reducedMotion={reducedMotion} onDone={onFlightDone} />
-      ))}
-      {active && (
-        <animated.div
-          className={cn(cardSurface(compact), 'absolute top-0 left-0 shadow-lift', active.mode === 'keyboard' && 'ring-2 ring-ring')}
-          style={{
-            width: active.width,
-            transformOrigin: `${active.grabX}px ${active.grabY}px`,
-            transform: to([x, y, rot, scale], (tx, ty, r, s) => `translate3d(${tx}px, ${ty}px, 0) rotate(${r}deg) scale(${s})`),
-          }}
-        >
-          <LeadCardBody lead={active.lead} compact={compact} now={now} />
-        </animated.div>
-      )}
-    </div>,
-    document.body,
+  return (
+    <DragOverlayPortal className="vb-depth vb-overlay" style={rootStyle}>
+      <div className="contents" {...depthAttrs}>
+        {flights.map((f) => (
+          <FlightGhost key={f.key} flight={f} compact={compact} now={now} onDone={onFlightDone} />
+        ))}
+        {active && (
+          <animated.div
+            data-drag-ghost={active.lead.id}
+            className="absolute top-0 left-0"
+            style={{ width: active.width, height: active.height, transform: to([x, y], (tx, ty) => `translate3d(${tx}px, ${ty}px, 0)`), willChange: 'transform' }}
+          >
+            {/* Ground shadow: grows and blurs with the lift, slides opposite to the motion. */}
+            <animated.div
+              aria-hidden
+              className="vb-ghost-shadow"
+              style={{
+                opacity: lift,
+                transform: to([sx, sy, lift], (a, b, l) => `translate3d(${a}px, ${b + l * 6}px, 0) scale(${1 + l * 0.02})`),
+              }}
+            />
+            {deck > 0 && (
+              <>
+                {deck > 1 && <div aria-hidden className={cn('vb-deck-layer', cardSurface(compact))} style={{ transform: 'translate3d(8px, 8px, 0) rotate(2.5deg)' }} />}
+                <div aria-hidden className={cn('vb-deck-layer', cardSurface(compact))} style={{ transform: 'translate3d(4px, 4px, 0) rotate(1.2deg)' }} />
+              </>
+            )}
+            <animated.div
+              className="vb-ghost absolute inset-0"
+              style={{
+                transformOrigin: `${active.grabX}px ${active.grabY}px`,
+                transform: to(
+                  [rx, ry, rz, scale, lift],
+                  (a, b, c, s, l) => `perspective(${perspective}px) translateZ(${l * liftZ}px) rotateX(${a}deg) rotateY(${b}deg) rotateZ(${c}deg) scale(${s})`,
+                ),
+              }}
+            >
+              <div aria-hidden className="vb-lip" />
+              <div className={cn(cardSurface(compact), 'vb-face h-full overflow-hidden', active.mode === 'keyboard' && 'ring-2 ring-ring')}>
+                <animated.span
+                  aria-hidden
+                  className="vb-ghost-sheen"
+                  style={{ transform: to([rx, ry], (a, b) => `translate3d(${b * 4}%, ${-a * 4}%, 0)`) }}
+                />
+                <LeadCardBody lead={active.lead} compact={compact} now={now} />
+              </div>
+              {deck > 0 && (
+                <span className="absolute -top-2.5 -right-2.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-fg shadow-raised tabular">
+                  {formatNumber(deck + 1)}
+                </span>
+              )}
+            </animated.div>
+          </animated.div>
+        )}
+      </div>
+    </DragOverlayPortal>
   );
 }
 
-function FlightGhost({
-  flight,
-  compact,
-  now,
-  reducedMotion,
-  onDone,
-}: {
-  flight: Flight;
-  compact: boolean;
-  now: number;
-  reducedMotion: boolean;
-  onDone: (key: string) => void;
-}) {
-  const { key, from, to: dest } = flight;
-  const x = useSpringValue(from.x);
-  const y = useSpringValue(from.y);
-  const s = useSpringValue(1.02);
+/** A card travelling from `from` to `to` along an arc (spring on progress, slight lean). */
+function FlightGhost({ flight, compact, now, onDone }: { flight: Flight; compact: boolean; now: number; onDone: (key: string) => void }) {
+  const ctrl = useBoardController();
+  const { key, from, to: dest, kind } = flight;
+  const t = useSpringValue(0);
+
+  const dx = dest.x - from.x;
+  const dy = dest.y - from.y;
+  const dist = Math.hypot(dx, dy);
+  // Higher arcs for longer trips; a within-column hop barely lifts.
+  const arc = Math.min(ctrl.physics.arcHeight, dist * 0.35) * (Math.abs(dx) > 8 ? 1 : 0.4);
+  const lean = Math.sign(dx) * Math.min(4, Math.abs(dx) / 120);
 
   useEffect(() => {
-    if (reducedMotion) {
-      onDone(key);
-      return;
-    }
     let live = true;
-    void Promise.all([
-      x.start(dest.x, { config: SPRINGS.flight }),
-      y.start(dest.y, { config: SPRINGS.flight }),
-      s.start(1, { config: SPRINGS.settle }),
-    ]).then(() => {
+    const config = springConfig(ctrl.physics.flight, { timeScale: ctrl.timeScale(), precision: 0.002 });
+    void t.start(1, { config }).then(() => {
       if (live) onDone(key);
     });
-    const timer = window.setTimeout(() => live && onDone(key), 1200);
+    const timer = window.setTimeout(() => live && onDone(key), 1600 / ctrl.timeScale());
     return () => {
       live = false;
       window.clearTimeout(timer);
     };
-  }, [key, dest.x, dest.y, x, y, s, reducedMotion, onDone]);
+  }, [key, t, ctrl, onDone]);
 
   return (
     <animated.div
-      className={cn(cardSurface(compact), 'absolute top-0 left-0 shadow-raised')}
-      style={{ width: from.width, transform: to([x, y, s], (tx, ty, sc) => `translate3d(${tx}px, ${ty}px, 0) scale(${sc})`) }}
+      data-flight={kind}
+      className="absolute top-0 left-0"
+      style={{
+        width: from.width,
+        height: from.height,
+        willChange: 'transform',
+        transform: t.to((p) => {
+          const c = Math.min(1, Math.max(0, p));
+          const bump = Math.sin(Math.PI * c);
+          return `translate3d(${from.x + dx * p}px, ${from.y + dy * p - arc * bump}px, 0) rotate(${lean * bump}deg) scale(${1 + 0.03 * bump})`;
+        }),
+      }}
     >
-      <LeadCardBody lead={flight.lead} compact={compact} now={now} />
+      <animated.div aria-hidden className="vb-ghost-shadow" style={{ opacity: t.to((p) => 0.35 + 0.65 * Math.sin(Math.PI * Math.min(1, Math.max(0, p)))) }} />
+      <div className="vb-ghost absolute inset-0">
+        <div aria-hidden className="vb-lip" />
+        <div className={cn(cardSurface(compact), 'vb-face h-full overflow-hidden', kind === 'rollback' && 'border-danger')}>
+          <LeadCardBody lead={flight.lead} compact={compact} now={now} />
+        </div>
+      </div>
     </animated.div>
   );
 }

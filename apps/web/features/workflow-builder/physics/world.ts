@@ -1,7 +1,15 @@
+import {
+  physicsClock,
+  projectRelease,
+  QualityMonitor,
+  Spring,
+  SPRINGS,
+  tiltFromVelocity,
+  VelocityTracker,
+} from '@/features/shared/physics';
 import { nodeSize, snap, sourceHandlePoint, targetHandlePoint } from '../lib/geometry';
 import type { FlowNode } from '../lib/graph';
 import { Rope } from './rope';
-import { Spring } from './spring';
 
 /**
  * One animation loop for the whole canvas: node cards (lift, tilt, inertia, snap overshoot,
@@ -9,18 +17,28 @@ import { Spring } from './spring';
  * (transforms, path `d`), never through React state. React Flow positions only change at the end
  * of a gesture (the snapped position); the visual difference is an offset spring on the card.
  * The loop stops (no rAF) as soon as every spring, rope and packet is at rest.
+ *
+ * Drag physics come from features/shared/physics (same module as the Leads Board): spring presets
+ * (lift, tilt, hover, settle), the low-pass velocity tracker, velocity -> tilt, release momentum,
+ * the global time scale (slow motion) and the adaptive quality monitor.
  */
 
 const STEP = 1 / 60;
 const MAX_TILT = 8;
+/** Tilt per px/ms of node velocity (rotateX/rotateY) and rotateZ swing (clamped to 3 deg). */
+const TILT_GAIN = 12;
+const TILT_Z_GAIN = 4;
+const TILT_Z_MAX = 3;
+const VELOCITY_TAU_MS = 60;
 const LIFT_PX = 6;
 const HOVER_PX = 2;
 const HOVER_TILT = 2.5;
 const LIFT_SCALE = 0.03;
 const REPEL_MARGIN = 36;
 const REPEL_MAX = 26;
-const THROW_TIME = 0.09; // seconds of inertia carried past the release point
-const THROW_MAX = 140;
+/** Release momentum: ms of travel carried past the release point, capped. */
+const THROW = { throwMs: 90, maxPx: 140 };
+const FPS_FLOOR = 45;
 
 interface NodeSource {
   getState(): { nodes: FlowNode[] };
@@ -38,18 +56,16 @@ export interface BodyElements {
 
 class Body {
   els: BodyElements | null = null;
-  ox = new Spring(260, 20);
-  oy = new Spring(260, 20);
-  lift = new Spring(420, 36, 0, 0.002);
-  hover = new Spring(520, 42, 0, 0.002);
-  rx = new Spring(300, 26);
-  ry = new Spring(300, 26);
-  rz = new Spring(300, 26);
+  ox = Spring.from(SPRINGS.settle);
+  oy = Spring.from(SPRINGS.settle);
+  lift = Spring.from(SPRINGS.lift, 0, 0.002);
+  hover = Spring.from(SPRINGS.hover, 0, 0.002);
+  rx = Spring.from(SPRINGS.tilt);
+  ry = Spring.from(SPRINGS.tilt);
+  rz = Spring.from(SPRINGS.tilt);
   dragging = false;
-  lastX = NaN;
-  lastY = NaN;
-  vx = 0;
-  vy = 0;
+  /** Node velocity in flow px/ms (low-pass filtered). */
+  vel = new VelocityTracker(VELOCITY_TAU_MS);
   dirty = true;
 
   springs() {
@@ -78,6 +94,10 @@ export class PhysicsWorld {
   physics = true;
   /** Any animation at all (off with reduced motion). */
   motion = true;
+  /** Tilt multiplier 0..1 (adaptive quality: medium halves it, low turns it off). */
+  tilt = 1;
+  /** Frame-time monitor fed by this loop while it runs; drives the quality tier. */
+  readonly quality = new QualityMonitor({ fpsFloor: FPS_FLOOR });
 
   private bodies = new Map<string, Body>();
   private ropes = new Map<string, RopeEntry>();
@@ -111,7 +131,8 @@ export class PhysicsWorld {
     this.raf = 0;
   }
 
-  configure(opts: { physics: boolean; motion: boolean }) {
+  configure(opts: { physics: boolean; motion: boolean; tilt?: number }) {
+    if (opts.tilt !== undefined) this.tilt = opts.tilt;
     const changed = opts.physics !== this.physics || opts.motion !== this.motion;
     this.physics = opts.physics;
     this.motion = opts.motion;
@@ -202,16 +223,14 @@ export class PhysicsWorld {
   }
 
   startDrag(ids: string[]) {
+    const now = performance.now();
     for (const id of ids) {
       const b = this.bodies.get(id);
       const n = this.nodes.get(id);
       if (!b || !n || b.dragging) continue;
       b.dragging = true;
       this.dragging++;
-      b.lastX = n.position.x;
-      b.lastY = n.position.y;
-      b.vx = 0;
-      b.vy = 0;
+      b.vel.reset(n.position.x, n.position.y, now);
       b.lift.target = 1;
       if (!this.motion) b.lift.set(1);
       b.dirty = true;
@@ -240,21 +259,18 @@ export class PhysicsWorld {
       let tx = 0;
       let ty = 0;
       if (this.physics) {
-        tx = b.vx * THROW_TIME;
-        ty = b.vy * THROW_TIME;
-        const len = Math.hypot(tx, ty);
-        if (len > THROW_MAX) {
-          tx = (tx / len) * THROW_MAX;
-          ty = (ty / len) * THROW_MAX;
-        }
+        const t = projectRelease(b.vel.vx, b.vel.vy, THROW);
+        tx = t.dx;
+        ty = t.dy;
       }
       const final = { x: snap(pos.x + tx), y: snap(pos.y + ty) };
       finals.set(id, final);
       if (this.physics) {
         b.ox.x = pos.x - final.x;
         b.oy.x = pos.y - final.y;
-        b.ox.v = b.vx * 0.35;
-        b.oy.v = b.vy * 0.35;
+        // Spring velocity is px/s; the tracker reports px/ms.
+        b.ox.v = b.vel.vx * 1000 * 0.35;
+        b.oy.v = b.vel.vy * 1000 * 0.35;
         b.ox.target = 0;
         b.oy.target = 0;
       }
@@ -404,35 +420,30 @@ export class PhysicsWorld {
   }
 
   private tick = (now: number) => {
-    const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
+    const real = now - this.last;
+    // Slow motion (demo page) stretches simulated time; velocity stays in real time.
+    const dt = Math.min(0.05, Math.max(0, real / 1000)) * physicsClock.timeScale;
     this.last = now;
+    if (this.dragging > 0) this.quality.frame(real, now);
 
     // Pointer velocity from React Flow positions (smoothed), then tilt targets.
     if (this.dragging > 0) {
-      const k = 1 - Math.exp(-dt / 0.06);
       for (const [id, b] of this.bodies) {
         if (!b.dragging) continue;
         const n = this.nodes.get(id);
         if (!n) continue;
-        if (dt > 0) {
-          const ix = (n.position.x - b.lastX) / dt;
-          const iy = (n.position.y - b.lastY) / dt;
-          b.vx += (ix - b.vx) * k;
-          b.vy += (iy - b.vy) * k;
-        }
-        b.lastX = n.position.x;
-        b.lastY = n.position.y;
+        b.vel.sample(n.position.x, n.position.y, now);
         if (this.physics) {
-          let ry = b.vx * 0.012;
-          let rx = -b.vy * 0.012;
-          const mag = Math.hypot(rx, ry);
-          if (mag > MAX_TILT) {
-            rx = (rx / mag) * MAX_TILT;
-            ry = (ry / mag) * MAX_TILT;
-          }
-          b.rx.target = rx;
-          b.ry.target = ry;
-          b.rz.target = Math.max(-3, Math.min(3, b.vx * 0.004));
+          const t = tiltFromVelocity(b.vel.vx, b.vel.vy, {
+            max: MAX_TILT,
+            gain: TILT_GAIN,
+            zGain: TILT_Z_GAIN,
+            zMax: TILT_Z_MAX,
+            amount: this.tilt,
+          });
+          b.rx.target = t.rx;
+          b.ry.target = t.ry;
+          b.rz.target = t.rz;
         }
         b.dirty = true;
       }
