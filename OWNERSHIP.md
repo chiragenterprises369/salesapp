@@ -59,7 +59,8 @@ ask the orchestrator; do not guess from other sections.
 | `public/generated/**` | asset-generator | generated images + `assets.json` |
 | `public/**` (other) | frontend-app | PWA manifest, icons, service worker |
 | `tests/**` | qa-reviewer | unit/component tests |
-| `styles/**`, configs, `package.json` | orchestrator | |
+| `styles/**` (tokens.css generated from shared tokens), shell layout (`components/shell/**`, `app/layout.tsx`, background layer) | frontend-app | Since change #18, frontend-app owns tokens and the shell. Others file requests in `docs/REQUESTS.md` |
+| configs, `package.json` | orchestrator | |
 
 ## API (`apps/api`)
 
@@ -72,21 +73,24 @@ ask the orchestrator; do not guess from other sections.
 | `src/modules/workflows/**` | workflow-engine (Wave 2 adds triggers, HTTP Request/data/logic nodes, run control: SPEC 27) |
 | `src/modules/superadmin/**` | superadmin-panel (Phase 9) |
 | `src/{main.ts,app.module.ts,common,infra,config,health}/**` | orchestrator |
-| `prisma/**` (schema, migrations, seed), `scripts/simulator.ts` | orchestrator |
+| `prisma/**` (schema, migrations), `scripts/simulator.ts` | backend-core (since change #18; requests in `docs/REQUESTS.md`) |
+| `prisma/seed.ts` | orchestrator |
 | `test/**` | qa-reviewer |
 
 ## Shared and repo
 
 | Path | Owner |
 | --- | --- |
-| `packages/shared/src/**` | orchestrator (contracts) |
+| `packages/shared/src/**` except `design/**` | backend-core (contracts, since change #18; requests in `docs/REQUESTS.md`) |
+| `packages/shared/src/design/**` (tokens) | frontend-app (since change #18) |
 | `packages/shared/test/**` | qa-reviewer |
 | `packs/**` (pack manifests; generated from `packages/shared/src/packs`) | orchestrator |
 | `connectors/**` (JSON connector definitions, Wave 2, planned) | realtime-integrations |
-| `e2e/**` (Playwright) | qa-reviewer, except `e2e/board/**` (frontend-physics) and `e2e/playwright.config.ts` (orchestrator) |
+| `e2e/**` (Playwright) | qa-reviewer, except `e2e/board/**` (frontend-physics), `e2e/team-floor/**` (frontend-3d) and `e2e/playwright.config.ts` (orchestrator) |
+| `docs/REQUESTS.md`, `docs/POLISH.md` | everyone appends their own rows/sections; orchestrator curates |
 | `scripts/assets/**` | asset-generator |
 | `scripts/team-floor/**` (Blender build/bake/export scripts), `docs/ASSETS.md`, `docs/screenshots/team-floor-v3/**`, `e2e/team-floor/**` | frontend-3d |
-| `.claude/**`, root configs, docs (`CONTRACTS.md`, `OWNERSHIP.md`, `DECISIONS.md`, `SKILLS.md`, `README.md`, `docs/**`) | orchestrator |
+| `.claude/**`, root configs, docs (`CONTRACTS.md`, `OWNERSHIP.md`, `DECISIONS.md`, `SKILLS.md`, `README.md`, `docs/**`) | orchestrator, except `.claude/skills/vistar-theming/**` (frontend-app, since change #18) |
 
 ## Agents
 

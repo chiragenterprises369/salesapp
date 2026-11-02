@@ -945,19 +945,20 @@ Goal: Workflows is a general n8n-style automation builder. A company connects AN
 5. Channel nodes (WhatsApp, email, Telegram).
 6. Connector definitions and templates.
 
-## 28. Planned: Neon Space board, Space Shell, Team Floor multi-map - PLANNED (not started; each waits for "go")
+## 28. Neon Space board, Space Shell, Team Floor multi-map - ACTIVE IN PARALLEL (change #17 and the parallel execution override #18)
 
-Received as one steering message with three specs, to be executed one at a time: 28.1 first, then 28.2, then 28.3, each only after the user's "go". Do not build or scaffold 28.2 or 28.3 before their "go".
+Received as one steering message with three specs. The follow-up "parallel execution override" (change #18) replaces that message's rules 3-5: the specs run in parallel, each in its own worktree, branch, `.env`, database and ports, with no "go" gates between them. Merge order: 28.1, then 28.3, then the 28.2 foundation, then 28.2 page restyling. Screenshot loops are capped at 3 iterations on the first pass; leftover polish goes to `docs/POLISH.md`. Shared-file owners: frontend-app owns tokens and the shell; backend-core owns `packages/shared` contracts and the Prisma schema. Other agents file change requests in `docs/REQUESTS.md`.
 
 Reference images (kept outside product paths, never shipped):
 - Image A = `references/IMG_3064.PNG` (neon Leads Board), for 28.1 only.
 - Image B = `references/IMG_3066.PNG` (multi-floor office), for 28.3 only.
 
-Prerequisites (from the steering rules):
-- 28.1 needs the Leads Depth Style and Motion upgrade (board physics, 11.1) finished and merged. Not met at the time of saving: `agent/frontend-physics` holds 2 unmerged commits plus uncommitted work, and STATUS lists it as paused.
-- 28.3 needs the Team Floor v3 pass (12.1) finished. Not met at the time of saving: Phase A is in progress on `agent/frontend-3d`.
+Prerequisites (checked 2026-11-02):
+- 28.1 needs the Leads Depth Style and Motion upgrade (board physics, 11.1) finished and merged. **Missing.** `agent/frontend-physics` has 2 unmerged commits (b91d259, d6d648b) plus uncommitted work (7 files in `features/pipeline`, `touch.ts`, `e2e/board/`). It was never verified. frontend-physics finishes and verifies 11.1 first; 28.1 starts after the merge.
+- 28.3 needs the Team Floor v3 pass (12.1) finished. **Missing.** Medium Day has gone through 4 screenshot iterations on `agent/frontend-3d`, but its done checks have not run. The Evening bake, the Small and Large templates and the 12.1 flat view are not started. frontend-3d finishes 12.1 first and builds Small and Large from reusable modules so 28.3's module kit extends them; 28.3 starts after the merge.
+- 28.2 foundation has no prerequisite and starts now.
 
-Open conflict to resolve before 28.1 or 28.2 starts: section 4 and section 11.1 currently say "no neon, no glassmorphism". 28.1 and 28.2 add opt-in neon and glass styles. Proposed reading: the defaults stay Depth (board) and Classic (app), and Neon Space is an opt-in skin with its own contrast rules.
+Resolved conflict (orchestrator default, D-053): section 4 and section 11.1 say "no neon, no glassmorphism". 28.1 and 28.2 add opt-in neon and glass styles. The defaults stay Depth (board) and Classic (app); Neon Space is an opt-in skin with its own contrast rules.
 
 The three specs below are saved verbatim.
 

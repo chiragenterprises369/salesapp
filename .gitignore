@@ -40,3 +40,6 @@ Thumbs.db
 # Playwright output
 e2e/.results/
 e2e/.report/
+
+# User reference images (large; kept outside product paths, never shipped)
+references/
