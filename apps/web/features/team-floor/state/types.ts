@@ -1,4 +1,5 @@
 import type {
+  AppScreen,
   AttentionItem,
   AvatarConfig,
   CallOutcome,
@@ -57,7 +58,7 @@ export interface FloorPresenceFields {
   /** Epoch ms of the last zone signal. */
   zoneAt?: number | null;
   /** Screen the person has open in the web panel or the app. */
-  screen?: PresenceActivity['screen'] | null;
+  screen?: AppScreen | null;
   activity?: PresenceActivity | null;
   /** Detailed status (available, in_meeting, on_break, lunch, field_visit, ...). */
   presence?: PresenceStatus | null;
