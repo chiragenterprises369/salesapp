@@ -100,7 +100,23 @@ function FloorWorkspaceClient({ panel, title, description, mode, readOnly = fals
   const [focusKey, setFocusKey] = useState(0);
   const [areaWidth, setAreaWidth] = useState(0);
   const areaRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const launchers = useRef(new Map<ModuleId, HTMLButtonElement>());
+
+  // In full screen the shell (sidebar, top bar, bottom nav) is covered: take it out of the tab order and
+  // the accessibility tree so keyboard and screen reader users stay on the floor. Undone on exit.
+  useEffect(() => {
+    if (!fs.active) return;
+    const main = rootRef.current?.closest('main');
+    const column = main?.parentElement;
+    const chrome = [
+      ...Array.from(column?.children ?? []).filter((el) => el !== main && (el.tagName === 'HEADER' || el.tagName === 'NAV')),
+      ...Array.from(column?.parentElement?.children ?? []).filter((el) => el.tagName === 'ASIDE'),
+    ] as HTMLElement[];
+    const before = chrome.map((el) => el.inert);
+    for (const el of chrome) el.inert = true;
+    return () => chrome.forEach((el, i) => (el.inert = before[i] ?? false));
+  }, [fs.active]);
 
   // Width of the floor area (decides dock vs float and the panel's width limits).
   useEffect(() => {
@@ -170,8 +186,10 @@ function FloorWorkspaceClient({ panel, title, description, mode, readOnly = fals
   const onClickCapture = (e: ReactMouseEvent<HTMLDivElement>) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = e.target instanceof Element ? e.target.closest<HTMLAnchorElement>('a[href]') : null;
-    // Dialogs and the lead drawer keep their links (explicit "open full page" and the like).
-    if (!a || a.target === '_blank' || a.hasAttribute('download') || a.closest('[data-floor-leave],[role="dialog"]')) return;
+    // Dialogs and the lead drawer keep their links (explicit "open full page" and the like); the panel
+    // sheet on small screens is a dialog too, but its links stay on the floor.
+    const inDialog = !!a?.closest('[role="dialog"]') && !a?.closest('[data-floor-dock]');
+    if (!a || a.target === '_blank' || a.hasAttribute('download') || a.closest('[data-floor-leave]') || inDialog) return;
     const t = linkTarget(a.getAttribute('href') ?? '', panel, window.location.origin);
     if (!t || (t.module && !modules.some((m) => m.id === t.module))) return;
     e.preventDefault();
@@ -262,6 +280,7 @@ function FloorWorkspaceClient({ panel, title, description, mode, readOnly = fals
 
   return (
     <div
+      ref={rootRef}
       data-floor-workspace={panel}
       data-fullscreen={fs.active ? (fs.native ? 'native' : 'immersive') : undefined}
       onClickCapture={onClickCapture}
@@ -287,7 +306,7 @@ function FloorWorkspaceClient({ panel, title, description, mode, readOnly = fals
           </div>
           {!fs.active && <p className="mt-0.5 text-sm text-muted-strong">{description}</p>}
         </div>
-        <div role="toolbar" aria-label="Floor workspace" className="flex flex-wrap items-center gap-1.5">
+        <div role="group" aria-label="Floor workspace" className="flex flex-wrap items-center gap-1.5">
           {canFloorRequest && (
             <div role="tablist" aria-label="Team floor views" className="mr-1 inline-flex rounded-md border border-border bg-surface p-0.5 shadow-card">
               {(
