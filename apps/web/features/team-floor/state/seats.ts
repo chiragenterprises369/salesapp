@@ -13,6 +13,8 @@ export interface Rostered {
   id: string;
   role: RoleKind;
   deskIndex: number;
+  /** Seat the server gave this person on a published custom floor (presence.seatId). */
+  seatId?: string | null;
 }
 
 const SENIORITY: Partial<Record<RoleKind, number>> = { company_admin: 2, manager: 1 };
@@ -21,13 +23,26 @@ export function assignHomes(people: readonly Rostered[], layout: FloorLayout): n
   const homes = layout.homes;
   const out = new Array<number>(people.length).fill(-1);
   const used = new Set<number>();
-  const firstOf = (kind: string) => homes.findIndex((h) => h.kind === kind);
+  const firstOf = (kind: string) => homes.findIndex((h, i) => h.kind === kind && !used.has(i));
   const byDesk = people.map((p, i) => ({ p, i })).sort((a, b) => a.p.deskIndex - b.p.deskIndex || a.p.id.localeCompare(b.p.id));
+
+  // Published custom floor: the server's seat (fixed seats first, then desks in deskIndex order) wins.
+  if (layout.template.custom) {
+    const bySeat = new Map(homes.map((h, i) => [h.id, i]));
+    for (const { p, i } of byDesk) {
+      const slot = p.seatId ? bySeat.get(p.seatId) : undefined;
+      if (slot !== undefined && !used.has(slot)) {
+        out[i] = slot;
+        used.add(slot);
+      }
+    }
+  }
 
   const cabin = firstOf('cabin');
   if (cabin !== -1) {
     let best: { i: number; rank: number } | null = null;
     for (const { p, i } of byDesk) {
+      if (out[i] !== -1) continue;
       const rank = SENIORITY[p.role] ?? 0;
       if (rank > 0 && (!best || rank > best.rank)) best = { i, rank };
     }

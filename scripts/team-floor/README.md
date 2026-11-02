@@ -108,3 +108,18 @@ Build and start the web app first: `pnpm --filter @vistar/web build`, then
 The scripts sign in with the mock persona and set `localStorage['vistar.floor.qa'] = '1'`, which
 enables the `window.__vistarFloor` QA hook and the `?floorTemplate`, `?floorStress`, `?floorMode`
 and `?floorTier` URL overrides in production builds.
+
+## Company floors (change #19: layout_json, GLB, glTF)
+
+A company's own floor is published from the Super Admin panel (`/super-admin/floors`) and loaded at
+runtime (`features/team-floor/state/layout/published.ts`); nothing is baked. A Vistar floor plan JSON
+(written by an AI chat from the office photos with `FLOOR_PLAN_PROMPT`) is drawn from the module kit
+(`scene/kit/`), a GLB or zipped glTF as uploaded. The sample plan an AI chat would return for a 24 x 16 m
+office is `apps/web/public/team-floor/samples/sample-office.json` (32 seats, 7 rooms).
+
+| Command | What it does |
+| --- | --- |
+| `E2E_BASE_URL=http://localhost:3005 E2E_API_MODE=1 pnpm e2e team-floor/published-floor --project=desktop` | request with photos, prompt copy, plan validation, upload, seat tool, preview, publish, company floor, office markers (API mode) |
+| `node e2e/team-floor/published-shots.mjs --base http://localhost:3005` | Day and Evening screenshots (3D page, canvas, flat) of the published floor, signed in as the company admin |
+| `node e2e/team-floor/published-shots.mjs --base http://localhost:3005 --qa` | same with the sample plan and a mock persona (build with `NEXT_PUBLIC_ALLOW_MOCK_DATA=1`) |
+| `/app/team-floor?floorPlan=/team-floor/samples/sample-office.json` | QA preview of a plan without the API (dev, or `vistar.floor.qa` = 1) |

@@ -21,8 +21,8 @@ export const ASSET_BASE = '/team-floor';
 
 let draco: DRACOLoader | null = null;
 
-export function gltfLoader() {
-  const loader = new GLTFLoader();
+export function gltfLoader(manager?: THREE.LoadingManager) {
+  const loader = new GLTFLoader(manager);
   if (!draco) {
     draco = new DRACOLoader();
     draco.setDecoderPath(`${ASSET_BASE}/draco/`);
@@ -118,7 +118,18 @@ interface Lit {
   base: THREE.Color;
 }
 
-export class Office {
+/** What the engine needs from an office (authored GLB + bakes, the module kit, or an uploaded model). */
+export interface OfficeView {
+  readonly group: THREE.Group;
+  setLook(look: Look): void;
+  setGlowEnabled(on: boolean): void;
+  /** Screen brightness per seat: 1 = working, 0.35 = idle, ~0 = off. */
+  setScreen(seatId: string, level: number): void;
+  drawHub(palette: LabelPalette, waiting: number): void;
+  dispose(): void;
+}
+
+export class Office implements OfficeView {
   readonly group = new THREE.Group();
   private readonly meta: BakeMeta;
   private readonly lit: Lit[] = [];
@@ -398,9 +409,21 @@ export class Office {
   }
 
   drawHub(palette: LabelPalette, waiting: number) {
-    const ctx = this.hubCanvas.getContext('2d');
+    paintHub(this.hubCanvas, palette, waiting);
+    this.hubTexture.needsUpdate = true;
+  }
+
+  dispose() {
+    for (const o of this.owned) o.dispose();
+    for (const i of this.instancedProps) i.dispose();
+  }
+}
+
+/** The Lead Hub display: "LEAD HUB" and the number of leads waiting (shared by the authored and kit offices). */
+export function paintHub(canvas: HTMLCanvasElement, palette: LabelPalette, waiting: number) {
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const { width: w, height: h } = this.hubCanvas;
+    const { width: w, height: h } = canvas;
     const g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, '#1d3f8f');
     g.addColorStop(1, '#0f1f4a');
@@ -420,17 +443,10 @@ export class Office {
       ctx.fillStyle = '#93c5fd';
       ctx.fillText(`${waiting} waiting`, w / 2, h / 2 + 62);
     }
-    this.hubTexture.needsUpdate = true;
-  }
-
-  dispose() {
-    for (const o of this.owned) o.dispose();
-    for (const i of this.instancedProps) i.dispose();
-  }
 }
 
 /** Shared monitor content: a CRM dashboard (header, sidebar, KPI tiles, chart, rows); light or Evening dark. */
-function screenTexture(dark: boolean): THREE.CanvasTexture {
+export function screenTexture(dark: boolean): THREE.CanvasTexture {
   const w = 256;
   const h = 150;
   const canvas = document.createElement('canvas');
@@ -489,7 +505,7 @@ function isDescendant(o: THREE.Object3D, ancestor: THREE.Object3D) {
 }
 
 /** Soft radial gradient: dark contact shadow (rounded rectangle) or a warm light pool (circle). */
-function radialTexture(rect: boolean): THREE.CanvasTexture {
+export function radialTexture(rect: boolean): THREE.CanvasTexture {
   const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = size;

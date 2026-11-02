@@ -14,10 +14,12 @@ const Vec3 = z.tuple([z.number(), z.number(), z.number()]);
 export const TEMPLATE_IDS = ['small', 'medium', 'large'] as const;
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 
-export const SEAT_KINDS = ['desk', 'booth', 'cabin', 'reception', 'lounge', 'hot_desk'] as const;
+/** `meeting` = a meeting-room chair on a custom floor (not anyone's home; used when a person is in that zone). */
+export const SEAT_KINDS = ['desk', 'booth', 'cabin', 'reception', 'lounge', 'hot_desk', 'meeting'] as const;
 export type SeatKind = (typeof SEAT_KINDS)[number];
 
-export const ROOM_TYPES = ['sales_floor', 'calling_room', 'manager_cabin', 'lounge', 'reception', 'print_corner'] as const;
+/** `meeting_room` and `other` come from custom floors (seat-map zone kinds). */
+export const ROOM_TYPES = ['sales_floor', 'calling_room', 'manager_cabin', 'lounge', 'reception', 'print_corner', 'meeting_room', 'other'] as const;
 export type RoomType = (typeof ROOM_TYPES)[number];
 
 const OpeningSchema = z.object({
@@ -94,6 +96,24 @@ const ObstacleSchema = z.discriminatedUnion('kind', [
 export const MODULE_KINDS = ['sales_pod', 'calling_room', 'manager_cabin', 'lounge', 'reception', 'hub_plaza', 'print_corner', 'hot_bench'] as const;
 export type ModuleKind = (typeof MODULE_KINDS)[number];
 
+/**
+ * A published custom floor (SPEC 29.5, D-061) turned into a template at runtime (state/layout/*):
+ * `layout_json` plans are drawn from the module kit (scene/kit), GLB and zipped glTF models are loaded
+ * as they are and placed with the seat map's scale and origin. Absent on the three default templates.
+ */
+export const CustomFloorSchema = z.object({
+  /** Unique per floor version and seat map (layouts, paths and assets are cached per key). */
+  key: z.string().min(1),
+  floorId: z.string().nullable(),
+  version: z.number().int().nullable(),
+  format: z.enum(['glb', 'gltf_zip', 'layout_json']),
+  /** layout_json: what the module kit builds (base floor, room floors and walls come from the template). */
+  floorMaterial: z.enum(['wood', 'carpet', 'tile', 'concrete']).optional(),
+  /** glb / gltf_zip: the model is drawn at (model - origin) x scale; bytes are fetched once per key. */
+  model: z.object({ scale: z.number().positive(), origin: Vec3 }).optional(),
+});
+export type CustomFloor = z.infer<typeof CustomFloorSchema>;
+
 const ModuleSchema = z.object({
   id: z.string(),
   kind: z.enum(MODULE_KINDS),
@@ -143,6 +163,8 @@ export const FloorTemplateSchema = z
     modules: z.array(ModuleSchema).optional(),
     /** Per-template look tweaks (the Evening bake of a big floor is darker per square metre). */
     lighting: z.object({ eveningExposure: z.number().positive().max(3).optional() }).optional(),
+    /** Set when the template is a company's published floor (built at runtime, never in the JSON files). */
+    custom: CustomFloorSchema.optional(),
   })
   .superRefine((t, ctx) => {
     const nodes = new Set(t.graph.nodes.map((n) => n.id));

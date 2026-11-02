@@ -8,7 +8,15 @@ import { fileURLToPath } from 'node:url';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const next = join(repo, 'apps/web/.next');
-const ROUTES = ['(company)/app/team-floor', '(employee)/me/team-floor'];
+// Team Floor pages, plus the change #19 floor pages (the 3D preview and the model top view are lazy too).
+const ROUTES = [
+  '(company)/app/team-floor',
+  '(employee)/me/team-floor',
+  '(company)/app/settings/office-markers',
+  '(super-admin)/super-admin/(console)/floors',
+  '(super-admin)/super-admin/(console)/floors/requests/[id]',
+  '(super-admin)/super-admin/(console)/floors/versions/[id]',
+];
 
 /** The `entryJSFiles` object of a client reference manifest (layouts + page of one route). */
 function entryFiles(src) {

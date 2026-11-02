@@ -11,7 +11,9 @@ import { EffectsSystem } from './effects';
 import { buildFallbackEnvironment, type Environment } from './environment';
 import { layoutLabels, overlappingPairs, type LabelInput, type LabelKind, type Placement, type Rect } from './label-layout';
 import { cloneLook, labelPalette, mixLook, sceneLook, type Look } from './look';
-import { loadOfficeAssets, Office } from './office';
+import { KitOffice } from './kit/kit-office';
+import { loadModelOffice } from './model-office';
+import { loadOfficeAssets, Office, type OfficeView } from './office';
 
 /**
  * Imperative core of the 3D floor. R3F owns the canvas and the frame loop; this class owns every
@@ -87,7 +89,7 @@ export class FloorEngine {
   private tweenHold: number | null = null;
   private themed = false;
   private theme: ResolvedTheme = 'light';
-  private office: Office | null = null;
+  private office: OfficeView | null = null;
   private fallback: Environment | null = null;
   private model: CharacterModel;
   private readonly agents: AgentSystem;
@@ -124,7 +126,8 @@ export class FloorEngine {
   private disposed = false;
   private assetsDone = false;
   private framesSinceReady = 0;
-  private officeKind: 'glb' | 'fallback' | 'loading' = 'loading';
+  /** glb = authored template office, kit = published floor plan, model = uploaded GLB / glTF. */
+  private officeKind: 'glb' | 'kit' | 'model' | 'fallback' | 'loading' = 'loading';
   private bench: { until: number; last: number; samples: number[]; resolve: (r: BenchmarkResult) => void } | null = null;
   private readonly seenWaves = new Set<string>();
   private screenTimer = 0;
@@ -217,12 +220,30 @@ export class FloorEngine {
 
   private async loadAssets() {
     const { layout, capacity } = this.o;
-    const [office, chars] = await Promise.allSettled([loadOfficeAssets(layout.id), capacity <= GLB_MAX_PEOPLE ? loadCharacterAssets() : Promise.reject(new Error('procedural'))]);
-    if (this.disposed) return;
+    const custom = layout.template.custom;
+    // Published custom floors: the module kit (layout_json) or the uploaded model; else the authored template office.
+    const officeTask: Promise<{ view: OfficeView; kind: 'glb' | 'kit' | 'model' }> = custom
+      ? custom.format === 'layout_json'
+        ? new Promise((resolve, reject) =>
+            setTimeout(() => {
+              try {
+                resolve({ view: new KitOffice(layout), kind: 'kit' });
+              } catch (e) {
+                reject(e instanceof Error ? e : new Error(String(e)));
+              }
+            }, 0),
+          )
+        : loadModelOffice(layout).then((view) => ({ view, kind: 'model' as const }))
+      : loadOfficeAssets(layout.id).then((assets) => ({ view: new Office(assets, layout), kind: 'glb' as const }));
+    const [office, chars] = await Promise.allSettled([officeTask, capacity <= GLB_MAX_PEOPLE ? loadCharacterAssets() : Promise.reject(new Error('procedural'))]);
+    if (this.disposed) {
+      if (office.status === 'fulfilled') office.value.view.dispose();
+      return;
+    }
     if (office.status === 'fulfilled') {
-      this.office = new Office(office.value, layout);
+      this.office = office.value.view;
       this.root.add(this.office.group);
-      this.officeKind = 'glb';
+      this.officeKind = office.value.kind;
     } else {
       console.warn('[team-floor] office GLB failed, using the procedural office', office.reason);
       this.fallback = buildFallbackEnvironment(layout);
