@@ -32,7 +32,7 @@ function Metric({ label, value, alert }: { label: string; value: string; alert?:
 function MemberCard({ m, isMe }: { m: TeamMemberRow; isMe: boolean }) {
   const role = m.user.role as RoleKind;
   return (
-    <li>
+    <li data-member-card>
       <Card interactive className={cn('flex h-full flex-col gap-3 p-4', PANEL)}>
         <div className="flex items-start gap-3">
           <Avatar name={m.user.name} size="lg" status={m.user.status} />

@@ -220,7 +220,7 @@ export function ReportsPage() {
             </TableHeader>
             <TableBody>
               {reps.map((r) => (
-                <TableRow key={r.user.id}>
+                <TableRow key={r.user.id} data-rep-row>
                   <TableCell>
                     <span className="flex items-center gap-2">
                       <Avatar name={r.user.name} size="sm" />

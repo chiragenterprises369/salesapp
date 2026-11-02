@@ -49,7 +49,7 @@ export function ConversationList({
           const active = c.id === selectedId;
           const w = windowState(c, now);
           return (
-            <li key={c.id}>
+            <li key={c.id} data-conversation>
               <button
                 type="button"
                 onClick={() => onSelect(c.id)}

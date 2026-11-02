@@ -71,7 +71,7 @@ function SubjectCard({ row, compare, elapsed }: { row: SubjectRow; compare: stri
   const rev = row.metrics.revenue_inr;
   const pace = rev ? paceOf(rev.pct, elapsed.pct, elapsed.complete) : null;
   return (
-    <Card className={cn('flex flex-col gap-3 p-4', PANEL)}>
+    <Card data-target-subject={row.subjectType} className={cn('flex flex-col gap-3 p-4', PANEL)}>
       <div className="flex items-center gap-3">
         {rev ? <ProgressRing value={rev.pct} size={64} label={`${row.subjectName}: ${rev.pct}% of the revenue target`} /> : <Avatar name={row.subjectName} size="lg" />}
         <div className="min-w-0 flex-1">
@@ -184,7 +184,7 @@ export function TargetsPage() {
                       const rev = r.metrics.revenue_inr;
                       const pace = rev ? paceOf(rev.pct, elapsed.pct, elapsed.complete) : null;
                       return (
-                        <TableRow key={r.subjectId}>
+                        <TableRow key={r.subjectId} data-target-subject="user">
                           <TableCell className="py-2">
                             <span className="flex items-center gap-2.5">
                               {rev ? <ProgressRing value={rev.pct} size={40} stroke={4} label={`${r.subjectName}: ${rev.pct}% of revenue target`} /> : <Avatar name={r.subjectName} size="md" />}
