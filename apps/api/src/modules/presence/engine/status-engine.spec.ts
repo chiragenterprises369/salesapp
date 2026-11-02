@@ -5,6 +5,7 @@ import {
   CALL_MAX_MS,
   CALL_ORPHAN_MS,
   initialState,
+  MANUAL_STALE_MS,
   nextDeadline,
   PRESENCE_TIMEOUT_MS,
   reduce,
@@ -41,7 +42,7 @@ class Run {
     if (r.change) this.changes.push(r.change);
     return r;
   }
-  beat(now: number, opts: Partial<{ deviceId: string; client: 'web' | 'app'; activity: 'active' | 'idle' | 'hidden'; sessionId: string; eventId: string }> = {}) {
+  beat(now: number, opts: Partial<{ deviceId: string; client: 'web' | 'android'; activity: 'active' | 'idle' | 'hidden'; sessionId: string; eventId: string }> = {}) {
     return this.feed({ type: 'heartbeat', deviceId: opts.deviceId ?? 'web-1', client: opts.client ?? 'web', activity: opts.activity ?? 'active', sessionId: opts.sessionId ?? 's1', at: now, eventId: opts.eventId }, now);
   }
   tick(now: number) {
@@ -119,12 +120,12 @@ describe('status engine: two devices, sessions', () => {
   it('stays online while any device beats; away when the remaining one is hidden', () => {
     const r = new Run();
     r.beat(T0, { deviceId: 'web-1', sessionId: 's-web' });
-    r.beat(T0 + 1 * S, { deviceId: 'app-1', client: 'app', sessionId: 's-app' });
+    r.beat(T0 + 1 * S, { deviceId: 'app-1', client: 'android', sessionId: 's-app' });
     // web stops; app keeps beating
-    for (let i = 1; i <= 5; i++) r.beat(T0 + i * 20 * S, { deviceId: 'app-1', client: 'app', sessionId: 's-app' });
+    for (let i = 1; i <= 5; i++) r.beat(T0 + i * 20 * S, { deviceId: 'app-1', client: 'android', sessionId: 's-app' });
     expect(r.status).toBe('available');
     expect(Object.keys(r.state.devices)).toEqual(['app-1']);
-    r.beat(T0 + 120 * S, { deviceId: 'app-1', client: 'app', sessionId: 's-app', activity: 'hidden' });
+    r.beat(T0 + 120 * S, { deviceId: 'app-1', client: 'android', sessionId: 's-app', activity: 'hidden' });
     expect(r.status).toBe('away');
     r.tick(T0 + 120 * S + PRESENCE_TIMEOUT_MS);
     expect(r.state).toMatchObject({ status: 'offline', since: T0 + 120 * S + PRESENCE_TIMEOUT_MS });
@@ -133,7 +134,7 @@ describe('status engine: two devices, sessions', () => {
   it('logout removes only that session; the last logout is offline at the logout time', () => {
     const r = new Run();
     r.beat(T0, { deviceId: 'web-1', sessionId: 's-web' });
-    r.beat(T0, { deviceId: 'app-1', client: 'app', sessionId: 's-app' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android', sessionId: 's-app' });
     expect(r.feed({ type: 'logout', sessionId: 's-web', at: T0 + 5 * S }, T0 + 5 * S).change).toBeNull();
     const last = r.feed({ type: 'logout', sessionId: 's-app', at: T0 + 8 * S }, T0 + 8 * S);
     expect(last.change?.view).toMatchObject({ status: 'offline', since: T0 + 8 * S, source: 'session' });
@@ -170,16 +171,16 @@ describe('status engine: live calls', () => {
 
   it('call started -> on_call with the lead; ended -> back to available', () => {
     const r = new Run();
-    r.beat(T0, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android' });
     const on = r.feed(started('c1', T0 + 2 * S), T0 + 2 * S);
     expect(on.change?.view).toMatchObject({
       status: 'on_call',
-      source: 'call',
+      source: 'phone_state',
       since: T0 + 2 * S,
       activity: { kind: 'call', callId: 'c1', leadId: 'lead-1', leadName: 'Ravi Kumar', startedAt: T0 + 2 * S },
     });
     const off = r.feed({ type: 'call_ended', callId: 'c1', at: T0 + 30 * S }, T0 + 30 * S);
-    expect(off.change?.view).toMatchObject({ status: 'available', activity: null, source: 'call' });
+    expect(off.change?.view).toMatchObject({ status: 'available', activity: { kind: null, callId: null }, source: 'phone_state' });
     expect(r.changes.map((c) => c.view.version)).toEqual([1, 2, 3]);
   });
 
@@ -234,16 +235,16 @@ describe('status engine: live calls', () => {
 
   it('a call that never reports "ended" closes when the device call log arrives', () => {
     const r = new Run();
-    r.beat(T0, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android' });
     r.feed(started('c1', T0 + S), T0 + S);
-    r.beat(T0 + 20 * S, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0 + 20 * S, { deviceId: 'app-1', client: 'android' });
     const log = r.feed({ type: 'call_log', deviceId: 'app-1', startedAt: T0 + S, endedAt: T0 + 25 * S }, T0 + 30 * S);
     expect(log.change?.view).toMatchObject({ status: 'available', source: 'call_log' });
   });
 
   it('a delayed call log of an OLDER call does not close the call in progress', () => {
     const r = new Run();
-    r.beat(T0, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android' });
     r.feed(started('new', T0 + 60 * S), T0 + 60 * S);
     const old = r.feed({ type: 'call_log', deviceId: 'app-1', startedAt: T0 - 5 * MIN, endedAt: T0 - 2 * MIN }, T0 + 61 * S);
     expect(old.ignored).toBe(true);
@@ -252,7 +253,7 @@ describe('status engine: live calls', () => {
 
   it('a call log from another device does not close this device call', () => {
     const r = new Run();
-    r.beat(T0, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android' });
     r.feed(started('c1', T0 + S, { deviceId: 'app-1' }), T0 + S);
     r.feed({ type: 'call_log', deviceId: 'app-2', startedAt: T0, endedAt: T0 + 10 * S }, T0 + 11 * S);
     expect(r.status).toBe('on_call');
@@ -260,7 +261,7 @@ describe('status engine: live calls', () => {
 
   it('safety timeout: the call closes when its device is silent for 120 s', () => {
     const r = new Run();
-    r.beat(T0, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android' });
     r.feed(started('c1', T0 + S), T0 + S);
     // no heartbeat after T0: offline would be at T0+45 s but the call keeps the user on_call
     expect(r.tick(T0 + 60 * S).change).toBeNull();
@@ -271,15 +272,15 @@ describe('status engine: live calls', () => {
 
   it('safety timeout: a device that keeps beating keeps the call until the 3 h limit', () => {
     const r = new Run();
-    r.beat(T0, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android' });
     r.feed(started('c1', T0), T0);
     let now = T0;
     while (now < T0 + CALL_MAX_MS - 20 * S) {
       now += 20 * S;
-      r.beat(now, { deviceId: 'app-1', client: 'app' });
+      r.beat(now, { deviceId: 'app-1', client: 'android' });
     }
     expect(r.status).toBe('on_call');
-    r.beat(T0 + CALL_MAX_MS, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0 + CALL_MAX_MS, { deviceId: 'app-1', client: 'android' });
     expect(r.state).toMatchObject({ status: 'available', source: 'heartbeat' });
   });
 
@@ -316,13 +317,46 @@ describe('status engine: manual status and working hours', () => {
     expect(r.status).toBe('lunch');
   });
 
-  it('a manual status needs the user online, is kept while offline and comes back the same day', () => {
+  it('a manual status holds without a heartbeat (laptop closed in the meeting room)', () => {
+    const r = new Run();
+    r.beat(T0);
+    r.feed({ type: 'manual', status: 'in_meeting', at: T0 + S }, T0 + S);
+    expect(r.tick(T0 + 50 * S).change).toBeNull();
+    expect(r.status).toBe('in_meeting');
+    expect(r.beat(T0 + 40 * MIN).change).toBeNull();
+    expect(r.status).toBe('in_meeting');
+  });
+
+  it('after 2 h without any sign of life a manual status shows offline; the next heartbeat restores it', () => {
     const r = new Run();
     r.beat(T0);
     r.feed({ type: 'manual', status: 'lunch', at: T0 + S }, T0 + S);
+    expect(nextDeadline(r.state, office, T0 + 50 * S)).toBe(T0 + MANUAL_STALE_MS);
     r.tick(T0 + 50 * S);
-    expect(r.status).toBe('offline');
-    expect(r.beat(T0 + 10 * MIN).change?.view.status).toBe('lunch');
+    expect(r.status).toBe('lunch');
+    const stale = r.tick(T0 + MANUAL_STALE_MS);
+    expect(stale.change?.view).toMatchObject({ status: 'offline', source: 'timeout', since: T0 + MANUAL_STALE_MS, manualStatus: 'lunch', lastSeenAt: T0 });
+    expect(r.beat(T0 + MANUAL_STALE_MS + MIN).change?.view.status).toBe('lunch');
+  });
+
+  it('manual "away" while active, and invisible mode ("offline" by choice) that does not leak last seen', () => {
+    const r = new Run();
+    r.beat(T0);
+    expect(r.feed({ type: 'manual', status: 'away', at: T0 + S }, T0 + S).change?.view).toMatchObject({ status: 'away', activity: { kind: 'away' } });
+    const inv = r.feed({ type: 'manual', status: 'offline', at: T0 + 2 * S }, T0 + 2 * S);
+    expect(inv.change?.view).toMatchObject({ status: 'offline', since: T0 + 2 * S, source: 'manual', lastSeenAt: T0 });
+    for (let i = 1; i <= 5; i++) expect(r.beat(T0 + i * 15 * S).change).toBeNull();
+    expect(viewOf(r.state)).toMatchObject({ status: 'offline', lastSeenAt: T0, lastHeartbeatAt: T0 });
+    expect(r.feed({ type: 'manual', status: 'available', at: T0 + 80 * S }, T0 + 80 * S).change?.view).toMatchObject({ status: 'available', lastSeenAt: T0 + 75 * S });
+  });
+
+  it('a new note on the same status is a visible change (one event)', () => {
+    const r = new Run();
+    r.beat(T0);
+    r.feed({ type: 'manual', status: 'field_visit', note: 'Andheri', at: T0 + S }, T0 + S);
+    const res = r.feed({ type: 'manual', status: 'field_visit', note: 'Bandra', at: T0 + 2 * S }, T0 + 2 * S);
+    expect(res.change).toMatchObject({ previousStatus: 'field_visit', view: { status: 'field_visit', version: 3, activity: { note: 'Bandra' } } });
+    expect(r.feed({ type: 'manual', status: 'field_visit', note: 'Bandra', at: T0 + 3 * S }, T0 + 3 * S).change).toBeNull();
   });
 
   it('a manual status ends with its working day (18:30 IST) and is not shown the next day', () => {
@@ -373,7 +407,7 @@ describe('status engine: manual status and working hours', () => {
 describe('status engine: attendance and the auto field visit', () => {
   it('field staff checked in inside working hours and online -> field_visit', () => {
     const r = new Run(field);
-    r.beat(T0, { deviceId: 'app-1', client: 'app', activity: 'hidden' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android', activity: 'hidden' });
     expect(r.status).toBe('away');
     const res = r.feed({ type: 'check_in', at: T0 + S }, T0 + S);
     expect(res.change?.view).toMatchObject({ status: 'field_visit', source: 'attendance', activity: { kind: 'field_visit', startedAt: T0 + S } });
@@ -383,29 +417,29 @@ describe('status engine: attendance and the auto field visit', () => {
     const r = new Run(field);
     const end = t('2026-11-02T13:00:00Z');
     const late = end - 30 * S;
-    r.beat(late, { deviceId: 'app-1', client: 'app' });
+    r.beat(late, { deviceId: 'app-1', client: 'android' });
     r.feed({ type: 'check_in', at: late }, late);
     expect(r.status).toBe('field_visit');
     expect(nextDeadline(r.state, field, late)).toBe(end);
-    r.beat(end - 10 * S, { deviceId: 'app-1', client: 'app' });
+    r.beat(end - 10 * S, { deviceId: 'app-1', client: 'android' });
     expect(r.tick(end).change?.view).toMatchObject({ status: 'available', source: 'working_hours' });
   });
 
   it('checked in before hours: field_visit starts when the hours open', () => {
     const early = t('2026-11-02T03:59:30Z'); // 09:29:30 IST
     const r = new Run(field, early);
-    r.beat(early, { deviceId: 'app-1', client: 'app' });
+    r.beat(early, { deviceId: 'app-1', client: 'android' });
     r.feed({ type: 'check_in', at: early }, early);
     expect(r.status).toBe('available');
     expect(nextDeadline(r.state, field, early)).toBe(t('2026-11-02T04:00:00Z')); // opening comes before the heartbeat timeout
-    r.beat(early + 20 * S, { deviceId: 'app-1', client: 'app' });
+    r.beat(early + 20 * S, { deviceId: 'app-1', client: 'android' });
     expect(nextDeadline(r.state, field, early + 20 * S)).toBe(t('2026-11-02T04:00:00Z'));
     expect(r.tick(t('2026-11-02T04:00:00Z')).change?.view.status).toBe('field_visit');
   });
 
   it('"available" turns the auto field visit off; a manual break wins over it; check-out ends it', () => {
     const r = new Run(field);
-    r.beat(T0, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android' });
     r.feed({ type: 'check_in', at: T0 }, T0);
     expect(r.feed({ type: 'manual', status: 'available', at: T0 + S }, T0 + S).change?.view.status).toBe('available');
     expect(r.feed({ type: 'manual', status: 'lunch', at: T0 + 2 * S }, T0 + 2 * S).change?.view.status).toBe('lunch');
@@ -424,7 +458,7 @@ describe('status engine: attendance and the auto field visit', () => {
 
   it('a check-in older than the last check-out is ignored', () => {
     const r = new Run(field);
-    r.beat(T0, { deviceId: 'app-1', client: 'app' });
+    r.beat(T0, { deviceId: 'app-1', client: 'android' });
     r.feed({ type: 'check_out', at: T0 + 10 * S }, T0 + 10 * S);
     expect(r.feed({ type: 'check_in', at: T0 + 5 * S }, T0 + 11 * S).ignored).toBe(true);
     expect(r.status).toBe('available');
@@ -432,7 +466,7 @@ describe('status engine: attendance and the auto field visit', () => {
 });
 
 describe('status engine: precedence table', () => {
-  type Setup = { call?: boolean; manual?: 'in_meeting' | 'field_visit' | 'on_break' | 'lunch'; autoField?: boolean; active?: boolean; online?: boolean };
+  type Setup = { call?: boolean; manual?: 'in_meeting' | 'field_visit' | 'on_break' | 'lunch' | 'away' | 'offline'; autoField?: boolean; active?: boolean; online?: boolean };
   const cases: Array<[Setup, PresenceStatus]> = [
     [{ call: true, manual: 'in_meeting', autoField: true, active: true, online: true }, 'on_call'],
     [{ call: true, online: false }, 'on_call'],
@@ -443,13 +477,16 @@ describe('status engine: precedence table', () => {
     [{ autoField: true, active: true, online: true }, 'field_visit'],
     [{ active: true, online: true }, 'available'],
     [{ active: false, online: true }, 'away'],
-    [{ manual: 'in_meeting', online: false }, 'offline'],
+    [{ manual: 'in_meeting', online: false }, 'in_meeting'],
+    [{ manual: 'away', active: true, online: true }, 'away'],
+    [{ manual: 'offline', active: true, online: true }, 'offline'],
+    [{ call: true, manual: 'offline', online: true }, 'on_call'],
     [{ autoField: true, online: false }, 'offline'],
     [{ online: false }, 'offline'],
   ];
   it.each(cases)('%j -> %s', (setup, expected) => {
     const r = new Run(setup.autoField ? field : office);
-    if (setup.online) r.beat(T0, { deviceId: 'app-1', client: 'app', activity: setup.active ? 'active' : 'hidden' });
+    if (setup.online) r.beat(T0, { deviceId: 'app-1', client: 'android', activity: setup.active ? 'active' : 'hidden' });
     if (setup.autoField) r.feed({ type: 'check_in', at: T0 }, T0);
     if (setup.manual) r.feed({ type: 'manual', status: setup.manual, at: T0 }, T0);
     if (setup.call) r.feed({ type: 'call_started', callId: 'c', deviceId: 'app-1', at: T0 }, T0);
@@ -469,10 +506,11 @@ describe('status engine: deadlines for the sweeper', () => {
     expect(nextDeadline(r.state, office, T0 + PRESENCE_TIMEOUT_MS)).toBe(T0 + CALL_ORPHAN_MS);
   });
 
-  it('never in the past', () => {
+  it('never in the past: a state the sweeper already processed has nothing pending', () => {
     const r = new Run();
     r.beat(T0);
-    expect(nextDeadline(r.state, office, T0 + 10 * MIN)).toBe(T0 + 10 * MIN + 1);
+    r.tick(T0 + 10 * MIN);
+    expect(nextDeadline(r.state, office, T0 + 10 * MIN)).toBeNull();
   });
 });
 
@@ -494,7 +532,7 @@ function randomInput(rand: () => number, now: number, calls: string[]): Presence
   const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rand() * xs.length)] as T;
   const device = pick(['web-1', 'web-2', 'app-1']);
   const r = rand();
-  if (r < 0.4) return { type: 'heartbeat', deviceId: device, client: device.startsWith('app') ? 'app' : 'web', activity: pick(['active', 'active', 'idle', 'hidden'] as const), sessionId: device, at: now - Math.floor(rand() * 3 * S) };
+  if (r < 0.4) return { type: 'heartbeat', deviceId: device, client: device.startsWith('app') ? 'android' : 'web', activity: pick(['active', 'active', 'idle', 'hidden'] as const), sessionId: device, at: now - Math.floor(rand() * 3 * S) };
   if (r < 0.48) return { type: 'idle', deviceId: device, idle: rand() < 0.5, at: now };
   if (r < 0.56) {
     const id = `c${Math.floor(rand() * 6)}`;
@@ -503,7 +541,7 @@ function randomInput(rand: () => number, now: number, calls: string[]): Presence
   }
   if (r < 0.64) return { type: 'call_ended', callId: calls.length ? pick(calls) : 'c0', at: now };
   if (r < 0.68) return { type: 'call_log', deviceId: 'app-1', startedAt: now - 60 * S, endedAt: now - Math.floor(rand() * 20 * S) };
-  if (r < 0.78) return { type: 'manual', status: pick(['in_meeting', 'field_visit', 'on_break', 'lunch', 'available'] as const), at: now - Math.floor(rand() * 2 * S) };
+  if (r < 0.78) return { type: 'manual', status: pick(['in_meeting', 'field_visit', 'on_break', 'lunch', 'available', 'available', 'away', 'offline'] as const), note: rand() < 0.2 ? pick(['Andheri', 'Bandra']) : null, at: now - Math.floor(rand() * 2 * S) };
   if (r < 0.82) return { type: rand() < 0.5 ? 'check_in' : 'check_out', at: now };
   if (r < 0.85) return { type: 'logout', sessionId: device, at: now };
   if (r < 0.87) return { type: 'login', sessionId: device, at: now };
@@ -524,7 +562,14 @@ describe('status engine: randomized properties (500 runs x 120 inputs)', () => {
         const r = reduce(state, input, ctx, now);
         if (r.change) {
           expect(r.change.view.version).toBe(state.version + 1);
-          const changedSomething = r.change.view.status !== state.status || r.change.view.activity?.callId !== state.activity?.callId || r.change.view.activity?.leadId !== state.activity?.leadId;
+          const v = r.change.view;
+          const changedSomething =
+            v.status !== state.status ||
+            v.activity.kind !== state.activity.kind ||
+            v.activity.callId !== state.activity.callId ||
+            v.activity.leadId !== state.activity.leadId ||
+            v.activity.note !== state.activity.note ||
+            v.manualStatus !== state.shown.manualStatus;
           expect(changedSomething, `seed ${seed} step ${i}`).toBe(true);
           if (r.change.view.status !== state.status) expect(r.change.previousStatus).toBe(state.status);
         } else {
@@ -550,7 +595,8 @@ describe('status engine: randomized properties (500 runs x 120 inputs)', () => {
         now += Math.floor(rand() * 30 * S);
         state = reduce(state, randomInput(rand, now, calls), office, now).state;
         const fresh = Object.values(state.devices).some((d) => now - d.lastBeatAt < PRESENCE_TIMEOUT_MS);
-        if (state.status === 'offline') expect(fresh || Object.keys(state.calls).length > 0).toBe(false);
+        if (state.status === 'offline' && state.manual?.status !== 'offline') expect(fresh || Object.keys(state.calls).length > 0).toBe(false);
+        if (fresh && state.manual === null && Object.keys(state.calls).length === 0) expect(['available', 'away', 'field_visit']).toContain(state.status);
         if (state.status === 'on_call') expect(Object.keys(state.calls).length).toBeGreaterThan(0);
         if (Object.keys(state.calls).length > 0) expect(state.status).toBe('on_call');
       }
@@ -559,8 +605,11 @@ describe('status engine: randomized properties (500 runs x 120 inputs)', () => {
 });
 
 describe('snapshot and events agree', () => {
-  /** Snapshot comparison: lastSeenAt is only meaningful (and only kept in sync by events) when offline. */
-  const comparable = (v: PresenceView) => ({ ...v, lastSeenAt: v.status === 'offline' ? v.lastSeenAt : null });
+  /** Snapshot comparison: last-seen times are only kept in sync by events while offline (online they move with every heartbeat). */
+  const comparable = (v: PresenceView) => {
+    const offline = v.status === 'offline';
+    return { ...v, lastSeenAt: offline ? v.lastSeenAt : null, lastHeartbeatAt: offline ? v.lastHeartbeatAt : null };
+  };
 
   it('a client applying events (shuffled, duplicated) to an old snapshot ends with a fresh snapshot (300 runs, 5 users)', () => {
     let totalEvents = 0;
