@@ -49,7 +49,8 @@ function quad(a: Point, c: Point, b: Point, t: number): Point {
 
 /**
  * A light ribbon along a path, from `tail` to `head` (path parameter 0..1): a soft wide glow under
- * a thin bright core, fading toward the tail. Glow width and alpha are capped (--glow-alpha-max).
+ * a bright core, fading toward the tail, with two thin side strands that weave around it. Glow
+ * width and alpha are capped (--glow-alpha-max).
  */
 export function drawRibbon(
   ctx: CanvasRenderingContext2D,
@@ -60,33 +61,57 @@ export function drawRibbon(
   alpha: number,
   width: number,
   env: EffectEnv,
+  strands = env.intensity === 'full',
 ) {
   if (head - tail < 0.01 || alpha <= 0.01) return;
-  const steps = 18;
+  const steps = 22;
   const pts: Point[] = [];
   for (let i = 0; i <= steps; i++) pts.push(path(tail + ((head - tail) * i) / steps));
   const a = pts[0]!;
   const b = pts[steps]!;
-  const grad = (peak: number) => {
+  const grad = (c: RGB, peak: number) => {
     const g = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-    g.addColorStop(0, rgba(color, 0));
-    g.addColorStop(0.7, rgba(color, peak * 0.55));
-    g.addColorStop(1, rgba(color, peak));
+    g.addColorStop(0, rgba(c, 0));
+    g.addColorStop(0.6, rgba(c, peak * 0.5));
+    g.addColorStop(1, rgba(c, peak));
     return g;
   };
-  const stroke = (w: number, style: CanvasGradient | string) => {
+  const stroke = (w: number, style: CanvasGradient | string, offset = 0, phase = 0) => {
     ctx.strokeStyle = style;
     ctx.lineWidth = w;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.moveTo(a.x, a.y);
-    for (let i = 1; i <= steps; i++) ctx.lineTo(pts[i]!.x, pts[i]!.y);
+    for (let i = 0; i <= steps; i++) {
+      const p = pts[i]!;
+      let x = p.x;
+      let y = p.y;
+      if (offset) {
+        // Normal of the path, weaving amplitude that grows toward the tail.
+        const q = pts[Math.min(steps, i + 1)]!;
+        const o = pts[Math.max(0, i - 1)]!;
+        const dx = q.x - o.x;
+        const dy = q.y - o.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const k = offset * (1 - i / steps) * Math.sin(phase + (i / steps) * Math.PI * 1.5);
+        x += (-dy / len) * k;
+        y += (dx / len) * k;
+      }
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
     ctx.stroke();
   };
-  if (env.glow) stroke(width * 3.4, grad(alpha * env.style.glowAlpha));
-  stroke(width, grad(alpha * (env.style.dark ? 0.95 : 0.8)));
-  if (env.style.dark) stroke(Math.max(1, width * 0.35), grad(alpha * 0.9 * (env.style.additive ? 1 : 0.6)));
+  const dark = env.style.dark;
+  if (env.glow) stroke(width * 3.6, grad(color, alpha * env.style.glowAlpha));
+  else stroke(width * 2.6, grad(color, alpha * 0.14));
+  stroke(width, grad(color, alpha * (dark ? 0.95 : 0.85)));
+  if (dark) stroke(Math.max(1, width * 0.35), grad(lighten(color, 0.6), alpha * 0.9));
+  if (strands) {
+    const thin = Math.max(0.8, width * 0.28);
+    stroke(thin, grad(lighten(color, 0.3), alpha * 0.75), width * 3.2, 0.4);
+    stroke(thin, grad(color, alpha * 0.6), -width * 2.6, 1.9);
+  }
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -182,8 +207,8 @@ export class FlightRibbon implements Effect {
   draw(ctx: CanvasRenderingContext2D, env: EffectEnv) {
     const head = clamp01(this.spring.x);
     const fade = this.settledAt < 0 ? 1 : 1 - (this.age - this.settledAt) / 300;
-    const tail = Math.max(0, head - 0.55 * fade);
-    drawRibbon(ctx, this.path, tail, head, this.color, 0.9 * fade, env.intensity === 'full' ? 3 : 2, env);
+    const tail = Math.max(0, head - 0.75 * fade);
+    drawRibbon(ctx, this.path, tail, head, this.color, 0.95 * fade, env.intensity === 'full' ? 4 : 2.5, env);
   }
 }
 
@@ -206,18 +231,20 @@ export class StreamIn implements Effect {
   ) {
     this.last = initial;
     const c = centre(initial);
-    this.start = { x: c.x - Math.max(260, initial.width * 1.1), y: c.y - 150 };
-    this.ctrl = { x: c.x - initial.width * 0.55, y: c.y - 170 };
+    // Enters from the left (the board's edge clips the start), sweeps up and lands on the slot.
+    this.start = { x: c.x - Math.max(300, initial.width * 1.3), y: c.y + initial.height * 0.9 };
+    this.ctrl = { x: c.x - initial.width * 0.35, y: c.y - initial.height * 0.95 };
   }
 
   private path = (u: number): Point => quad(this.start, this.ctrl, centre(this.last), clamp01(u));
+  private progress = (t: number) => 1 - Math.pow(1 - clamp01(t), 2.2);
 
   update(dt: number, env: EffectEnv) {
     this.age += dt;
     this.last = this.target() ?? this.last;
     const t = this.age / this.duration;
     if (t < 1 && env.intensity === 'full' && Math.random() < 0.5 * env.density) {
-      const p = this.path(easeOutCubic(t));
+      const p = this.path(this.progress(t));
       env.pool.spawn({ kind: DUST, x: p.x + rand(-10, 10), y: p.y + rand(-8, 8), vx: rand(-30, 10), vy: rand(-12, 12), ttl: rand(420, 700), size: rand(0.9, 1.8), color: lighten(this.color, 0.25), alpha: 0.9 });
     }
     if (t >= 1 && !this.landed) {
@@ -234,30 +261,41 @@ export class StreamIn implements Effect {
 
   draw(ctx: CanvasRenderingContext2D, env: EffectEnv) {
     const t = this.age / this.duration;
-    const head = easeOutCubic(t);
+    const head = this.progress(t);
     const after = Math.max(0, this.age - this.duration) / 380;
     const fade = 1 - after;
-    drawRibbon(ctx, this.path, Math.max(0, head - 0.6 * fade), head, this.color, 0.95 * fade, env.intensity === 'full' ? 3.5 : 2.2, env);
-    // The glowing card silhouette rides the head and dissolves onto the real card.
-    const show = t < 1 ? Math.min(1, t / 0.15) * (t > 0.7 ? 1 - (t - 0.7) / 0.45 : 1) : Math.max(0, 0.33 - after) * 1.2;
+    drawRibbon(ctx, this.path, Math.max(0, head - 0.7 * fade), head, this.color, fade, env.intensity === 'full' ? 4.5 : 2.8, env);
+    // The glowing card rides the head: it grows and levels out as it nears the slot, then dissolves onto the real card.
+    const show = t < 1 ? Math.min(1, t / 0.12) * (t > 0.6 ? Math.max(0, 1 - (t - 0.6) / 0.4) : 1) : 0;
     if (show <= 0.01) return;
     const p = this.path(head);
     const r = this.last;
-    const s = 0.86 + 0.14 * head;
+    const s = 0.55 + 0.45 * head;
     const w = r.width * s;
     const h = r.height * s;
     const dark = env.style.dark;
-    ctx.fillStyle = rgba(this.color, show * (dark ? 0.16 : 0.1));
-    roundRect(ctx, p.x - w / 2, p.y - h / 2, w, h, 10);
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(-0.16 * (1 - head));
+    ctx.fillStyle = rgba(this.color, show * (dark ? 0.22 : 0.14));
+    roundRect(ctx, -w / 2, -h / 2, w, h, 10 * s);
     ctx.fill();
     if (env.glow) {
       ctx.strokeStyle = rgba(this.color, show * env.style.glowAlpha);
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 7;
       ctx.stroke();
     }
-    ctx.strokeStyle = rgba(dark ? lighten(this.color, 0.3) : this.color, show * 0.9);
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = rgba(dark ? lighten(this.color, 0.35) : this.color, show * 0.95);
+    ctx.lineWidth = 1.6;
     ctx.stroke();
+    // Bright top edge (like the real cards); no fake text, so the real text under it stays readable.
+    ctx.strokeStyle = rgba(dark ? lighten(this.color, 0.65) : this.color, show * 0.9);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-w / 2 + 8 * s, -h / 2 + 0.5);
+    ctx.lineTo(w / 2 - 8 * s, -h / 2 + 0.5);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -297,33 +335,55 @@ export class EnvelopeFlight implements Effect {
     const t = this.age / this.duration;
     const e = easeInOutCubic(t);
     const fade = t < 0.1 ? t / 0.1 : t > 0.8 ? Math.max(0, 1 - (t - 0.8) / 0.2) : 1;
-    drawRibbon(ctx, this.path, Math.max(0, e - 0.32), Math.min(1, e), this.color, 0.7 * Math.min(1, fade + 0.2), env.intensity === 'full' ? 2.2 : 1.6, env);
+    drawRibbon(ctx, this.path, Math.max(0, e - 0.4), Math.min(1, e), this.color, 0.85 * Math.min(1, fade + 0.2), env.intensity === 'full' ? 3 : 2, env);
     if (fade <= 0.01) return;
     const p = this.path(e);
     const q = this.path(Math.min(1, e + 0.02));
-    const angle = Math.max(-0.5, Math.min(0.5, Math.atan2(q.y - p.y, q.x - p.x) * 0.5));
+    const dir = Math.atan2(q.y - p.y, q.x - p.x);
+    const angle = Math.max(-0.45, Math.min(0.45, dir * 0.4));
     const scale = 1 - 0.4 * clamp01((t - 0.72) / 0.28);
-    const w = 22 * scale;
-    const h = 15 * scale;
+    const w = 28 * scale;
+    const h = 19 * scale;
     ctx.save();
     ctx.translate(p.x, p.y);
-    ctx.rotate(angle);
     if (env.glow) {
       ctx.fillStyle = rgba(this.color, fade * env.style.glowAlpha);
-      roundRect(ctx, -w / 2 - 4, -h / 2 - 4, w + 8, h + 8, 6);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, w * 0.95, h * 1.05, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = rgba(this.paper, fade * 0.96);
-    roundRect(ctx, -w / 2, -h / 2, w, h, 2.5);
+    // Speed lines behind the envelope.
+    ctx.strokeStyle = rgba(lighten(this.color, 0.4), fade * 0.7);
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = 'round';
+    for (const [o, l] of [
+      [-5, 12],
+      [0, 18],
+      [5, 10],
+    ] as const) {
+      const bx = -Math.cos(dir) * (w * 0.6);
+      const by = -Math.sin(dir) * (w * 0.6);
+      const nx = -Math.sin(dir) * o;
+      const ny = Math.cos(dir) * o;
+      ctx.beginPath();
+      ctx.moveTo(bx + nx, by + ny);
+      ctx.lineTo(bx + nx - Math.cos(dir) * l, by + ny - Math.sin(dir) * l);
+      ctx.stroke();
+    }
+    // The envelope is a solid object: normal paint even on additive (dark) layers.
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.rotate(angle);
+    ctx.fillStyle = rgba(this.paper, fade);
+    roundRect(ctx, -w / 2, -h / 2, w, h, 3);
     ctx.fill();
     ctx.strokeStyle = rgba(this.color, fade);
-    ctx.lineWidth = 1.4;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
-    // Flap.
     ctx.beginPath();
-    ctx.moveTo(-w / 2 + 1, -h / 2 + 1);
-    ctx.lineTo(0, h * 0.08);
-    ctx.lineTo(w / 2 - 1, -h / 2 + 1);
+    ctx.moveTo(-w / 2 + 1.5, -h / 2 + 1.5);
+    ctx.lineTo(0, h * 0.12);
+    ctx.lineTo(w / 2 - 1.5, -h / 2 + 1.5);
+    ctx.lineJoin = 'round';
     ctx.stroke();
     ctx.restore();
   }
@@ -356,11 +416,11 @@ export class WonBurst implements Effect {
     this.shells =
       intensity === 'full'
         ? [
-            { at: 0, x: cx, y: top + 10 },
-            { at: 150, x: cx - column.width * 0.24, y: top + 52 },
-            { at: 290, x: cx + column.width * 0.22, y: top + 34 },
+            { at: 0, x: cx, y: top + 16 },
+            { at: 160, x: cx - column.width * 0.27, y: top + 50 },
+            { at: 300, x: cx + column.width * 0.25, y: top + 34 },
           ]
-        : [{ at: 0, x: cx, y: top + 20 }];
+        : [{ at: 0, x: cx, y: top + 22 }];
   }
 
   update(dt: number, env: EffectEnv) {
@@ -368,22 +428,22 @@ export class WonBurst implements Effect {
     const palette = [this.colors.stage, this.colors.gold, lighten(this.colors.stage, 0.35), this.colors.accent];
     while (this.fired < this.shells.length && this.age >= this.shells[this.fired]!.at) {
       const s = this.shells[this.fired++]!;
-      const n = count(this.fired === 1 ? 40 : 30, env);
+      const n = count(this.fired === 1 ? 44 : 32, env);
       const fast = env.intensity === 'full' ? 1 : 0.7;
       for (let i = 0; i < n; i++) {
         const ang = (Math.PI * 2 * i) / n + rand(-0.12, 0.12);
-        const sp = rand(70, 190) * fast;
+        const sp = rand(90, 240) * fast;
         env.pool.spawn({
           kind: SPARK,
           x: s.x,
           y: s.y,
           vx: Math.cos(ang) * sp,
-          vy: Math.sin(ang) * sp - 24,
-          ttl: rand(620, 1050),
-          size: rand(1.4, 2.2),
+          vy: Math.sin(ang) * sp - 30,
+          ttl: rand(650, 1100),
+          size: rand(1.5, 2.4),
           color: pick(palette),
-          gravity: 150,
-          drag: 1.5,
+          gravity: 160,
+          drag: 1.7,
           alpha: 0.95,
         });
       }
@@ -419,25 +479,35 @@ export class WonBurst implements Effect {
     const t = this.age;
     const a = t < 180 ? t / 180 : t > 1100 ? Math.max(0, 1 - (t - 1100) / 450) : 1;
     if (a <= 0.01) return;
-    const rise = easeOutCubic(t / 520);
-    const scale = 0.72 + 0.28 * rise;
+    const rise = easeOutCubic(t / 560);
+    const scale = 0.7 + 0.3 * rise;
     const x = this.column.x + this.column.width / 2;
-    const y = this.column.y + 76 - 36 * rise;
-    const size = Math.round(34 * scale);
+    const y = this.column.y + 70 - 44 * rise;
+    const size = Math.round(40 * scale);
     ctx.save();
     ctx.font = `700 ${size}px Inter, ui-sans-serif, system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (env.glow) {
-      ctx.strokeStyle = rgba(this.colors.glyph, a * env.style.glowAlpha);
-      ctx.lineWidth = 9;
+      // Soft halo: a few widening, fading strokes (no shadowBlur, which is costly).
+      ctx.lineJoin = 'round';
+      for (const [w, k] of [
+        [14, 0.35],
+        [7, 0.6],
+      ] as const) {
+        ctx.strokeStyle = rgba(this.colors.glyph, a * env.style.glowAlpha * k);
+        ctx.lineWidth = w;
+        ctx.strokeText('₹', x, y);
+      }
+    }
+    // The glyph itself is solid paint, so it reads as a shape, not a blown-out blob.
+    ctx.globalCompositeOperation = 'source-over';
+    if (!env.style.dark) {
+      ctx.strokeStyle = rgba(this.colors.outline, a * 0.9);
+      ctx.lineWidth = 4;
       ctx.lineJoin = 'round';
       ctx.strokeText('₹', x, y);
     }
-    ctx.strokeStyle = rgba(this.colors.outline, a * 0.9);
-    ctx.lineWidth = 3;
-    ctx.lineJoin = 'round';
-    ctx.strokeText('₹', x, y);
     ctx.fillStyle = rgba(this.colors.glyph, a);
     ctx.fillText('₹', x, y);
     ctx.restore();
@@ -456,39 +526,36 @@ export class LostShatter implements Effect {
   update(_dt: number, env: EffectEnv) {
     if (this.done) return false;
     this.done = true;
-    const full = env.intensity === 'full';
-    const cols = full ? 3 : 2;
-    const rows = full ? 3 : 2;
+    const n = env.intensity === 'full' ? 9 : 5;
     const { x, y, width, height } = this.rect;
-    const cw = width / cols;
-    const ch = height / rows;
     const cx = x + width / 2;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const px = x + cw * (c + 0.5);
-        const py = y + ch * (r + 0.5);
-        env.pool.spawn({
-          kind: SHARD,
-          x: px,
-          y: py,
-          vx: ((px - cx) / width) * 70 + rand(-14, 14),
-          vy: rand(-28, 6) - (rows - r) * 4,
-          ttl: rand(950, 1350),
-          size: ch * 0.98,
-          aspect: (cw / ch) * rand(0.92, 1.04),
-          color: this.card,
-          edge: this.edge,
-          gravity: 240,
-          drag: 0.5,
-          rot: rand(-0.05, 0.05),
-          spin: rand(-2.2, 2.2),
-          alpha: 0.95,
-          delay: (r * cols + c) * 18,
-        });
-      }
-    }
-    const n = count(8, env);
+    // A few glass slivers peel off the card: tinted with the stage colour, falling a short way.
+    const tint = { r: Math.round(this.card.r * 0.7 + this.edge.r * 0.3), g: Math.round(this.card.g * 0.7 + this.edge.g * 0.3), b: Math.round(this.card.b * 0.7 + this.edge.b * 0.3) };
     for (let i = 0; i < n; i++) {
+      const px = x + width * ((i + 0.5) / n) + rand(-8, 8);
+      const py = y + rand(height * 0.2, height * 0.85);
+      const size = rand(14, 26);
+      env.pool.spawn({
+        kind: SHARD,
+        x: px,
+        y: py,
+        vx: ((px - cx) / width) * 40 + rand(-10, 10),
+        vy: rand(-18, 10),
+        ttl: rand(850, 1200),
+        size,
+        aspect: rand(0.8, 1.4),
+        color: tint,
+        edge: this.edge,
+        gravity: 280,
+        drag: 0.6,
+        rot: rand(-0.6, 0.6),
+        spin: rand(-1.4, 1.4),
+        alpha: 0.9,
+        delay: i * 22,
+      });
+    }
+    const dust = count(8, env);
+    for (let i = 0; i < dust; i++) {
       env.pool.spawn({ kind: DUST, x: rand(x, x + width), y: rand(y, y + height), vx: rand(-20, 20), vy: rand(10, 60), ttl: rand(600, 1000), size: rand(0.8, 1.4), color: this.edge, alpha: 0.6 });
     }
     return false;

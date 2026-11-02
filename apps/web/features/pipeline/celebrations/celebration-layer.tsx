@@ -20,7 +20,7 @@ export interface CelebrationLayerProps {
   controller: BoardController;
   quality: QualityMonitor;
   profile: MotionProfile;
-  /** Board root: area to paint, columns and cards, and `data-board-skin` when the skin sets it. */
+  /** Board root: area to paint, columns and cards, and `data-board-skin` / `data-board-variant` / `data-board-glow` when the skin sets them. */
   rootRef: RefObject<HTMLElement | null>;
 }
 

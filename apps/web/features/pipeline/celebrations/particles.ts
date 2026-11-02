@@ -185,16 +185,29 @@ export class ParticlePool {
     return `rgba(${src[i * 3]},${src[i * 3 + 1]},${src[i * 3 + 2]},${Math.min(1, a).toFixed(3)})`;
   }
 
-  /** Paint every live particle. `glow` adds a soft halo to sparks and dust. */
+  /**
+   * Paint every live particle: solid pieces (shards, confetti) with normal paint first, then light
+   * (sparks, dust) with `light` compositing ("lighter" on dark themes). `glow` adds soft halos.
+   */
   draw(ctx: CanvasRenderingContext2D, opts: { glow: boolean; glowAlpha: number; additive: boolean }) {
+    ctx.globalCompositeOperation = 'source-over';
+    this.drawPass(ctx, opts, true);
+    if (opts.additive) ctx.globalCompositeOperation = 'lighter';
+    this.drawPass(ctx, opts, false);
+  }
+
+  private drawPass(ctx: CanvasRenderingContext2D, opts: { glow: boolean; glowAlpha: number }, solids: boolean) {
     const { glow, glowAlpha } = opts;
     for (let i = 0; i < this.count; i++) {
-      const age = this.age[i]!;
-      if (age < 0) continue;
-      const life = age / this.ttl[i]!;
       const k = this.kind[i]!;
+      if ((k === SHARD || k === CONFETTI) !== solids) continue;
+      const age = this.age[i]!;
+      // Shards waiting to fall hold the card's shape; everything else appears when its delay ends.
+      if (age < 0 && k !== SHARD) continue;
+      const life = Math.max(0, age) / this.ttl[i]!;
       // Fade in fast, fade out over the last 40% (never a hard pop, never a flash).
-      const fade = Math.min(1, age / 80) * (life > 0.6 ? 1 - (life - 0.6) / 0.4 : 1);
+      const fadeIn = k === SHARD ? 1 : Math.min(1, age / 80);
+      const fade = fadeIn * (life > 0.6 ? 1 - (life - 0.6) / 0.4 : 1);
       const a = this.alpha[i]! * fade;
       if (a <= 0.01) continue;
       const x = this.x[i]!;
@@ -205,7 +218,7 @@ export class ParticlePool {
         const vx = this.vx[i]!;
         const vy = this.vy[i]!;
         const sp = Math.hypot(vx, vy) || 1;
-        const len = Math.min(14, 2 + sp * 0.045);
+        const len = Math.min(16, 2 + sp * 0.05);
         if (glow) {
           ctx.fillStyle = this.color(this.rgb, i, a * glowAlpha);
           ctx.beginPath();
@@ -247,12 +260,11 @@ export class ParticlePool {
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(r);
-        // An irregular torn quad.
+        // A torn sliver (irregular triangle).
         ctx.beginPath();
-        ctx.moveTo(-w * 0.5, -h * 0.42);
-        ctx.lineTo(w * 0.46, -h * 0.5);
-        ctx.lineTo(w * 0.5, h * 0.34);
-        ctx.lineTo(-w * 0.38, h * 0.5);
+        ctx.moveTo(-w * 0.5, -h * 0.45);
+        ctx.lineTo(w * 0.5, -h * 0.2);
+        ctx.lineTo(-w * 0.08, h * 0.5);
         ctx.closePath();
         ctx.fillStyle = this.color(this.rgb, i, a * 0.92);
         ctx.fill();

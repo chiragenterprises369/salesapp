@@ -143,10 +143,16 @@ export class CelebrationDirector {
 
   private style(): PaintStyle {
     const html = document.documentElement;
-    const dark = html.dataset.theme === 'dark';
-    const glowAlpha = Number.parseFloat(cssVar(html, '--glow-alpha-max')) || 0.35;
+    const root = this.getRoot();
+    const skin = this.skin();
+    // Neon Space sets data-board-variant (neon in Dark, aurora in Light); other skins follow the theme.
+    const variant = root?.dataset.boardVariant;
+    const dark = variant === 'aurora' ? false : variant === 'neon' ? true : html.dataset.theme === 'dark';
+    // The skin's own glow switch (device and performance fallback) also dims the canvas.
+    const glowOff = skin === 'neon' && root?.dataset.boardGlow === 'off';
+    const glowAlpha = Number.parseFloat(cssVar(root ?? html, '--glow-alpha-max')) || 0.35;
     // Aurora (neon in light) and every light theme: colour without glow.
-    return { dark, skin: this.skin(), additive: dark, glow: dark, glowAlpha: Math.min(0.45, glowAlpha) };
+    return { dark, skin, additive: dark, glow: dark && !glowOff, glowAlpha: Math.min(0.45, glowAlpha) };
   }
 
   private skin(): BoardSkinName {
@@ -333,7 +339,7 @@ export class CelebrationDirector {
       return;
     }
     const color = sourceColor(ev.lead.source, engine.style);
-    engine.add(new StreamIn(() => this.cardRect(id), rect, color, engine.intensity === 'full' ? 460 : 380));
+    engine.add(new StreamIn(() => this.cardRect(id), rect, color, engine.intensity === 'full' ? 560 : 420));
     this.mark('new-lead:stream');
   }
 
@@ -389,8 +395,8 @@ export class CelebrationDirector {
     } else if (ev.kind === 'lost') {
       const li = rect ? this.card(ev.lead.id) : null;
       if (li && typeof li.animate === 'function') {
-        // The card dissolves into its shards and comes back quietly in Lost (opacity only).
-        li.animate([{ opacity: 1 }, { opacity: 0, offset: 0.12 }, { opacity: 0, offset: 0.55 }, { opacity: 1 }], { duration: this.ms(1400), easing: 'ease-out' });
+        // The card dissolves into its slivers, then settles back quietly in Lost (opacity only).
+        li.animate([{ opacity: 1 }, { opacity: 0.2, offset: 0.2 }, { opacity: 0.2, offset: 0.5 }, { opacity: 1 }], { duration: this.ms(1300), easing: 'ease-out' });
       }
       const face = li?.querySelector(FACE) ?? null;
       if (rect) engine.add(new LostShatter(rect, surfaceColor(face, style), color));
