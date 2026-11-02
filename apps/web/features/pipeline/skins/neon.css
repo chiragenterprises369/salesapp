@@ -32,8 +32,8 @@
   --vn-edge-x5: #38bdf8;
   /* Card slab and column glass over the dimmed plate. */
   --vn-slab: color-mix(in srgb, var(--vn-base-2, #07080f) 90%, transparent);
-  --vn-glass: color-mix(in srgb, var(--vn-base-2, #07080f) 60%, transparent);
-  --vn-glass-low: color-mix(in srgb, var(--vn-base-2, #07080f) 34%, transparent);
+  --vn-glass: color-mix(in srgb, var(--vn-base-2, #07080f) 52%, transparent);
+  --vn-glass-low: color-mix(in srgb, var(--vn-base-2, #07080f) 22%, transparent);
   --vn-top-edge: color-mix(in srgb, var(--fg) 55%, transparent);
   --vn-overdue: var(--vn-edge-lost);
 }
@@ -52,8 +52,8 @@
   --vn-edge-x4: #65a30d;
   --vn-edge-x5: #0284c7;
   --vn-slab: color-mix(in srgb, var(--surface) 90%, transparent);
-  --vn-glass: color-mix(in srgb, var(--surface) 62%, transparent);
-  --vn-glass-low: color-mix(in srgb, var(--surface) 38%, transparent);
+  --vn-glass: color-mix(in srgb, var(--surface) 58%, transparent);
+  --vn-glass-low: color-mix(in srgb, var(--surface) 36%, transparent);
   --vn-top-edge: var(--surface);
   --vn-overdue: var(--vn-edge-lost);
 }
@@ -92,7 +92,7 @@
 }
 
 [data-board-skin='neon'] .vb-scroller {
-  column-gap: 16px;
+  column-gap: 18px;
   padding-bottom: 18px;
 }
 
@@ -134,8 +134,8 @@
     linear-gradient(
       180deg,
       color-mix(in srgb, var(--vn-base-2) 62%, transparent) 0%,
-      color-mix(in srgb, var(--vn-base-2) 32%, transparent) 45%,
-      color-mix(in srgb, var(--vn-base-2) 52%, transparent) 100%
+      color-mix(in srgb, var(--vn-base-2) 26%, transparent) 45%,
+      color-mix(in srgb, var(--vn-base-2) 46%, transparent) 100%
     );
 }
 [data-variant='aurora'] > .vn-backdrop__tint {
@@ -236,11 +236,13 @@
     border-color var(--duration-fast) var(--easing);
 }
 
-/* Tall glass: a stage-tinted top that fades into clearer glass toward the floor; the inner glow stays at the edge. */
+/* Tall glass: tinted by its stage over the whole height (stronger at the header), fading into clearer
+   glass toward the floor so the office plate shows through; the inner glow stays at the edge. */
 [data-board-variant='neon'] .vb-column {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 16%, transparent) 0%, transparent 112px),
-    linear-gradient(0deg, color-mix(in srgb, var(--vn-edge) 8%, transparent) 0%, transparent 30%),
+    linear-gradient(0deg, color-mix(in srgb, var(--vn-edge) 10%, transparent) 0%, transparent 30%),
+    linear-gradient(color-mix(in srgb, var(--vn-edge) 6%, transparent), color-mix(in srgb, var(--vn-edge) 6%, transparent)),
     linear-gradient(180deg, var(--vn-glass) 0%, var(--vn-glass) 30%, var(--vn-glass-low) 100%);
   box-shadow:
     inset 0 0 8px color-mix(in srgb, var(--vn-edge) 22%, transparent),
@@ -262,7 +264,8 @@
 /* Aurora: pastel glass, coloured edge, soft coloured shadow below (no glow). */
 [data-board-variant='aurora'] .vb-column {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 12%, transparent) 0%, transparent 112px),
+    linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 12%, color-mix(in srgb, var(--surface) 72%, transparent)) 0%, transparent 112px),
+    linear-gradient(color-mix(in srgb, var(--vn-edge) 5%, transparent), color-mix(in srgb, var(--vn-edge) 5%, transparent)),
     linear-gradient(180deg, var(--vn-glass) 0%, var(--vn-glass) 30%, var(--vn-glass-low) 100%);
   box-shadow:
     0 18px 36px -20px color-mix(in srgb, var(--vn-edge) 50%, transparent),
@@ -275,7 +278,16 @@
     var(--vn-glass);
 }
 
-/* Header: glowing stage dot, glass count chip, stage-coloured share bar. */
+/* Header: uppercase stage name (as in the reference), glowing stage dot, glass count chip, stage-coloured
+   share bar. The INR total is the smallest header text on tinted glass, so it uses fg-secondary
+   (muted-strong measured 3.7:1 on the Aurora New header, contrast.json). */
+[data-board-skin='neon'] .vb-column header h3 {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+[data-board-skin='neon'] [data-column-total] {
+  color: var(--fg-secondary);
+}
 [data-board-skin='neon'] .vb-dot {
   background: var(--vn-edge);
 }
@@ -302,7 +314,7 @@
 
 /* Dark slab with a bright top edge, tinted by its column. */
 [data-board-variant='neon'] .vb-face:not([data-placeholder]) {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 12%, var(--vn-slab)) 0%, var(--vn-slab) 70%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 18%, var(--vn-slab)) 0%, color-mix(in srgb, var(--vn-edge) 5%, var(--vn-slab)) 75%);
   border-color: color-mix(in srgb, var(--vn-edge) 34%, transparent);
   border-top-color: color-mix(in srgb, var(--vn-edge) 55%, var(--vn-top-edge));
   box-shadow:

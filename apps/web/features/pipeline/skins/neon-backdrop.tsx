@@ -47,6 +47,10 @@ export function NeonBackdrop({ variant }: { variant: BoardVariant }) {
         decoding="async"
         fetchPriority="low"
         data-ready={ready === tone ? '' : undefined}
+        // A plate already in the HTTP cache can finish before React attaches onLoad.
+        ref={(img) => {
+          if (img?.complete && img.naturalWidth > 0 && ready !== tone) setReady(tone);
+        }}
         onLoad={() => setReady(tone)}
       />
       <div className="vn-backdrop__tint" />
