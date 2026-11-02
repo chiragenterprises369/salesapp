@@ -43,6 +43,15 @@ export const RESOURCE_LABELS: Record<PermissionResource, { label: string; hint: 
   settings: { label: 'Workspace settings', hint: 'Hours, stages, fields, branding' },
   audit: { label: 'Audit log', hint: 'Who changed what' },
   support_access: { label: 'Support access', hint: 'Let Vistar support view the workspace' },
+  contacts: { label: 'Contacts', hint: 'People at customers and their details' },
+  accounts: { label: 'Accounts', hint: 'Customer companies, GSTIN and addresses' },
+  deals: { label: 'Deals', hint: 'Opportunities on the Deals board' },
+  products: { label: 'Products', hint: 'Products, services and price lists' },
+  quotations: { label: 'Quotations', hint: 'Quotes with GST, PDF and share links' },
+  invoices: { label: 'Invoices', hint: 'Tax invoices and payments' },
+  calendar: { label: 'Calendar', hint: 'Meetings, reminders and time off' },
+  routing: { label: 'Lead routing', hint: 'Who gets each new lead' },
+  capture_forms: { label: 'Lead capture forms', hint: 'Website forms that create leads' },
 };
 
 export const ACTION_LABELS: Record<string, string> = {
@@ -63,6 +72,9 @@ export const ACTION_LABELS: Record<string, string> = {
   team_inbox: 'Team inbox',
   publish: 'Publish',
   run: 'Run',
+  issue: 'Issue',
+  cancel: 'Cancel',
+  payments: 'Payments',
 };
 
 export const SCOPE_LABELS: Record<DataScope, { label: string; sentence: string }> = {

@@ -75,6 +75,14 @@ export const ErrorCode = {
   ATTENDANCE_STATE_INVALID: 'ATTENDANCE_STATE_INVALID',
   FLOOR_REQUEST_INCOMPLETE: 'FLOOR_REQUEST_INCOMPLETE',
   FLOOR_NOT_READY: 'FLOOR_NOT_READY',
+  // change #19 wave B: CRM features
+  DOCUMENT_STATE_INVALID: 'DOCUMENT_STATE_INVALID',
+  SELLER_PROFILE_INCOMPLETE: 'SELLER_PROFILE_INCOMPLETE',
+  PAYMENT_EXCEEDS_BALANCE: 'PAYMENT_EXCEEDS_BALANCE',
+  RECORD_MERGE_INVALID: 'RECORD_MERGE_INVALID',
+  PRODUCT_SKU_TAKEN: 'PRODUCT_SKU_TAKEN',
+  SHARE_LINK_EXPIRED: 'SHARE_LINK_EXPIRED',
+  CAPTURE_FORM_CLOSED: 'CAPTURE_FORM_CLOSED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -148,6 +156,18 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   FLOOR_REQUEST_INCOMPLETE: 422,
   /** Publish without a seat map, or a seat map on a superseded floor. */
   FLOOR_NOT_READY: 409,
+  /** The action is not allowed in the document's status (edit a sent quotation, issue a cancelled invoice). */
+  DOCUMENT_STATE_INVALID: 409,
+  /** Sending a quotation or issuing an invoice needs the seller legal name and state code (GET /billing/profile). */
+  SELLER_PROFILE_INCOMPLETE: 422,
+  PAYMENT_EXCEEDS_BALANCE: 422,
+  /** Merge of a record into itself, a deleted record, or more than 10 records. */
+  RECORD_MERGE_INVALID: 400,
+  PRODUCT_SKU_TAKEN: 409,
+  /** Share link revoked, rotated or past its expiry. */
+  SHARE_LINK_EXPIRED: 410,
+  /** Lead capture form paused or deleted. */
+  CAPTURE_FORM_CLOSED: 410,
 };
 
 export const FieldErrorSchema = z.object({

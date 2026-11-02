@@ -49,7 +49,7 @@
  * - The office zone (zone-engine.ts) rides in the same state and lock; it is NOT versioned and
  *   publishes `employee.zone_changed` (one net change per input). Going offline clears it.
  */
-import { checkWorkingHours, nextLocalMidnight, type WorkingHoursConfig } from './working-hours.js';
+import { checkWorkingHours, isWithinWorkingHours, nextLocalMidnight, type WorkingHoursConfig } from './working-hours.js';
 import { clearZone, expireZone, reduceZone, zoneDeadline, type ZoneChange, type ZoneCurrent, type ZoneObservation, type ZoneSource, type ZoneState } from './zone-engine.js';
 
 /** Literals equal packages/shared PRESENCE_STATUSES / MANUAL_PRESENCE_STATUSES / PRESENCE_SOURCES / CLIENT_KINDS. */
@@ -399,7 +399,8 @@ export function reduce(prev: PresenceState, input: PresenceInput, ctx: PresenceC
 
   const d = derive(s, now, ctx);
   // Offline (timeout, logout, invisible mode) forgets the office zone: nobody is shown in a room.
-  if (d.status === 'offline' && s.zone?.current) {
+  // Outside working hours (D-063) the zone is cleared too (the sweeper deadline is the window end).
+  if (s.zone?.current && (d.status === 'offline' || !zoneTrackingOpen(ctx, now))) {
     const r = clearZone(s.zone, now);
     s.zone = r.state;
     if (r.change) zoneOps.push(r.change);
@@ -450,6 +451,17 @@ function applyZone(s: PresenceState, observations: readonly ZoneObservation[], n
   return applied;
 }
 
+/** D-063: zone signals count only inside the user's working hours (User.workingHours ?? workspace hours, holidays). */
+export const zoneTrackingOpen = (ctx: PresenceContext, now: number): boolean => isWithinWorkingHours(now, ctx.workingHours);
+
+/** Forget the zone and any candidate (outside working hours). */
+function dropZone(s: PresenceState, now: number, ops: ZoneChange[]): void {
+  if (!s.zone) return;
+  const r = clearZone(s.zone, now);
+  s.zone = r.state;
+  if (r.change) ops.push(r.change);
+}
+
 /**
  * Offline since: the logout time, or the last sign of life + timeout (independent of sweep jitter).
  * Leaving a call or a manual status (timeout, invisible mode) uses `now`.
@@ -489,10 +501,19 @@ function apply(s: PresenceState, input: PresenceInput, ctx: PresenceContext, now
       }
       if (s.lastHeartbeatAt === null || input.at > s.lastHeartbeatAt) s.lastHeartbeatAt = input.at;
       seenNow(s, input.at);
-      if (input.zone?.length) applyZone(s, input.zone, now, zoneOps);
+      // D-063: office zones are tracked inside working hours only; outside them the zone part is dropped
+      // (and the zone cleared) while the heartbeat still counts for online status.
+      if (input.zone?.length) {
+        if (zoneTrackingOpen(ctx, now)) applyZone(s, input.zone, now, zoneOps);
+        else dropZone(s, now, zoneOps);
+      }
       return true;
     }
     case 'zone':
+      if (!zoneTrackingOpen(ctx, now)) {
+        dropZone(s, now, zoneOps);
+        return false;
+      }
       return applyZone(s, input.observations, now, zoneOps);
     case 'idle': {
       const d = s.devices[input.deviceId];
@@ -604,6 +625,11 @@ export function nextDeadline(s: PresenceState, ctx: PresenceContext, now: number
   }
   const zd = zoneDeadline(s.zone);
   if (zd !== null) candidates.push(zd);
+  // A zone is cleared when the working window ends (D-063).
+  if (s.zone?.current) {
+    const check = checkWorkingHours(now, ctx.workingHours);
+    if (check.open) candidates.push(check.window.end);
+  }
   const future = candidates.filter((t) => t > now);
   return future.length ? Math.min(...future) : null;
 }

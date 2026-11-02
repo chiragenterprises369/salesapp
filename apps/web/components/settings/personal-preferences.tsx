@@ -26,6 +26,7 @@ const NOTIFY_LABEL: Record<NotificationType, string> = {
   mention: 'Someone mentions me in a note',
   import_completed: 'A lead import finishes',
   system: 'Vistar product updates',
+  meeting_reminder: 'A meeting is about to start',
 };
 
 const MOTION: ReadonlyArray<{ value: ReducedMotionSetting; label: string; hint: string }> = [

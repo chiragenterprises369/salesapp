@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { StageTypeSchema } from '../enums.js';
+import { PipelineEntitySchema, StageTypeSchema } from '../enums.js';
 import { HexColorSchema, IdSchema } from './common.js';
 import { LeadListItemSchema } from './lead.js';
 
@@ -24,9 +24,15 @@ export const PipelineSchema = z.object({
   isDefault: z.boolean(),
   /** Pack that created the pipeline (null = created by the workspace). */
   packKey: z.string().nullable(),
+  /** What the pipeline holds (change #19 wave B): lead (Leads board, default) or deal (Deals board). Missing = lead. */
+  entity: PipelineEntitySchema.optional(),
   stages: z.array(StageSchema),
 });
 export type Pipeline = z.infer<typeof PipelineSchema>;
+
+/** GET /pipelines?entity=deal lists deal pipelines (the default "deals" pipeline is created on first use). */
+export const PipelineListQuerySchema = z.object({ entity: PipelineEntitySchema.default('lead') });
+export type PipelineListQuery = z.infer<typeof PipelineListQuerySchema>;
 
 const StageInputFields = z.object({
   name: z.string().trim().min(1).max(40),
@@ -82,6 +88,16 @@ export const DEFAULT_STAGES: ReadonlyArray<Pick<Stage, 'key' | 'name' | 'type' |
   { key: 'contacted', name: 'Contacted', type: 'open', probability: 15 },
   { key: 'interested', name: 'Interested', type: 'open', probability: 35 },
   { key: 'quote_sent', name: 'Quote sent', type: 'open', probability: 60 },
+  { key: 'won', name: 'Won', type: 'won', probability: 100 },
+  { key: 'lost', name: 'Lost', type: 'lost', probability: 0 },
+];
+
+/** Key of the default deal pipeline, created per workspace on first use (GET /pipelines?entity=deal, deal routes). */
+export const DEFAULT_DEAL_PIPELINE_KEY = 'deals';
+export const DEFAULT_DEAL_STAGES: ReadonlyArray<Pick<Stage, 'key' | 'name' | 'type' | 'probability'>> = [
+  { key: 'qualification', name: 'Qualification', type: 'open', probability: 10 },
+  { key: 'proposal', name: 'Proposal', type: 'open', probability: 40 },
+  { key: 'negotiation', name: 'Negotiation', type: 'open', probability: 70 },
   { key: 'won', name: 'Won', type: 'won', probability: 100 },
   { key: 'lost', name: 'Lost', type: 'lost', probability: 0 },
 ];

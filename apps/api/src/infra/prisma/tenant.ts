@@ -108,7 +108,7 @@ type CountDelegate = { count: (args: { where: Record<string, unknown> }) => Prom
  */
 export async function assertInTenant(
   db: TenantPrisma,
-  refs: Partial<Record<'user' | 'role' | 'team' | 'stage' | 'pipeline' | 'lead' | 'contact' | 'company' | 'workflow' | 'template' | 'webhookEndpoint' | 'customObject' | 'customRecord' | 'file' | 'floorRequest' | 'device', string | null | undefined>>,
+  refs: Partial<Record<'user' | 'role' | 'team' | 'stage' | 'pipeline' | 'lead' | 'contact' | 'company' | 'workflow' | 'template' | 'webhookEndpoint' | 'customObject' | 'customRecord' | 'file' | 'floorRequest' | 'device' | 'deal' | 'product' | 'priceList' | 'quotation' | 'invoice' | 'meeting' | 'captureForm' | 'routingRule', string | null | undefined>>,
 ): Promise<void> {
   const delegates = db as unknown as Record<string, CountDelegate>;
   await Promise.all(

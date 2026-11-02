@@ -229,6 +229,7 @@ export const NOTIFICATION_TEXT: Record<NotificationType, { title: string; body?:
   mention: { title: '{actor} mentioned you on {lead}', body: '{note}' },
   import_completed: { title: 'Import finished: {file}', body: '{created} leads created, {skipped} skipped' },
   system: { title: '{title}', body: '{body}' },
+  meeting_reminder: { title: 'Meeting in {minutes} min: {title}', body: '{time}' },
 };
 
 export const MENTION_NOTES = [

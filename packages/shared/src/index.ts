@@ -33,7 +33,15 @@ export * from './schemas/app-platform.js';
 export * from './schemas/presence.js';
 export * from './schemas/attendance.js';
 export * from './schemas/floor.js';
+export * from './schemas/catalog.js';
+export * from './schemas/crm.js';
+export * from './schemas/documents.js';
+export * from './schemas/calendar.js';
+export * from './schemas/crm-related.js';
+export * from './schemas/routing.js';
+export * from './schemas/capture.js';
 export * from './branding.js';
+export * from './gst.js';
 
 export * from './workflow/nodes.js';
 export * from './workflow/graph.js';

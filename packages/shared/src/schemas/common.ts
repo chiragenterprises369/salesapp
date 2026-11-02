@@ -12,6 +12,29 @@ export const IsoDateSchema = z.iso.date();
 /** Whole rupees (no paise). Deal and revenue values are integers in INR. */
 export const InrSchema = z.number().int().min(0).max(2_000_000_000);
 
+/**
+ * Money in paise (1 rupee = 100 paise) for products, price lists, quotations, invoices and payments
+ * (D-067: GST needs paise; the document total is rounded to the rupee with a round-off line).
+ * Stored as BigInt columns; the API returns JSON numbers (safe integers).
+ */
+export const PaiseSchema = z.number().int().min(0).max(1_000_000_000_000_000);
+/** Signed paise (round-off can be negative). */
+export const SignedPaiseSchema = z.number().int().min(-1_000_000_000_000_000).max(1_000_000_000_000_000);
+
+/** Marketing attribution captured by lead capture forms (URL params utm_*, gclid, fbclid). */
+export const UtmSchema = z.object({
+  source: z.string().trim().max(200).optional(),
+  medium: z.string().trim().max(200).optional(),
+  campaign: z.string().trim().max(200).optional(),
+  term: z.string().trim().max(200).optional(),
+  content: z.string().trim().max(200).optional(),
+  gclid: z.string().trim().max(300).optional(),
+  fbclid: z.string().trim().max(300).optional(),
+});
+export type Utm = z.infer<typeof UtmSchema>;
+/** URL query param -> UtmSchema key. */
+export const UTM_PARAMS = { utm_source: 'source', utm_medium: 'medium', utm_campaign: 'campaign', utm_term: 'term', utm_content: 'content', gclid: 'gclid', fbclid: 'fbclid' } as const;
+
 /** E.164 phone. Indian numbers are normalised with normalizeIndianPhone(). */
 export const PhoneSchema = z.string().regex(/^\+[1-9]\d{6,14}$/, { error: 'Use E.164 format, e.g. +919876543210' });
 

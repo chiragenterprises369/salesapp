@@ -13,6 +13,7 @@ import {
   type LeadUpdate,
   type NoteCreate,
   type Page,
+  type Utm,
 } from '@vistar/shared';
 import type { Request } from 'express';
 import type { z } from 'zod';
@@ -26,6 +27,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { applyPatch, changedKeys, loadFieldDefs, roleKeyOf, validateValues, visibleFor } from '../customization/custom-values.js';
 import { entityUniqueErrors, lockUnique, uniqueDefsIn } from '../customization/unique.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { RoutingService, type RoutedOwner } from '../routing/routing.service.js';
 import { ActivityService } from './activity.service.js';
 import { LEAD_DETAIL_INCLUDE, LEAD_LIST_INCLUDE, parseCustomFields, toLead, toLeadListItem, type LeadDetailRow } from './lead.mapper.js';
 import { endOfColumn, topOfColumn } from './lead-position.js';
@@ -34,6 +36,18 @@ import { scoreLead } from './lead-score.js';
 import { activeStageOrThrow, stageDates, syncDealsForStage } from './lead-stage.js';
 import { afterTimeCursor, nextTimeCursor } from './lib/cursor.js';
 import { publishSafe, requestActor, requirePermission, type RequestActor, type TenantDb } from './lib/context.js';
+
+/** Internal options of LeadsService.create (capture forms, system callers). */
+export interface LeadCreateOptions {
+  captureFormId?: string;
+  formName?: string;
+  utm?: Utm;
+  /** Actor for events and activities (e.g. a capture form instead of a user). */
+  actor?: RequestActor;
+  skipRouting?: boolean;
+  /** false = no lead_assigned notification to the owner (capture form setting notifyOwner). */
+  notify?: boolean;
+}
 
 /** Text fields copied from create/update input; '' clears the value. */
 const TEXT_FIELDS = ['companyName', 'phone', 'email', 'city', 'state', 'productInterest', 'requirement'] as const;
@@ -52,6 +66,7 @@ export class LeadsService {
     private readonly audit: AuditService,
     private readonly activities: ActivityService,
     private readonly notifications: NotificationsService,
+    private readonly routing: RoutingService,
   ) {}
 
   /** Tell the new owner about leads assigned to them by someone else (one notification per call). */
@@ -133,8 +148,8 @@ export class LeadsService {
   /** First stage of the default pipeline (or of the oldest pipeline when none is marked default). Archived pipelines and stages are skipped. */
   async defaultStage(db: TenantDb) {
     const pipeline =
-      (await db.pipeline.findFirst({ where: { isDefault: true, archivedAt: null }, orderBy: { createdAt: 'asc' } })) ??
-      (await db.pipeline.findFirst({ where: { archivedAt: null }, orderBy: { createdAt: 'asc' } }));
+      (await db.pipeline.findFirst({ where: { isDefault: true, archivedAt: null, entity: 'lead' }, orderBy: { createdAt: 'asc' } })) ??
+      (await db.pipeline.findFirst({ where: { archivedAt: null, entity: 'lead' }, orderBy: { createdAt: 'asc' } }));
     const stage = pipeline ? await db.stage.findFirst({ where: { pipelineId: pipeline.id, archivedAt: null }, orderBy: { order: 'asc' } }) : null;
     if (!stage) throw new AppException('STAGE_NOT_IN_PIPELINE', 'Set up a pipeline with at least one stage first');
     return stage;
@@ -190,14 +205,32 @@ export class LeadsService {
     return this.present(db, auth, await this.detail(db, id));
   }
 
-  async create(auth: AuthContext, body: LeadCreate): Promise<LeadDto> {
+  /**
+   * Create a lead. Without an owner (admin or API key create without ownerId, capture forms, webhooks)
+   * lead routing picks one (RoutingService; change #19 wave B).
+   */
+  async create(auth: AuthContext, body: LeadCreate, opts: LeadCreateOptions = {}): Promise<LeadDto> {
     const wid = auth.workspaceId;
     const db = this.prisma.forTenant(wid);
-    const actor = await requestActor(db, auth);
+    const actor = opts.actor ?? (await requestActor(db, auth));
 
-    const ownerId = body.ownerId ?? (auth.dataScope !== 'all' ? auth.userId : null);
+    let ownerId = body.ownerId ?? (auth.dataScope !== 'all' ? auth.userId : null);
     if (ownerId && ownerId !== auth.userId) requirePermission(auth, 'leads.assign', 'You cannot assign leads to other users');
     if (ownerId) await this.assertAssignable(db, ownerId);
+    let routed: RoutedOwner | null = null;
+    if (!ownerId && body.ownerId === undefined && !opts.skipRouting) {
+      routed = await this.routing.assign(wid, {
+        source: body.source,
+        city: body.city ?? null,
+        state: body.state ?? null,
+        productInterest: body.productInterest ?? null,
+        requirement: body.requirement ?? null,
+        valueInr: body.valueInr,
+        tags: body.tags,
+        captureFormId: opts.captureFormId ?? null,
+      });
+      ownerId = routed.ownerId;
+    }
 
     const stage = body.stageId ? await activeStageOrThrow(db, body.stageId) : await this.defaultStage(db);
     const defs = await loadFieldDefs(db, 'lead');
@@ -250,8 +283,8 @@ export class LeadsService {
       if (stage.type === 'won') await syncDealsForStage(tx, wid, [created], 'won', now);
       const rows = await tx.activity.createManyAndReturn({
         data: [
-          this.activities.data(wid, actor, created.id, 'lead_created', { source: body.source }, now),
-          ...(ownerId ? [this.activities.data(wid, actor, created.id, 'assigned', { fromUserId: null, toUserId: ownerId, rule: 'manual' }, now)] : []),
+          this.activities.data(wid, actor, created.id, 'lead_created', { source: body.source, ...(opts.captureFormId ? { formId: opts.captureFormId, formName: opts.formName, utm: opts.utm } : {}) }, now),
+          ...(ownerId ? [this.activities.data(wid, actor, created.id, 'assigned', { fromUserId: null, toUserId: ownerId, rule: routed?.rule ?? 'manual' }, now)] : []),
         ],
       });
       return { lead: await this.detail(tx, created.id), rows };
@@ -259,8 +292,9 @@ export class LeadsService {
 
     await this.ensureTags(db, wid, tags);
     await publishSafe(this.events, this.logger, 'lead.created', wid, { lead: toLeadListItem(lead) }, { actor: actor.event });
+    if (routed?.ownerId) await publishSafe(this.events, this.logger, 'lead.assigned', wid, { lead: toLeadListItem(lead), fromUserId: null, toUserId: routed.ownerId, rule: routed.rule }, { actor: actor.event });
     await this.activities.publishCreated(db, wid, rows, actor);
-    await this.notifyAssigned(auth, actor, [lead], ownerId);
+    if (opts.notify !== false) await this.notifyAssigned(auth, actor, [lead], ownerId);
     return this.present(db, auth, lead, defs);
   }
 

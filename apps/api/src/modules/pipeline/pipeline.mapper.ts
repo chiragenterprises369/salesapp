@@ -21,6 +21,7 @@ export function toPipeline(p: PipelineRow & { stages: StageRow[] }): Pipeline {
     name: p.name,
     isDefault: p.isDefault,
     packKey: p.packKey,
+    entity: p.entity === 'deal' ? 'deal' : 'lead',
     stages: p.stages
       .filter((s) => !s.archivedAt)
       .sort((a, b) => a.order - b.order || a.createdAt.getTime() - b.createdAt.getTime())
