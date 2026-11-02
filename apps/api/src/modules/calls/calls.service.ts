@@ -10,6 +10,7 @@ import type {
   DeviceCallLogResult,
   EventActor,
   Page,
+  RecordingUrl,
 } from '@vistar/shared';
 import type { Redis } from 'ioredis';
 import type { AuthContext } from '../../common/auth/auth-context.js';
@@ -25,6 +26,8 @@ import { decodeCursor, encodeCursor, isTimeCursor } from '../leads/lib/cursor.js
 import { zonedMonthKey } from '../leads/lib/tz.js';
 import { PresenceService } from '../presence/presence.service.js';
 import { stableUuid } from '../realtime/ids.js';
+import { sha256File } from '../storage/file-validation.js';
+import { StorageService, type UploadedFileLike } from '../storage/storage.service.js';
 import { CALL_INCLUDE, toCall, type CallRow } from './call.mapper.js';
 import { toE164 } from './phone.js';
 
@@ -66,6 +69,7 @@ export class CallsService {
     private readonly scope: ScopeService,
     private readonly events: EventBus,
     private readonly presence: PresenceService,
+    private readonly storage: StorageService,
     @Inject(REDIS) private readonly redis: Redis | null,
   ) {}
 
@@ -366,6 +370,51 @@ export class CallsService {
       await publishSafe(this.events, this.logger, 'call.updated', auth.workspaceId, { call: toCall(next, defs) }, { actor: actor.event });
     }
     return toCall(next, defs, await roleKeyOf(db, auth));
+  }
+
+  // ---------------------------------------------------------------- recordings
+
+  /**
+   * The phone recorder file of MY call (D-057; the app never records audio itself). Stored through
+   * PLATFORM's StorageService (purpose call_recording, private). Idempotent: the same file again
+   * returns the call unchanged; a different file for a call that already has one is a 409.
+   */
+  async uploadRecording(auth: AuthContext, id: string, file: UploadedFileLike | undefined): Promise<Call> {
+    const userId = requireUser(auth);
+    const db = this.prisma.forTenant(auth.workspaceId);
+    const row = await this.visibleRow(db, auth, id);
+    if (row.userId !== userId) throw new AppException('FORBIDDEN', 'Only the person who made the call can upload its recording');
+    if (row.status === 'in_progress' || row.status === 'ringing') throw new AppException('CONFLICT', 'Upload the recording after the call has ended');
+    if (row.recordingFileId) {
+      const existing = await db.file.findFirst({ where: { id: row.recordingFileId, deletedAt: null }, select: { sha256: true } });
+      if (existing && file?.path && existing.sha256 === (await sha256File(file.path))) return this.get(auth, id);
+      if (existing) throw new AppException('CONFLICT', 'This call already has a recording');
+    }
+    const stored = await this.storage.saveTenantFile(auth.workspaceId, 'call_recording', file, { uploadedById: userId, leadId: row.leadId });
+    const { count } = await db.call.updateMany({ where: { id, OR: [{ recordingFileId: null }, { recordingFileId: row.recordingFileId }] }, data: { recordingFileId: stored.id } });
+    if (count === 0) {
+      // A concurrent upload won: keep its file, drop ours.
+      await db.file.updateMany({ where: { id: stored.id }, data: { deletedAt: new Date() } });
+      await this.storage.deleteObject(stored);
+      return this.get(auth, id);
+    }
+    const next = await this.row(db, id);
+    const actor = await requestActor(db, auth);
+    if (next.leadId) {
+      await db.activity.updateMany({ where: { id: callActivityId(id) }, data: { payload: { callId: id, status: next.status, outcome: next.outcome, durationSec: next.durationSec, hasRecording: true } } });
+    }
+    await publishSafe(this.events, this.logger, 'call.updated', auth.workspaceId, { call: await this.broadcast(db, next) }, { actor: actor.event });
+    return this.get(auth, id);
+  }
+
+  /** Signed recording URL (calls.recordings, scope applies). Waveform peaks are not computed yet (empty). */
+  async recordingUrl(auth: AuthContext, id: string): Promise<RecordingUrl> {
+    const db = this.prisma.forTenant(auth.workspaceId);
+    const row = await this.visibleRow(db, auth, id);
+    const file = row.recordingFileId ? await db.file.findFirst({ where: { id: row.recordingFileId, deletedAt: null } }) : null;
+    if (!file) throw notFound('Recording');
+    const url = this.storage.signedUrl(file);
+    return { url: url.url, expiresAt: url.expiresAt, waveform: [] };
   }
 
   // ---------------------------------------------------------------- helpers
