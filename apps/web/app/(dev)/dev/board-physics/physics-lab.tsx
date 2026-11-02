@@ -329,6 +329,7 @@ export function PhysicsLab() {
         <Group title="Springs">
           <SpringSliders name="Pick-up" k="spring" cfg={cfg} />
           <SpringSliders name="Follow pointer" k="follow" cfg={cfg} />
+          <SpringSliders name="Tilt" k="tilt" cfg={cfg} />
           <SpringSliders name="Drop (snap)" k="land" cfg={cfg} />
           <SpringSliders name="Spring back" k="springBack" cfg={cfg} />
           <SpringSliders name="Gap" k="gap" cfg={cfg} />
