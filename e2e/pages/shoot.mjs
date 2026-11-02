@@ -25,6 +25,9 @@ const STYLE_CHECKS = [
   ['team', 'depth', 'dark'],
 ];
 
+/** Mock user ids (mockUsers(): admin is index 0, the employee persona is rep1 at index 2). */
+const USER_ID = { company_admin: '0190f5a0-0000-7000-8000-100000000000', employee: '0190f5a0-0000-7000-8000-100000000002' };
+
 const browser = await chromium.launch();
 const host = new URL(base).hostname;
 const shots = [];
@@ -41,12 +44,15 @@ async function shoot(name, persona, path, selector, { theme, device, style }) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.addInitScript(
-    ([p, s]) => {
+    ([p, s, id]) => {
+      // Headless Chromium reports few cores, which counts as a low-end device (Classic only).
+      Object.defineProperty(Navigator.prototype, 'hardwareConcurrency', { get: () => 8 });
+      Object.defineProperty(Navigator.prototype, 'deviceMemory', { get: () => 8 });
       localStorage.setItem('vistar.mock.persona', JSON.stringify({ persona: p }));
-      if (s) localStorage.setItem(`vistar.mock.settings.${p}`, JSON.stringify({ interfaceStyle: s, motionIntensity: 'reduced' }));
-      else localStorage.removeItem(`vistar.mock.settings.${p}`);
+      if (s) localStorage.setItem(`vistar.ui.user.${id}`, JSON.stringify({ interfaceStyle: s, motionIntensity: 'reduced' }));
+      else localStorage.removeItem(`vistar.ui.user.${id}`);
     },
-    [persona, style ?? null],
+    [persona, style ?? null, USER_ID[persona]],
   );
   await page.goto(`${base}${path}`, { waitUntil: 'domcontentloaded' });
   await page.locator(selector).first().waitFor({ state: 'visible', timeout: 30_000 });

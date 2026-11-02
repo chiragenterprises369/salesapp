@@ -148,7 +148,7 @@ export function ChatView({
           <div role="log" aria-label="Messages" aria-live="polite" aria-relevant="additions">
             {dayGroups(messages).map((g) => (
               <div key={g.day} className="mb-2">
-                <p className="sticky top-0 z-10 my-2 flex justify-center">
+                <p className="my-2 flex justify-center">
                   <span className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-2xs font-medium text-fg-secondary shadow-card">{dayLabel(g.day, now, timeZone)}</span>
                 </p>
                 <ul className="flex flex-col gap-1.5">

@@ -215,7 +215,7 @@ export function StatTile({ label, value, hint, tone, className }: { label: strin
     <Card className={cn('flex min-w-0 flex-col gap-0.5 px-4 py-3', PANEL, className)}>
       <span className="truncate text-xs font-medium text-muted">{label}</span>
       <span className="tabular truncate text-xl font-semibold text-fg">{value}</span>
-      {hint && <span className={cn('truncate text-xs', tone === 'good' ? 'text-success-text' : tone === 'bad' ? 'text-danger-text' : 'text-muted')}>{hint}</span>}
+      {hint && <span className={cn('text-xs text-pretty', tone === 'good' ? 'text-success-text' : tone === 'bad' ? 'text-danger-text' : 'text-muted')}>{hint}</span>}
     </Card>
   );
 }

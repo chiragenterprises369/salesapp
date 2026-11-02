@@ -95,7 +95,7 @@ export function TaskRow({
           {task.leadId && task.leadName && (
             <Link
               href={`${leadsBase}?lead=${task.leadId}`}
-              className="focus-ring inline-flex items-center rounded-xs text-xs font-medium text-accent-text underline-offset-4 hover:underline pointer-coarse:min-h-11"
+              className="focus-ring inline-flex items-center rounded-xs text-xs font-medium text-accent-text underline-offset-4 hover:underline pointer-coarse:-my-3.5 pointer-coarse:py-3.5"
             >
               {task.leadName}
             </Link>

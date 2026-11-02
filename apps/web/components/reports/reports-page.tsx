@@ -1,6 +1,7 @@
 'use client';
 
 import { formatInr, type LeadSource } from '@vistar/shared';
+import { istDayStart } from '@vistar/shared/fixtures';
 import { ArrowDown, ArrowUp, ArrowUpDown, BarChart3, Download } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -18,7 +19,7 @@ import { toast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import { useMe } from '@/lib/session/session';
 import { downloadCsv, toCsv, type CsvCell } from './csv';
-import { useForecast, useReport } from './data';
+import { dataSince, useForecast, useReport } from './data';
 import { presetRange, previousRange, RANGE_LABEL, rangeLabel, toDateInput, type Range, type RangePreset } from './date-range';
 import { callDayTotals, change, reportKpis, slaShares, sortReps, successRate, type RepSortKey } from './logic';
 import { ErrorBlock, FilterPills, SectionCard, StatSkeleton, StatTile, TOUCH } from './page-kit';
@@ -48,7 +49,7 @@ function CsvButton({ name, range, head, rows }: { name: string; range: Range; he
 }
 
 function Delta({ value, lowerIsBetter }: { value: number | null; lowerIsBetter?: boolean }): ReactNode {
-  if (value === null) return 'No data for the previous period';
+  if (value === null) return 'No earlier data to compare';
   const good = lowerIsBetter ? value <= 0 : value >= 0;
   return (
     <span className={good ? 'text-success-text' : 'text-danger-text'}>
@@ -96,7 +97,8 @@ export function ReportsPage() {
   const onSort = (key: RepSortKey) => setSort((x) => (x.key === key ? { key, dir: x.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'name' || key === 'avgResponseMin' ? 'asc' : 'desc' }));
   const scopeChip = me?.role.dataScope === 'team' ? <Chip tone="indigo">Your team only</Chip> : me?.role.kind === 'viewer' ? <Chip>Read-only</Chip> : undefined;
   const tz = me?.workspace.timezone ?? 'Asia/Kolkata';
-  const prevHasData = !!pk && pk.leads > 0;
+  // Compare only when the previous range is fully inside the data we have (the mock world starts 30 days ago).
+  const prevHasData = !!pk && !!prev && prev.from >= istDayStart(dataSince()) && pk.leads > 0;
 
   const content = () => {
     if (!range || report.isPending) {

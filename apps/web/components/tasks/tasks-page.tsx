@@ -146,7 +146,7 @@ export function TasksPage() {
 
   const panel = (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2">
         {view === 'list' ? (
           <FilterPills
             label="Due"
@@ -160,13 +160,13 @@ export function TasksPage() {
         ) : (
           <p className="text-xs text-muted-strong">Open and done tasks by due day. Overdue tasks are red.</p>
         )}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] lg:w-auto">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <SearchField value={q} onChange={(v) => {
               setQ(v);
               reset();
-            }} label="Search tasks" placeholder="Search tasks or leads" className="sm:w-64" />
+            }} label="Search tasks" placeholder="Search tasks or leads" className="sm:w-72" />
           {tab === 'team' && canTeam && (
-            <FilterSelect label="Owner" value={assigneeId} onChange={(v) => {
+            <FilterSelect label="Owner" className="sm:w-48" value={assigneeId} onChange={(v) => {
                 setAssigneeId(v);
                 reset();
               }}>
@@ -178,7 +178,7 @@ export function TasksPage() {
               ))}
             </FilterSelect>
           )}
-          <FilterSelect label="Task type" value={type} onChange={(v) => {
+          <FilterSelect label="Task type" className="sm:w-44" value={type} onChange={(v) => {
               setType(v as TaskTypeFilter);
               reset();
             }}>

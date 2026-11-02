@@ -30,3 +30,10 @@ export function useForecast() {
     enabled: !!v.userId,
   });
 }
+
+let since: number | null = null;
+/** Time of the oldest lead in the world: earlier ranges have no data, so comparisons with them are skipped. */
+export function dataSince(): number {
+  if (since === null) since = worldContext().leads.reduce((m, l) => Math.min(m, Date.parse(l.createdAt)), Number.POSITIVE_INFINITY);
+  return since;
+}

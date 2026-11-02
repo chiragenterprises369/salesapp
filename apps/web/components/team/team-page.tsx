@@ -20,11 +20,14 @@ import type { TeamMemberRow } from '@/lib/world';
 import { useTeamMembers } from '@/lib/world/hooks';
 import { filterMembers, groupByTeam, totals, type StatusFilter } from './logic';
 
-function Metric({ label, value, alert }: { label: string; value: string; alert?: boolean }) {
+function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="min-w-0">
       <dt className="truncate text-2xs text-muted">{label}</dt>
-      <dd className={cn('tabular truncate text-sm font-semibold', alert ? 'text-danger-text' : 'text-fg')}>{value}</dd>
+      <dd className="tabular truncate text-sm font-semibold text-fg">
+        {value}
+        {sub && <span className="ml-1 text-2xs font-medium text-danger-text">{sub}</span>}
+      </dd>
     </div>
   );
 }
@@ -57,7 +60,7 @@ function MemberCard({ m, isMe }: { m: TeamMemberRow; isMe: boolean }) {
           <Metric label="Calls today" value={String(m.stats.callsToday)} />
           <Metric label="Talk time" value={formatDuration(m.stats.talkSecToday)} />
           <Metric label="Open leads" value={m.stats.openLeads.toLocaleString('en-IN')} />
-          <Metric label={m.stats.overdueTasks ? `Tasks (${m.stats.overdueTasks} late)` : 'Open tasks'} value={String(m.stats.openTasks)} alert={m.stats.overdueTasks > 0} />
+          <Metric label="Open tasks" value={String(m.stats.openTasks)} sub={m.stats.overdueTasks ? `${m.stats.overdueTasks} late` : undefined} />
         </dl>
         <p className="text-xs text-muted">
           Won this month: <span className="tabular font-medium text-fg">{formatInr(m.stats.wonInrThisMonth, { compact: true })}</span> from {m.stats.dealsWonThisMonth} {m.stats.dealsWonThisMonth === 1 ? 'deal' : 'deals'}
