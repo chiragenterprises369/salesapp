@@ -62,7 +62,11 @@ export async function checkGlb(path: string, size: number): Promise<GlbCheck> {
   try {
     const buf = Buffer.alloc(Math.min(jsonLength, 32 * 1024 * 1024));
     await fh.read(buf, 0, buf.length, 20);
-    const json = JSON.parse(buf.toString('utf8').replace(/[\u0000 ]+$/, '')) as { asset?: { version?: string } };
+    // The JSON chunk is padded with spaces (0x20); strip those and any stray NUL bytes.
+    const text = buf.toString('utf8');
+    let end = text.length;
+    while (end > 0 && (text.charCodeAt(end - 1) === 0 || text.charCodeAt(end - 1) === 0x20)) end--;
+    const json = JSON.parse(text.slice(0, end)) as { asset?: { version?: string } };
     if (!json.asset?.version?.startsWith('2')) return { ok: false, problem: 'The GLB asset version is not 2.0' };
   } catch {
     return { ok: false, problem: 'The GLB JSON chunk is not valid JSON' };

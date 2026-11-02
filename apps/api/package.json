@@ -15,6 +15,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:validate": "prisma validate",
     "seed": "tsx prisma/seed.ts",
+    "seed:demo": "tsx prisma/seed-demo.ts",
     "simulate": "tsx scripts/simulator.ts",
     "packs:sync": "tsx scripts/packs-sync.ts",
     "postinstall": "prisma generate"

@@ -7,8 +7,10 @@ import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { randomUUID } from 'node:crypto';
 import { AppModule } from './app.module.js';
+import { cached, corsOriginCheck } from './common/http/cors.js';
 import { AppExceptionFilter } from './common/errors/exception.filter.js';
 import { getEnv } from './config/env.js';
+import { DomainsService } from './modules/workspace/domains.service.js';
 
 async function bootstrap(): Promise<void> {
   const env = getEnv();
@@ -30,8 +32,11 @@ async function bootstrap(): Promise<void> {
   });
   app.use(helmet());
   app.use(cookieParser());
+  // WEB_ORIGIN, dev origins (localhost / 127.0.0.1 / *.localhost on DEV_CORS_PORTS, not in production) and
+  // verified custom domains (D-060; host list cached for 60 s).
+  const domains = app.get(DomainsService);
   app.enableCors({
-    origin: env.WEB_ORIGIN.split(',').map((o) => o.trim()),
+    origin: corsOriginCheck(env, cached(() => domains.corsHosts(), 60_000)),
     credentials: true,
     exposedHeaders: ['x-request-id'],
   });
