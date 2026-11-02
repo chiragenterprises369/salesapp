@@ -116,9 +116,12 @@ export const BoardColumn = memo(function BoardColumn({
   const [initialTop] = useState(() => useLeadsViewState.getState().scroll.board.columns[stage.id] ?? 0);
   const { mutate: loadMore, isPending: loadingMore, isError: loadMoreFailed } = useLoadMoreColumn(pipelineId, filters);
 
-  // Virtualise long columns, with hysteresis so a drop around the threshold does not remount the list.
-  const [virtual, setVirtual] = useState(leads.length > virtualizeOver);
-  const shouldVirtual = virtual ? leads.length > virtualizeOver - VIRTUAL_HYSTERESIS : leads.length > virtualizeOver;
+  // Virtualise long columns, with hysteresis around the threshold (switch on above threshold + 10,
+  // back off at threshold - 10). The band matters because a board page is exactly 50 cards
+  // (= virtualizeOver): with a plain threshold, the first new lead or drop on a full page remounted
+  // the list as virtual and lost its drop-in animation.
+  const [virtual, setVirtual] = useState(leads.length > virtualizeOver + VIRTUAL_HYSTERESIS);
+  const shouldVirtual = virtual ? leads.length > virtualizeOver - VIRTUAL_HYSTERESIS : leads.length > virtualizeOver + VIRTUAL_HYSTERESIS;
   if (shouldVirtual !== virtual) setVirtual(shouldVirtual);
 
   useLayoutEffect(() => {
