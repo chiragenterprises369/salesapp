@@ -1154,3 +1154,16 @@ Follow-ups (verbatim):
 
 ### 29.10 Execution
 - Parallel agents in their own worktrees, at most 5 at a time (7.8 GB RAM; heavy steps serialised by a lock). Wave A: contracts and platform API, realtime and presence API, Android app, premium UI and branding web, web API wiring and cleanup. Wave B: custom floor request and Super Admin floor upload, live Team Floor from the server and attendance UI, CRM features (29.9), Android app wired to the full API, QA.
+
+### 29.11 Follow-up during wave A: AI-made floor, office zone tracking, operating from the floor (change #19)
+
+Verbatim:
+
+> muzhe live team floor map ka aisa koi solution chahiye jisse admin ek prompt de claude opus 5.5 ko aur claude wo file banake de admin ko admin wo file upload kare super admin panel me aur fir company ka live team floor working ho jae aisa kuch nhi ho skta? ya claude api lagana pdega super admin me  jisse ye kam ho jae?
+>
+> aur kon kaha ja rha hai office me wo bhi track ho sake high accuracy ke sath live team floor pe kya kar rha hai wo bhi track ho sake almost harek state track ho sake aisa advance system bnana flutter app se track hoga aur sath hi sath web employee panel use kar rha hoga to wo bhi use hoga.aur ek sawaal tha live team floor ko dekhte dekhte hue operate karna possible nhi hai kya poora app ya web version sab kuch feature use karne ka tareeka ek hi tab me available ho aur sath hi full screen mode bhi jisse feature use karne me asani hogi btao fir muzhe possible hai ya nhi
+
+Breakdown:
+- AI-made floor without an API key (extends 29.5): the Super Admin floor page shows a ready prompt (`FLOOR_PLAN_PROMPT`, filled with the request's headcount and notes) with a copy button. The Super Admin pastes it into a Claude chat with the company's reference photos; Claude answers with a Vistar floor plan JSON (`FloorPlanSchema`, format `layout_json`). The Super Admin uploads that file; it is validated, its seats become the seat map, the 3D office is built from the module kit, and it can be previewed and published at once. GLB or glTF uploads stay supported. A one-click "Generate with AI" using the Claude API inside Super Admin is optional and later (needs an API key and costs per use).
+- Office zone tracking (extends 29.2): who is where in the office, from the Android app: BLE beacons per room or area (automatic, room level), office Wi-Fi (in office or not), QR or NFC markers at doors and desks (scan or tap, exact), GPS only for in office versus outside. Markers are managed by the company admin in Team Floor settings. Web panel use reports the screen in use and active or idle. The Team Floor shows each person's zone, status, activity and screen, with the source and confidence.
+- Operate from the floor in one tab: the Live Team Floor becomes a workspace. Clicking a person opens a side panel with actions (call, message, assign a lead, open their leads and tasks), and every module (Leads, Inbox, Tasks, Calls, Dashboard) can open as a panel over the floor without leaving it. A full-screen mode (browser Fullscreen API, keyboard shortcut) on the web, and immersive mode in the app. Wave B (frontend-3d with frontend-app).
