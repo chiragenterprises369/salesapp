@@ -43,6 +43,13 @@ import { StorageService } from '../storage/storage.service.js';
  * timeout, and "snapshot + events = fresh snapshot".
  */
 
+// This spec authenticates with real Bearer tokens. With DEV_AUTH=1 in the worktree .env the global
+// DevAuthGuard rejects every request without x-dev-user (401 before the real guard runs), so force it
+// off before AppModule (and env.ts, which dotenv never overrides) is imported.
+vi.hoisted(() => {
+  process.env.DEV_AUTH = '0';
+});
+
 const sfx = testSuffix();
 const PASSWORD = `pw-${sfx}-Vistar!`;
 const BEACON_UUID = 'f7826da6-4fa2-4e98-8024-bc5b71e0893e';
@@ -467,8 +474,12 @@ describe('attendance and field tracking guards', () => {
   });
 
   it('location: idempotent per point; outside working hours rejected and never stored', async () => {
+    // Both points must lie after the check-in of the previous test (it may be < 10 s ago on a fast run,
+    // and a point before checkInAt is rejected as not_checked_in).
+    const open = await prisma.attendanceSession.findFirstOrThrow({ where: { workspaceId: wsA, userId: ids.e1, checkOutAt: null } });
+    await waitFor(() => Date.now() > open.checkInAt.getTime() + 1_000, 3_000, 'a second after check-in');
     const now = Date.now();
-    const points = [{ ...fix, at: iso(now - 10_000) }, { ...fix, lat: 19.077, at: iso(now) }];
+    const points = [{ ...fix, at: iso(Math.max(now - 10_000, open.checkInAt.getTime() + 1)) }, { ...fix, lat: 19.077, at: iso(now) }];
     const first = await api().post('/api/v1/me/location').set(auth('e1')).send({ points });
     expect(first.status, JSON.stringify(first.body)).toBe(200);
     expect(LocationBatchResultSchema.safeParse(first.body).success).toBe(true);
