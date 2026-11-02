@@ -166,7 +166,15 @@ const StaticPlan = memo(function StaticPlan({ template, c, label }: { template: 
       <rect x={ex - 1.2} y={ez - 0.75} width={2.4} height={1.3} rx={0.08} fill={c.porch} />
       <polygon points={pts(template.footprint)} fill={c.oak} />
       {template.rooms.map((room) => (
-        <polygon key={room.id} points={pts(room.outline)} fill={floorFill[room.floor] ?? c.oak} />
+        <polygon
+          key={room.id}
+          points={pts(room.outline)}
+          fill={floorFill[room.floor] ?? c.oak}
+          data-zone={template.custom && !room.id.startsWith('__') ? room.id : undefined}
+          stroke={template.custom && !room.id.startsWith('__') ? c.partition : undefined}
+          strokeWidth={template.custom ? 0.05 : undefined}
+          strokeDasharray={template.custom && !template.walls.length ? '0.25 0.15' : undefined}
+        />
       ))}
       {furniture}
       {template.seats.map((s) => (
@@ -176,7 +184,7 @@ const StaticPlan = memo(function StaticPlan({ template, c, label }: { template: 
         <WallLine key={w.id} wall={w} c={c} />
       ))}
       {template.rooms
-        .filter((room) => room.type !== 'sales_floor')
+        .filter((room) => (template.custom ? !room.id.startsWith('__') : room.type !== 'sales_floor'))
         .map((room) => {
           const [cx, cz, width] = labelPoint(room.outline);
           // Skip names that do not fit the room (e.g. the narrow print corner); the list names it.
@@ -247,14 +255,14 @@ function furnitureShapes(template: FloorTemplate, c: Palette) {
     const type = kindAt(o.pos[0], o.pos[1]);
     if (o.kind === 'circle') {
       if (Math.hypot(o.pos[0] - hx, o.pos[1] - hz) < 0.1) return null; // the hub machine is drawn separately
-      return <circle key={i} cx={o.pos[0]} cy={o.pos[1]} r={o.r * 0.9} fill={type.startsWith('floor_lamp') ? c.furnitureEdge : c.plant} />;
+      return <circle key={i} cx={o.pos[0]} cy={o.pos[1]} r={o.r * 0.9} fill={type.startsWith('floor_lamp') || type === 'water_cooler' ? c.furnitureEdge : c.plant} />;
     }
     const fill =
-      type === 'sofa_green' || type === 'armchair_green'
+      type === 'sofa_green' || type === 'armchair_green' || type === 'sofa' || type === 'armchair' || type === 'phone_booth'
         ? c.sofa
-        : type === 'reception_counter'
+        : type === 'reception_counter' || type === 'reception_desk'
           ? c.marble
-          : type.includes('walnut') || type === 'chair_visitor'
+          : type.includes('walnut') || type === 'chair_visitor' || type === 'manager_desk' || type === 'coffee_table' || type === 'meeting_table'
             ? c.walnutFurniture
             : c.furniture;
     const [w, d] = o.size;

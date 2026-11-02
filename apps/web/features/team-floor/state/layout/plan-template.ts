@@ -185,7 +185,7 @@ function workSurface(props: Prop[], seat: Pt, facing: number): { work: Pt; monit
     if (enter < 0 || enter > 0.9) continue;
     if (exit < 0) exit = Math.min(1.6, enter + spec.size[1]);
     const depth = exit - enter;
-    const m = enter + Math.min(depth - 0.08, Math.max(0.3, depth * 0.62));
+    const m = enter + Math.min(0.45, depth * 0.6, depth - 0.08);
     const w = enter + Math.min(0.22, depth * 0.35);
     return { work: [round(seat[0] + fx * w), round(seat[1] + fz * w)], monitor: [round(seat[0] + fx * m), round(seat[1] + fz * m)], height: spec.height };
   }
