@@ -1,8 +1,13 @@
 import { Module } from '@nestjs/common';
+import { PresenceModule } from '../presence/presence.module.js';
+import { CallsController } from './calls.controller.js';
+import { CallsService } from './calls.service.js';
 
-/**
- * OWNER: realtime-integrations. Click-to-call, call logs, recordings (signed URLs), telephony callbacks (Phase 7).
- * Placeholder created in STEP 0. Add controllers/providers here; register sub-modules in imports.
- */
-@Module({})
+/** OWNER: realtime-integrations. SIM calls from the Android app (D-057), call log, call list. */
+@Module({
+  imports: [PresenceModule],
+  controllers: [CallsController],
+  providers: [CallsService],
+  exports: [CallsService],
+})
 export class CallsModule {}

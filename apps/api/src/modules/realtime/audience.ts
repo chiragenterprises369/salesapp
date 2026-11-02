@@ -19,7 +19,7 @@ export type Audience =
   /** Everyone signed in to the workspace. */
   | { kind: 'workspace' }
   /** Visible when any owner is in the viewer's scope; a null owner is visible to scope all (or with `nullOwnerPermission`). */
-  | { kind: 'owners'; ownerIds: ReadonlyArray<string | null>; nullOwnerPermission?: Permission; permission?: Permission }
+  | { kind: 'owners'; ownerIds: ReadonlyArray<string | null>; nullOwnerPermission?: Permission; permission?: Permission; allowSelf?: boolean }
   /** Owner of a lead must be looked up first (the payload only has the lead id). */
   | { kind: 'lead'; leadId: string; fallbackOwnerIds: ReadonlyArray<string | null> }
   /** Anyone with this permission (workflow runs, webhook deliveries). */
@@ -49,6 +49,13 @@ export const AUDIENCE_RULES: Record<EventName, Rule> = {
   'call.ended': ev<'call.ended'>((e) => ({ kind: 'owners', ownerIds: [e.payload.call.user?.id ?? null], permission: 'calls.read' })),
   'call.updated': ev<'call.updated'>((e) => ({ kind: 'owners', ownerIds: [e.payload.call.user?.id ?? null], permission: 'calls.read' })),
   'employee.status_changed': ev<'employee.status_changed'>((e) => ({ kind: 'owners', ownerIds: [e.payload.userId] })),
+  // attendance and GPS: the person, and managers and admins whose scope includes them (team.read)
+  'attendance.checked_in': ev<'attendance.checked_in'>((e) => ({ kind: 'owners', ownerIds: [e.payload.session.userId], permission: 'team.read', allowSelf: true })),
+  'attendance.checked_out': ev<'attendance.checked_out'>((e) => ({ kind: 'owners', ownerIds: [e.payload.session.userId], permission: 'team.read', allowSelf: true })),
+  'location.updated': ev<'location.updated'>((e) => ({ kind: 'owners', ownerIds: [e.payload.userId], permission: 'team.read', allowSelf: true })),
+  'workspace.branding_changed': () => ({ kind: 'workspace' }),
+  'floor_request.updated': () => ({ kind: 'permission', permission: 'settings.manage' }),
+  'floor.published': () => ({ kind: 'workspace' }),
   'message.received': ev<'message.received'>((e) => conversationAudience(e.payload.conversation.assignee?.id ?? null)),
   'message.sent': ev<'message.sent'>((e) => conversationAudience(e.payload.conversation.assignee?.id ?? null)),
   // ids and a status only; the client patches a conversation it already holds
@@ -103,6 +110,7 @@ export function maySee(viewer: SocketViewer, event: DomainEvent, audience: Audie
     case 'permission':
       return viewer.permissions.has(audience.permission);
     case 'owners':
+      if (audience.allowSelf && audience.ownerIds.includes(viewer.userId)) return true;
       if (audience.permission && !viewer.permissions.has(audience.permission)) return false;
       return audience.ownerIds.some((id) => ownerVisible(viewer, id, audience.nullOwnerPermission));
     case 'lead':

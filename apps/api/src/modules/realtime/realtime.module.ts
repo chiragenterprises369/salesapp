@@ -1,8 +1,19 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module.js';
+import { AuthStateModule } from '../auth/state/auth-state.module.js';
+import { PresenceModule } from '../presence/presence.module.js';
+import { RealtimeGateway } from './realtime.gateway.js';
+import { SocketAuthService } from './socket-auth.service.js';
 
 /**
- * OWNER: realtime-integrations. Socket.IO gateway (/realtime), rooms, event-bus fan-out, presence/heartbeats, Team Floor snapshot.
- * Placeholder created in STEP 0. Add controllers/providers here; register sub-modules in imports.
+ * OWNER: realtime-integrations (change #19: realtime stream). Socket.IO gateway (/realtime), rooms,
+ * event-bus fan-out with data scope, presence over the socket. The stream's feature modules (presence,
+ * attendance, conversations, Team Floor) are registered here so app.module.ts stays untouched;
+ * CallsModule is registered by the app module.
  */
-@Module({})
+@Module({
+  imports: [AuthModule, AuthStateModule, PresenceModule],
+  providers: [SocketAuthService, RealtimeGateway],
+  exports: [PresenceModule],
+})
 export class RealtimeModule {}

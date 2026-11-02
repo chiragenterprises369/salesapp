@@ -1,16 +1,21 @@
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import {
+  eventPayloadSchemas,
   HEARTBEAT_INTERVAL_MS,
+  PresenceSchema,
   presenceToEmployeeStatus,
   type BusinessHours,
   type EventActor,
+  type EventPayload,
   type MyPresence,
   type Presence,
   type PresenceEvent,
 } from '@vistar/shared';
+import { Prisma } from '../../generated/prisma/client.js';
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { stableUuid } from '../realtime/ids.js';
 import {
   initialState,
   manualUntil,
@@ -187,7 +192,7 @@ export class PresenceService implements OnApplicationBootstrap {
     ]);
     const holidays = Array.isArray(ws?.holidays) ? (ws.holidays as Array<{ date?: unknown }>).map((h) => h?.date).filter((d): d is string => typeof d === 'string') : [];
     const ctx: PresenceContext = {
-      workingHours: { hours: ((user?.workingHours ?? ws?.businessHours) as BusinessHours | null) ?? {}, timezone: ws?.timezone ?? 'Asia/Kolkata', holidays },
+      workingHours: { hours: ((user?.workingHours ?? ws?.businessHours) as BusinessHours | null) ?? ({} as BusinessHours), timezone: ws?.timezone ?? 'Asia/Kolkata', holidays },
       fieldStaff: user?.isFieldStaff ?? false,
     };
     if (this.contexts.size > 10_000) this.contexts.clear();
@@ -229,10 +234,16 @@ export class PresenceService implements OnApplicationBootstrap {
     });
   }
 
-  /** State for a user Redis does not know: version continues from the database, status offline. */
+  /**
+   * State for a user Redis does not know. With a Presence row (Redis was flushed) the version restarts
+   * above anything published before: Presence.version when the column exists, else the current time in
+   * ms (a per-user counter can never reach it), so clients never drop the new events as stale.
+   */
   private async seed(workspaceId: string, userId: string, now: number): Promise<PresenceState> {
     const row = await this.prisma.forTenant(workspaceId).presence.findFirst({ where: { userId } });
-    const state = initialState(userId, now, { version: row?.version ?? 0, lastSeenAt: row?.lastSeenAt?.getTime() ?? null });
+    const stored = (row as { version?: unknown } | null)?.version;
+    const version = row ? (typeof stored === 'number' ? stored : now) : 0;
+    const state = initialState(userId, now, { version, lastSeenAt: row?.lastSeenAt?.getTime() ?? null });
     if (row) {
       // The database copy is what clients last saw; the engine re-derives from here (no devices = offline).
       state.status = row.status as PresenceStatus;
@@ -277,7 +288,7 @@ export class PresenceService implements OnApplicationBootstrap {
       status: v.status,
       source: v.source,
       since,
-      version: v.version,
+      ...(HAS_PRESENCE_VERSION ? { version: v.version } : {}),
       manualStatus: v.manualStatus,
       manualNote: v.activity.note,
       manualSetAt: s.manual ? new Date(s.manual.setAt) : null,
@@ -290,17 +301,18 @@ export class PresenceService implements OnApplicationBootstrap {
       leadId: v.activity.leadId,
     };
     await db.$transaction(async (tx) => {
+      // One row per (user, version): a deterministic id makes a retried write a no-op (exactly once).
       await tx.presenceEvent.createMany({
         data: [
           {
+            id: stableUuid('presence-event', workspaceId, userId, v.version),
             workspaceId,
             userId,
-            version: v.version,
             status: v.status,
             previousStatus: change.previousStatus,
             source: v.source,
             callId: v.activity.callId,
-            meta: { activity: v.activity.kind, leadId: v.activity.leadId, note: v.activity.note },
+            meta: { version: v.version, activity: v.activity.kind, leadId: v.activity.leadId, note: v.activity.note },
             at: since,
           },
         ],
@@ -318,7 +330,7 @@ export class PresenceService implements OnApplicationBootstrap {
   private async publish(workspaceId: string, change: StatusChange): Promise<void> {
     const v = change.view;
     try {
-      await this.events.publish('employee.status_changed', workspaceId, statusChangedPayload(change), { actor: SYSTEM });
+      await this.events.publish('employee.status_changed', workspaceId, statusChangedPayload(change) as EventPayload<'employee.status_changed'>, { actor: SYSTEM });
     } catch (err) {
       this.logger.error(`employee.status_changed publish failed (v${v.version}): ${(err as Error).message}`);
     }
@@ -357,6 +369,13 @@ export class PresenceService implements OnApplicationBootstrap {
 }
 
 
+/** True once the contract carries `version` (request 19-#2); until then it is sent only where the schema allows. */
+const STATUS_SHAPE = (eventPayloadSchemas['employee.status_changed'] as unknown as { shape: Record<string, unknown> }).shape;
+export const EVENT_HAS_VERSION = 'version' in STATUS_SHAPE;
+const PRESENCE_SHAPE = (PresenceSchema as unknown as { shape: Record<string, unknown> }).shape;
+const PRESENCE_HAS_VERSION = 'version' in PRESENCE_SHAPE;
+const HAS_PRESENCE_VERSION = 'version' in Prisma.PresenceScalarFieldEnum;
+
 /** Presence (contract shape) of a view. */
 export function toPresence(v: PresenceView): Presence {
   return {
@@ -365,7 +384,7 @@ export function toPresence(v: PresenceView): Presence {
     employeeStatus: presenceToEmployeeStatus(v.status),
     source: v.source,
     since: new Date(v.since).toISOString(),
-    version: v.version,
+    ...(PRESENCE_HAS_VERSION ? { version: v.version } : {}),
     manualStatus: v.manualStatus,
     lastHeartbeatAt: v.lastHeartbeatAt === null ? null : new Date(v.lastHeartbeatAt).toISOString(),
     lastSeenAt: v.lastSeenAt === null ? null : new Date(v.lastSeenAt).toISOString(),
@@ -397,8 +416,7 @@ export function statusChangedPayload(change: StatusChange) {
     source: v.source,
     lastSeenAt: p.lastSeenAt,
     activity: p.activity,
-    version: v.version,
-    since: p.since,
+    ...(EVENT_HAS_VERSION ? { version: v.version, since: p.since } : {}),
   };
 }
 

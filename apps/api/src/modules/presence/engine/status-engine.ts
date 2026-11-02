@@ -289,7 +289,7 @@ export function derive(s: PresenceState, now: number, ctx: PresenceContext): Der
   if (m && m.status === 'offline') return { status: 'offline', activity: { ...base, client: null, clientActivity: null } };
   if (m && m.status !== 'available') {
     const silentTooLong = online.length === 0 && (s.lastSeenAt ?? m.setAt) + MANUAL_STALE_MS <= now;
-    if (!silentTooLong) return { status: m.status, activity: { ...base, kind: MANUAL_ACTIVITY[m.status], startedAt: m.setAt } };
+    if (!silentTooLong) return { status: m.status, activity: { ...base, kind: MANUAL_ACTIVITY[m.status as keyof typeof MANUAL_ACTIVITY], startedAt: m.setAt } };
   }
   if (online.length === 0) return { status: 'offline', activity: { ...base, client: null, clientActivity: null } };
   if (ctx.fieldStaff && !m && s.attendance?.checkedIn && checkWorkingHours(now, ctx.workingHours).open) {

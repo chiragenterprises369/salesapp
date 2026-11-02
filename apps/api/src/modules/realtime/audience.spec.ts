@@ -97,6 +97,18 @@ describe('realtime audience (scope-aware fan-out)', () => {
     expect(maySee(manager, w, audienceOf(w))).toBe(true);
   });
 
+  it('attendance and location reach the person and managers in scope, not colleagues', () => {
+    const e = env('location.updated', { userId: EMP, sessionId: 's', point: {} });
+    const colleague: SocketViewer = { ...employee, userId: EMP2, visibleUserIds: new Set([EMP2]) };
+    expect(maySee(employee, e, audienceOf(e))).toBe(true);
+    expect(maySee(colleague, e, audienceOf(e))).toBe(false);
+    const mgr: SocketViewer = { ...manager, permissions: perms(...manager.permissions, 'team.read') };
+    expect(maySee(mgr, e, audienceOf(e))).toBe(true);
+    expect(maySee(manager, e, audienceOf(e))).toBe(false); // no team.read
+    const adm: SocketViewer = { ...admin, permissions: perms(...admin.permissions, 'team.read') };
+    expect(maySee(adm, e, audienceOf(e))).toBe(true);
+  });
+
   it('losing a lead to someone outside the scope means a resync, not the payload', () => {
     const e = env('lead.assigned', { ...lead(EMP2), fromUserId: EMP, toUserId: EMP2, rule: 'manual' });
     expect(maySee(employee, e, audienceOf(e))).toBe(false);

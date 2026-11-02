@@ -116,7 +116,7 @@ export class PresenceStore {
     if (r) {
       const tx = r.multi().set(K.state(workspaceId, userId), raw, 'EX', STATE_TTL_SEC);
       if (deadline === null) tx.zrem(K.due, member);
-      else tx.zadd(K.due, deadline, member);
+      else tx.zadd(K.due, String(deadline), member);
       await tx.exec();
       return;
     }
@@ -180,7 +180,7 @@ export class PresenceStore {
     if (!r) return;
     const keys = await r.keys(`vistar:presence:state:${workspaceId}:*`);
     if (keys.length) await r.del(...keys);
-    const members = (await r.zrange(K.due, 0, -1)).filter((m) => m.startsWith(`${workspaceId}:`));
+    const members = (await r.zrange(K.due, '0', '-1')).filter((m) => m.startsWith(`${workspaceId}:`));
     if (members.length) await r.zrem(K.due, ...members);
   }
 }
