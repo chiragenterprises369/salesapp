@@ -1,7 +1,7 @@
 'use client';
 
 import { initials } from '@vistar/shared';
-import { Building2, FlaskConical, LogOut, Smartphone, UserRound } from 'lucide-react';
+import { Building2, FlaskConical, Layers, LogOut, Smartphone, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
@@ -22,6 +22,7 @@ import { SUPER_LOGIN_PATH } from '@/lib/auth/redirect';
 import { useSignOut, useSwitchPersona } from '@/lib/auth/use-auth';
 import { currentPersona, MOCK_PERSONAS, useSession, type MockPersona } from '@/lib/session/session';
 import { cn } from '@/lib/cn';
+import { INTERFACE_STYLE_LABEL, useInterface, type InterfaceStyle } from '@/lib/theme';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -33,9 +34,36 @@ const PERSONA_LABEL: Record<MockPersona, string> = {
   super_admin: 'Super Admin',
 };
 
+/** Quick "Interface style" switch (SPEC 28.2). The full controls live in Profile and preferences. */
+function InterfaceStyleSubmenu({ platform }: { platform: boolean }) {
+  const { interfaceStyle, defaultInterfaceStyle, setInterfaceStyle, availableStyles, override } = useInterface();
+  const shownDefault = availableStyles.includes(defaultInterfaceStyle) ? defaultInterfaceStyle : 'depth';
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <Layers aria-hidden />
+        Interface style
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-64">
+        <DropdownMenuRadioGroup value={interfaceStyle ?? 'default'} onValueChange={(v) => setInterfaceStyle(v === 'default' ? null : (v as InterfaceStyle))}>
+          <DropdownMenuRadioItem value="default">
+            {platform ? 'Default' : 'Workspace default'} ({INTERFACE_STYLE_LABEL[shownDefault]})
+          </DropdownMenuRadioItem>
+          {availableStyles.map((s) => (
+            <DropdownMenuRadioItem key={s} value={s}>
+              {INTERFACE_STYLE_LABEL[s]}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        {override && <p className="px-2 pt-1.5 pb-1 text-xs text-muted">{override}</p>}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
 /**
- * Avatar menu for every panel: who am I, profile, panel switch for managers, sign out, and (development
- * only) a persona switcher for testing roles.
+ * Avatar menu for every panel: who am I, profile, interface style, panel switch for managers, sign out,
+ * and (development only) a persona switcher for testing roles.
  */
 export function UserMenu({ panel, triggerClassName }: { panel: 'company' | 'employee' | 'super-admin'; triggerClassName?: string }) {
   const session = useSession();
@@ -80,6 +108,7 @@ export function UserMenu({ panel, triggerClassName }: { panel: 'company' | 'empl
             Profile and preferences
           </DropdownMenuItem>
         )}
+        <InterfaceStyleSubmenu platform={panel === 'super-admin'} />
         {kind === 'manager' && panel === 'company' && (
           <DropdownMenuItem onSelect={() => router.push('/me')}>
             <Smartphone aria-hidden />

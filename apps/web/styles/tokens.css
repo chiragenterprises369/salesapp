@@ -161,7 +161,7 @@
   --space-glow-2: rgba(56, 189, 248, 0.05);
   --space-glow-3: rgba(139, 92, 246, 0.05);
   --space-grid: rgba(129, 140, 248, 0.09);
-  --space-horizon: rgba(129, 140, 248, 0.18);
+  --space-horizon: rgba(129, 140, 248, 0.14);
   --space-vignette: rgba(0, 0, 0, 0.35);
   --space-particle: rgba(199, 210, 254, 0.55);
   --space-particle-2: rgba(125, 211, 252, 0.40);
@@ -182,8 +182,8 @@
   --space-base: #F8F8FD;
   --space-base-2: #F3F5FC;
   --space-glow-1: rgba(129, 140, 248, 0.10);
-  --space-glow-2: rgba(34, 211, 238, 0.07);
-  --space-glow-3: rgba(244, 114, 182, 0.05);
+  --space-glow-2: rgba(34, 211, 238, 0.10);
+  --space-glow-3: rgba(244, 114, 182, 0.06);
   --space-grid: rgba(99, 102, 241, 0);
   --space-horizon: rgba(99, 102, 241, 0);
   --space-vignette: rgba(15, 23, 42, 0);
@@ -204,11 +204,11 @@
   --depth-shadow-3: 0 2px 4px rgba(0, 0, 0, 0.50), 0 16px 36px rgba(0, 0, 0, 0.55), 0 0 12px rgba(99, 102, 241, 0.22);
   --space-base: #0B0D17;
   --space-base-2: #07080F;
-  --space-glow-1: rgba(99, 102, 241, 0.16);
+  --space-glow-1: rgba(99, 102, 241, 0.20);
   --space-glow-2: rgba(34, 211, 238, 0.06);
-  --space-glow-3: rgba(217, 70, 239, 0.05);
+  --space-glow-3: rgba(168, 85, 247, 0.09);
   --space-grid: rgba(103, 232, 249, 0.10);
-  --space-horizon: rgba(103, 232, 249, 0.32);
+  --space-horizon: rgba(103, 232, 249, 0.24);
   --space-vignette: rgba(0, 0, 0, 0.45);
   --space-particle: rgba(165, 243, 252, 0.70);
   --space-particle-2: rgba(199, 210, 254, 0.60);
@@ -222,7 +222,7 @@
   --duration: 200ms;
   --duration-slow: 250ms;
   --duration-page: 260ms;
-  --duration-page-exit: 160ms;
+  --duration-page-exit: 140ms;
   --duration-fade: 150ms;
   --easing: cubic-bezier(0.2, 0, 0, 1);
   --easing-glide: cubic-bezier(0.16, 1, 0.3, 1);

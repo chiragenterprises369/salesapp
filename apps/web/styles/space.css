@@ -39,39 +39,48 @@
       radial-gradient(55% 45% at 52% 118%, var(--space-glow-3), transparent 70%);
   }
 
-  .vs-backdrop__grid,
+  .vs-backdrop__floor,
   .vs-backdrop__horizon,
   .vs-backdrop__vignette {
     display: none;
   }
 
-  /* Mid layer (dark only): perspective floor grid fading out towards the horizon. */
-  [data-theme='dark'] .vs-backdrop__grid {
+  /* Mid layer (dark only): a floor plane receding to a horizon at 60% height, lines converging. */
+  [data-theme='dark'] .vs-backdrop__floor {
     display: block;
-    left: -40%;
-    right: -40%;
-    bottom: -4%;
-    height: 62%;
+    left: 0;
+    right: 0;
+    top: 60%;
+    bottom: 0;
+    overflow: hidden;
+    perspective: 360px;
+    perspective-origin: 50% 0%;
+    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.55) 35%, #000 80%);
+  }
+  .vs-backdrop__grid {
+    position: absolute;
+    left: -200%;
+    right: -200%;
+    top: 0;
+    height: 320px;
     background-image:
       linear-gradient(to bottom, var(--space-grid) 1px, transparent 1px),
       linear-gradient(to right, var(--space-grid) 1px, transparent 1px);
-    background-size: 72px 72px;
-    background-position: center bottom;
-    transform-origin: 50% 100%;
-    transform: perspective(420px) rotateX(62deg);
-    mask-image: linear-gradient(to top, #000 0%, #000 30%, transparent 92%);
+    background-size: 56px 56px;
+    background-position: center top;
+    transform-origin: 50% 0%;
+    transform: rotateX(72deg);
   }
 
-  /* Horizon line where the grid fades; glow stays inside the --glow-blur-max cap. */
+  /* Horizon line where the floor meets the sky; glow stays inside the --glow-blur-max cap. */
   [data-theme='dark'] .vs-backdrop__horizon {
     display: block;
     left: 0;
     right: 0;
-    bottom: 34%;
+    top: 60%;
     height: 1px;
-    background: linear-gradient(90deg, transparent 0%, var(--space-horizon) 30%, var(--space-horizon) 70%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, var(--space-horizon) 25%, var(--space-horizon) 75%, transparent 100%);
     box-shadow: 0 0 var(--glow-blur-max) var(--space-horizon);
-    opacity: 0.7;
   }
 
   [data-theme='dark'] .vs-backdrop__vignette {
@@ -99,6 +108,7 @@
     inset: 0;
     z-index: -1;
     overflow: hidden;
+    border-radius: inherit;
     pointer-events: none;
   }
   .vs-sheen__light {
@@ -109,6 +119,21 @@
     height: 160%;
     background: radial-gradient(45% 35% at 35% 30%, var(--glass-sheen), transparent 70%);
   }
+
+  /* Style picker thumbnails: put data-interface-style and data-theme on the thumbnail itself. */
+  .vs-preview {
+    background:
+      radial-gradient(80% 90% at 92% 0%, var(--space-glow-1), transparent 70%),
+      radial-gradient(70% 80% at 0% 100%, var(--space-glow-2), transparent 70%),
+      linear-gradient(180deg, var(--space-base) 0%, var(--space-base-2) 100%);
+  }
+  [data-theme='dark'].vs-preview {
+    background:
+      linear-gradient(to bottom, transparent 62%, var(--space-horizon) 62%, transparent calc(62% + 1px)),
+      radial-gradient(80% 90% at 92% 0%, var(--space-glow-1), transparent 70%),
+      radial-gradient(70% 80% at 0% 100%, var(--space-glow-2), transparent 70%),
+      linear-gradient(180deg, var(--space-base) 0%, var(--space-base-2) 100%);
+  }
 }
 
 /* Page transitions. The overlay never takes input: clicks and keys reach the live page underneath. */
@@ -116,10 +141,21 @@
   pointer-events: none;
 }
 
-/* Sidebar and top bar switch instantly; only the page area moves. */
-:root:is([data-interface-style='depth'], [data-interface-style='neon'])::view-transition-old(root),
-:root:is([data-interface-style='depth'], [data-interface-style='neon'])::view-transition-new(root) {
+/*
+  React starts a view transition for every room change, also in Classic and with motion Off (the
+  boundary's classes are then "none"). The root never animates: the old root snapshot is hidden and the
+  new one is shown as is, so the sidebar and top bar switch instantly and Classic looks unchanged.
+*/
+::view-transition-group(root) {
   animation: none;
+}
+::view-transition-old(root) {
+  animation: none;
+  opacity: 0;
+}
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 
 ::view-transition-group(.vs-glide),

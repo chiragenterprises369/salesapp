@@ -41,6 +41,7 @@ export function SidebarNav({ groups, expanded, density = 'default', onNavigate, 
                   className={cn(
                     'focus-ring group flex items-center rounded-md text-fg-secondary transition-colors duration-150 ease-standard',
                     'hover:bg-surface-3 hover:text-fg aria-[current=page]:bg-accent-soft aria-[current=page]:font-medium aria-[current=page]:text-accent-soft-fg',
+                    'neon:aria-[current=page]:edge-glow',
                     density === 'dense' ? 'h-7 text-sm' : 'h-8 text-sm',
                     expanded ? 'gap-2.5 px-2' : 'mx-auto size-9 justify-center',
                   )}
