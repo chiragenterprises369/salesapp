@@ -1,7 +1,8 @@
 // Vistar data model. OWNER: orchestrator (contract). Agents request changes via the orchestrator.
 // Rules:
 //  - Every table except Workspace and platform tables (PlatformAdmin, PlatformSession, PlatformAuditLog,
-//    PlanDefinition, PackDefinition, PackVersion, PackPlanEntitlement) carries workspaceId and is indexed by it.
+//    PlanDefinition, PackDefinition, PackVersion, PackPlanEntitlement, PlatformFile, PlatformSetting,
+//    AndroidRelease) carries workspaceId and is indexed by it.
 //  - Enum literals MUST equal the values in packages/shared/src/enums.ts.
 //  - Money is whole rupees (Int). Ids are UUIDv7.
 //  - Use the tenant client (PrismaService.forTenant) with UNCHECKED inputs (scalar *Id fields, no `connect`).
@@ -308,6 +309,102 @@ enum ImportStatus {
   failed
 }
 
+// change #19 enums (literals match packages/shared/src/enums.ts)
+
+enum PresenceStatus {
+  available
+  on_call
+  in_meeting
+  on_break
+  lunch
+  field_visit
+  away
+  offline
+}
+
+enum PresenceSource {
+  session
+  heartbeat
+  manual
+  phone_state
+  call_log
+  telephony
+  attendance
+  working_hours
+  timeout
+  system
+}
+
+enum CallSource {
+  sim
+  voip
+  mock
+}
+
+enum CallResult {
+  connected
+  missed
+  no_answer
+  busy
+  rejected
+  failed
+}
+
+enum FilePurpose {
+  logo
+  favicon
+  login_image
+  reference_image
+  floor_model
+  apk
+  call_recording
+  attachment
+}
+
+enum FileVisibility {
+  private
+  public
+}
+
+enum CustomDomainStatus {
+  pending
+  verified
+  failed
+}
+
+enum FloorRequestStatus {
+  submitted
+  in_progress
+  published
+  rejected
+}
+
+enum FloorImageCategory {
+  work_area
+  cabin
+  meeting_room
+  reception
+  pantry_lounge
+  floor_plan
+  other
+}
+
+enum FloorAssetStatus {
+  draft
+  published
+  superseded
+}
+
+enum FloorModelFormat {
+  glb
+  gltf_zip
+}
+
+enum DevicePlatform {
+  android
+  web
+}
+
 // ---------------------------------------------------------------- tenancy, auth, team
 
 model Workspace {
@@ -377,6 +474,16 @@ model Workspace {
   impersonations    ImpersonationSession[]
   flagOverrides     FeatureFlagOverride[]
   usageCounters     UsageCounter[]
+  devices           Device[]
+  presences         Presence[]
+  presenceEvents    PresenceEvent[]
+  attendanceSessions AttendanceSession[]
+  locationPings     LocationPing[]
+  trackingConsents  TrackingConsent[]
+  customDomain      CustomDomain?
+  floorRequests     FloorRequest[]
+  floorRequestImages FloorRequestImage[]
+  floorAssets       FloorAsset[]
 }
 
 model User {
@@ -400,6 +507,8 @@ model User {
   /// BusinessHours JSON; null = workspace hours
   workingHours    Json?
   deskIndex       Int?
+  /// Field staff: attendance check-in/out and GPS tracking in working hours (D-063); set by a company admin
+  isFieldStaff    Boolean        @default(false)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   deletedAt       DateTime?
@@ -417,6 +526,12 @@ model User {
   pushSubscriptions PushSubscription[]
   targets           Target[]
   ownedRecords      CustomRecord[]     @relation("RecordOwner")
+  devices           Device[]
+  presence          Presence?
+  presenceEvents    PresenceEvent[]
+  attendanceSessions AttendanceSession[]
+  locationPings     LocationPing[]
+  trackingConsents  TrackingConsent[]
 
   @@index([workspaceId, isActive])
   @@index([workspaceId, status])
@@ -874,18 +989,27 @@ model File {
   id           String   @id @default(uuid(7)) @db.Uuid
   workspaceId  String   @db.Uuid
   leadId       String?  @db.Uuid
-  /// S3 object key; served only via signed URLs
+  /// Storage object key (driver-relative); never exposed. Served via signed URLs or, for public files, /api/files/p/{id}
   key          String
   name         String
   mime         String
   size         Int
   uploadedById String?  @db.Uuid
+  /// Super Admin who uploaded it for the company (floor models); uploadedById is then null
+  uploadedByAdminId String? @db.Uuid
+  purpose      FilePurpose    @default(attachment)
+  visibility   FileVisibility @default(private)
+  /// Storage driver that holds the bytes (local | s3)
+  driver       String   @default("s3")
+  sha256       String?
   createdAt    DateTime @default(now())
+  deletedAt    DateTime?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   lead      Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, leadId])
+  @@index([workspaceId, purpose])
 }
 
 model ImportJob {
@@ -968,6 +1092,18 @@ model Call {
   notes          String?
   disposition    String?
   customFields   Json          @default("{}")
+  /// sim (Android app) | voip (telephony adapter) | mock
+  source         CallSource    @default(voip)
+  /// Technical result (device call log / telephony); outcome stays the rep's disposition
+  result         CallResult?
+  /// Counterpart number in E.164 (lead matching)
+  phone          String?
+  /// Android CallLog id, unique per user (idempotent device-log ingestion)
+  deviceCallId   String?
+  /// App-generated id of the live call (POST /me/calls/active), completed by the call-log row
+  clientCallId   String?
+  deviceId       String?       @db.Uuid
+  recordingFileId String?      @db.Uuid
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -976,9 +1112,12 @@ model Call {
   user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([workspaceId, provider, providerCallId])
+  @@unique([workspaceId, userId, deviceCallId])
+  @@unique([workspaceId, userId, clientCallId])
   @@index([workspaceId, userId, startedAt])
   @@index([workspaceId, leadId])
   @@index([workspaceId, startedAt])
+  @@index([workspaceId, phone])
 }
 
 model Conversation {
@@ -1560,4 +1699,278 @@ model PackPlanEntitlement {
   pack PackDefinition @relation(fields: [packId], references: [id], onDelete: Cascade)
 
   @@unique([packId, plan])
+}
+
+// ---------------------------------------------------------------- change #19: devices, presence, attendance (tenant tables)
+
+/// A phone or browser of a user that can receive pushes (FCM). Upsert key: (userId, installationId).
+model Device {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  workspaceId    String         @db.Uuid
+  userId         String         @db.Uuid
+  platform       DevicePlatform
+  installationId String
+  /// FCM registration token; globally unique (a token that moves to another user is detached from the old row)
+  fcmToken       String?        @unique
+  appVersion     String
+  appBuild       Int?
+  model          String?
+  osVersion      String?
+  lastSeenAt     DateTime       @default(now())
+  /// Set when FCM reports the token as unregistered
+  tokenInvalidAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, installationId])
+  @@index([workspaceId, userId])
+}
+
+/// Current server-decided status of a user (D-062); one row per user.
+model Presence {
+  id              String          @id @default(uuid(7)) @db.Uuid
+  workspaceId     String          @db.Uuid
+  userId          String          @unique @db.Uuid
+  status          PresenceStatus  @default(offline)
+  source          PresenceSource  @default(system)
+  since           DateTime        @default(now())
+  /// The employee's own last choice (restored after a call); null = none
+  manualStatus    PresenceStatus?
+  manualNote      String?
+  manualSetAt     DateTime?
+  lastHeartbeatAt DateTime?
+  lastSeenAt      DateTime?
+  /// web | android (last heartbeat)
+  client          String?
+  clientActivity  String?
+  callId          String?         @db.Uuid
+  callStartedAt   DateTime?
+  leadId          String?         @db.Uuid
+  updatedAt       DateTime        @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+}
+
+/// Status history (every change of Presence.status).
+model PresenceEvent {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  workspaceId    String          @db.Uuid
+  userId         String          @db.Uuid
+  status         PresenceStatus
+  previousStatus PresenceStatus?
+  source         PresenceSource
+  callId         String?         @db.Uuid
+  meta           Json?
+  at             DateTime        @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, at])
+  @@index([workspaceId, at])
+}
+
+/// One check-in .. check-out of a field staff member (D-063).
+model AttendanceSession {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  workspaceId      String    @db.Uuid
+  userId           String    @db.Uuid
+  /// YYYY-MM-DD of the check-in in the workspace timezone
+  date             String
+  checkInAt        DateTime
+  checkInLat       Float
+  checkInLng       Float
+  checkInAccuracy  Float?
+  checkOutAt       DateTime?
+  checkOutLat      Float?
+  checkOutLng      Float?
+  checkOutAccuracy Float?
+  /// manual | end_of_day | admin
+  checkOutReason   String?
+  deviceId         String?   @db.Uuid
+  note             String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pings     LocationPing[]
+
+  @@index([workspaceId, date])
+  @@index([workspaceId, userId, checkInAt])
+}
+
+/// GPS point while checked in and inside working hours. Idempotent by (user, at).
+model LocationPing {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  userId      String   @db.Uuid
+  sessionId   String   @db.Uuid
+  at          DateTime
+  lat         Float
+  lng         Float
+  accuracy    Float?
+  speed       Float?
+  heading     Float?
+  battery     Int?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session   AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, at])
+  @@index([workspaceId, sessionId, at])
+}
+
+/// Tracking consent history of an employee (DPDP); the latest row is the current state.
+model TrackingConsent {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  userId      String   @db.Uuid
+  version     String
+  accepted    Boolean
+  deviceId    String?  @db.Uuid
+  ip          String?
+  userAgent   String?
+  at          DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, at])
+}
+
+// ---------------------------------------------------------------- change #19: custom domain, custom floors (tenant tables)
+
+/// One custom domain per company (D-060); resolved only when verified and the custom_domain flag is on.
+model CustomDomain {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  workspaceId   String             @unique @db.Uuid
+  hostname      String             @unique
+  status        CustomDomainStatus @default(pending)
+  txtToken      String
+  verifiedAt    DateTime?
+  lastCheckedAt DateTime?
+  lastError     String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+/// A company's request for a custom 3D floor, with reference images (D-061).
+model FloorRequest {
+  id               String             @id @default(uuid(7)) @db.Uuid
+  workspaceId      String             @db.Uuid
+  status           FloorRequestStatus @default(submitted)
+  headcount        Int
+  notes            String?
+  /// Message from the Super Admin to the company
+  statusNote       String?
+  createdById      String?            @db.Uuid
+  handledByAdminId String?            @db.Uuid
+  publishedFloorId String?            @db.Uuid
+  submittedAt      DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  workspace Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  images    FloorRequestImage[]
+
+  @@index([workspaceId, submittedAt])
+  @@index([status, submittedAt])
+}
+
+model FloorRequestImage {
+  id          String             @id @default(uuid(7)) @db.Uuid
+  workspaceId String             @db.Uuid
+  requestId   String             @db.Uuid
+  fileId      String             @db.Uuid
+  category    FloorImageCategory
+  caption     String?
+  order       Int
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  request   FloorRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, fileId])
+  @@index([workspaceId, requestId])
+}
+
+/// A floor model (GLB / zipped glTF) uploaded by the Super Admin for a company, versioned per company.
+model FloorAsset {
+  id                 String           @id @default(uuid(7)) @db.Uuid
+  workspaceId        String           @db.Uuid
+  requestId          String?          @db.Uuid
+  version            Int
+  status             FloorAssetStatus @default(draft)
+  format             FloorModelFormat
+  modelFileId        String           @db.Uuid
+  /// SeatMap JSON (packages/shared schemas/floor.ts); null until the seat tool saves it
+  seatMap            Json?
+  notes              String?
+  uploadedByAdminId  String?          @db.Uuid
+  publishedAt        DateTime?
+  publishedByAdminId String?          @db.Uuid
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, version])
+  @@index([workspaceId, status])
+}
+
+// ---------------------------------------------------------------- change #19: platform tables (root client only)
+
+/// Platform-level file (APKs). Company files, including floor models a Super Admin uploads, are tenant File rows.
+model PlatformFile {
+  id           String      @id @default(uuid(7)) @db.Uuid
+  purpose      FilePurpose
+  key          String
+  name         String
+  mime         String
+  size         Int
+  sha256       String
+  driver       String      @default("local")
+  uploadedById String?     @db.Uuid
+  createdAt    DateTime    @default(now())
+
+  androidRelease AndroidRelease?
+}
+
+/// Platform key/value settings. Secret values live only in `secretEncrypted` (AES-256-GCM, ENCRYPTION_KEY).
+/// Keys: firebase.client (value = FirebaseClientOptions, secret = original file), firebase.serviceAccount (secret only; value = public status).
+model PlatformSetting {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  key             String   @unique
+  value           Json?
+  secretEncrypted String?
+  updatedById     String?  @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// Android APK release (D-058); the employee panel links to the newest one.
+model AndroidRelease {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  versionName  String
+  versionCode  Int          @unique
+  notes        String?
+  fileId       String       @unique @db.Uuid
+  size         Int
+  sha256       String
+  minSupported Boolean      @default(false)
+  uploadedById String?      @db.Uuid
+  createdAt    DateTime     @default(now())
+
+  file PlatformFile @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
 }

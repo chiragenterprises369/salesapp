@@ -233,6 +233,11 @@ export function createEventSimulator(opts: { workspaceId?: string; seed?: number
           disposition: null,
           provider: 'mock',
           customFields: {},
+          source: 'mock',
+          result: null,
+          phone: lead?.phone ?? '+919999999999',
+          deviceCallId: null,
+          recordingFileId: null,
         };
         activeCalls.set(u.id, call);
         out.push(envelope('call.started', { call }));

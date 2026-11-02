@@ -1,16 +1,21 @@
 import { z } from 'zod';
-import { EmployeeStatusSchema, MessageStatusSchema, WorkflowRunStatusSchema } from './enums.js';
+import { ComponentStyleSchema, EmployeeStatusSchema, MessageStatusSchema, PresenceSourceSchema, PresenceStatusSchema, WorkflowRunStatusSchema } from './enums.js';
 import { ThemeModeSchema } from './theme.js';
 import { CustomRecordSchema } from './customization/objects.js';
 import { ActivitySchema } from './schemas/activity.js';
+import { AttendanceSessionSchema } from './schemas/attendance.js';
+import { WorkspaceBrandingSchema } from './schemas/branding.js';
 import { CallSchema } from './schemas/call.js';
 import { IdSchema, IsoDateTimeSchema } from './schemas/common.js';
 import { ConversationSchema, MessageSchema } from './schemas/conversation.js';
 import { AttentionItemSchema, DashboardKpisSchema, FeedItemSchema } from './schemas/dashboard.js';
+import { FloorRequestSchema, TeamFloorRefSchema } from './schemas/floor.js';
 import { LeadListItemSchema } from './schemas/lead.js';
 import { NotificationSchema } from './schemas/notification.js';
+import { PresenceActivitySchema } from './schemas/presence.js';
 import { TaskSchema } from './schemas/task.js';
 import { WebhookDeliverySchema } from './schemas/integration.js';
+import { UserSummarySchema } from './schemas/workspace.js';
 import { WorkflowRunStepSchema } from './schemas/workflow.js';
 
 /**
@@ -91,7 +96,29 @@ export const eventPayloadSchemas = {
     currentLeadId: IdSchema.nullable(),
     callId: IdSchema.nullable(),
     at: IsoDateTimeSchema,
+    /** Detailed live status (D-062). Always set by the presence engine; optional only for older simulators. */
+    presence: PresenceStatusSchema.optional(),
+    previousPresence: PresenceStatusSchema.nullable().optional(),
+    source: PresenceSourceSchema.optional(),
+    lastSeenAt: IsoDateTimeSchema.nullable().optional(),
+    activity: PresenceActivitySchema.optional(),
   }),
+
+  // attendance & field tracking (D-063); fan-out: the user, admins, and managers of the user's team
+  'attendance.checked_in': z.object({ session: AttendanceSessionSchema, user: UserSummarySchema }),
+  'attendance.checked_out': z.object({ session: AttendanceSessionSchema, user: UserSummarySchema }),
+  'location.updated': z.object({
+    userId: IdSchema,
+    sessionId: IdSchema,
+    point: z.object({ lat: z.number(), lng: z.number(), accuracy: z.number().nullable(), at: IsoDateTimeSchema, battery: z.number().int().nullable() }),
+  }),
+
+  // appearance & floors
+  'workspace.branding_changed': z.object({ branding: WorkspaceBrandingSchema, componentStyle: ComponentStyleSchema }),
+  /** A floor request changed (status or note); company admins refresh the Team Floor tab. */
+  'floor_request.updated': z.object({ request: FloorRequestSchema.omit({ images: true }) }),
+  /** A custom floor was published; every Team Floor reloads GET /team-floor/layout. */
+  'floor.published': z.object({ floor: TeamFloorRefSchema }),
 
   // messaging
   'message.received': z.object({ conversation: ConversationSchema, message: MessageSchema }),
@@ -199,18 +226,34 @@ export function parseDomainEvent(raw: unknown): DomainEvent {
 }
 
 /** Query-cache scopes the client should invalidate after a resync. */
-export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records'] as const;
+export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace'] as const;
 export type SyncScope = (typeof SYNC_SCOPES)[number];
+
+/**
+ * Socket.IO handshake (namespace /realtime, path /socket.io), for the web and the Android app alike:
+ * `io(url + '/realtime', { auth: { token, client, appVersion } })` with a WORKSPACE access token
+ * (platform tokens are rejected with connect_error "AUTH_TOKEN_INVALID"). When the token expires the server
+ * emits `auth.expired` and disconnects; the client refreshes (POST /auth/refresh) and reconnects. A socket
+ * counts as a heartbeat source while connected (presence.heartbeat every HEARTBEAT_INTERVAL_MS).
+ */
+export const SocketAuthSchema = z.object({
+  token: z.string().min(10),
+  client: z.enum(['web', 'android']).optional(),
+  appVersion: z.string().max(40).optional(),
+});
+export type SocketAuth = z.infer<typeof SocketAuthSchema>;
 
 export const HeartbeatSchema = z.object({
   /** Client-reported activity. Server combines with call events to compute presence. */
   activity: z.enum(['active', 'idle', 'hidden']),
   currentLeadId: IdSchema.nullable().optional(),
+  client: z.enum(['web', 'android']).optional(),
 });
 export type Heartbeat = z.infer<typeof HeartbeatSchema>;
-export const HEARTBEAT_INTERVAL_MS = 25_000;
-/** No heartbeat for this long -> offline. */
-export const PRESENCE_TIMEOUT_MS = 70_000;
+/** Heartbeat every 15 s (socket or POST /me/presence/heartbeat). */
+export const HEARTBEAT_INTERVAL_MS = 15_000;
+/** No heartbeat for this long -> offline with "last seen" (D-062: 45 s). */
+export const PRESENCE_TIMEOUT_MS = 45_000;
 
 export type Ack = (res: { ok: true } | { ok: false; error: string }) => void;
 
@@ -219,6 +262,8 @@ export type ServerToClientEvents = {
   [E in EventName]: (event: DomainEvent<E>) => void;
 } & {
   'sync.required': (payload: { scopes: SyncScope[]; reason: 'reconnect' | 'server_restart' | 'gap' }) => void;
+  /** The access token expired; refresh and reconnect. */
+  'auth.expired': (payload: { reason: 'expired' | 'revoked' }) => void;
 };
 
 /** Socket.IO typing: client -> server. */

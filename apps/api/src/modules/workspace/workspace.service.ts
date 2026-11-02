@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   BusinessHoursSchema,
   DEFAULT_BUSINESS_HOURS,
+  EMPTY_BRANDING,
   FEATURE_FLAGS,
   FeatureFlagSchema,
   HexColorSchema,
@@ -84,6 +85,8 @@ export class WorkspaceService {
       showEmployeeRank: values.showEmployeeRank,
       defaultInterfaceStyle: values.defaultInterfaceStyle,
       defaultBoardSkin: values.defaultBoardSkin,
+      componentStyle: values.componentStyle,
+      branding: EMPTY_BRANDING,
       supportAccess: {
         until: supportActive ? ws.supportAccessUntil!.toISOString() : null,
         includeContent: supportActive ? ws.supportAccessContent : false,
@@ -99,7 +102,7 @@ export class WorkspaceService {
     if (body.timezone !== undefined) assertTimeZone(body.timezone);
     const before = await this.get(wid);
 
-    const { defaultLeadsViewMode, showEmployeeRank, defaultInterfaceStyle, defaultBoardSkin, ...columns } = body;
+    const { defaultLeadsViewMode, showEmployeeRank, defaultInterfaceStyle, defaultBoardSkin, componentStyle, ...columns } = body;
     const data: Prisma.WorkspaceUpdateInput = {};
     if (columns.name !== undefined) data.name = columns.name;
     if (columns.timezone !== undefined) data.timezone = columns.timezone;
@@ -111,7 +114,7 @@ export class WorkspaceService {
 
     const ops = [
       ...(Object.keys(data).length ? [db.workspace.update({ where: { id: wid }, data })] : []),
-      ...this.settings.workspaceSettingWrites(db, wid, { defaultLeadsViewMode, showEmployeeRank, defaultInterfaceStyle, defaultBoardSkin }),
+      ...this.settings.workspaceSettingWrites(db, wid, { defaultLeadsViewMode, showEmployeeRank, defaultInterfaceStyle, defaultBoardSkin, componentStyle }),
     ];
     if (ops.length) await db.$transaction(ops);
 

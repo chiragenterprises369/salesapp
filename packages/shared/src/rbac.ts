@@ -155,8 +155,12 @@ export const PLATFORM_PERMISSIONS = [
 export const PlatformPermissionSchema = z.enum(PLATFORM_PERMISSIONS);
 export type PlatformPermission = z.infer<typeof PlatformPermissionSchema>;
 
-/** Feature flags (per plan, overridable per company by Super Admin). */
-export const FEATURE_FLAGS = ['team_floor_3d', 'ai_node', 'telephony', 'api_access', 'whatsapp', 'employee_rank'] as const;
+/**
+ * Feature flags (per plan, overridable per company by Super Admin).
+ * custom_domain: off in every plan; the Super Admin switches it on per company (D-060).
+ * field_tracking: attendance and GPS for field staff (D-063); on for growth and enterprise by default.
+ */
+export const FEATURE_FLAGS = ['team_floor_3d', 'ai_node', 'telephony', 'api_access', 'whatsapp', 'employee_rank', 'custom_domain', 'field_tracking'] as const;
 export const FeatureFlagSchema = z.enum(FEATURE_FLAGS);
 export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
 export type FeatureFlags = Record<FeatureFlag, boolean>;
