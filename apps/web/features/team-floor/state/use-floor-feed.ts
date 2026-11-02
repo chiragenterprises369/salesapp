@@ -3,14 +3,14 @@
 import type { DomainEvent, TeamFloorRef, TeamFloorSnapshot } from '@vistar/shared';
 import { createEventSimulator, mockTeamFloorSnapshot } from '@vistar/shared/fixtures';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { api } from '@/lib/api/client';
 import { isMockData } from '@/lib/api/data-source';
 import { onRealtimeEvent, onRealtimeStatus } from '@/lib/realtime/client';
 import { createApiFloorSource } from '@/lib/realtime/floor-source';
 import { INITIAL_LIVE_FLOOR, liveFloorReducer, type LiveState } from '../workspace/live-presence';
+import { fetchTeamFloorLayout, loadWorkspaceFloor } from './layout/published';
 import { initialFloorState } from './reducer';
 import { withStressEmployees } from './stress';
-import { loadTemplate, resolveTemplateId, type FloorTemplate, type TemplateId } from './template';
+import type { FloorTemplate, TemplateId } from './template';
 import type { FloorAction, FloorState } from './types';
 
 /**
@@ -139,8 +139,7 @@ export function useFloorFeed(
     /** Zone names of the published seat map (zone events carry only the id). */
     const loadZoneNames = () => {
       if (!api$) return;
-      void api
-        .call('teamFloorLayout')
+      void fetchTeamFloorLayout()
         .then((layout) => {
           const zones = layout.floor?.seatMap.zones ?? [];
           if (!cancelled && zones.length) dispatch({ kind: 'zones', zones: zones.map((z) => ({ id: z.id, name: z.name })) });
@@ -148,25 +147,36 @@ export function useFloorFeed(
         .catch(() => undefined);
     };
 
+    const headcount = (snapshot: TeamFloorSnapshot) => {
+      const scope = userIds ? new Set(userIds) : null;
+      return scope ? snapshot.employees.filter((e) => scope.has(e.user.id)).length : snapshot.employees.length;
+    };
     /** Full reload (after a reconnect or a newly published floor): events missed while away cannot leave it stale. */
-    const reload = () => {
+    const reload = (withFloor = false) => {
       if (!api$) return;
       void api$
         .load()
-        .then((snapshot) => {
+        .then(async (snapshot) => {
           if (cancelled || !loaded) return;
-          dispatch({ kind: 'load', snapshot, floor: initialFloorState(snapshot, { userIds, template: loaded }) });
+          let tpl = loaded;
+          if (withFloor) {
+            tpl = await loadWorkspaceFloor(headcount(snapshot), templateOverride);
+            if (cancelled) return;
+            loaded = tpl;
+            setTemplate(tpl);
+          }
+          dispatch({ kind: 'load', snapshot, floor: initialFloorState(snapshot, { userIds, template: tpl }) });
           setFloorRef(snapshot.floor ?? null);
         })
         .catch(() => undefined);
     };
 
+
     source
       .load()
       .then(async (snapshot) => {
-        const scope = userIds ? new Set(userIds) : null;
-        const people = scope ? snapshot.employees.filter((e) => scope.has(e.user.id)).length : snapshot.employees.length;
-        const tpl = await loadTemplate(resolveTemplateId(people, templateOverride));
+        // The published custom floor in API mode (FLOOR, state/layout/published), else the default template.
+        const tpl = await loadWorkspaceFloor(headcount(snapshot), templateOverride);
         if (cancelled) return;
         loaded = tpl;
         setTemplate(tpl);
@@ -181,7 +191,7 @@ export function useFloorFeed(
       });
 
     const pruneTimer = setInterval(() => dispatch({ kind: 'prune', now: Date.now() }), 1000);
-    const offResync = api$?.onResync(reload);
+    const offResync = api$?.onResync(() => reload(false));
     const offStatus = api$
       ? onRealtimeStatus((up) => {
           if (!cancelled) setConnected(up);
@@ -191,7 +201,7 @@ export function useFloorFeed(
       ? onRealtimeEvent((e) => {
           if (!EXTRA_EVENTS.has(e.type)) return;
           if (e.type === 'floor.published') {
-            reload();
+            reload(true);
             loadZoneNames();
             return;
           }

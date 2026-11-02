@@ -1,6 +1,6 @@
 'use client';
 
-import { formatDuration, ROLE_KIND_LABELS, type AttentionItem, type ChipTone } from '@vistar/shared';
+import { formatDuration, isWithinWorkingHours, ROLE_KIND_LABELS, type AttentionItem, type ChipTone } from '@vistar/shared';
 import { ExternalLink, ListTodo, MapPin, MessageCircle, MessageSquare, Monitor, Phone, PhoneCall, Smartphone, UserPlus, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { useId, useMemo, useState, type ReactNode } from 'react';
@@ -83,7 +83,7 @@ export function PersonPanel(props: PersonPanelProps) {
   const tel = telUrl(phone);
   const wa = whatsappUrl(phone);
 
-  const status = statusView(live, e.status);
+  const status = statusView(live ?? (e.presence ? { status: e.presence } : undefined), e.status);
   const activity = live?.activity ?? e.activity ?? null;
   const onCall = e.status === 'on_call';
   const callStart = e.activeCall?.startedAt ?? (activity?.callStartedAt ? Date.parse(activity.callStartedAt) : null);
@@ -93,8 +93,12 @@ export function PersonPanel(props: PersonPanelProps) {
   const leadId = e.currentLeadId ?? activity?.leadId ?? null;
   const leadName = e.currentLeadName ?? activity?.leadName ?? null;
   const zone = live?.zone ?? null;
-  const screen = activity?.screen ?? null;
+  const screen = activity?.screen ?? e.screen ?? null;
   const client = clientLabel(activity);
+  const person = users.data?.find((u) => u.id === e.id);
+  const hours = person?.workingHours ?? me?.workspace.businessHours ?? null;
+  // Zone signals count only inside working hours (D-063); `now` is 0 until the clock ticks.
+  const inHours = !hours || !me || now === 0 ? true : isWithinWorkingHours(hours, me.workspace.timezone, new Date(now), me.workspace.holidays);
 
   return (
     <section
@@ -181,8 +185,14 @@ export function PersonPanel(props: PersonPanelProps) {
             </p>
           ) : (
             <>
-              <p className="text-sm text-muted">{offline ? 'Not in' : 'Room not known'}</p>
-              {!offline && <p className="text-xs text-muted-strong">Rooms come from office beacons, Wi-Fi or a QR or NFC scan in the Android app.</p>}
+              <p className="text-sm text-muted">{offline ? 'Not in' : inHours ? 'Room not known' : 'Not tracked outside working hours'}</p>
+              {!offline && (
+                <p className="text-xs text-muted-strong">
+                  {inHours
+                    ? 'Rooms come from office beacons, Wi-Fi or a QR or NFC scan in the Android app.'
+                    : 'Rooms are tracked only inside working hours.'}
+                </p>
+              )}
             </>
           )}
         </Block>

@@ -1,5 +1,4 @@
 import type {
-  AppScreen,
   DomainEvent,
   PresenceActivity,
   PresenceSource,
@@ -8,7 +7,7 @@ import type {
   ZoneSignalSource,
 } from '@vistar/shared';
 import { floorRootReducer } from '../state/reducer';
-import type { FloorAction, FloorEmployee, FloorState } from '../state/types';
+import type { FloorAction, FloorEmployee, FloorPresenceFields, FloorPresencePatch, FloorState } from '../state/types';
 
 /**
  * LIVE PRESENCE on the Team Floor (D-062, SPEC 29.2 and 29.11). Pure, unit tested.
@@ -25,8 +24,8 @@ import type { FloorAction, FloorEmployee, FloorState } from '../state/types';
  * - Values that move without events (last seen, zone confidence) come from a periodic snapshot refresh;
  *   a newer version found there is applied as a synthetic status event, so the floor reducer stays in step.
  *
- * The six optional fields of the people entries agreed with FLOOR (floor-interface-19b.md) are mirrored
- * onto each `FloorEmployee` object; objects only change identity when one of their fields changes.
+ * The people entries' presence fields (floor-interface-19b.md) are filled by FLOOR's reducer from the
+ * events let through here, plus `presence` actions for what only this module learns (refresh, zone names).
  */
 
 // ---------------------------------------------------------------- types
@@ -70,17 +69,11 @@ export interface LiveState {
   zoneNames: Readonly<Record<string, string>>;
 }
 
-/** Optional fields on the people entries (floor-interface-19b.md); FLOOR declares them on FloorEmployee. */
-export interface LiveFloorFields {
-  zoneId?: string | null;
-  zoneName?: string | null;
-  zoneSource?: ZoneSignalSource | null;
-  zoneConfidence?: number | null;
-  screen?: AppScreen | null;
-  activity?: PresenceActivity | null;
-}
+/** The people entries' presence fields (declared by FLOOR on FloorEmployee, state/types.ts). */
+export type LiveFloorFields = FloorPresenceFields;
 
-export type LiveFloorEmployee = FloorEmployee & LiveFloorFields;
+/** A people entry of the floor (FloorEmployee carries the presence fields since FLOOR's fa7704a). */
+export type LiveFloorEmployee = FloorEmployee;
 
 export const EMPTY_LIVE: LiveState = Object.freeze({ people: Object.freeze({}), zoneNames: Object.freeze({}) }) as LiveState;
 
@@ -319,49 +312,49 @@ function sameZone(a: LiveZone | null, b: LiveZone | null): boolean {
   return a.zoneId === b.zoneId && a.source === b.source && a.confidence === b.confidence && a.at === b.at && a.zoneName === b.zoneName;
 }
 
-// ---------------------------------------------------------------- mirror onto the people entries
-
-/** The six agreed fields for one person (null when unknown). */
-export function liveFieldsOf(p: LivePresence | undefined): Required<LiveFloorFields> {
-  return {
-    zoneId: p?.zone?.zoneId ?? null,
-    zoneName: p?.zone?.zoneName ?? null,
-    zoneSource: p?.zone?.source ?? null,
-    zoneConfidence: p?.zone?.confidence ?? null,
-    screen: p?.activity?.screen ?? null,
-    activity: p?.activity ?? null,
-  };
-}
-
-function sameFields(e: LiveFloorEmployee, f: Required<LiveFloorFields>): boolean {
-  return (
-    (e.zoneId ?? null) === f.zoneId &&
-    (e.zoneName ?? null) === f.zoneName &&
-    (e.zoneSource ?? null) === f.zoneSource &&
-    (e.zoneConfidence ?? null) === f.zoneConfidence &&
-    (e.screen ?? null) === f.screen &&
-    (e.activity ?? null) === f.activity
-  );
-}
+// ---------------------------------------------------------------- hand-off to the floor reducer
 
 /**
- * Copy the live fields onto the people entries (all of them, or only `ids`). Returns the same state
- * object when nothing changed. With `seedSince`, a missing `statusSince` is taken from the server.
+ * FLOOR's reducer fills the people entries' presence fields (zone, screen, activity, presence, last seen)
+ * from the snapshot and from the events this module lets through; values learned elsewhere (refresh,
+ * seat-map zone names) go in as its `presence` action so placement in zones stays consistent.
  */
-export function enrichFloor(floor: FloorState, live: LiveState, ids?: Iterable<string>, seedSince = false): FloorState {
-  let employees: FloorEmployee[] | null = null;
-  const indices = ids ? [...ids].map((id) => floor.index[id]).filter((i): i is number => i !== undefined) : floor.employees.map((_, i) => i);
-  for (const i of indices) {
-    const e = (employees ?? floor.employees)[i] as LiveFloorEmployee | undefined;
-    if (!e) continue;
-    const p = live.people[e.id];
-    const f = liveFieldsOf(p);
-    const since = seedSince && e.statusSince === null && p?.since ? p.since : e.statusSince;
-    if (sameFields(e, f) && since === e.statusSince) continue;
-    employees ??= [...floor.employees];
-    const next: LiveFloorEmployee = { ...e, ...f, statusSince: since };
-    employees[i] = next;
+function presencePatch(p: LivePresence, emp: FloorEmployee | undefined): FloorPresencePatch | null {
+  const patch: FloorPresencePatch = {
+    zoneId: p.zone?.zoneId ?? null,
+    zoneName: p.zone?.zoneName ?? (p.zone && emp?.zoneId === p.zone.zoneId ? (emp.zoneName ?? null) : null),
+    zoneSource: p.zone?.source ?? null,
+    zoneConfidence: p.zone?.confidence ?? null,
+    zoneAt: p.zone?.at ?? null,
+    lastSeenAt: p.lastSeenAt,
+    seatId: p.seatId,
+  };
+  if (!emp) return patch;
+  const differs = (Object.keys(patch) as (keyof FloorPresencePatch)[]).some((k) => (emp[k] ?? null) !== (patch[k] ?? null));
+  return differs ? patch : null;
+}
+
+function patchFloor(floor: FloorState, live: LiveState, ids: Iterable<string>): FloorState {
+  let next = floor;
+  for (const id of ids) {
+    const p = live.people[id];
+    const i = next.index[id];
+    if (!p || i === undefined) continue;
+    const patch = presencePatch(p, next.employees[i]);
+    if (patch) next = floorRootReducer(next, { kind: 'presence', userId: id, patch }) ?? next;
   }
+  return next;
+}
+
+/** A missing `statusSince` comes from the server's `since` (the floor shows "on a break for 12 min"). */
+export function seedStatusSince(floor: FloorState, live: LiveState): FloorState {
+  let employees: FloorEmployee[] | null = null;
+  floor.employees.forEach((e, i) => {
+    const since = live.people[e.id]?.since ?? null;
+    if (e.statusSince !== null || since === null) return;
+    employees ??= [...floor.employees];
+    employees[i] = { ...e, statusSince: since };
+  });
   return employees ? { ...floor, employees } : floor;
 }
 
@@ -380,31 +373,32 @@ export type LiveFloorAction =
 
 export const INITIAL_LIVE_FLOOR: LiveFloor = { floor: null, live: EMPTY_LIVE };
 
-/** Floor state plus live presence: version ordering first, then the floor reducer, then the mirror. */
+/** Floor state plus live presence: version and zone ordering first, then FLOOR's reducer. */
 export function liveFloorReducer(s: LiveFloor, a: LiveFloorAction): LiveFloor {
   switch (a.kind) {
     case 'load': {
       const live = liveFromSnapshot(a.snapshot, s.live);
-      return { live, floor: enrichFloor(a.floor, live, undefined, true) };
+      return { live, floor: seedStatusSince(a.floor, live) };
     }
     case 'events': {
       if (!s.floor) return s;
       const r = applyLiveEvents(s.live, a.events);
       const base = floorRootReducer(s.floor, { kind: 'events', events: r.accepted, now: a.now }) ?? s.floor;
-      const floor = r.touched.size ? enrichFloor(base, r.live, r.touched) : base;
+      // Keep the floor's zone, seat and last seen in step with what this module holds (e.g. offline clears the zone).
+      const floor = r.touched.size ? patchFloor(base, r.live, r.touched) : base;
       return floor === s.floor && r.live === s.live ? s : { floor, live: r.live };
     }
     case 'refresh': {
       if (!s.floor) return s;
       const r = refreshLive(s.live, a.snapshot);
       const next = r.events.length ? liveFloorReducer({ floor: s.floor, live: r.live }, { kind: 'events', events: r.events, now: a.now }) : { floor: s.floor, live: r.live };
-      const floor = r.touched.size && next.floor ? enrichFloor(next.floor, next.live, r.touched) : next.floor;
+      const floor = r.touched.size && next.floor ? patchFloor(next.floor, next.live, r.touched) : next.floor;
       return floor === s.floor && next.live === s.live ? s : { floor, live: next.live };
     }
     case 'zones': {
       const r = withZoneNames(s.live, a.zones);
       if (r.live === s.live) return s;
-      return { live: r.live, floor: s.floor && r.touched.size ? enrichFloor(s.floor, r.live, r.touched) : s.floor };
+      return { live: r.live, floor: s.floor && r.touched.size ? patchFloor(s.floor, r.live, r.touched) : s.floor };
     }
     default: {
       if (!s.floor) return s;

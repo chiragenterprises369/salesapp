@@ -16,7 +16,6 @@ import { cn } from '@/lib/cn';
 import { filtersToSearchParams, searchParamsToFilters, useLeadsViewState } from '@/lib/leads/state';
 import { useCan } from '@/lib/session/session';
 import { TeamFloor } from '../index';
-import { FloorRequestPanel } from '../request';
 import { readDevParams, useIsClient, useMediaQuery } from '../state/env';
 import { useFloorFeed } from '../state/use-floor-feed';
 import { CommandBar, ShortcutsDialog } from './command-bar';
@@ -31,6 +30,11 @@ import { FLOOR_MIN_WIDTH, PANEL_MIN_WIDTH, useWorkspaceUi, type DockLayout, type
 import { isTypingTarget, modalOpen, useFullscreen } from './use-fullscreen';
 
 const LeadDrawer = dynamic(() => import('@/components/lead-detail/lead-drawer').then((m) => m.LeadDrawer), { ssr: false });
+// FLOOR's company floor request (reference photos, status timeline); loaded only when shown.
+const FloorRequestPanel = dynamic(() => import('../request').then((m) => m.FloorRequestPanel), {
+  ssr: false,
+  loading: () => <Skeleton className="h-40 w-full rounded-lg" aria-label="Loading your office floor" />,
+});
 
 /** Width the Team Floor keeps for its own side column (people panel or Needs you) on wide screens. */
 const FLOOR_ASIDE = 352;

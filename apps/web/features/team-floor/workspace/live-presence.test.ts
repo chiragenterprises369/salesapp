@@ -5,7 +5,7 @@ import { mockTeamFloorSnapshot } from '@vistar/shared/fixtures';
 import { describe, expect, it } from 'vitest';
 import { initialFloorState } from '../state/reducer';
 import { FloorTemplateSchema, resolveTemplateId, type FloorTemplate } from '../state/template';
-import { applyLiveEvents, enrichFloor, INITIAL_LIVE_FLOOR, liveFloorReducer, liveFromSnapshot, refreshLive, type LiveFloor, type LiveFloorEmployee } from './live-presence';
+import { applyLiveEvents, INITIAL_LIVE_FLOOR, liveFloorReducer, liveFromSnapshot, refreshLive, type LiveFloor, type LiveFloorEmployee } from './live-presence';
 import { confidenceLabel, statusView } from './presence-labels';
 
 /**
@@ -99,7 +99,7 @@ describe('liveFromSnapshot', () => {
     expect(s.live.zoneNames).toEqual({ meeting: 'Meeting room' });
   });
 
-  it('mirrors the six agreed fields onto the people entries and seeds statusSince from the server', () => {
+  it('fills the people entries (FLOOR reducer) and seeds statusSince from the server', () => {
     const { s, b } = load();
     expect(emp(s, b)).toMatchObject({ zoneId: 'meeting', zoneName: 'Meeting room', zoneSource: 'qr', zoneConfidence: 1, screen: 'leads' });
     expect(emp(s, b).activity?.client).toBe('web');
@@ -241,12 +241,17 @@ describe('refreshLive', () => {
   });
 });
 
-describe('enrichFloor', () => {
-  it('keeps the identity of people whose fields did not change', () => {
+describe('floor hand-off', () => {
+  it('keeps the identity of people an event did not touch', () => {
     const { s, a, b } = load();
     const before = emp(s, b);
     const next = liveFloorReducer(s, { kind: 'events', events: [statusEvent(a, 'on_break', 6)], now: NOW });
     expect(emp(next, b)).toBe(before);
-    expect(enrichFloor(next.floor!, next.live)).toBe(next.floor);
+    expect(emp(next, a)).not.toBe(emp(s, a));
+  });
+
+  it('a dropped event changes nothing at all', () => {
+    const { s, a } = load();
+    expect(liveFloorReducer(s, { kind: 'events', events: [statusEvent(a, 'offline', 2)], now: NOW }).live).toBe(s.live);
   });
 });
