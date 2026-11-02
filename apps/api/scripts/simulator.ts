@@ -26,7 +26,7 @@ async function main() {
   const redis = new Redis(REDIS_URL);
 
   const ws = await prisma.workspace.findUnique({ where: { slug: SEED_WORKSPACE.slug } });
-  if (!ws) throw new Error('Seed workspace not found. Run pnpm db:seed first.');
+  if (!ws) throw new Error('Seed workspace not found. Run pnpm db:seed:demo first.');
   const dbUsers = await prisma.user.findMany({ where: { workspaceId: ws.id, isActive: true }, include: { role: true } });
   const users: UserSummary[] = dbUsers.map((u) => ({
     id: u.id,

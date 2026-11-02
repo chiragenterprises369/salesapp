@@ -145,6 +145,22 @@ export class DomainsService {
 
   // ---------------------------------------------------------------- public (no auth)
 
+  /** Hostnames allowed as browser origins (CORS): verified domains of live companies whose custom_domain switch is on. */
+  async corsHosts(): Promise<Set<string>> {
+    const rows = await this.prisma.customDomain.findMany({
+      where: { status: 'verified', workspace: { deletedAt: null, status: { in: [...LIVE_STATUSES] } } },
+      select: { hostname: true, workspaceId: true, workspace: { select: { plan: true } } },
+    });
+    if (!rows.length) return new Set();
+    const [plans, overrides] = await Promise.all([
+      this.prisma.planDefinition.findMany({ select: { key: true, features: true } }),
+      this.prisma.featureFlagOverride.findMany({ where: { flag: 'custom_domain', workspaceId: { in: rows.map((r) => r.workspaceId) } }, select: { workspaceId: true, enabled: true } }),
+    ]);
+    const planOn = new Map(plans.map((p) => [p.key, (p.features as Record<string, unknown> | null)?.custom_domain === true]));
+    const override = new Map(overrides.map((o) => [o.workspaceId, o.enabled]));
+    return new Set(rows.filter((r) => override.get(r.workspaceId) ?? planOn.get(r.workspace.plan) ?? false).map((r) => r.hostname));
+  }
+
   async publicWorkspace(workspaceId: string): Promise<PublicWorkspace | null> {
     const db = this.prisma.forTenant(workspaceId);
     const ws = await db.workspace.findFirst({ select: { name: true, slug: true, status: true, deletedAt: true, defaultTheme: true } });

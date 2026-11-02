@@ -83,6 +83,23 @@ export class InviteService {
     return this.toInvite(invite, role.name, `${webOrigin()}/invite/${token}`);
   }
 
+  /**
+   * Invite created by the platform (Super Admin "create company"): no workspace actor, the caller audits.
+   * Returns the link once (only its hash is stored); a new invite replaces older pending ones for the email.
+   */
+  async createPlatformInvite(workspaceId: string, body: { email: string; roleId: string; expiresInDays: number }): Promise<{ id: string; url: string; expiresAt: Date }> {
+    const email = body.email.toLowerCase();
+    const token = randomToken(32);
+    const now = new Date();
+    const invite = await this.prisma.forTenant(workspaceId).$transaction(async (tx) => {
+      await tx.invite.updateMany({ where: { workspaceId, email, acceptedAt: null, revokedAt: null }, data: { revokedAt: now } });
+      return tx.invite.create({
+        data: { workspaceId, email, roleId: body.roleId, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + body.expiresInDays * 86_400_000), createdById: null },
+      });
+    });
+    return { id: invite.id, url: `${webOrigin()}/invite/${token}`, expiresAt: invite.expiresAt };
+  }
+
   async list(auth: AuthContext): Promise<{ items: Invite[] }> {
     const db = this.prisma.forTenant(auth.workspaceId);
     const rows = await db.invite.findMany({
