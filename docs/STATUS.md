@@ -47,6 +47,7 @@ Status values: not started / in progress / done / blocked. "Verified" = what was
 | Lead detail (10) | frontend-app (UI), backend-core (timeline/notes API) | 2 | in progress | Branch: drawer and page with mock timeline; API timeline and notes built |
 | Pipeline Board physics and stages (11) | frontend-physics (Board), backend-core (board, move, stages API) | 3 | in progress | Branch: drag physics, keyboard and menu moves, select mode, quick add, rollback, ~60 fps with 2,500 mock leads, 59 Playwright checks. API board and move built. Not integrated |
 | Live Team Floor (12) | frontend-3d (UI), realtime-integrations (snapshot, events) | 8 | in progress | Branch UI: R3F scene driven by the simulator, three.js kept out of the first-load bundle, 200-employee stress test, flat view and accessible list, tier drop. Snapshot API not started |
+| Team Floor art target V3 (12.1) | frontend-3d | 8 (brought forward) | in progress | Blender MCP installed and connected (localhost only, telemetry off). Medium template, Day variant first |
 | Workflow builder (13.1, 13.2, 13.4) | frontend-physics | 6 | in progress | Branch: builder with depth nodes, rope edges, inspector; the IndiaMART template validates with 0 issues; mock test runs pass the price, catalogue and no-reply paths |
 | Workflow engine and compliance guards (13.3) | workflow-engine | 6 | not started | Contracts and skill `vistar-workflow-nodes` ready |
 | WhatsApp inbox (14) | realtime-integrations | 5 | not started | Placeholder pages only |

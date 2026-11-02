@@ -17,7 +17,7 @@ ask the orchestrator; do not guess from other sections.
 | workflow-engine | 2.3, 5.4, 13, 15.5 (triggers, outbound webhook action), 19, 20.2, 20.3, 27 |
 | frontend-app | 2.3, 4, 5.3, 6, 7 (UI), 8, 9.1-9.3, 9.5, 9.6, 10, 15.2-15.7 (UI), 17, 22 (settings, records and registry UI), 27.1 (Connections settings UI) |
 | frontend-physics | 2.3, 4, 9.1-9.4, 11, 13.1, 13.2, 13.4, 13.5, 27.5, 27.6 (UI), 27.8 |
-| frontend-3d | 2.3, 4, 12, 17 (Team Floor item), 19 (consuming events) |
+| frontend-3d | 2.3, 4, 12 (incl. 12.1 art target V3), 17 (Team Floor item), 19 (consuming events) |
 | qa-reviewer | 2.3, 2.4, 4.5, 5, 6, 20.2, 20.3 (+ the sections of the area under review) |
 | asset-generator | 2.3, 4.1, 18 |
 | superadmin-panel | 2.3, 4, 5, 6, 15.7 (audit, billing usage), 16 |
@@ -52,6 +52,7 @@ ask the orchestrator; do not guess from other sections.
 | `lib/customization/**`, `lib/packs/**`, `lib/mock-db.ts` | orchestrator | Data hooks and extension points (`usePackRuntime`, `PackPage`, `WidgetSlot`, `ui-index.ts`), shared mock store |
 | `app/(company)/app/settings/connections/**` | frontend-app (Wave 2, planned) | Connections vault UI (SPEC 27.1) |
 | `features/team-floor/**` | frontend-3d | R3F floor + flat fallback |
+| `public/team-floor/**` | frontend-3d | Team Floor GLB scene, characters, baked lightmaps, floor templates, Draco/Basis decoders (SPEC 12.1) |
 | `lib/auth/**`, `lib/theme/**`, `lib/api/**` | frontend-app | session (mock in Wave 1), theme system, HTTP client |
 | `lib/realtime/**` | realtime-integrations (client side, Wave 2) | socket client + cache updaters; orchestrator wires in Wave 3 |
 | `lib/cn.ts`, `lib/use-*.ts`, `lib/query-client.tsx`, `lib/leads/**` | orchestrator | shared hooks and Leads data layer |
@@ -84,6 +85,7 @@ ask the orchestrator; do not guess from other sections.
 | `connectors/**` (JSON connector definitions, Wave 2, planned) | realtime-integrations |
 | `e2e/**` (Playwright) | qa-reviewer, except `e2e/board/**` (frontend-physics) and `e2e/playwright.config.ts` (orchestrator) |
 | `scripts/assets/**` | asset-generator |
+| `scripts/team-floor/**` (Blender build/bake/export scripts), `docs/ASSETS.md`, `docs/screenshots/team-floor-v3/**`, `e2e/team-floor/**` | frontend-3d |
 | `.claude/**`, root configs, docs (`CONTRACTS.md`, `OWNERSHIP.md`, `DECISIONS.md`, `SKILLS.md`, `README.md`, `docs/**`) | orchestrator |
 
 ## Agents

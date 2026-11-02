@@ -296,6 +296,55 @@ Reference: an isometric 2.5D animated office dashboard where each worker visibly
 - Settings toggle "3D mode / Flat mode"; default flat on mobile and with `prefers-reduced-motion`.
 - Manager sees their team; the Employee panel shows the floor read-only and flat by default. Feature flag `team_floor_3d` per plan/company (section 16).
 
+### 12.1 Art target V3 (change #16, received 2026-11-01) — ACTIVE (frontend-3d)
+Applies on top of the current floor (Wave 1 build and its polish commits). The message says "on top of the second polish pass", but no second polish pass spec was received; its label rules are restated in 12.1.5 below. All event handling, the KPI strip, the "Needs you" panel and permissions stay unchanged.
+
+**Reference**: an AI-generated concept render (`docs/screenshots/team-floor-v3/reference.jpg`, 1344x768). Use it for comparison only; never ship it in the product. Match its composition, colour richness, material quality and character readability as closely as real-time rendering allows:
+- L-shaped open office, thick walls with trim, warm wood floor with visible grain, teal and dark-slate wall bases, warm sconces.
+- Distinct rooms:
+  - Open sales floor with fewer, well-spaced desks (one person per desk, never a dense wall of desks).
+  - Glass-walled calling room with 3 booths.
+  - Dark-wood manager cabin with a bookshelf, lamp and desk.
+  - Lounge with a green sofa, rug, coffee table, window and plants.
+  - Reception desk with a glowing blue edge at the entrance.
+  - Props: printer corner, whiteboard with sticky notes, water cooler, cabinets, many plants of different sizes.
+- Central "LEAD HUB" cylinder machine with a glowing blue ring on the floor.
+- Characters about 1.5x larger than before relative to desks, clearly readable, in natural poses with varied clothes and hair: typing, on a phone call (blue ring under the chair), waving in the lounge, sleeping or resting at reception, walking with a document.
+- A name tag with a coloured status dot above each head: short, clean, no overlap. A status ring on the floor for active calls.
+- Soft warm daylight, soft shadows, ambient occlusion, emissive monitors.
+
+**Approach** (real 3D, stylised, high polish):
+1. **Scene authoring**: modular GLB scene (rooms, walls, floors, furniture, props) built in Blender (Blender MCP is installed: live Blender on `127.0.0.1:9876`; scripted `blender --background` runs are preferred so the scene can be rebuilt from the repo). CC0 or permissively licensed packs (e.g. Kenney, Quaternius, Poly Pizza) may be used; every license goes in `docs/ASSETS.md`. Custom geometry has bevels. Export an optimised GLB (Draco or meshopt; KTX2 or WebP textures).
+2. **Lighting**: bake ambient occlusion and a lightmap per theme (Day and Evening). Add one soft directional light for dynamic shadows, emissive monitors and lamps, and restrained bloom on emissive surfaces only. Light theme = Day; Dark theme = Evening with warm lamp pools and cool window light. Switching theme cross-fades between the two baked variants.
+3. **Characters**: rigged GLB with a shared skeleton. Clips: idle, typing, phone call, walking, wave, sleeping or resting. Outfit, skin and hair variants come from avatar settings. Soft rim light and a thin outline for separation.
+4. **Layout as data**: the office is a JSON floor template (rooms, seat slots with position and facing, calling booths, lounge spots, walking graph, hub position).
+   - Three templates in the same style: Small (up to 8 seats), Medium (up to 20) and Large (up to 50).
+   - Employees are assigned to seats from the data. Extra people use lounge or "hot desk" spots.
+   - Offline people sit asleep at their desk, or the chair is empty.
+   - Pathfinding runs on the walking graph.
+5. **Labels**: a collision-avoiding layer with zero overlaps in the default view:
+   - Labels are placed in priority order, with leader lines when a label has to move.
+   - When crowded, a label shrinks to the status dot plus initials.
+   - "Needs you" and "Missed" bubbles get their own lane.
+6. **Camera**: auto-fit the whole office at an isometric angle similar to the reference, with eased zoom and pan limits, click-to-focus fly-to, and a Fit button.
+7. **Flat view**: a clean 2D plan with the same room colours, seat dots and status rings. Used on mobile, on low-end devices and with reduced motion.
+8. **Performance**:
+   - Instanced repeated props and merged static meshes.
+   - The scene and characters lazy-load only on this page.
+   - Adaptive quality tiers with an FPS monitor.
+   - Target 60 fps on a mid laptop with 30 employees.
+   - Pause rendering when the tab is hidden.
+
+**Order**: Medium template first (it matches the reference), Day variant first, then Evening, then Small and Large.
+
+**Verify (mandatory loop)**:
+- Playwright screenshots of the Medium template at 1440x900 and 1920x1080, DPR 1 and 2, light and dark, plus a zoomed calling-room shot and a mobile Flat shot.
+- A side-by-side comparison sheet: the reference on the left, our screenshot on the right.
+- Self-critique on colour richness, room distinctness, character readability, label cleanliness and lighting; fix and repeat, up to 8 iterations.
+- Save everything to `docs/screenshots/team-floor-v3/`.
+
+**Report** (8 lines): what was built, asset list with licenses, screenshot paths, FPS, gaps versus the reference, and which additional models or characters would close those gaps.
+
 ## 13. Module: Workflow automation (builder + engine)
 
 ### 13.1 Builder (n8n-like)
