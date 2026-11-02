@@ -18,6 +18,8 @@ $ports = @{
   'frontend-physics-builder' = @{ WEB_PORT = '3004'; API_PORT = '4014'; NEXT_PUBLIC_MOCK_PERSONA = 'manager'; DB = 'vistar_builder' }
   'frontend-3d'              = @{ WEB_PORT = '3005'; API_PORT = '4015'; NEXT_PUBLIC_MOCK_PERSONA = 'manager'; DB = 'vistar_floor' }
   'mobile'                   = @{ WEB_PORT = '3010'; API_PORT = '4020'; DB = 'vistar_mobile' }
+  'crm-api'                  = @{ API_PORT = '4030'; DB = 'vistar_crm' }
+  'integration'              = @{ WEB_PORT = '3020'; API_PORT = '4040'; DB = 'vistar_integration' }
 }
 
 function Test-Db([string]$name) {
@@ -56,7 +58,7 @@ foreach ($s in $Streams) {
     npx prisma generate 2>&1 | Out-Null
     npx prisma migrate deploy 2>&1 | Select-String -Pattern 'applied|No pending|Error' | ForEach-Object { "  migrate: $($_.Line.Trim())" }
     Pop-Location
-    if ($fresh) { pnpm --filter @vistar/api seed 2>&1 | Select-String -Pattern '^Seeded|Error' | ForEach-Object { "  seed: $($_.Line.Trim())" } }
+    if ($fresh) { pnpm --filter @vistar/api seed:demo 2>&1 | Select-String -Pattern '^Seeded|Error' | ForEach-Object { "  seed: $($_.Line.Trim())" } }
   }
   Pop-Location
   Write-Output "ready: $s -> $wt (db $($cfg.DB))"

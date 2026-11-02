@@ -120,6 +120,17 @@ Requirements: SPEC section 29. Heavy steps (builds, typecheck, tests, Playwright
 | web-premium (frontend-app) | `.worktrees/frontend-app` / `agent/frontend-app` | `components/ui/**`, `styles/**`, `packages/shared/src/design/**`, `components/{shell,settings,common}/**`, settings pages, Super Admin console pages (config section, company switches), page containers and grids in `app/**` (layout classes only), board column width only in `features/pipeline/board-{view,column}.tsx`, `lib/branding/**` | web 3001 / `vistar_shell` |
 | web-api (frontend-app) | `.worktrees/frontend-app-leads` / `agent/frontend-app-leads` | `lib/api/**`, `lib/session/**`, `lib/auth/**`, data sources in `lib/{leads,customization,packs,world}/**`, `app/(auth)/**`, Super Admin login pages, `scripts/smoke-*.mjs` | web 3002 / `vistar_leads` |
 
+Wave A is merged into `integration/19a` (`.worktrees/integration`, web 3020, API 4040, `vistar_integration`); `main` follows once Kiro Crew's tests pass.
+
+## Change #19 streams (wave B, branched from `integration/19a`)
+
+| Stream | Worktree / branch | Owns for this wave | Ports / DB |
+| --- | --- | --- | --- |
+| crm-api (backend-core) | `.worktrees/crm-api` / `agent/crm-api` | all wave B contracts in `packages/shared/src/**` (not `design/**`), `apps/api/prisma/**` (one migration), API modules for contacts, accounts, deals, products and price lists, quotations and invoices (GST, PDF), calendar and meetings, lead routing, lead capture forms; the working-hours gate for zone signals in `modules/presence/**` | API 4030 / `vistar_crm` |
+| floor (frontend-3d) | `.worktrees/frontend-3d` / `agent/frontend-3d` | `features/team-floor/{scene,state,flat,templates}/**` and published-floor loading (GLB, glTF, `layout_json`), company floor request UI (reference images), Super Admin floor pages (requests, prompt with copy, upload, seat tool, preview, publish), office markers settings page | web 3005 / `vistar_floor` |
+| floor-workspace (frontend-physics) | `.worktrees/frontend-physics` / `agent/frontend-physics` | `features/team-floor/workspace/**` (new), `app/(company)/app/team-floor/**`, `app/(employee)/me/team-floor/**`: live floor from the snapshot and events (zone, status, activity, screen), person panel with actions, module panels over the floor, full-screen mode; web attendance pages (register, live field map, routes) | web 3003 / `vistar_physics` |
+| crm-web (frontend-app) | `.worktrees/frontend-physics-builder` / `agent/frontend-physics-builder` | web pages and components for contacts, accounts, deals, products, quotations and invoices, calendar, routing rules, lead capture form builder; nav entries for them | web 3004 / `vistar_builder` |
+
 ## Wave 1 streams (parallel worktrees)
 
 Large agents run as two streams with disjoint files. Same agent rules; each stream commits only its paths.
