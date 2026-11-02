@@ -2,7 +2,7 @@
 
 import type { NotificationType } from '@vistar/shared';
 import { formatDistanceStrict } from 'date-fns';
-import { AlertTriangle, AtSign, Bell, CheckCheck, Clock, FileUp, Info, ListTodo, MessageCircle, UserPlus, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, AtSign, Bell, CalendarClock, CheckCheck, Clock, FileUp, Info, ListTodo, MessageCircle, UserPlus, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { EmptyState } from '@/components/common/empty-state';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/common/popover';
@@ -21,6 +21,7 @@ const ICON: Record<NotificationType, LucideIcon> = {
   mention: AtSign,
   import_completed: FileUp,
   system: Info,
+  meeting_reminder: CalendarClock,
 };
 
 /**

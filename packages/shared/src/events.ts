@@ -17,6 +17,9 @@ import { TaskSchema } from './schemas/task.js';
 import { WebhookDeliverySchema } from './schemas/integration.js';
 import { UserSummarySchema } from './schemas/workspace.js';
 import { WorkflowRunStepSchema } from './schemas/workflow.js';
+import { AccountListItemSchema, ContactListItemSchema, DealListItemSchema } from './schemas/crm.js';
+import { InvoiceListItemSchema, PaymentSchema, QuotationListItemSchema } from './schemas/documents.js';
+import { MeetingSchema } from './schemas/calendar.js';
 
 /**
  * REALTIME EVENT CONTRACT
@@ -203,6 +206,37 @@ export const eventPayloadSchemas = {
   'record.created': z.object({ record: CustomRecordSchema }),
   'record.updated': z.object({ record: CustomRecordSchema, changed: z.array(z.string()).describe('Changed value keys, plus "ownerId"') }),
   'record.deleted': z.object({ objectKey: z.string(), recordIds: z.array(IdSchema) }),
+
+  // change #19 wave B: CRM (fan-out by owner and permission like leads; see realtime/audience.ts)
+  'contact.created': z.object({ contact: ContactListItemSchema }),
+  'contact.updated': z.object({ contact: ContactListItemSchema, changed: z.array(z.string()) }),
+  'contact.deleted': z.object({ contactIds: z.array(IdSchema) }),
+  'contact.merged': z.object({ primaryId: IdSchema, mergedIds: z.array(IdSchema) }),
+  'account.created': z.object({ account: AccountListItemSchema }),
+  'account.updated': z.object({ account: AccountListItemSchema, changed: z.array(z.string()) }),
+  'account.deleted': z.object({ accountIds: z.array(IdSchema) }),
+  'account.merged': z.object({ primaryId: IdSchema, mergedIds: z.array(IdSchema) }),
+  'deal.created': z.object({ deal: DealListItemSchema }),
+  'deal.updated': z.object({ deal: DealListItemSchema, changed: z.array(z.string()) }),
+  /** Board move (stage and/or position); also sent after a stage change through PATCH. */
+  'deal.moved': z.object({ deal: DealListItemSchema, fromStageId: IdSchema.nullable(), toStageId: IdSchema, position: z.string() }),
+  'deal.deleted': z.object({ dealIds: z.array(IdSchema) }),
+  'quotation.created': z.object({ quotation: QuotationListItemSchema }),
+  /** Any change incl. status (sent, accepted, rejected, expired, reopened) and share links. */
+  'quotation.updated': z.object({ quotation: QuotationListItemSchema, changed: z.array(z.string()) }),
+  'quotation.deleted': z.object({ quotationIds: z.array(IdSchema) }),
+  'invoice.created': z.object({ invoice: InvoiceListItemSchema }),
+  'invoice.updated': z.object({ invoice: InvoiceListItemSchema, changed: z.array(z.string()) }),
+  'invoice.deleted': z.object({ invoiceIds: z.array(IdSchema) }),
+  /** A payment was recorded or voided (`voided` true); the invoice carries the new paid and balance amounts. */
+  'invoice.payment_recorded': z.object({ invoice: InvoiceListItemSchema, payment: PaymentSchema, voided: z.boolean() }),
+  /** Products or price lists changed; clients refetch the catalog. */
+  'catalog.changed': z.object({ scope: z.enum(['products', 'price_lists']), ids: z.array(IdSchema) }),
+  'meeting.created': z.object({ meeting: MeetingSchema }),
+  'meeting.updated': z.object({ meeting: MeetingSchema, changed: z.array(z.string()) }),
+  'meeting.deleted': z.object({ meetingId: IdSchema, organizerId: IdSchema.nullable(), attendeeUserIds: z.array(IdSchema) }),
+  /** Sent to each attending user's room (envelope userId) `minutesBefore` the occurrence start. */
+  'meeting.reminder': z.object({ meeting: MeetingSchema, occurrenceStart: IsoDateTimeSchema, minutesBefore: z.number().int() }),
 } as const;
 
 export type EventName = keyof typeof eventPayloadSchemas;
@@ -240,7 +274,7 @@ export function parseDomainEvent(raw: unknown): DomainEvent {
 }
 
 /** Query-cache scopes the client should invalidate after a resync. */
-export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace'] as const;
+export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace', 'contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture-forms'] as const;
 export type SyncScope = (typeof SYNC_SCOPES)[number];
 
 /**

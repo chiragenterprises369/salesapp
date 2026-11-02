@@ -4,7 +4,8 @@
 //    PlanDefinition, PackDefinition, PackVersion, PackPlanEntitlement, PlatformFile, PlatformSetting,
 //    AndroidRelease) carries workspaceId and is indexed by it.
 //  - Enum literals MUST equal the values in packages/shared/src/enums.ts.
-//  - Money is whole rupees (Int). Ids are UUIDv7.
+//  - Money is whole rupees (Int), except the CRM documents of change #19 wave B (products, price lists, deal
+//    lines, quotations, invoices, payments): paise in BigInt columns named *Paise (D-067). Ids are UUIDv7.
 //  - Use the tenant client (PrismaService.forTenant) with UNCHECKED inputs (scalar *Id fields, no `connect`).
 
 generator client {
@@ -274,6 +275,46 @@ enum NotificationType {
   mention
   import_completed
   system
+  meeting_reminder
+}
+
+// change #19 wave B (SPEC 29.9): CRM features
+enum QuotationStatus {
+  draft
+  sent
+  accepted
+  rejected
+  expired
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  partially_paid
+  paid
+  cancelled
+}
+
+enum PaymentMode {
+  cash
+  upi
+  bank_transfer
+  cheque
+  card
+  other
+}
+
+enum MeetingStatus {
+  scheduled
+  completed
+  cancelled
+}
+
+enum AttendeeResponse {
+  pending
+  accepted
+  declined
+  tentative
 }
 
 enum Plan {
@@ -486,6 +527,24 @@ model Workspace {
   floorRequests     FloorRequest[]
   floorRequestImages FloorRequestImage[]
   floorAssets       FloorAsset[]
+  dealLines         DealLine[]
+  products          Product[]
+  priceLists        PriceList[]
+  priceListItems    PriceListItem[]
+  documentSeries    DocumentSeries[]
+  quotations        Quotation[]
+  quotationLines    QuotationLine[]
+  invoices          Invoice[]
+  invoiceLines      InvoiceLine[]
+  payments          Payment[]
+  crmNotes          CrmNote[]
+  meetings          Meeting[]
+  meetingAttendees  MeetingAttendee[]
+  meetingReminders  MeetingReminderLog[]
+  timeOff           TimeOff[]
+  routingRules      RoutingRule[]
+  captureForms      CaptureForm[]
+  captureSubmissions CaptureSubmission[]
 }
 
 model User {
@@ -534,6 +593,13 @@ model User {
   attendanceSessions AttendanceSession[]
   locationPings     LocationPing[]
   trackingConsents  TrackingConsent[]
+  ownedContacts     Contact[]          @relation("ContactOwner")
+  ownedCompanies    Company[]          @relation("CompanyOwner")
+  ownedDeals        Deal[]             @relation("DealOwner")
+  ownedQuotations   Quotation[]        @relation("QuotationOwner")
+  ownedInvoices     Invoice[]          @relation("InvoiceOwner")
+  organizedMeetings Meeting[]          @relation("MeetingOrganizer")
+  timeOff           TimeOff[]
 
   @@index([workspaceId, isActive])
   @@index([workspaceId, status])
@@ -620,51 +686,102 @@ model Invite {
 
 // ---------------------------------------------------------------- CRM core
 
+/// Account (a customer company) in the CRM; "Company" in the Super Admin means a workspace. Change #19 wave B adds the CRM fields.
 model Company {
   id          String    @id @default(uuid(7)) @db.Uuid
   workspaceId String    @db.Uuid
   name        String
   gstin       String?
+  pan         String?
+  industry    String?
+  phone       String?
+  email       String?
+  /// LabeledPhone[] / LabeledEmail[] (schemas/crm.ts)
+  additionalPhones Json @default("[]")
+  additionalEmails Json @default("[]")
+  /// Address (schemas/crm.ts) incl. the GST stateCode
+  billingAddress  Json?
+  shippingAddress Json?
   city        String?
   state       String?
+  /// GST state code of the billing address (denormalised for filters)
+  stateCode   String?
   website     String?
+  ownerId     String?   @db.Uuid
+  tags        String[]  @default([])
   customFields Json     @default("{}")
+  mergedIntoId String?  @db.Uuid
+  lastActivityAt DateTime?
+  version     Int       @default(1)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  contacts  Contact[]
-  leads     Lead[]
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner      User?       @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  contacts   Contact[]
+  leads      Lead[]
+  deals      Deal[]
+  quotations Quotation[]
+  invoices   Invoice[]
+  meetings   Meeting[]
 
   @@index([workspaceId, name])
+  @@index([workspaceId, ownerId])
+  @@index([workspaceId, gstin])
+  @@index([tags], type: Gin)
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Company_name_trgm_idx")
 }
 
 model Contact {
   id            String         @id @default(uuid(7)) @db.Uuid
   workspaceId   String         @db.Uuid
   name          String
+  /// Designation
+  title         String?
   /// E.164
   phone         String?
   email         String?
+  additionalPhones Json        @default("[]")
+  additionalEmails Json        @default("[]")
   companyId     String?        @db.Uuid
   city          String?
+  stateCode     String?
+  gstin         String?
+  pan           String?
+  billingAddress  Json?
+  shippingAddress Json?
+  ownerId       String?        @db.Uuid
+  tags          String[]       @default([])
   /// Latest WhatsApp consent (denormalised from ConsentRecord)
   whatsappOptIn ConsentStatus?
   dnd           Boolean        @default(false)
   customFields  Json           @default("{}")
+  mergedIntoId  String?        @db.Uuid
+  lastActivityAt DateTime?
+  version       Int            @default(1)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
 
   workspace     Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   company       Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  owner         User?           @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   leads         Lead[]
   conversations Conversation[]
   consents      ConsentRecord[]
+  deals         Deal[]
+  quotations    Quotation[]
+  invoices      Invoice[]
+  meetings      Meeting[]
+  meetingAttendees MeetingAttendee[]
 
   @@unique([workspaceId, phone])
   @@index([workspaceId, email])
+  @@index([workspaceId, ownerId])
+  @@index([workspaceId, companyId])
+  @@index([tags], type: Gin)
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_name_trgm_idx")
 }
 
 model Pipeline {
@@ -674,6 +791,8 @@ model Pipeline {
   key         String
   name        String
   isDefault   Boolean   @default(false)
+  /// lead (Leads board) | deal (Deals board; default key "deals"). Change #19 wave B.
+  entity      String    @default("lead")
   /// Pack that created the pipeline (null = workspace-defined)
   packKey     String?
   /// Archived by a pack uninstall; leads in it are kept
@@ -684,6 +803,7 @@ model Pipeline {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   stages    Stage[]
   leads     Lead[]
+  deals     Deal[]
 
   @@unique([workspaceId, key])
   @@index([workspaceId])
@@ -707,6 +827,7 @@ model Stage {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   pipeline  Pipeline  @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
   leads     Lead[]
+  deals     Deal[]
 
   @@unique([pipelineId, key])
   @@index([workspaceId, pipelineId, order])
@@ -765,6 +886,9 @@ model Lead {
   tasks        Task[]
   workflowRuns WorkflowRun[]
   files        File[]
+  quotations   Quotation[]
+  invoices     Invoice[]
+  meetings     Meeting[]
 
   @@unique([workspaceId, source, sourceRef])
   @@index([workspaceId, stageId, position])
@@ -782,24 +906,584 @@ model Lead {
   @@index([requirement(ops: raw("gin_trgm_ops"))], type: Gin, map: "Lead_requirement_trgm_idx")
 }
 
+/// Deal (opportunity). D-007: the Leads board moves leads, deals hold revenue. Change #19 wave B: deals also
+/// live on a deal pipeline (Pipeline.entity = deal) with their own stage and position, owner, account,
+/// contact and product lines; leadId is optional (deals can start from an account).
 model Deal {
   id              String    @id @default(uuid(7)) @db.Uuid
   workspaceId     String    @db.Uuid
-  leadId          String    @db.Uuid
+  leadId          String?   @db.Uuid
   title           String
   valueInr        Int       @default(0)
   status          StageType @default(open)
+  /// null only for legacy rows; the deals service backfills from the default deal pipeline
+  pipelineId      String?   @db.Uuid
+  stageId         String?   @db.Uuid
+  /// Fractional index within the stage. Column uses COLLATE "C" (migration 20261103000000)
+  position        String    @default("a0")
+  /// Probability override 0-100 (null = stage probability)
+  probability     Int?
+  ownerId         String?   @db.Uuid
+  companyId       String?   @db.Uuid
+  contactId       String?   @db.Uuid
+  description     String?
+  lostReason      String?
   expectedCloseAt DateTime?
   closedAt        DateTime?
   customFields    Json      @default("{}")
+  version         Int       @default(1)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  lead      Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lead       Lead?       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  pipeline   Pipeline?   @relation(fields: [pipelineId], references: [id], onDelete: SetNull)
+  stage      Stage?      @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  owner      User?       @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company    Company?    @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact    Contact?    @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  lines      DealLine[]
+  quotations Quotation[]
+  invoices   Invoice[]
+  meetings   Meeting[]
 
   @@index([workspaceId, leadId])
   @@index([workspaceId, status, closedAt])
+  @@index([workspaceId, stageId, position])
+  @@index([workspaceId, ownerId])
+  @@index([workspaceId, companyId])
+  @@index([workspaceId, contactId])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Deal_title_trgm_idx")
+}
+
+/// Product line of a deal (prices exclude GST; money in paise, D-067).
+model DealLine {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  workspaceId    String   @db.Uuid
+  dealId         String   @db.Uuid
+  position       Int
+  productId      String?  @db.Uuid
+  name           String
+  description    String?
+  hsnSac         String?
+  unit           String   @default("NOS")
+  quantity       Decimal  @db.Decimal(14, 3)
+  unitPricePaise BigInt
+  discountKind   String   @default("percent")
+  discountValue  Decimal  @default(0) @db.Decimal(18, 2)
+  gstRate        Int
+  taxablePaise   BigInt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  deal      Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, dealId, position])
+}
+
+// ---------------------------------------------------------------- change #19 wave B: catalog, documents, calendar, routing, capture
+
+/// Product or service (SPEC 29.9). Money in paise; price excludes GST.
+model Product {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  workspaceId    String   @db.Uuid
+  sku            String
+  name           String
+  description    String?
+  /// goods | service
+  kind           String   @default("goods")
+  /// HSN (goods) or SAC (services)
+  hsnSac         String
+  /// GST UQC code (PRODUCT_UNITS)
+  unit           String   @default("NOS")
+  /// 0 | 5 | 12 | 18 | 28
+  gstRate        Int
+  unitPricePaise BigInt
+  active         Boolean  @default(true)
+  customFields   Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  priceListItems PriceListItem[]
+  dealLines      DealLine[]
+  quotationLines QuotationLine[]
+  invoiceLines   InvoiceLine[]
+
+  @@unique([workspaceId, sku])
+  @@index([workspaceId, active, name])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_name_trgm_idx")
+}
+
+model PriceList {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  workspaceId String    @db.Uuid
+  name        String
+  description String?
+  isDefault   Boolean   @default(false)
+  active      Boolean   @default(true)
+  validFrom   DateTime? @db.Date
+  validTo     DateTime? @db.Date
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  items      PriceListItem[]
+  quotations Quotation[]
+  invoices   Invoice[]
+
+  @@unique([workspaceId, name])
+}
+
+model PriceListItem {
+  id             String @id @default(uuid(7)) @db.Uuid
+  workspaceId    String @db.Uuid
+  priceListId    String @db.Uuid
+  productId      String @db.Uuid
+  unitPricePaise BigInt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productId])
+  @@index([workspaceId, productId])
+}
+
+/// Numbering series per workspace, document kind and financial year ("2026-27"). nextNumber is taken with
+/// INSERT ... ON CONFLICT DO UPDATE ... RETURNING (atomic, no gaps for invoices because drafts have no number).
+model DocumentSeries {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  workspaceId   String   @db.Uuid
+  /// quotation | invoice
+  kind          String
+  financialYear String
+  prefix        String
+  nextNumber    Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, kind, financialYear])
+}
+
+/// Quotation (SPEC 29.9). Money in paise (BigInt). buyer/seller are JSON snapshots (Party, SellerSnapshot).
+model Quotation {
+  id             String          @id @default(uuid(7)) @db.Uuid
+  workspaceId    String          @db.Uuid
+  number         String
+  financialYear  String
+  sequence       Int
+  status         QuotationStatus @default(draft)
+  issueDate      DateTime        @db.Date
+  validUntil     DateTime?       @db.Date
+  ownerId        String?         @db.Uuid
+  companyId      String?         @db.Uuid
+  contactId      String?         @db.Uuid
+  dealId         String?         @db.Uuid
+  leadId         String?         @db.Uuid
+  priceListId    String?         @db.Uuid
+  buyerName      String
+  buyer          Json
+  seller         Json?
+  /// GST state code of the place of supply
+  placeOfSupply  String?
+  /// intra | inter
+  taxMode        String          @default("intra")
+  subtotalPaise  BigInt          @default(0)
+  discountPaise  BigInt          @default(0)
+  taxablePaise   BigInt          @default(0)
+  cgstPaise      BigInt          @default(0)
+  sgstPaise      BigInt          @default(0)
+  igstPaise      BigInt          @default(0)
+  roundOffPaise  BigInt          @default(0)
+  totalPaise     BigInt          @default(0)
+  notes          String?
+  terms          String?
+  sentAt         DateTime?
+  acceptedAt     DateTime?
+  rejectedAt     DateTime?
+  statusReason   String?
+  shareTokenHash String?         @unique
+  shareExpiresAt DateTime?
+  sharedAt       DateTime?
+  createdById    String?         @db.Uuid
+  version        Int             @default(1)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User?           @relation("QuotationOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company   Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact   Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal      Deal?           @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  lead      Lead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  priceList PriceList?      @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  lines     QuotationLine[]
+  invoices  Invoice[]
+
+  @@unique([workspaceId, number])
+  @@index([workspaceId, status, issueDate])
+  @@index([workspaceId, ownerId])
+  @@index([workspaceId, companyId])
+  @@index([workspaceId, contactId])
+  @@index([workspaceId, dealId])
+  @@index([workspaceId, leadId])
+}
+
+model QuotationLine {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  workspaceId    String   @db.Uuid
+  quotationId    String   @db.Uuid
+  position       Int
+  productId      String?  @db.Uuid
+  name           String
+  description    String?
+  hsnSac         String?
+  unit           String   @default("NOS")
+  quantity       Decimal  @db.Decimal(14, 3)
+  unitPricePaise BigInt
+  discountKind   String   @default("percent")
+  discountValue  Decimal  @default(0) @db.Decimal(18, 2)
+  gstRate        Int
+  grossPaise     BigInt
+  discountPaise  BigInt
+  taxablePaise   BigInt
+  cgstPaise      BigInt
+  sgstPaise      BigInt
+  igstPaise      BigInt
+  totalPaise     BigInt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, quotationId, position])
+}
+
+/// Invoice (SPEC 29.9). number/financialYear/sequence are set on issue (drafts have none).
+model Invoice {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  workspaceId    String        @db.Uuid
+  number         String?
+  financialYear  String?
+  sequence       Int?
+  status         InvoiceStatus @default(draft)
+  issueDate      DateTime      @db.Date
+  dueDate        DateTime?     @db.Date
+  ownerId        String?       @db.Uuid
+  companyId      String?       @db.Uuid
+  contactId      String?       @db.Uuid
+  dealId         String?       @db.Uuid
+  leadId         String?       @db.Uuid
+  quotationId    String?       @db.Uuid
+  priceListId    String?       @db.Uuid
+  buyerName      String
+  buyer          Json
+  seller         Json?
+  placeOfSupply  String?
+  taxMode        String        @default("intra")
+  subtotalPaise  BigInt        @default(0)
+  discountPaise  BigInt        @default(0)
+  taxablePaise   BigInt        @default(0)
+  cgstPaise      BigInt        @default(0)
+  sgstPaise      BigInt        @default(0)
+  igstPaise      BigInt        @default(0)
+  roundOffPaise  BigInt        @default(0)
+  totalPaise     BigInt        @default(0)
+  paidPaise      BigInt        @default(0)
+  notes          String?
+  terms          String?
+  issuedAt       DateTime?
+  lastPaymentAt  DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  shareTokenHash String?       @unique
+  shareExpiresAt DateTime?
+  sharedAt       DateTime?
+  createdById    String?       @db.Uuid
+  version        Int           @default(1)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User?         @relation("InvoiceOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company   Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact   Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal      Deal?         @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  lead      Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  quotation Quotation?    @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  priceList PriceList?    @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  lines     InvoiceLine[]
+  payments  Payment[]
+
+  @@unique([workspaceId, number])
+  @@index([workspaceId, status, issueDate])
+  @@index([workspaceId, status, dueDate])
+  @@index([workspaceId, ownerId])
+  @@index([workspaceId, companyId])
+  @@index([workspaceId, contactId])
+  @@index([workspaceId, dealId])
+  @@index([workspaceId, quotationId])
+}
+
+model InvoiceLine {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  workspaceId    String   @db.Uuid
+  invoiceId      String   @db.Uuid
+  position       Int
+  productId      String?  @db.Uuid
+  name           String
+  description    String?
+  hsnSac         String?
+  unit           String   @default("NOS")
+  quantity       Decimal  @db.Decimal(14, 3)
+  unitPricePaise BigInt
+  discountKind   String   @default("percent")
+  discountValue  Decimal  @default(0) @db.Decimal(18, 2)
+  gstRate        Int
+  grossPaise     BigInt
+  discountPaise  BigInt
+  taxablePaise   BigInt
+  cgstPaise      BigInt
+  sgstPaise      BigInt
+  igstPaise      BigInt
+  totalPaise     BigInt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invoice   Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, invoiceId, position])
+}
+
+/// Manually recorded payment. Voided payments stay (audit trail) and are excluded from Invoice.paidPaise.
+model Payment {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  workspaceId     String      @db.Uuid
+  invoiceId       String      @db.Uuid
+  amountPaise     BigInt
+  paidOn          DateTime    @db.Date
+  mode            PaymentMode
+  reference       String?
+  note            String?
+  /// Idempotency key from the client (unique per invoice)
+  clientPaymentId String?
+  recordedById    String?     @db.Uuid
+  voidedAt        DateTime?
+  voidedById      String?     @db.Uuid
+  createdAt       DateTime    @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invoice   Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, clientPaymentId])
+  @@index([workspaceId, invoiceId])
+  @@index([workspaceId, paidOn])
+}
+
+/// Note on a contact, account or deal (leads keep notes as Activity rows).
+model CrmNote {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  /// contact | account | deal
+  entityType  String
+  entityId    String   @db.Uuid
+  body        String
+  authorId    String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, entityType, entityId, createdAt])
+}
+
+/// Calendar meeting (SPEC 29.9). recurrence = Recurrence JSON; seriesEndAt = end of the last occurrence (range queries).
+model Meeting {
+  id             String        @id @default(uuid(7)) @db.Uuid
+  workspaceId    String        @db.Uuid
+  title          String
+  description    String?
+  /// in_person | video | phone
+  mode           String        @default("in_person")
+  location       String?
+  videoUrl       String?
+  startAt        DateTime
+  endAt          DateTime
+  allDay         Boolean       @default(false)
+  timezone       String        @default("Asia/Kolkata")
+  status         MeetingStatus @default(scheduled)
+  organizerId    String?       @db.Uuid
+  leadId         String?       @db.Uuid
+  contactId      String?       @db.Uuid
+  companyId      String?       @db.Uuid
+  dealId         String?       @db.Uuid
+  /// Minutes before the start
+  reminders      Int[]         @default([15])
+  recurrence     Json?
+  seriesEndAt    DateTime?
+  /// YYYY-MM-DD of cancelled or detached occurrences
+  exceptionDates String[]      @default([])
+  /// Detached occurrence -> its series
+  seriesId       String?       @db.Uuid
+  outcome        String?
+  cancelReason   String?
+  createdById    String?       @db.Uuid
+  version        Int           @default(1)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  organizer User?             @relation("MeetingOrganizer", fields: [organizerId], references: [id], onDelete: SetNull)
+  lead      Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contact   Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company   Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deal      Deal?             @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  attendees MeetingAttendee[]
+
+  @@index([workspaceId, startAt])
+  @@index([workspaceId, organizerId, startAt])
+  @@index([workspaceId, leadId])
+  @@index([workspaceId, contactId])
+  @@index([workspaceId, companyId])
+  @@index([workspaceId, dealId])
+}
+
+model MeetingAttendee {
+  id          String           @id @default(uuid(7)) @db.Uuid
+  workspaceId String           @db.Uuid
+  meetingId   String           @db.Uuid
+  userId      String?          @db.Uuid
+  contactId   String?          @db.Uuid
+  name        String
+  email       String?
+  response    AttendeeResponse @default(pending)
+  respondedAt DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  meeting   Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@unique([meetingId, userId])
+  @@index([workspaceId, userId])
+  @@index([workspaceId, contactId])
+}
+
+/// Sent reminders (idempotency across API instances).
+model MeetingReminderLog {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  workspaceId     String   @db.Uuid
+  meetingId       String   @db.Uuid
+  occurrenceStart DateTime
+  minutesBefore   Int
+  sentAt          DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, occurrenceStart, minutesBefore])
+  @@index([workspaceId, sentAt])
+}
+
+/// Leave, holiday or training of a user (calendar availability, lead routing).
+model TimeOff {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  userId      String   @db.Uuid
+  /// leave | holiday | training | other
+  kind        String   @default("leave")
+  startAt     DateTime
+  endAt       DateTime
+  note        String?
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, startAt])
+  @@index([workspaceId, startAt])
+}
+
+/// Lead routing rule (schemas/routing.ts). lastAssignedUserId is the round-robin cursor (row-locked when advanced).
+model RoutingRule {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  workspaceId         String    @db.Uuid
+  name                String
+  active              Boolean   @default(true)
+  priority            Int
+  /// RoutingConditions JSON
+  conditions          Json      @default("{}")
+  /// round_robin | least_busy
+  strategy            String    @default("round_robin")
+  teamId              String?   @db.Uuid
+  userIds             String[]  @default([]) @db.Uuid
+  respectWorkingHours Boolean   @default(true)
+  respectAvailability Boolean   @default(true)
+  requireOnline       Boolean   @default(false)
+  fallbackOwnerId     String?   @db.Uuid
+  lastAssignedUserId  String?   @db.Uuid
+  assignedCount       Int       @default(0)
+  lastAssignedAt      DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, active, priority])
+}
+
+/// Lead capture form (schemas/capture.ts). key = public id in /f/<key> and /public/forms/<key>.
+model CaptureForm {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  workspaceId      String    @db.Uuid
+  key              String    @unique
+  name             String
+  /// active | paused
+  status           String    @default("active")
+  /// CaptureField[]
+  fields           Json
+  /// CaptureFormSettings
+  settings         Json
+  submissionCount  Int       @default(0)
+  lastSubmissionAt DateTime?
+  createdById      String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  submissions CaptureSubmission[]
+
+  @@index([workspaceId])
+}
+
+model CaptureSubmission {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  workspaceId        String   @db.Uuid
+  formId             String   @db.Uuid
+  leadId             String?  @db.Uuid
+  duplicateOfLeadId  String?  @db.Uuid
+  values             Json
+  utm                Json     @default("{}")
+  consent            Boolean?
+  pageUrl            String?
+  referrer           String?
+  /// SHA-256 of the client IP with the server secret (no raw IPs)
+  ipHash             String?
+  userAgent          String?
+  clientSubmissionId String?
+  createdAt          DateTime @default(now())
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  form      CaptureForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, clientSubmissionId])
+  @@index([workspaceId, formId, createdAt])
 }
 
 /// Lead timeline entry. payload shape per type: ActivitySchema in @vistar/shared.

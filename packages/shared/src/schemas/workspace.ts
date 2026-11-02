@@ -146,6 +146,8 @@ export const SETTING_KEYS = {
     brandingChartPalette: 'branding.chartPalette',
     brandingLoginImage: 'branding.loginImage',
     brandingFavicon: 'branding.favicon',
+    /** SellerProfile (schemas/documents.ts): GSTIN, address with state code, bank, prefixes, terms (change #19 wave B). */
+    sellerProfile: 'billing.sellerProfile',
   },
 } as const;
 
