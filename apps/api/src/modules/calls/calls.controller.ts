@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Query } from '@nestjs/common';
+import { Body, Controller, Param, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import {
   ActiveCallEventSchema,
   API_ROUTES,
@@ -6,21 +6,27 @@ import {
   CallUpdateSchema,
   DeviceCallLogBatchSchema,
   IdParamSchema,
+  UPLOAD_LIMITS,
   type Call,
   type DeviceCallLogResult,
   type Page,
+  type RecordingUrl,
 } from '@vistar/shared';
 import type { z } from 'zod';
 import { CurrentAuth, type AuthContext } from '../../common/auth/auth-context.js';
-import { AppException } from '../../common/errors/app-exception.js';
 import { ApiRoute } from '../../common/http/api-route.decorator.js';
 import { ZodPipe } from '../../common/validation/zod.pipe.js';
+import { diskUpload } from '../storage/files.controller.js';
+import { StorageService, type UploadedFileLike } from '../storage/storage.service.js';
 import { CallsService } from './calls.service.js';
 
-/** Calls (D-057): live phone state, device call log, call list and detail. */
+/** Calls (D-057): live phone state, device call log, call list and detail, recordings. */
 @Controller()
 export class CallsController {
-  constructor(private readonly calls: CallsService) {}
+  constructor(
+    private readonly calls: CallsService,
+    private readonly storage: StorageService,
+  ) {}
 
   @ApiRoute(API_ROUTES.myCallActive)
   active(@CurrentAuth() auth: AuthContext, @Body(new ZodPipe(ActiveCallEventSchema)) body: z.output<typeof ActiveCallEventSchema>): Promise<Call> {
@@ -51,13 +57,23 @@ export class CallsController {
     return this.calls.update(auth, params.id, body);
   }
 
-  /**
-   * Recording upload needs the PLATFORM storage adapter (D-065), which is not on agent/backend-core
-   * yet. Until it lands this answers 501 so the app keeps the file and retries later.
-   */
+  /** The phone recorder file of my call (multipart `file`, max 50 MB; PLATFORM storage, D-065). */
   @ApiRoute(API_ROUTES.callRecordingUpload)
-  async recording(@CurrentAuth() auth: AuthContext, @Param(new ZodPipe(IdParamSchema)) params: z.output<typeof IdParamSchema>): Promise<Call> {
-    await this.calls.get(auth, params.id); // 404 for calls outside the scope, before the 501
-    throw new AppException('SERVICE_UNAVAILABLE', 'Recording upload is not available yet. Keep the file and try again later', { status: 501 });
+  @UseInterceptors(diskUpload(UPLOAD_LIMITS.call_recording.maxBytes))
+  async recording(
+    @CurrentAuth() auth: AuthContext,
+    @Param(new ZodPipe(IdParamSchema)) params: z.output<typeof IdParamSchema>,
+    @UploadedFile() file: UploadedFileLike | undefined,
+  ): Promise<Call> {
+    try {
+      return await this.calls.uploadRecording(auth, params.id, file);
+    } finally {
+      await this.storage.discard(file);
+    }
+  }
+
+  @ApiRoute(API_ROUTES.callRecording)
+  recordingUrl(@CurrentAuth() auth: AuthContext, @Param(new ZodPipe(IdParamSchema)) params: z.output<typeof IdParamSchema>): Promise<RecordingUrl> {
+    return this.calls.recordingUrl(auth, params.id);
   }
 }

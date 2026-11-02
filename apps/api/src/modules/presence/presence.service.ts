@@ -1,18 +1,17 @@
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import {
-  eventPayloadSchemas,
   HEARTBEAT_INTERVAL_MS,
-  PresenceSchema,
   presenceToEmployeeStatus,
+  type AppScreen,
   type BusinessHours,
   type EventActor,
   type EventPayload,
   type MyPresence,
   type Presence,
   type PresenceEvent,
+  type ZoneSignal,
 } from '@vistar/shared';
-import { Prisma } from '../../generated/prisma/client.js';
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { stableUuid } from '../realtime/ids.js';
@@ -34,6 +33,8 @@ import {
   type StatusChange,
 } from './engine/status-engine.js';
 import { isWithinWorkingHours } from './engine/working-hours.js';
+import { decayedConfidence, type ZoneChange, type ZoneCurrent, type ZoneObservation } from './engine/zone-engine.js';
+import { OfficeMarkersService } from './office-markers.service.js';
 import { PresenceStore } from './presence.store.js';
 
 /** Sweeper period: users whose deadline passed are re-evaluated (offline after 45 s, call timeouts). */
@@ -75,6 +76,7 @@ export class PresenceService implements OnApplicationBootstrap {
     private readonly store: PresenceStore,
     private readonly prisma: PrismaService,
     private readonly events: EventBus,
+    private readonly markers: OfficeMarkersService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -84,9 +86,34 @@ export class PresenceService implements OnApplicationBootstrap {
 
   // ---------------------------------------------------------------- inputs
 
-  heartbeat(who: PresenceWho, beat: { deviceId: string; client: ClientKind; activity: DeviceActivity }): Promise<PresenceView | null> {
+  /**
+   * A heartbeat (socket or REST). `screen` undefined keeps the device's last screen; `appDeviceId` is the
+   * app's own device id (matches its live calls); `zone` is an optional zone signal sent along.
+   */
+  async heartbeat(
+    who: PresenceWho,
+    beat: { deviceId: string; client: ClientKind; activity: DeviceActivity; screen?: AppScreen | null; appDeviceId?: string | null; zone?: ZoneSignal | null },
+  ): Promise<PresenceView | null> {
     const now = Date.now();
-    return this.ingest(who.workspaceId, who.userId, { type: 'heartbeat', deviceId: beat.deviceId, client: beat.client, activity: beat.activity, sessionId: who.sessionId ?? null, at: now });
+    // An unknown QR token on a heartbeat must not cost the heartbeat: the zone part is dropped.
+    const zone = beat.zone ? await this.markers.observe(who.workspaceId, beat.zone, now).catch(() => [] as ZoneObservation[]) : undefined;
+    return this.ingest(who.workspaceId, who.userId, {
+      type: 'heartbeat',
+      deviceId: beat.deviceId,
+      client: beat.client,
+      activity: beat.activity,
+      sessionId: who.sessionId ?? null,
+      at: now,
+      ...(beat.screen !== undefined ? { screen: beat.screen } : {}),
+      ...(beat.appDeviceId ? { appDeviceId: beat.appDeviceId } : {}),
+      ...(zone ? { zone } : {}),
+    });
+  }
+
+  /** Where in the office (POST /me/presence/zone). Throws for an unknown marker token or zone. */
+  async zoneSignal(who: PresenceWho, signal: ZoneSignal): Promise<PresenceView | null> {
+    const observations = await this.markers.observe(who.workspaceId, signal);
+    return this.ingest(who.workspaceId, who.userId, { type: 'zone', observations });
   }
 
   deviceGone(workspaceId: string, userId: string, deviceId: string): Promise<PresenceView | null> {
@@ -161,9 +188,9 @@ export class PresenceService implements OnApplicationBootstrap {
   }
 
   async myPresence(workspaceId: string, userId: string): Promise<MyPresence> {
-    const [v, ctx] = await Promise.all([this.view(workspaceId, userId), this.context(workspaceId, userId)]);
+    const [v, ctx, names] = await Promise.all([this.view(workspaceId, userId), this.context(workspaceId, userId), this.markers.zoneNames(workspaceId)]);
     return {
-      ...toPresence(v),
+      ...toPresence(v, names),
       heartbeatIntervalSec: Math.round(HEARTBEAT_INTERVAL_MS / 1000),
       timeoutSec: Math.round(PRESENCE_TIMEOUT_MS / 1000),
       insideWorkingHours: isWithinWorkingHours(Date.now(), ctx.workingHours),
@@ -176,7 +203,7 @@ export class PresenceService implements OnApplicationBootstrap {
       orderBy: [{ at: 'asc' }, { id: 'asc' }],
       take: 2_000,
     });
-    return rows.map((r) => ({ id: r.id, userId: r.userId, status: r.status, previousStatus: r.previousStatus, source: r.source, callId: r.callId, at: r.at.toISOString() }));
+    return rows.map((r) => ({ id: r.id, userId: r.userId, version: r.version, status: r.status, previousStatus: r.previousStatus, source: r.source, callId: r.callId, at: r.at.toISOString() }));
   }
 
   /** The engine context for a user (working hours, timezone, holidays, field staff). Cached 60 s. */
@@ -214,7 +241,8 @@ export class PresenceService implements OnApplicationBootstrap {
       const base = current ?? (await this.seed(workspaceId, userId, now));
       const r = reduce(base, input, ctx, now);
       const deadline = nextDeadline(r.state, ctx, now);
-      if (!r.change) {
+      const { change, zoneChange } = r;
+      if (!change && !zoneChange) {
         const persistSeen = this.shouldPersistSeen(workspaceId, userId, r.state, now);
         return {
           state: r.state,
@@ -223,13 +251,12 @@ export class PresenceService implements OnApplicationBootstrap {
           before: persistSeen ? () => this.persistSeen(workspaceId, userId, r.state) : undefined,
         };
       }
-      const change = r.change;
       return {
         state: r.state,
         deadline,
-        result: change.view,
+        result: change?.view ?? viewOf(r.state),
         before: () => this.persistChange(workspaceId, userId, change, r.state),
-        after: () => this.publish(workspaceId, change),
+        after: () => this.publish(workspaceId, userId, change, zoneChange),
       };
     });
   }
@@ -241,8 +268,7 @@ export class PresenceService implements OnApplicationBootstrap {
    */
   private async seed(workspaceId: string, userId: string, now: number): Promise<PresenceState> {
     const row = await this.prisma.forTenant(workspaceId).presence.findFirst({ where: { userId } });
-    const stored = (row as { version?: unknown } | null)?.version;
-    const version = row ? (typeof stored === 'number' ? stored : now) : 0;
+    const version = row?.version ?? 0;
     const state = initialState(userId, now, { version, lastSeenAt: row?.lastSeenAt?.getTime() ?? null });
     if (row) {
       // The database copy is what clients last saw; the engine re-derives from here (no devices = offline).
@@ -274,21 +300,26 @@ export class PresenceService implements OnApplicationBootstrap {
     const lastHeartbeatAt = s.lastHeartbeatAt ? new Date(s.lastHeartbeatAt) : null;
     // Invisible mode: do not move the stored last-seen time.
     if (s.status === 'offline') return;
+    const zone = viewOf(s).zone;
     await Promise.all([
-      db.presence.updateMany({ where: { userId }, data: { lastSeenAt, lastHeartbeatAt } }),
+      db.presence.updateMany({ where: { userId }, data: { lastSeenAt, lastHeartbeatAt, ...(zone ? { zoneAt: new Date(zone.at), zoneConfidence: zone.confidence } : {}) } }),
       db.user.updateMany({ where: { id: userId }, data: { lastSeenAt } }),
     ]);
   }
 
-  private async persistChange(workspaceId: string, userId: string, change: StatusChange, s: PresenceState): Promise<void> {
-    const v = change.view;
+  /**
+   * Durable write of a change: the Presence row (status, version, activity, screen, zone), and for a
+   * status change also ONE PresenceEvent row and the coarse User.status. `change` null = zone only.
+   */
+  private async persistChange(workspaceId: string, userId: string, change: StatusChange | null, s: PresenceState): Promise<void> {
+    const v = viewOf(s);
     const db = this.prisma.forTenant(workspaceId);
     const since = new Date(v.since);
     const data = {
       status: v.status,
       source: v.source,
       since,
-      ...(HAS_PRESENCE_VERSION ? { version: v.version } : {}),
+      version: v.version,
       manualStatus: v.manualStatus,
       manualNote: v.activity.note,
       manualSetAt: s.manual ? new Date(s.manual.setAt) : null,
@@ -299,40 +330,60 @@ export class PresenceService implements OnApplicationBootstrap {
       callId: v.activity.callId,
       callStartedAt: v.activity.kind === 'call' && v.activity.startedAt ? new Date(v.activity.startedAt) : null,
       leadId: v.activity.leadId,
+      screen: v.activity.screen ?? null,
+      zoneId: v.zone?.zoneId ?? null,
+      zoneSource: v.zone?.source ?? null,
+      zoneConfidence: v.zone?.confidence ?? null,
+      zoneSince: v.zone ? new Date(v.zone.since) : null,
+      zoneAt: v.zone ? new Date(v.zone.at) : null,
     };
     await db.$transaction(async (tx) => {
-      // One row per (user, version): a deterministic id makes a retried write a no-op (exactly once).
-      await tx.presenceEvent.createMany({
-        data: [
-          {
-            id: stableUuid('presence-event', workspaceId, userId, v.version),
-            workspaceId,
-            userId,
-            status: v.status,
-            previousStatus: change.previousStatus,
-            source: v.source,
-            callId: v.activity.callId,
-            meta: { version: v.version, activity: v.activity.kind, leadId: v.activity.leadId, note: v.activity.note },
-            at: since,
-          },
-        ],
-        skipDuplicates: true,
-      });
+      if (change?.historic) {
+        // One row per (user, version): a deterministic id plus the unique (user, version) make a retried write a no-op.
+        await tx.presenceEvent.createMany({
+          data: [
+            {
+              id: stableUuid('presence-event', workspaceId, userId, v.version),
+              workspaceId,
+              userId,
+              status: v.status,
+              previousStatus: change.previousStatus,
+              version: v.version,
+              source: v.source,
+              callId: v.activity.callId,
+              meta: { activity: v.activity.kind, leadId: v.activity.leadId, note: v.activity.note },
+              at: since,
+            },
+          ],
+          skipDuplicates: true,
+        });
+      }
       await tx.presence.upsert({ where: { userId }, create: { workspaceId, userId, ...data }, update: data });
-      await tx.user.updateMany({
-        where: { id: userId },
-        data: { status: presenceToEmployeeStatus(v.status), statusChangedAt: since, ...(v.status === 'offline' ? {} : { lastSeenAt: data.lastSeenAt }) },
-      });
+      if (change) {
+        await tx.user.updateMany({
+          where: { id: userId },
+          data: { status: presenceToEmployeeStatus(v.status), statusChangedAt: since, ...(v.status === 'offline' ? {} : { lastSeenAt: data.lastSeenAt }) },
+        });
+      }
     });
     this.seenPersisted.set(`${workspaceId}:${userId}`, Date.now());
   }
 
-  private async publish(workspaceId: string, change: StatusChange): Promise<void> {
-    const v = change.view;
-    try {
-      await this.events.publish('employee.status_changed', workspaceId, statusChangedPayload(change) as EventPayload<'employee.status_changed'>, { actor: SYSTEM });
-    } catch (err) {
-      this.logger.error(`employee.status_changed publish failed (v${v.version}): ${(err as Error).message}`);
+  /** Status first, then the zone (both inside the user's lock, so in order). */
+  private async publish(workspaceId: string, userId: string, change: StatusChange | null, zone: ZoneChange | null): Promise<void> {
+    if (change) {
+      try {
+        await this.events.publish('employee.status_changed', workspaceId, statusChangedPayload(change), { actor: SYSTEM });
+      } catch (err) {
+        this.logger.error(`employee.status_changed publish failed (v${change.view.version}): ${(err as Error).message}`);
+      }
+    }
+    if (zone) {
+      try {
+        await this.events.publish('employee.zone_changed', workspaceId, zoneChangedPayload(userId, zone), { actor: SYSTEM });
+      } catch (err) {
+        this.logger.error(`employee.zone_changed publish failed: ${(err as Error).message}`);
+      }
     }
   }
 
@@ -369,22 +420,21 @@ export class PresenceService implements OnApplicationBootstrap {
 }
 
 
-/** True once the contract carries `version` (request 19-#2); until then it is sent only where the schema allows. */
-const STATUS_SHAPE = (eventPayloadSchemas['employee.status_changed'] as unknown as { shape: Record<string, unknown> }).shape;
-export const EVENT_HAS_VERSION = 'version' in STATUS_SHAPE;
-const PRESENCE_SHAPE = (PresenceSchema as unknown as { shape: Record<string, unknown> }).shape;
-const PRESENCE_HAS_VERSION = 'version' in PRESENCE_SHAPE;
-const HAS_PRESENCE_VERSION = 'version' in Prisma.PresenceScalarFieldEnum;
+/** Presence.location of a zone (confidence decayed to `now`). */
+export function toLocation(z: ZoneCurrent | null, zoneName: (zoneId: string) => string | null, now: number): Presence['location'] {
+  if (!z) return null;
+  return { zoneId: z.zoneId, zoneName: zoneName(z.zoneId), source: z.source, confidence: decayedConfidence(z, now), since: new Date(z.since).toISOString(), at: new Date(z.at).toISOString() };
+}
 
-/** Presence (contract shape) of a view. */
-export function toPresence(v: PresenceView): Presence {
+/** Presence (contract shape) of a view. `zoneName` resolves seat-map zone names (MyPresence, snapshot). */
+export function toPresence(v: PresenceView, zoneName: (zoneId: string) => string | null = () => null, now = Date.now()): Presence {
   return {
     userId: v.userId,
     status: v.status,
+    version: v.version,
     employeeStatus: presenceToEmployeeStatus(v.status),
     source: v.source,
     since: new Date(v.since).toISOString(),
-    ...(PRESENCE_HAS_VERSION ? { version: v.version } : {}),
     manualStatus: v.manualStatus,
     lastHeartbeatAt: v.lastHeartbeatAt === null ? null : new Date(v.lastHeartbeatAt).toISOString(),
     lastSeenAt: v.lastSeenAt === null ? null : new Date(v.lastSeenAt).toISOString(),
@@ -396,12 +446,14 @@ export function toPresence(v: PresenceView): Presence {
       client: v.activity.client,
       clientActivity: v.activity.clientActivity,
       note: v.activity.note,
+      screen: (v.activity.screen as AppScreen | null | undefined) ?? null,
     },
+    location: toLocation(v.zone, zoneName, now),
   };
 }
 
 /** `employee.status_changed` payload: coarse fields for older consumers plus the detailed presence. */
-export function statusChangedPayload(change: StatusChange) {
+export function statusChangedPayload(change: StatusChange): EventPayload<'employee.status_changed'> {
   const v = change.view;
   const p = toPresence(v);
   return {
@@ -416,8 +468,12 @@ export function statusChangedPayload(change: StatusChange) {
     source: v.source,
     lastSeenAt: p.lastSeenAt,
     activity: p.activity,
-    ...(EVENT_HAS_VERSION ? { version: v.version, since: p.since } : {}),
+    version: v.version,
+    since: p.since,
   };
 }
 
-
+/** `employee.zone_changed` payload. */
+export function zoneChangedPayload(userId: string, z: ZoneChange): EventPayload<'employee.zone_changed'> {
+  return { userId, zoneId: z.zoneId, previousZoneId: z.previousZoneId, source: z.source, confidence: Math.min(1, Math.max(0, z.confidence)), at: new Date(z.at).toISOString() };
+}

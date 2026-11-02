@@ -49,6 +49,8 @@ export const AUDIENCE_RULES: Record<EventName, Rule> = {
   'call.ended': ev<'call.ended'>((e) => ({ kind: 'owners', ownerIds: [e.payload.call.user?.id ?? null], permission: 'calls.read' })),
   'call.updated': ev<'call.updated'>((e) => ({ kind: 'owners', ownerIds: [e.payload.call.user?.id ?? null], permission: 'calls.read' })),
   'employee.status_changed': ev<'employee.status_changed'>((e) => ({ kind: 'owners', ownerIds: [e.payload.userId] })),
+  // where in the office: the same people who see the person's status
+  'employee.zone_changed': ev<'employee.zone_changed'>((e) => ({ kind: 'owners', ownerIds: [e.payload.userId] })),
   // attendance and GPS: the person, and managers and admins whose scope includes them (team.read)
   'attendance.checked_in': ev<'attendance.checked_in'>((e) => ({ kind: 'owners', ownerIds: [e.payload.session.userId], permission: 'team.read', allowSelf: true })),
   'attendance.checked_out': ev<'attendance.checked_out'>((e) => ({ kind: 'owners', ownerIds: [e.payload.session.userId], permission: 'team.read', allowSelf: true })),

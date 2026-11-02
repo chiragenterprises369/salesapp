@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import {
-  defaultFloorTemplateFor,
   PRESENCE_STATUSES,
   presenceToEmployeeStatus,
   SeatMapSchema,
@@ -14,8 +13,10 @@ import { ScopeService } from '../../common/auth/scope.service.js';
 import { toUserSummary, USER_SUMMARY_SELECT } from '../../common/mappers/user.mapper.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { assertInTenant } from '../../infra/prisma/tenant.js';
+import { FloorsService } from '../floors/floors.service.js';
 import { startOfZonedDay, startOfZonedMonth, zonedMonthKey, safeTimezone } from '../leads/lib/tz.js';
 import { initialState, viewOf, type PresenceView } from '../presence/engine/status-engine.js';
+import { OfficeMarkersService } from '../presence/office-markers.service.js';
 import { PresenceService, toPresence } from '../presence/presence.service.js';
 import { overdueAttention, overdueWhere, TASK_INCLUDE } from '../tasks/task.mapper.js';
 import { assignSeats } from './seats.js';
@@ -24,10 +25,11 @@ const FLOOR_KINDS = ['employee', 'manager'] as const;
 const MAX_PEOPLE = 200;
 
 /**
- * Team Floor snapshot (SPEC 12, 29.2): the people in the caller's scope with their server-decided
- * presence (the same views the `employee.status_changed` events carry), seats on the published custom
- * floor, today's call numbers, waiting leads and "Needs you" items. Clients apply events on top and
- * refetch on `sync.required`.
+ * Team Floor snapshot (SPEC 12, 29.2, 29.11): the people in the caller's scope with their server-decided
+ * presence (the same views the `employee.status_changed` / `employee.zone_changed` events carry: status,
+ * version, activity with the screen, office zone with source and confidence), seats on the published
+ * custom floor, today's call numbers, waiting leads and "Needs you" items. Clients apply events on top
+ * and refetch on `sync.required`.
  */
 @Injectable()
 export class TeamFloorService {
@@ -35,6 +37,8 @@ export class TeamFloorService {
     private readonly prisma: PrismaService,
     private readonly scope: ScopeService,
     private readonly presence: PresenceService,
+    private readonly floors: FloorsService,
+    private readonly markers: OfficeMarkersService,
   ) {}
 
   async snapshot(auth: AuthContext, teamId?: string): Promise<TeamFloorSnapshot> {
@@ -60,15 +64,15 @@ export class TeamFloorService {
     const ids = people.map((p) => p.id);
     const todayStart = startOfZonedDay(now, tz);
 
-    const [views, callStats, talkStats, openSessions, floorAsset, headcount, targets, monthCalls] = await Promise.all([
+    const [views, callStats, talkStats, openSessions, layout, zoneName, targets, monthCalls] = await Promise.all([
       this.views(wid, ids),
       ids.length ? db.call.groupBy({ by: ['userId'], where: { userId: { in: ids }, startedAt: { gte: todayStart } }, _count: { _all: true } }) : Promise.resolve([]),
       ids.length
         ? db.call.groupBy({ by: ['userId'], where: { userId: { in: ids }, startedAt: { gte: todayStart }, durationSec: { gt: 0 } }, _avg: { durationSec: true } })
         : Promise.resolve([]),
       ids.length ? db.attendanceSession.findMany({ where: { userId: { in: ids }, checkOutAt: null }, select: { userId: true } }) : Promise.resolve([]),
-      db.floorAsset.findFirst({ where: { status: 'published' }, orderBy: { version: 'desc' }, select: { id: true, version: true, seatMap: true } }),
-      db.user.count({ where: { deletedAt: null, isActive: true, role: { kind: { in: [...FLOOR_KINDS] } } } }),
+      this.floors.layoutRef(wid),
+      this.markers.zoneNames(wid),
       ids.length ? db.target.findMany({ where: { userId: { in: ids }, metric: 'calls', period: zonedMonthKey(now, tz) }, select: { userId: true, value: true } }) : Promise.resolve([]),
       ids.length ? db.call.groupBy({ by: ['userId'], where: { userId: { in: ids }, startedAt: { gte: startOfZonedMonth(now, tz) } }, _count: { _all: true } }) : Promise.resolve([]),
     ]);
@@ -78,18 +82,17 @@ export class TeamFloorService {
     const monthBy = new Map(monthCalls.map((c) => [c.userId, c._count._all]));
     const targetBy = new Map(targets.map((t) => [t.userId, t.value]));
     const checkedIn = new Set(openSessions.map((s) => s.userId));
-    const seatMap = floorAsset?.seatMap ? SeatMapSchema.safeParse(floorAsset.seatMap) : null;
+    const { asset, ...floor } = layout;
+    const seatMap = asset?.seatMap ? SeatMapSchema.safeParse(asset.seatMap) : null;
     const seats = assignSeats(seatMap?.success ? seatMap.data : null, people.map((p) => ({ id: p.id, deskIndex: p.deskIndex, name: p.name })));
-    const floor: TeamFloorRef = floorAsset
-      ? { source: 'custom', templateId: defaultFloorTemplateFor(headcount), floorAssetId: floorAsset.id, version: floorAsset.version }
-      : { source: 'template', templateId: defaultFloorTemplateFor(headcount), floorAssetId: null, version: null };
+    const nowMs = now.getTime();
 
     const counts = Object.fromEntries(PRESENCE_STATUSES.map((s) => [s, 0])) as Record<PresenceStatus, number>;
     const employees: TeamFloorSnapshot['employees'] = people.map((p, i) => {
       const v = views.get(p.id) ?? viewOf(initialState(p.id, now.getTime()));
       counts[v.status] += 1;
       const coarse = presenceToEmployeeStatus(v.status);
-      const presence = toPresence(v);
+      const presence = toPresence(v, zoneName, nowMs);
       const target = targetBy.get(p.id);
       return {
         user: { ...toUserSummary(p), status: coarse },
@@ -128,7 +131,7 @@ export class TeamFloorService {
       employees,
       leadsWaiting: waiting.map((l) => ({ leadId: l.id, name: l.name, createdAt: l.createdAt.toISOString() })),
       attention,
-      floor,
+      floor: floor satisfies TeamFloorRef,
       presenceCounts: counts,
       generatedAt: now.toISOString(),
     };

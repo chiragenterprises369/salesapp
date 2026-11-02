@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { createAdapter } from '@socket.io/redis-adapter';
 import {
+  AppScreenSchema,
   eventPayloadSchemas,
   HeartbeatSchema,
   JoinableRoomSchema,
@@ -17,6 +18,7 @@ import {
   rooms,
   SYNC_SCOPES,
   type Ack,
+  type AppScreen,
   type DomainEvent,
 } from '@vistar/shared';
 import type { Namespace, Socket } from 'socket.io';
@@ -36,6 +38,8 @@ interface SocketState {
   client: 'web' | 'android';
   lastBeatAt: number;
   expiryTimer: NodeJS.Timeout | null;
+  /** Last reported screen; a beat inside MIN_BEAT_GAP_MS still goes through when it changes. */
+  screen: string | null;
 }
 
 /** Socket ids are per connection; presence counts each connection as one device. */
@@ -66,7 +70,7 @@ const corsOrigins = () =>
  *   client says `auth.fresh = true` (first connect right after loading data). Clients refetch the
  *   Team Floor snapshot then.
  * - Presence: connecting counts as a heartbeat; clients send `presence.heartbeat` every
- *   HEARTBEAT_INTERVAL_MS. A deliberate client disconnect (socket.disconnect()) is a logout of that
+ *   HEARTBEAT_INTERVAL_MS (optional `screen` and `deviceId`; a screen change is applied at once). A deliberate client disconnect (socket.disconnect()) is a logout of that
  *   device; a dropped transport is not (the 45 s timeout decides).
  * - Token expiry: `auth.expired { reason: "expired" }` then disconnect; a revoked session or a
  *   deactivated user gets `auth.expired { reason: "revoked" }` within VIEWER_TTL_MS.
@@ -102,7 +106,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnMo
       this.socketAuth
         .authenticate(token)
         .then((principal) => {
-          this.sockets.set(socket.id, { principal, client: auth.client === 'android' ? 'android' : 'web', lastBeatAt: 0, expiryTimer: null });
+          this.sockets.set(socket.id, { principal, client: auth.client === 'android' ? 'android' : 'web', lastBeatAt: 0, expiryTimer: null, screen: null });
           next();
         })
         .catch((err: unknown) => {
@@ -159,10 +163,15 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnMo
     const parsed = HeartbeatSchema.safeParse(body);
     if (!parsed.success) return { ok: false };
     if (parsed.data.client) state.client = parsed.data.client === 'android' ? 'android' : 'web';
+    // `screen` is not in the socket HeartbeatSchema yet (request 19-#3); read it leniently, like REST.
+    const screenRaw = (body as { screen?: unknown } | null)?.screen;
+    const screen = screenRaw === undefined ? undefined : (AppScreenSchema.safeParse(screenRaw).data ?? null);
     const now = Date.now();
-    if (now - state.lastBeatAt < MIN_BEAT_GAP_MS) return { ok: true };
+    const screenMoved = screen !== undefined && screen !== state.screen;
+    if (now - state.lastBeatAt < MIN_BEAT_GAP_MS && !screenMoved) return { ok: true };
     if (now - state.principal.viewerAt > VIEWER_TTL_MS && !(await this.revalidate(socket, state))) return { ok: false };
-    await this.beat(socket, state, parsed.data.activity);
+    if (screen !== undefined) state.screen = screen;
+    await this.beat(socket, state, parsed.data.activity, { screen, appDeviceId: parsed.data.deviceId ?? null });
     return { ok: true };
   }
 
@@ -189,11 +198,14 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnMo
 
   // ---------------------------------------------------------------- internals
 
-  private async beat(socket: Socket, state: SocketState, activity: 'active' | 'idle' | 'hidden'): Promise<void> {
+  private async beat(socket: Socket, state: SocketState, activity: 'active' | 'idle' | 'hidden', extra: { screen?: AppScreen | null; appDeviceId?: string | null } = {}): Promise<void> {
     const p = state.principal as WorkspacePrincipal;
     state.lastBeatAt = Date.now();
     try {
-      await this.presence.heartbeat({ workspaceId: p.workspaceId, userId: p.userId, sessionId: p.sessionId }, { deviceId: socketDeviceId(socket.id), client: state.client, activity });
+      await this.presence.heartbeat(
+        { workspaceId: p.workspaceId, userId: p.userId, sessionId: p.sessionId },
+        { deviceId: socketDeviceId(socket.id), client: state.client, activity, ...(extra.screen !== undefined ? { screen: extra.screen } : {}), appDeviceId: extra.appDeviceId ?? null },
+      );
     } catch (err) {
       this.logger.warn(`presence heartbeat failed: ${(err as Error).message}`);
     }
