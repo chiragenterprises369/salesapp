@@ -180,7 +180,8 @@ export const BoardColumn = memo(function BoardColumn({
         'transition-[box-shadow,background-color] duration-150 ease-standard',
         COLUMN_TINT[tone],
         enter && 'vb-enter',
-        isOver && 'ring-2 ring-accent',
+        // Soft target highlight; the dashed slot placeholder marks the exact drop position.
+        isOver && 'ring-2 ring-accent/50',
       )}
     >
       <header className={cn('flex flex-col gap-1 pr-1.5 pl-3', compact ? 'pt-1 pb-1' : 'pt-2 pb-1.5')}>
