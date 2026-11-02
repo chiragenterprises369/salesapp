@@ -550,6 +550,20 @@ components:
             - null
         showEmployeeRank:
           type: boolean
+        defaultInterfaceStyle:
+          type: string
+          enum:
+            - classic
+            - depth
+            - neon
+          default: classic
+        defaultBoardSkin:
+          type: string
+          enum:
+            - flat
+            - depth
+            - neon
+          default: depth
         supportAccess:
           type: object
           properties:
@@ -4193,6 +4207,43 @@ components:
                 - table
                 - null
               default: null
+            interfaceStyle:
+              type:
+                - string
+                - "null"
+              enum:
+                - classic
+                - depth
+                - neon
+                - null
+              default: null
+            motionIntensity:
+              type: string
+              enum:
+                - full
+                - reduced
+                - off
+              default: full
+            boardSkin:
+              type:
+                - string
+                - "null"
+              enum:
+                - flat
+                - depth
+                - neon
+                - null
+              default: null
+            celebrations:
+              type:
+                - string
+                - "null"
+              enum:
+                - full
+                - subtle
+                - off
+                - null
+              default: null
           required:
             - theme
             - notifications
@@ -5196,6 +5247,18 @@ paths:
                     - null
                 showEmployeeRank:
                   type: boolean
+                defaultInterfaceStyle:
+                  type: string
+                  enum:
+                    - classic
+                    - depth
+                    - neon
+                defaultBoardSkin:
+                  type: string
+                  enum:
+                    - flat
+                    - depth
+                    - neon
       responses:
         "200":
           description: OK
@@ -6590,6 +6653,43 @@ paths:
                       - table
                       - null
                     default: null
+                  interfaceStyle:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - classic
+                      - depth
+                      - neon
+                      - null
+                    default: null
+                  motionIntensity:
+                    type: string
+                    enum:
+                      - full
+                      - reduced
+                      - off
+                    default: full
+                  boardSkin:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - flat
+                      - depth
+                      - neon
+                      - null
+                    default: null
+                  celebrations:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - full
+                      - subtle
+                      - off
+                      - null
+                    default: null
                 required:
                   - theme
                   - notifications
@@ -6673,6 +6773,39 @@ paths:
                     - board
                     - table
                     - null
+                interfaceStyle:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - classic
+                    - depth
+                    - neon
+                    - null
+                motionIntensity:
+                  type: string
+                  enum:
+                    - full
+                    - reduced
+                    - off
+                boardSkin:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - flat
+                    - depth
+                    - neon
+                    - null
+                celebrations:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - full
+                    - subtle
+                    - off
+                    - null
       responses:
         "200":
           description: OK
@@ -6742,6 +6875,43 @@ paths:
                     enum:
                       - board
                       - table
+                      - null
+                    default: null
+                  interfaceStyle:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - classic
+                      - depth
+                      - neon
+                      - null
+                    default: null
+                  motionIntensity:
+                    type: string
+                    enum:
+                      - full
+                      - reduced
+                      - off
+                    default: full
+                  boardSkin:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - flat
+                      - depth
+                      - neon
+                      - null
+                    default: null
+                  celebrations:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - full
+                      - subtle
+                      - off
                       - null
                     default: null
                 required:

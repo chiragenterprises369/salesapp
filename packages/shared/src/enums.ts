@@ -193,6 +193,26 @@ export const LEADS_VIEW_MODES = ['board', 'table'] as const;
 export const LeadsViewModeSchema = z.enum(LEADS_VIEW_MODES);
 export type LeadsViewMode = z.infer<typeof LeadsViewModeSchema>;
 
+/** App-wide interface style (SPEC 28.2, D-052). Default classic; resolve with resolveInterfaceStyle(). */
+export const INTERFACE_STYLES = ['classic', 'depth', 'neon'] as const;
+export const InterfaceStyleSchema = z.enum(INTERFACE_STYLES);
+export type InterfaceStyle = z.infer<typeof InterfaceStyleSchema>;
+
+/** Motion intensity (SPEC 28.2, D-052). Default full; resolve with resolveMotion(). */
+export const MOTION_INTENSITIES = ['full', 'reduced', 'off'] as const;
+export const MotionIntensitySchema = z.enum(MOTION_INTENSITIES);
+export type MotionIntensity = z.infer<typeof MotionIntensitySchema>;
+
+/** Leads Board skin (SPEC 28.1, D-052). Default depth; resolve with resolveBoardSkin(). */
+export const BOARD_SKINS = ['flat', 'depth', 'neon'] as const;
+export const BoardSkinSchema = z.enum(BOARD_SKINS);
+export type BoardSkin = z.infer<typeof BoardSkinSchema>;
+
+/** Board event celebrations (SPEC 28.1, D-052). Resolve with resolveCelebrations(). */
+export const CELEBRATION_INTENSITIES = ['full', 'subtle', 'off'] as const;
+export const CelebrationIntensitySchema = z.enum(CELEBRATION_INTENSITIES);
+export type CelebrationIntensity = z.infer<typeof CelebrationIntensitySchema>;
+
 /** Targets (monthly). Prisma enum TargetMetric must match. */
 export const TARGET_METRICS = ['revenue_inr', 'deals_won', 'calls', 'leads_converted'] as const;
 export const TargetMetricSchema = z.enum(TARGET_METRICS);

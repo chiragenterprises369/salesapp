@@ -7,6 +7,7 @@ export * from './errors.js';
 export * from './rbac.js';
 export * from './navigation.js';
 export * from './theme.js';
+export * from './appearance.js';
 export * from './format.js';
 export * from './webhooks.js';
 export * from './events.js';

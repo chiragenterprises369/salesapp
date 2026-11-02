@@ -55,6 +55,8 @@ export function mockWorkspace(overrides: Partial<Workspace> = {}): Workspace {
     defaultTheme: 'system',
     defaultLeadsViewMode: null,
     showEmployeeRank: true,
+    defaultInterfaceStyle: 'classic',
+    defaultBoardSkin: 'depth',
     supportAccess: { until: null, includeContent: false },
     features: ALL_FLAGS,
     createdAt: CREATED,
