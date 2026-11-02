@@ -394,11 +394,6 @@ export class FloorEngine {
   }
 
   /** Visible label rectangles in canvas CSS px (QA hook). */
-  debugScreens() {
-    return this.office?.debugScreens() ?? [];
-  }
-
-  /** Visible label rectangles in canvas CSS px (QA hook). */
   labelRects() {
     return [...this.placements.values()].filter((p) => p.mode !== 'hidden').map((p) => ({ id: p.id, kind: p.kind, mode: p.mode, leader: p.leader, x: p.x, y: p.y, w: p.w, h: p.h }));
   }

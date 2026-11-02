@@ -200,7 +200,6 @@ interface QaHook {
   focus(id: string): void;
   focusPoint(x: number, z: number, factor: number): void;
   rooms(): { id: string; x: number; z: number }[];
-  debugScreens(): unknown;
 }
 
 function EngineBridge({ state, template, theme, tier, reducedMotion, selectedId, focusRequest, onContextLost, callbacksRef, onEngine, container }: BridgeProps) {
@@ -227,6 +226,8 @@ function EngineBridge({ state, template, theme, tier, reducedMotion, selectedId,
     });
     engineRef.current = engine;
     onEngine(engine);
+    // Reads the latest callbacks at cleanup time on purpose (the ref is updated on every render).
+    const notifyUnready = () => callbacksRef.current.onReady(false);
     const w = window as unknown as { __vistarFloor?: QaHook };
     if (qaEnabled()) {
       w.__vistarFloor = {
@@ -239,14 +240,13 @@ function EngineBridge({ state, template, theme, tier, reducedMotion, selectedId,
         fit: () => engine.resetView(),
         focus: (id) => engine.focus(id),
         focusPoint: (x, z, f) => engine.focusPoint(x, z, f),
-        debugScreens: () => engine.debugScreens(),
         rooms: () => template.rooms.map((r) => ({ id: r.id, x: r.outline.reduce((a, p) => a + p[0], 0) / r.outline.length, z: r.outline.reduce((a, p) => a + p[1], 0) / r.outline.length })),
       };
     }
     return () => {
       onEngine(null);
       engineRef.current = null;
-      callbacksRef.current.onReady(false);
+      notifyUnready();
       engine.dispose();
       if (w.__vistarFloor) delete w.__vistarFloor;
     };
