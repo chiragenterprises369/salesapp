@@ -3513,11 +3513,11 @@ components:
                 properties:
                   x:
                     type: number
-                  y:
+                  "y":
                     type: number
                 required:
                   - x
-                  - y
+                  - "y"
               data:
                 type: object
                 properties:
@@ -3836,11 +3836,11 @@ components:
                     properties:
                       x:
                         type: number
-                      y:
+                      "y":
                         type: number
                     required:
                       - x
-                      - y
+                      - "y"
                   data:
                     type: object
                     properties:
@@ -4158,11 +4158,11 @@ components:
                 darkFrom:
                   type: string
                   pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                  default: 19:00
+                  default: "19:00"
                 darkTo:
                   type: string
                   pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                  default: 07:00
+                  default: "07:00"
             teamFloorMode:
               type: string
               enum:
@@ -4182,7 +4182,7 @@ components:
                 emailDigest:
                   type: string
                   enum:
-                    - off
+                    - "off"
                     - daily
                     - weekly
                   default: daily
@@ -4195,8 +4195,8 @@ components:
               type: string
               enum:
                 - system
-                - on
-                - off
+                - "on"
+                - "off"
               default: system
             leadsViewMode:
               type:
@@ -4222,7 +4222,7 @@ components:
               enum:
                 - full
                 - reduced
-                - off
+                - "off"
               default: full
             boardSkin:
               type:
@@ -4241,7 +4241,7 @@ components:
               enum:
                 - full
                 - subtle
-                - off
+                - "off"
                 - null
               default: null
           required:
@@ -6604,11 +6604,11 @@ paths:
                       darkFrom:
                         type: string
                         pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                        default: 19:00
+                        default: "19:00"
                       darkTo:
                         type: string
                         pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                        default: 07:00
+                        default: "07:00"
                   teamFloorMode:
                     type: string
                     enum:
@@ -6628,7 +6628,7 @@ paths:
                       emailDigest:
                         type: string
                         enum:
-                          - off
+                          - "off"
                           - daily
                           - weekly
                         default: daily
@@ -6641,8 +6641,8 @@ paths:
                     type: string
                     enum:
                       - system
-                      - on
-                      - off
+                      - "on"
+                      - "off"
                     default: system
                   leadsViewMode:
                     type:
@@ -6668,7 +6668,7 @@ paths:
                     enum:
                       - full
                       - reduced
-                      - off
+                      - "off"
                     default: full
                   boardSkin:
                     type:
@@ -6687,7 +6687,7 @@ paths:
                     enum:
                       - full
                       - subtle
-                      - off
+                      - "off"
                       - null
                     default: null
                 required:
@@ -6752,7 +6752,7 @@ paths:
                     emailDigest:
                       type: string
                       enum:
-                        - off
+                        - "off"
                         - daily
                         - weekly
                     muted:
@@ -6763,8 +6763,8 @@ paths:
                   type: string
                   enum:
                     - system
-                    - on
-                    - off
+                    - "on"
+                    - "off"
                 leadsViewMode:
                   type:
                     - string
@@ -6787,7 +6787,7 @@ paths:
                   enum:
                     - full
                     - reduced
-                    - off
+                    - "off"
                 boardSkin:
                   type:
                     - string
@@ -6804,7 +6804,7 @@ paths:
                   enum:
                     - full
                     - subtle
-                    - off
+                    - "off"
                     - null
       responses:
         "200":
@@ -6828,11 +6828,11 @@ paths:
                       darkFrom:
                         type: string
                         pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                        default: 19:00
+                        default: "19:00"
                       darkTo:
                         type: string
                         pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                        default: 07:00
+                        default: "07:00"
                   teamFloorMode:
                     type: string
                     enum:
@@ -6852,7 +6852,7 @@ paths:
                       emailDigest:
                         type: string
                         enum:
-                          - off
+                          - "off"
                           - daily
                           - weekly
                         default: daily
@@ -6865,8 +6865,8 @@ paths:
                     type: string
                     enum:
                       - system
-                      - on
-                      - off
+                      - "on"
+                      - "off"
                     default: system
                   leadsViewMode:
                     type:
@@ -6892,7 +6892,7 @@ paths:
                     enum:
                       - full
                       - reduced
-                      - off
+                      - "off"
                     default: full
                   boardSkin:
                     type:
@@ -6911,7 +6911,7 @@ paths:
                     enum:
                       - full
                       - subtle
-                      - off
+                      - "off"
                       - null
                     default: null
                 required:
@@ -19717,11 +19717,11 @@ paths:
                             properties:
                               x:
                                 type: number
-                              y:
+                              "y":
                                 type: number
                             required:
                               - x
-                              - y
+                              - "y"
                           data:
                             type: object
                             properties:
