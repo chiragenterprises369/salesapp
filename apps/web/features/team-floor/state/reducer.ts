@@ -8,7 +8,9 @@ import {
   type Task,
   type TeamFloorSnapshot,
 } from '@vistar/shared';
-import { getLayout, MAX_DESKS } from './layout';
+import { getLayout } from './layout';
+import { assignHomes } from './seats';
+import type { FloorTemplate } from './template';
 import type { FloorAction, FloorActivity, FloorEffect, FloorEmployee, FloorState } from './types';
 
 /**
@@ -70,38 +72,30 @@ export function firstName(name: string) {
 export interface InitOptions {
   /** Manager team scope; null = whole workspace. */
   userIds?: readonly string[] | null;
+  /** Floor template (seats, booths, lounge spots). */
+  template: FloorTemplate;
 }
 
-export function initialFloorState(snapshot: TeamFloorSnapshot, opts: InitOptions = {}): FloorState {
+export function initialFloorState(snapshot: TeamFloorSnapshot, opts: InitOptions): FloorState {
   const generated = parseTime(snapshot.generatedAt, 0);
   const scope = opts.userIds ? new Set(opts.userIds) : null;
   const source = snapshot.employees.filter((e) => !scope || scope.has(e.user.id));
 
-  // Stable unique desks: keep deskIndex when free and in range, else the next free slot.
-  const used = new Set<number>();
-  const deskOf = source.map((e) => {
-    if (e.deskIndex < MAX_DESKS && !used.has(e.deskIndex)) {
-      used.add(e.deskIndex);
-      return e.deskIndex;
-    }
-    return -1;
-  });
-  let cursor = 0;
-  for (let i = 0; i < deskOf.length; i++) {
-    if (deskOf[i] !== -1) continue;
-    while (used.has(cursor)) cursor++;
-    used.add(cursor);
-    deskOf[i] = cursor;
-  }
-  const deskCount = deskOf.reduce((m, d) => Math.max(m, d + 1), 1);
-  const layout = getLayout(deskCount);
+  // Homes from the template: cabin for the most senior person, reception for a viewer, deskIndex
+  // keeps its desk, extra people get hot desks, standing and overflow spots (SPEC 12.1).
+  const layout = getLayout(opts.template, source.length);
+  const homeOf = assignHomes(
+    source.map((e) => ({ id: e.user.id, role: e.user.role, deskIndex: e.deskIndex })),
+    layout,
+  );
+  const homeCount = Math.max(source.length, layout.seatHomes);
 
   const employees: FloorEmployee[] = source.map((e, i) => ({
     id: e.user.id,
     name: e.user.name,
     role: e.user.role,
     avatar: e.user.avatar,
-    desk: deskOf[i] ?? i,
+    desk: homeOf[i] ?? i,
     status: e.status,
     statusSince: e.activeCall ? parseTime(e.activeCall.startedAt, generated) : null,
     currentLeadId: e.currentLeadId,
@@ -128,7 +122,8 @@ export function initialFloorState(snapshot: TeamFloorSnapshot, opts: InitOptions
   return {
     employees,
     index,
-    deskCount,
+    templateId: opts.template.id,
+    homeCount,
     booths,
     lounge,
     leadsWaiting: snapshot.leadsWaiting.map((l) => ({ leadId: l.leadId, name: l.name, createdAt: parseTime(l.createdAt, generated) })),

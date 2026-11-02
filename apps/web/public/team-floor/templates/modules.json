@@ -1,0 +1,161 @@
+{
+ "schemaVersion": 1,
+ "note": "Module kit catalogue (D-054). Placements live in each template under modules.",
+ "kinds": {
+  "sales_pod": {
+   "description": "Back-to-back desks, one person per desk, low divider, downlight. Origin: pod centre; rows face north and south.",
+   "params": {
+    "desks": {
+     "options": [
+      4,
+      6
+     ],
+     "default": 6
+    },
+    "pitch": {
+     "default": 1.6
+    }
+   },
+   "footprint": {
+    "desks4": [
+     3.2,
+     2.6
+    ],
+    "desks6": [
+     4.8,
+     2.6
+    ],
+    "clearance": "aisle nodes 1.85 m from the centre line"
+   },
+   "seats": {
+    "desk": "desks"
+   }
+  },
+  "calling_room": {
+   "description": "Glass calling room with N booths along the north wall (acoustic panels, partitions, door in the south glass). Origin: north-west corner.",
+   "params": {
+    "booths": {
+     "default": 3
+    },
+    "depth": {
+     "default": 4.3
+    },
+    "west": {
+     "default": true
+    },
+    "east": {
+     "default": false
+    },
+    "door": {
+     "default": [
+      0.25,
+      1.15
+     ]
+    }
+   },
+   "footprint": {
+    "width": "booths x 2.07",
+    "depth": 4.3
+   },
+   "seats": {
+    "booth": "booths"
+   }
+  },
+  "manager_cabin": {
+   "description": "Walnut cabin: desk, executive chair, visitor chairs, bookshelf, credenza, lamps; glass and walnut walls, solid partition left of the door. Origin: north-west corner.",
+   "params": {
+    "w": {
+     "default": 6
+    },
+    "d": {
+     "default": 4.8
+    },
+    "west": {
+     "default": true
+    },
+    "door": {
+     "default": "w*0.45 .. +1.0"
+    }
+   },
+   "footprint": {
+    "width": "w (>= 4.5)",
+    "depth": "d"
+   },
+   "seats": {
+    "cabin": 1
+   }
+  },
+  "lounge": {
+   "description": "Lounge under a west window: green sofa (3), armchair, rug, coffee table, bookshelf, plants, downlight. Origin: north-west corner, west wall at x = 0.",
+   "params": {
+    "north": {
+     "default": true,
+     "note": "adds the north wall sconce"
+    }
+   },
+   "footprint": [
+    5.1,
+    6.2
+   ],
+   "seats": {
+    "lounge": 4
+   }
+  },
+  "reception": {
+   "description": "Marble and walnut counter with a glowing blue base edge, receptionist seat, plant. Origin: counter centre, front facing the entrance (+z).",
+   "params": {},
+   "footprint": [
+    4.6,
+    2.6
+   ],
+   "seats": {
+    "reception": 1
+   }
+  },
+  "hub_plaza": {
+   "description": "Lead Hub machine on a light platform with a glowing ring, 8 graph nodes and 3 standing spots around it. Origin: hub centre.",
+   "params": {
+    "ring": {
+     "default": 1.55
+    },
+    "platform": {
+     "default": 1.7
+    },
+    "machine": {
+     "default": 0.72
+    }
+   },
+   "footprint": {
+    "radius": "platform + 0.5"
+   },
+   "seats": {}
+  },
+  "print_corner": {
+   "description": "Whiteboard with sticky notes and a printer on a low cabinet, against a wall or partition. Origin: west end of the wall face; props stand at +z.",
+   "params": {},
+   "footprint": [
+    3.9,
+    1
+   ],
+   "seats": {}
+  },
+  "hot_bench": {
+   "description": "Hot-desk bench along a wall: people at local +x face the wall (heading 270), monitors face the room. Origin: bench centre.",
+   "params": {
+    "seats": {
+     "default": 3
+    },
+    "aisle": {
+     "default": 1.83
+    }
+   },
+   "footprint": {
+    "width": 0.75,
+    "length": "seats x 0.8 + 0.3"
+   },
+   "seats": {
+    "hot_desk": "seats"
+   }
+  }
+ }
+}

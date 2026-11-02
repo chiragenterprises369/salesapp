@@ -5,6 +5,7 @@ import { createEventSimulator, mockTeamFloorSnapshot } from '@vistar/shared/fixt
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { floorRootReducer, initialFloorState } from './reducer';
 import { withStressEmployees } from './stress';
+import { loadTemplate, resolveTemplateId, type FloorTemplate, type TemplateId } from './template';
 import type { FloorAction, FloorState } from './types';
 
 /**
@@ -51,6 +52,8 @@ export type FeedStatus = 'loading' | 'ready' | 'error';
 export interface FloorFeed {
   status: FeedStatus;
   state: FloorState | null;
+  /** Validated floor template the state refers to (null until loaded). */
+  template: FloorTemplate | null;
   paused: boolean;
   setPaused: (paused: boolean) => void;
   retry: () => void;
@@ -62,13 +65,16 @@ const DEDUPE_MAX = 500;
 const BUFFER_MAX = 500;
 
 /**
- * One hook owns the floor data: initial snapshot, then events through `floorRootReducer`.
- * Dedupes by event id (last 500), buffers while paused, prunes expired effects.
+ * One hook owns the floor data: initial snapshot and floor template, then events through
+ * `floorRootReducer`. Dedupes by event id (last 500), buffers while paused, prunes expired effects.
+ * The template follows the head count (SPEC 12.1); `template` overrides it (dev and screenshots).
  */
-export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?: number } = {}): FloorFeed {
+export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?: number; template?: TemplateId | null } = {}): FloorFeed {
   const scopeKey = opts.userIds ? [...opts.userIds].sort().join(',') : '*';
   const stress = opts.stress ?? 0;
+  const templateOverride = opts.template ?? null;
   const [state, dispatch] = useReducer(floorRootReducer, null);
+  const [template, setTemplate] = useState<FloorTemplate | null>(null);
   const [status, setStatus] = useState<FeedStatus>('loading');
   const [attempt, setAttempt] = useState(0);
   const [paused, setPausedState] = useState(false);
@@ -78,7 +84,8 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
 
   useEffect(() => {
     const source = createMockFloorSource({ stress });
-    const userIds = scopeKey === '*' ? null : scopeKey.split(',').filter(Boolean);
+    // Dev stress mode pads the whole workspace with synthetic people, so the team scope is lifted.
+    const userIds = scopeKey === '*' || stress > 0 ? null : scopeKey.split(',').filter(Boolean);
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
 
@@ -103,9 +110,13 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
 
     source
       .load()
-      .then((snapshot) => {
+      .then(async (snapshot) => {
+        const scope = userIds ? new Set(userIds) : null;
+        const people = scope ? snapshot.employees.filter((e) => scope.has(e.user.id)).length : snapshot.employees.length;
+        const tpl = await loadTemplate(resolveTemplateId(people, templateOverride));
         if (cancelled) return;
-        dispatch({ kind: 'reset', state: initialFloorState(snapshot, { userIds }) });
+        setTemplate(tpl);
+        dispatch({ kind: 'reset', state: initialFloorState(snapshot, { userIds, template: tpl }) });
         setStatus('ready');
         unsubscribe = source.subscribe(accept);
       })
@@ -119,7 +130,7 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
       unsubscribe?.();
       clearInterval(pruneTimer);
     };
-  }, [scopeKey, stress, attempt]);
+  }, [scopeKey, stress, templateOverride, attempt]);
 
   const setPaused = useCallback((next: boolean) => {
     pausedRef.current = next;
@@ -138,5 +149,5 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
 
   const localDispatch = useCallback<FloorFeed['dispatch']>((action) => dispatch(action), []);
 
-  return { status, state, paused, setPaused, retry, dispatch: localDispatch };
+  return { status, state, template, paused, setPaused, retry, dispatch: localDispatch };
 }

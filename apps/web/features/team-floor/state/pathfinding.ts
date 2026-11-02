@@ -1,8 +1,9 @@
-import type { WalkGrid } from './layout';
+import { obstacleDistance, pointSegment, type FloorLayout } from './layout';
 
 /**
- * Grid A* (8-neighbour, diagonal cost 1.4, no corner cutting) with a per (from, to) cell cache,
- * line-of-sight simplification and Catmull-Rom smoothing. No three.js: plain typed arrays.
+ * Pathfinding on the template's walking graph (SPEC 12.1 item 4): A* between graph nodes, with
+ * the start and end attached to their nearest visible node, string pulling where the straight line
+ * is clear, and Catmull-Rom smoothing. No three.js: plain arrays.
  */
 
 export interface FollowPath {
@@ -13,228 +14,142 @@ export interface FollowPath {
   length: number;
 }
 
-const SQRT2 = 1.4;
 const CACHE_MAX = 400;
+const CLEARANCE = 0.22;
 
 export class PathFinder {
-  private readonly grid: WalkGrid;
-  private readonly g: Float32Array;
-  private readonly f: Float32Array;
-  private readonly came: Int32Array;
-  private readonly seen: Uint32Array;
-  private readonly closed: Uint32Array;
-  private readonly heap: Int32Array;
-  private heapSize = 0;
-  private gen = 0;
+  private readonly layout: FloorLayout;
   private readonly cache = new Map<string, number[] | null>();
 
-  constructor(grid: WalkGrid) {
-    this.grid = grid;
-    const n = grid.cols * grid.rows;
-    this.g = new Float32Array(n);
-    this.f = new Float32Array(n);
-    this.came = new Int32Array(n);
-    this.seen = new Uint32Array(n);
-    this.closed = new Uint32Array(n);
-    this.heap = new Int32Array(n);
+  constructor(layout: FloorLayout) {
+    this.layout = layout;
   }
 
-  cellOf(x: number, z: number): number {
-    const { cols, rows, cell } = this.grid;
-    const i = Math.min(cols - 1, Math.max(0, Math.floor(x / cell)));
-    const j = Math.min(rows - 1, Math.max(0, Math.floor(z / cell)));
-    return j * cols + i;
-  }
-
-  private walkable(i: number, j: number) {
-    const { cols, rows, walkable } = this.grid;
-    return i >= 0 && j >= 0 && i < cols && j < rows && walkable[j * cols + i] === 1;
-  }
-
-  /** Closest walkable cell (ring search). */
-  nearestWalkable(cellIndex: number): number {
-    const { cols, walkable } = this.grid;
-    if (walkable[cellIndex] === 1) return cellIndex;
-    const ci = cellIndex % cols;
-    const cj = Math.floor(cellIndex / cols);
-    for (let r = 1; r < 12; r++) {
-      let bestCell = -1;
-      let bestD = Number.POSITIVE_INFINITY;
-      for (let dj = -r; dj <= r; dj++) {
-        for (let di = -r; di <= r; di++) {
-          if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
-          if (!this.walkable(ci + di, cj + dj)) continue;
-          const d = di * di + dj * dj;
-          if (d < bestD) {
-            bestD = d;
-            bestCell = (cj + dj) * cols + ci + di;
-          }
-        }
-      }
-      if (bestCell >= 0) return bestCell;
+  /** True when a person can walk the straight segment (walls and furniture keep their distance). */
+  clear(ax: number, az: number, bx: number, bz: number, clearance = CLEARANCE): boolean {
+    for (const [wx, wz, vx, vz] of this.layout.walls) {
+      if (segmentsCross(ax, az, bx, bz, wx, wz, vx, vz)) return false;
+      if (pointSegment(wx, wz, ax, az, bx, bz) < clearance || pointSegment(vx, vz, ax, az, bx, bz) < clearance) return false;
     }
-    return cellIndex;
-  }
-
-  /** Smoothed path between two world points, or null when unreachable. */
-  route(fromX: number, fromZ: number, toX: number, toZ: number): FollowPath | null {
-    const a = this.nearestWalkable(this.cellOf(fromX, fromZ));
-    const b = this.nearestWalkable(this.cellOf(toX, toZ));
-    const key = `${a}:${b}`;
-    let cells = this.cache.get(key);
-    if (cells === undefined) {
-      cells = a === b ? [a] : this.search(a, b);
-      if (cells) cells = this.simplify(cells);
-      if (this.cache.size >= CACHE_MAX) {
-        const first = this.cache.keys().next().value;
-        if (first !== undefined) this.cache.delete(first);
-      }
-      this.cache.set(key, cells);
-    }
-    if (!cells) return null;
-    const { cols, cell } = this.grid;
-    const pts: number[] = [fromX, fromZ];
-    for (let k = 1; k < cells.length - 1; k++) {
-      const c = cells[k] as number;
-      pts.push(((c % cols) + 0.5) * cell, (Math.floor(c / cols) + 0.5) * cell);
-    }
-    pts.push(toX, toZ);
-    return smooth(pts);
-  }
-
-  private search(start: number, goal: number): number[] | null {
-    const { cols } = this.grid;
-    this.gen += 1;
-    const gen = this.gen;
-    const gx = goal % cols;
-    const gz = Math.floor(goal / cols);
-    const h = (c: number) => {
-      const dx = Math.abs((c % cols) - gx);
-      const dz = Math.abs(Math.floor(c / cols) - gz);
-      return dx + dz + (SQRT2 - 2) * Math.min(dx, dz);
-    };
-    this.heapSize = 0;
-    this.g[start] = 0;
-    this.f[start] = h(start);
-    this.came[start] = -1;
-    this.seen[start] = gen;
-    this.push(start);
-
-    while (this.heapSize > 0) {
-      const cur = this.pop();
-      if (cur === goal) return this.reconstruct(goal);
-      if (this.closed[cur] === gen) continue;
-      this.closed[cur] = gen;
-      const ci = cur % cols;
-      const cj = Math.floor(cur / cols);
-      for (let dj = -1; dj <= 1; dj++) {
-        for (let di = -1; di <= 1; di++) {
-          if (di === 0 && dj === 0) continue;
-          const ni = ci + di;
-          const nj = cj + dj;
-          if (!this.walkable(ni, nj)) continue;
-          const diagonal = di !== 0 && dj !== 0;
-          if (diagonal && (!this.walkable(ci + di, cj) || !this.walkable(ci, cj + dj))) continue;
-          const n = nj * cols + ni;
-          if (this.closed[n] === gen) continue;
-          const tentative = this.g[cur]! + (diagonal ? SQRT2 : 1);
-          if (this.seen[n] !== gen || tentative < this.g[n]!) {
-            this.seen[n] = gen;
-            this.g[n] = tentative;
-            this.f[n] = tentative + h(n);
-            this.came[n] = cur;
-            this.push(n);
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  private reconstruct(goal: number): number[] {
-    const out: number[] = [];
-    let c = goal;
-    while (c !== -1) {
-      out.push(c);
-      c = this.came[c]!;
-    }
-    return out.reverse();
-  }
-
-  /** Drop waypoints that have line of sight to a later one (string pulling). */
-  private simplify(cells: number[]): number[] {
-    if (cells.length <= 2) return cells;
-    const out = [cells[0] as number];
-    let anchor = 0;
-    for (let k = 2; k < cells.length; k++) {
-      if (!this.lineOfSight(cells[anchor] as number, cells[k] as number)) {
-        out.push(cells[k - 1] as number);
-        anchor = k - 1;
-      }
-    }
-    out.push(cells[cells.length - 1] as number);
-    return out;
-  }
-
-  private lineOfSight(a: number, b: number): boolean {
-    const { cols } = this.grid;
-    const ax = (a % cols) + 0.5;
-    const az = Math.floor(a / cols) + 0.5;
-    const bx = (b % cols) + 0.5;
-    const bz = Math.floor(b / cols) + 0.5;
-    const dist = Math.hypot(bx - ax, bz - az);
-    const steps = Math.ceil(dist / 0.25);
-    const nx = dist > 0 ? -(bz - az) / dist : 0;
-    const nz = dist > 0 ? (bx - ax) / dist : 0;
-    for (let s = 1; s < steps; s++) {
-      const t = s / steps;
-      const x = ax + (bx - ax) * t;
-      const z = az + (bz - az) * t;
-      // Check a corridor about one character wide.
-      for (const o of [-0.35, 0, 0.35]) {
-        if (!this.walkable(Math.floor(x + nx * o), Math.floor(z + nz * o))) return false;
+    const len = Math.hypot(bx - ax, bz - az);
+    const steps = Math.max(1, Math.ceil(len / 0.12));
+    for (const o of this.layout.obstacles) {
+      // Ignore obstacles that contain an endpoint (the person's own desk or chair corner).
+      if (obstacleDistance(o, ax, az) < 0.05 || obstacleDistance(o, bx, bz) < 0.05) continue;
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        if (obstacleDistance(o, ax + (bx - ax) * t, az + (bz - az) * t) < clearance) return false;
       }
     }
     return true;
   }
 
-  private push(n: number) {
-    const heap = this.heap;
-    const f = this.f;
-    let i = this.heapSize++;
-    heap[i] = n;
-    while (i > 0) {
-      const p = (i - 1) >> 1;
-      if (f[heap[p]!]! <= f[n]!) break;
-      heap[i] = heap[p]!;
-      heap[p] = n;
-      i = p;
+  /** Nearest graph node with a clear line from (x, z); falls back to the nearest node. */
+  nearestNode(x: number, z: number, hint?: string): number {
+    const { graph, nodeIndex } = this.layout;
+    if (hint) {
+      const i = nodeIndex.get(hint);
+      if (i !== undefined) return i;
     }
+    const ranked = graph.map((n, i) => ({ i, d: Math.hypot(n.x - x, n.z - z) })).sort((a, b) => a.d - b.d);
+    for (const { i } of ranked.slice(0, 8)) {
+      const n = graph[i]!;
+      if (this.clear(x, z, n.x, n.z, 0.12)) return i;
+    }
+    return ranked[0]?.i ?? 0;
   }
 
-  private pop(): number {
-    const heap = this.heap;
-    const f = this.f;
-    const top = heap[0]!;
-    const last = heap[--this.heapSize]!;
-    if (this.heapSize > 0) {
-      heap[0] = last;
-      let i = 0;
-      for (;;) {
-        const l = i * 2 + 1;
-        const r = l + 1;
-        let m = i;
-        if (l < this.heapSize && f[heap[l]!]! < f[heap[m]!]!) m = l;
-        if (r < this.heapSize && f[heap[r]!]! < f[heap[m]!]!) m = r;
-        if (m === i) break;
-        const tmp = heap[i]!;
-        heap[i] = heap[m]!;
-        heap[m] = tmp;
-        i = m;
+  /** Smoothed path between two world points, or null when unreachable. */
+  route(fromX: number, fromZ: number, toX: number, toZ: number, opts: { fromNode?: string; toNode?: string } = {}): FollowPath | null {
+    if (Math.hypot(toX - fromX, toZ - fromZ) < 0.05) return null;
+    if (Math.hypot(toX - fromX, toZ - fromZ) < 2.5 && this.clear(fromX, fromZ, toX, toZ)) return smooth([fromX, fromZ, toX, toZ]);
+    const a = this.nearestNode(fromX, fromZ, opts.fromNode);
+    const b = this.nearestNode(toX, toZ, opts.toNode);
+    const key = `${a}:${b}`;
+    let nodes = this.cache.get(key);
+    if (nodes === undefined) {
+      nodes = a === b ? [a] : this.search(a, b);
+      if (this.cache.size >= CACHE_MAX) {
+        const first = this.cache.keys().next().value;
+        if (first !== undefined) this.cache.delete(first);
+      }
+      this.cache.set(key, nodes);
+    }
+    if (!nodes) return null;
+    const pts: [number, number][] = [[fromX, fromZ]];
+    for (const i of nodes) {
+      const n = this.layout.graph[i]!;
+      pts.push([n.x, n.z]);
+    }
+    pts.push([toX, toZ]);
+    const pulled = this.pull(pts);
+    const flat: number[] = [];
+    for (const [x, z] of pulled) flat.push(x, z);
+    return smooth(flat);
+  }
+
+  /** Drop waypoints that have a clear line to a later one (string pulling). */
+  private pull(pts: [number, number][]): [number, number][] {
+    if (pts.length <= 2) return pts;
+    const out: [number, number][] = [pts[0]!];
+    let anchor = 0;
+    for (let k = 2; k < pts.length; k++) {
+      const a = pts[anchor]!;
+      const b = pts[k]!;
+      if (!this.clear(a[0], a[1], b[0], b[1])) {
+        out.push(pts[k - 1]!);
+        anchor = k - 1;
       }
     }
-    return top;
+    out.push(pts[pts.length - 1]!);
+    return out;
   }
+
+  private search(start: number, goal: number): number[] | null {
+    const g = this.layout.graph;
+    const n = g.length;
+    const dist = new Float64Array(n).fill(Infinity);
+    const came = new Int32Array(n).fill(-1);
+    const done = new Uint8Array(n);
+    const goalNode = g[goal]!;
+    const h = (i: number) => Math.hypot(g[i]!.x - goalNode.x, g[i]!.z - goalNode.z);
+    dist[start] = 0;
+    const open = new Set<number>([start]);
+    while (open.size) {
+      let cur = -1;
+      let best = Infinity;
+      for (const i of open) {
+        const f = dist[i]! + h(i);
+        if (f < best) {
+          best = f;
+          cur = i;
+        }
+      }
+      if (cur === goal) break;
+      open.delete(cur);
+      done[cur] = 1;
+      const node = g[cur]!;
+      for (let k = 0; k < node.next.length; k++) {
+        const nb = node.next[k]!;
+        if (done[nb]) continue;
+        const d = dist[cur]! + node.cost[k]!;
+        if (d < dist[nb]!) {
+          dist[nb] = d;
+          came[nb] = cur;
+          open.add(nb);
+        }
+      }
+    }
+    if (!Number.isFinite(dist[goal]!)) return null;
+    const out: number[] = [];
+    for (let c = goal; c !== -1; c = came[c]!) out.push(c);
+    return out.reverse();
+  }
+}
+
+function segmentsCross(ax: number, az: number, bx: number, bz: number, cx: number, cz: number, dx: number, dz: number) {
+  const o = (px: number, pz: number, qx: number, qz: number, rx: number, rz: number) => Math.sign((qx - px) * (rz - pz) - (qz - pz) * (rx - px));
+  return o(ax, az, bx, bz, cx, cz) * o(ax, az, bx, bz, dx, dz) < 0 && o(cx, cz, dx, dz, ax, az) * o(cx, cz, dx, dz, bx, bz) < 0;
 }
 
 /**
@@ -258,7 +173,7 @@ export function smooth(flat: number[]): FollowPath {
     const [nx, nz] = raw[i + 1]!;
     const lin = Math.hypot(cx - px, cz - pz);
     const lout = Math.hypot(nx - cx, nz - cz);
-    const r = Math.min(0.35, lin / 2.5, lout / 2.5);
+    const r = Math.min(0.45, lin / 2.5, lout / 2.5);
     if (r < 0.05) {
       pts.push([cx, cz]);
       continue;

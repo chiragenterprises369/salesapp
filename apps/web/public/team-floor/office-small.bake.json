@@ -1,0 +1,109 @@
+{
+ "template": "small",
+ "lightmapScale": 2.0,
+ "size": 2048,
+ "buildSeconds": 10.5,
+ "stats": {
+  "office_static": {
+   "objects": 1,
+   "tris": 16578
+  },
+  "office_glass": {
+   "objects": 1,
+   "tris": 188
+  },
+  "office_emissive": {
+   "objects": 1,
+   "tris": 2924
+  },
+  "inst:plant_tall_palm": {
+   "objects": 2,
+   "tris": 4544
+  },
+  "inst:plant_medium_monstera": {
+   "objects": 2,
+   "tris": 1688
+  },
+  "inst:plant_floor_small_round": {
+   "objects": 2,
+   "tris": 736
+  },
+  "inst:chair_office": {
+   "objects": 9,
+   "tris": 12600
+  },
+  "inst:monitor_std": {
+   "objects": 7,
+   "tris": 2268
+  },
+  "inst:plant_tall_fiddle": {
+   "objects": 1,
+   "tris": 1292
+  },
+  "inst:chair_exec": {
+   "objects": 1,
+   "tris": 1268
+  },
+  "inst:chair_visitor": {
+   "objects": 2,
+   "tris": 976
+  },
+  "inst:plant_desk_succulent": {
+   "objects": 1,
+   "tris": 208
+  },
+  "inst:desk_mug": {
+   "objects": 2,
+   "tris": 368
+  },
+  "inst:plant_desk_snake": {
+   "objects": 1,
+   "tris": 148
+  },
+  "inst:monitor_small": {
+   "objects": 3,
+   "tris": 972
+  },
+  "inst:plant_medium_bush": {
+   "objects": 1,
+   "tris": 592
+  },
+  "screen": {
+   "objects": 10,
+   "tris": 20
+  },
+  "hub_screen": {
+   "objects": 1,
+   "tris": 24
+  }
+ },
+ "maps": {
+  "day": {
+   "file": "office-small-day.webp",
+   "bytes": 279016,
+   "scale": 2.0,
+   "p50": 0.06065419688820839,
+   "p99": 0.9337029457092285
+  },
+  "evening": {
+   "file": "office-small-evening.webp",
+   "bytes": 476030,
+   "scale": 1.83,
+   "p50": 0.025477159768342972,
+   "p99": 1.7417149543762207
+  },
+  "ao": {
+   "file": "office-small-ao.webp",
+   "bytes": 213424,
+   "p50": 0.07691970467567444
+  }
+ },
+ "bakeSeconds": {
+  "day": 104.2,
+  "evening": 105.6,
+  "ao": 140.7
+ },
+ "samples": 128,
+ "bakedAt": "2026-11-02T10:18:33",
+ "glbBytes": 421496
+}

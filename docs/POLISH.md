@@ -2,15 +2,31 @@
 
 Items left after the first-pass screenshot loop (capped at 3 iterations by the parallel-execution override). Each section belongs to its owner agent; add your own section and do not edit others.
 
-## Team Floor V3, Medium Day (frontend-3d)
+## Team Floor V3 (frontend-3d)
 
-Source: `docs/screenshots/team-floor-v3/CRITIQUE.md`, iterations 01 to 04.
+Source: `docs/screenshots/team-floor-v3/CRITIQUE.md`, iterations 01 to 07.
 
-- Monitor screens: at the default zoom a screen is about 15 px wide and reads as an indigo block. Use a darker, higher-contrast dashboard (dark navy with bright bars) so screens glow like the reference.
+Medium Day:
 - Reception: the reference has a marble top over a walnut front. Ours has a white counter with a walnut band; add marble veining to the counter material.
 - Prop density: the reference has more small props (desk clutter, wall art, plant variety). Add 2 or 3 small prop kinds to the instanced set within the 4 MB office budget.
-- Characters scored 3.5/5 on readability in iteration 03. The reference figures have more outfit and face detail (collars, shoe shapes, facial shading).
-- Evening bake (12.1 order: Day, then Evening): dark theme still uses the dimmed Day bake as an interim look.
+- Characters scored 3.5 to 4 out of 5 on readability. The reference figures have more outfit and face detail (collars, shoe shapes, facial shading).
+
+Evening:
+- Faces turned away from the camera stay dark at night; a second, warmer rim from the desk side would help.
+- Bloom is done with glow cards on emissive sources (no post-processing pass). A real selective bloom pass on the high tier would give softer halos around the hub and reception edge.
+- The Lead Hub drum interior renders near black in Evening; give the glass drum a faint emissive core.
+
+Small:
+- The reception stays empty unless the team has a viewer (seat rules). Consider a receptionist placeholder or a plant arrangement when nobody is assigned.
+
+Large:
+- At the fit zoom on a 1440x900 screen people are about 25 px tall; most tags are compact initials. A default view slightly zoomed into the busiest pods (with Fit one click away) would read better.
+- Room names are not drawn in 3D; on a floor this size small signs over the calling room and cabins would help orientation.
+- 6-desk pods repeat the same desk variant pattern; vary desk accessories per pod.
+
+Flat:
+- The plan is decorative for assistive tech (the accessible list carries the data). Clicking a seat dot opens the person; hovering shows the name as an SVG title only.
+- Lounge sitters and booth callers are drawn at their spots, but people walking between spots in 3D jump directly in the plan (no walk animation, by design for reduced motion).
 
 ## Board physics v2 (frontend-physics)
 

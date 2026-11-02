@@ -20,6 +20,7 @@ import { FloorToolbar } from './panel/toolbar';
 import { detectGpu, readDevParams, useIsClient, useMediaQuery } from './state/env';
 import { firstName } from './state/reducer';
 import { attentionByUser, employeeById, locationOf, selectKpis, selectNeedsYou } from './state/selectors';
+import type { TemplateId } from './state/template';
 import type { FloorViewMode, QualityTier } from './state/types';
 import { useFloorFeed } from './state/use-floor-feed';
 
@@ -35,6 +36,8 @@ export interface TeamFloorProps {
   readOnly?: boolean;
   /** Manager scope: only these users (null = whole workspace). */
   userIds?: string[] | null;
+  /** Floor template override (dev, screenshots). Default: by head count (<=8 small, <=20 medium, else large). */
+  template?: TemplateId;
 }
 
 // three, @react-three/fiber and drei live only in this lazily loaded chunk.
@@ -84,7 +87,7 @@ export function TeamFloorFlat(props: Omit<TeamFloorProps, 'mode'>) {
 
 const NEXT_TIER: Record<QualityTier, QualityTier> = { high: 'medium', medium: 'low', low: 'low' };
 
-function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = false, userIds = null, lockMode }: TeamFloorProps & { lockMode?: FloorViewMode }) {
+function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = false, userIds = null, template: templateProp, lockMode }: TeamFloorProps & { lockMode?: FloorViewMode }) {
   const me = useMe();
   const { updateSettings } = useSessionActions();
   const canRecordings = useCan('calls.recordings');
@@ -108,7 +111,7 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
 
-  const feed = useFloorFeed({ userIds, stress: dev.stress });
+  const feed = useFloorFeed({ userIds, stress: dev.stress, template: dev.template ?? templateProp ?? null });
   const { state, dispatch } = feed;
 
   // Mode: this session's toggle > dev override > saved setting (if not auto) > prop.
@@ -180,7 +183,7 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
   const onContextLost = useCallback(() => setSceneFailed(true), []);
 
   if (feed.status === 'loading' || (!state && feed.status !== 'error')) return <FloorSkeleton />;
-  if (feed.status === 'error' || !state || !kpis) {
+  if (feed.status === 'error' || !state || !kpis || !feed.template) {
     return (
       <div role="alert" className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface px-6 py-16 text-center shadow-card">
         <p className="text-sm font-medium text-fg">The team floor did not load.</p>
@@ -223,7 +226,7 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
   const empty = state.employees.length === 0;
 
   return (
-    <section aria-labelledby={`${idPrefix}-title`} className="flex flex-col gap-3 lg:h-[calc(100dvh-8rem)] lg:min-h-[560px]">
+    <section aria-labelledby={`${idPrefix}-title`} className="flex flex-col gap-3 lg:h-[calc(100dvh-11.5rem)] lg:min-h-[560px]">
       <h2 id={`${idPrefix}-title`} className="sr-only">
         Live team floor
       </h2>
@@ -253,6 +256,8 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
               <SceneBoundary onError={onContextLost}>
                 <FloorScene
                   state={state}
+                  template={feed.template}
+                  readOnly={readOnly}
                   theme={theme}
                   tier={tier}
                   initialTier={initialTier}
@@ -269,7 +274,7 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
               <Legend />
             </>
           ) : (
-            <FloorPlan state={state} attention={byUser} selectedId={selectedId} onOpen={open} idPrefix={idPrefix} />
+            <FloorPlan state={state} template={feed.template} attention={byUser} selectedId={selectedId} onOpen={open} idPrefix={idPrefix} />
           )}
         </div>
 
@@ -321,7 +326,7 @@ const LEGEND = [
 
 function Legend() {
   return (
-    <ul aria-hidden className="pointer-events-none absolute top-3 right-3 hidden gap-2 rounded-md border border-border bg-surface px-2 py-1 shadow-card sm:flex">
+    <ul aria-hidden data-floor-ui="" className="pointer-events-none absolute top-3 right-3 hidden gap-2 rounded-md border border-border bg-surface px-2 py-1 shadow-card sm:flex">
       {LEGEND.map(([dot, label]) => (
         <li key={label} className="flex items-center gap-1 text-2xs text-muted">
           <span className={`size-1.5 rounded-full ${dot}`} />

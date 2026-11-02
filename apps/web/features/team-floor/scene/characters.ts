@@ -1,23 +1,29 @@
 import type { AvatarConfig } from '@vistar/shared';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { Look } from './look';
 
 /**
- * Character rendering behind a `CharacterModel` interface. The procedural implementation draws
- * every character with ~14 instanced meshes (one per body part), so 200 people cost ~14 draw calls.
- * A GLB implementation can replace it later: one SkinnedMesh + AnimationMixer per character with
- * clips named like `ClipName`, driven through the same `update()` calls.
+ * Character rendering behind a `CharacterModel` interface. Two implementations:
+ * - `createGlbCharacters` (character-glb.ts): rigged GLB people with clips (default),
+ * - `createProceduralCharacters` (below): ~14 instanced meshes for everyone, used as the fallback
+ *   when the GLB cannot load and for very large stress floors (200 people = ~14 draw calls).
  */
 
-export type ClipName = 'idle' | 'typing' | 'phone' | 'walking' | 'sleeping';
+export type ClipName = 'idle' | 'sit' | 'typing' | 'phone' | 'walking' | 'carry' | 'sleeping' | 'wave' | 'receive';
 export type LodLevel = 'near' | 'mid' | 'far';
+export type PropName = 'none' | 'phone' | 'document';
 
 export interface CharacterPose {
   x: number;
   z: number;
   heading: number;
   visible: boolean;
-  /** Joint parameters (see PoseParams). */
+  seated: boolean;
+  /** Clip the person should play (GLB crossfades to it). */
+  clip: ClipName;
+  prop: PropName;
+  /** Joint parameters (procedural model only). */
   params: PoseParams;
 }
 
@@ -38,24 +44,32 @@ export interface PoseParams {
 }
 
 export interface CharacterModel {
+  readonly kind: 'glb' | 'procedural';
   readonly object: THREE.Object3D;
   readonly capacity: number;
-  setAppearance(slot: number, avatar: AvatarConfig | null): void;
-  setStatusColor(slot: number, color: THREE.Color): void;
-  update(slot: number, pose: CharacterPose): void;
+  /** World height of the head top. */
+  headTop(seated: boolean): number;
+  setAppearance(slot: number, avatar: AvatarConfig | null, userId: string): void;
+  /** Floor ring colour; shown only when `show` (active calls). */
+  setStatusColor(slot: number, color: THREE.Color, show: boolean): void;
+  update(slot: number, pose: CharacterPose, dt: number): void;
   /** Upload instance matrices after a batch of updates. */
   commit(): void;
   setLod(level: LodLevel): void;
   setShadows(cast: boolean): void;
+  /** Thin outline for separation (tier-gated); `zoom` = px per metre keeps it ~1 px wide. */
+  setOutline(on: boolean, zoom: number): void;
+  setReducedMotion(on: boolean): void;
+  setLook(look: Look): void;
   /** Slot under the ray, or -1. */
   pick(raycaster: THREE.Raycaster): number;
   dispose(): void;
 }
 
 export const STANDING_HIP = 0.46;
-export const SEATED_HIP = 0.34;
-/** Uniform character scale (stylised, slightly larger than furniture scale for readability). */
-export const CHAR_SCALE = 1.25;
+export const SEATED_HIP = 0.36;
+/** Uniform character scale (metric office: desks 0.75 m, chairs 0.47 m). */
+export const CHAR_SCALE = 1.3;
 /** Head top above the hip in model units. */
 const HEAD_ABOVE_HIP = 0.88;
 
@@ -110,6 +124,7 @@ export function evalClip(clip: ClipName, t: number, phase: number, seated: boole
   out.armLRoll = 0.08;
   out.armRRoll = -0.08;
   switch (clip) {
+    case 'carry':
     case 'walking': {
       const w = Math.sin((t + phase) * Math.PI * 2 * 1.9);
       out.hip = STANDING_HIP + 0.022 * Math.abs(Math.cos((t + phase) * Math.PI * 2 * 1.9));
@@ -371,9 +386,15 @@ export function createProceduralCharacters(capacity: number, materials: { blob: 
     return local.compose(v, q, s);
   };
 
+  const statusShown = new Uint8Array(cap);
   const model: CharacterModel = {
+    kind: 'procedural',
     object: group,
     capacity: cap,
+    headTop,
+    setOutline() {},
+    setReducedMotion() {},
+    setLook() {},
     setAppearance(slot, avatar) {
       const a = avatar ?? DEFAULT_AVATAR;
       const outfit = new THREE.Color(a.outfitColor);
@@ -402,7 +423,8 @@ export function createProceduralCharacters(capacity: number, materials: { blob: 
         styles[slot] = a.hairStyle;
       }
     },
-    setStatusColor(slot, color) {
+    setStatusColor(slot, color, show) {
+      statusShown[slot] = show ? 1 : 0;
       status.mesh.setColorAt(slot, color);
       if (status.mesh.instanceColor) status.mesh.instanceColor.needsUpdate = true;
     },
@@ -420,7 +442,7 @@ export function createProceduralCharacters(capacity: number, materials: { blob: 
       root.compose(v.set(pose.x, 0, pose.z), q, one);
 
       blob.mesh.setMatrixAt(slot, root);
-      status.mesh.setMatrixAt(slot, root);
+      status.mesh.setMatrixAt(slot, statusShown[slot] ? root : ZERO);
       proxy.mesh.setMatrixAt(slot, root);
 
       torsoM.multiplyMatrices(root, setLocal(0, P.hip, 0, P.lean, 0, 0));
