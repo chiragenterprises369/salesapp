@@ -16,6 +16,7 @@ import { BoardColumn } from './board-column';
 import { useBoardPhysics } from './board-physics.config';
 import { BoardError, BoardSkeleton } from './board-states';
 import { BoardToolbar } from './board-toolbar';
+import { CelebrationLayer, useMockLiveLeads } from './celebrations';
 import { DragLayer } from './drag-layer';
 import { BoardController } from './drag/controller';
 import { BoardControllerProvider } from './drag/context';
@@ -70,6 +71,7 @@ export function BoardView({ pipelineId, density = 'default', devCommit, quality:
   const selectMode = useLeadsViewState((s) => s.boardSelectMode);
   const setBoardScroll = useLeadsViewState((s) => s.setBoardScroll);
   const query = useLeadsBoard(pipelineId, filters);
+  useMockLiveLeads(pipelineId, { enabled: !devCommit && !sharedQuality });
   const { mutateAsync: moveLead } = useMoveLead(pipelineId);
   const isMobile = useIsMobile();
   const coarsePointer = useCoarsePointer();
@@ -360,6 +362,7 @@ export function BoardView({ pipelineId, density = 'default', devCommit, quality:
             Press Space to select or clear this {words.oneLower}. Drag a selected card to move every selected {words.oneLower} together.
           </p>
           <div ref={liveRef} aria-live="assertive" aria-atomic="true" className="sr-only" data-board-live="" />
+          <CelebrationLayer board={display} resetKey={dataFilters} controller={controller} quality={quality} profile={profile} rootRef={rootRef} />
         </div>
       </BoardControllerProvider>
     </BoardWordsProvider>

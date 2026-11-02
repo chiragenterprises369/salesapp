@@ -950,8 +950,8 @@ Goal: Workflows is a general n8n-style automation builder. A company connects AN
 Received as one steering message with three specs. The follow-up "parallel execution override" (change #18) replaces that message's rules 3-5: the specs run in parallel, each in its own worktree, branch, `.env`, database and ports, with no "go" gates between them. Merge order: 28.1, then 28.3, then the 28.2 foundation, then 28.2 page restyling. Screenshot loops are capped at 3 iterations on the first pass; leftover polish goes to `docs/POLISH.md`. Shared-file owners: frontend-app owns tokens and the shell; backend-core owns `packages/shared` contracts and the Prisma schema. Other agents file change requests in `docs/REQUESTS.md`.
 
 Reference images (kept outside product paths, never shipped):
-- Image A = `references/IMG_3064.PNG` (neon Leads Board), for 28.1 only.
-- Image B = `references/IMG_3066.PNG` (multi-floor office), for 28.3 only.
+- Image A = `references/IMG_3066.PNG` (neon Leads Board), for 28.1 only.
+- Image B = `references/IMG_3064.PNG` (multi-floor office), for 28.3 only. (Corrected 2026-11-02, REQUESTS #9: the file names were swapped in the first version of this note.)
 
 Prerequisites (checked 2026-11-02):
 - 28.1 needs the Leads Depth Style and Motion upgrade (board physics, 11.1) finished and merged. **Missing.** `agent/frontend-physics` has 2 unmerged commits (b91d259, d6d648b) plus uncommitted work (7 files in `features/pipeline`, `touch.ts`, `e2e/board/`). It was never verified. frontend-physics finishes and verifies 11.1 first; 28.1 starts after the merge.

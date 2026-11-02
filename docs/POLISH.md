@@ -48,3 +48,15 @@ Source: `docs/screenshots/leads-neon/CRITIQUE.md` (final set, iteration 3 of 3; 
 - The plate's floor grid shows only below the shortest column; a short fade at the column foot would show more of it.
 - Aurora/Light: the blurred plate reads as a soft grey-blue wash; a slightly warmer light plate would feel closer to the reference's "space" look.
 - Drop frames (`fps.json`, GeForce GT 710): the drag itself holds 60 fps (p95 16.8 ms), but the drop has a few long frames (p95 50 ms, max 183 ms) while the card lands and both columns re-render. Profile the drop commit with glow on.
+
+## Board event celebrations, SPEC 28.1 (frontend-physics)
+
+Source: `docs/screenshots/leads-neon/events/CRITIQUE.md` (3 iterations; the final frames capture commit 869028e).
+
+- New lead: the stream-in starts at the board's left edge, so the canvas bounds clip most of the ribbon. Give the canvas a margin to the left of New, or start the ribbon from the toolbar's "New lead" button.
+- Won: the burst covers the Won header (count and total) and the top card's name for about a second. Raise the shells into the toolbar band above the header.
+- Quote sent: the envelope ends on the column total for about 300 ms. End it beside the total.
+- Lost: the slivers are plain triangles. Strips with a straight cut edge would read more like a torn card.
+- Stage move: on the Neon Space skin, a wider ribbon with a few sparks would match the reference more closely. Depth keeps the thin trail.
+- Neon Space and Aurora event frames need the skin branch. Capture them after the merge (`capture.mjs --skin=neon` only switches the canvas palette).
+- Stress FPS: a few frames of 67 to 117 ms appear when 5 wins and 3 moves patch the 2,500-lead board within half a second (p95 stays 16.8 ms). Profile whether the board re-render or the diff (`diffBoards` walks every loaded card) causes them; a per-column diff that skips unchanged columns by reference would be the first thing to try.

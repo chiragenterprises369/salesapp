@@ -55,7 +55,8 @@ ask the orchestrator; do not guess from other sections.
 | `public/team-floor/**` | frontend-3d | Team Floor GLB scene, characters, baked lightmaps, floor templates, Draco/Basis decoders (SPEC 12.1) |
 | `lib/auth/**`, `lib/theme/**`, `lib/api/**` | frontend-app | session (mock in Wave 1), theme system, HTTP client |
 | `lib/realtime/**` | realtime-integrations (client side, Wave 2) | socket client + cache updaters; orchestrator wires in Wave 3 |
-| `lib/cn.ts`, `lib/use-*.ts`, `lib/query-client.tsx`, `lib/leads/**` | orchestrator | shared hooks and Leads data layer |
+| `lib/cn.ts`, `lib/use-*.ts`, `lib/query-client.tsx`, `lib/leads/**` | orchestrator, except `lib/leads/mock-realtime.ts` (frontend-physics, REQUESTS #10) | shared hooks and Leads data layer |
+| `lib/world/**` | frontend-app | mock world readers, scope rules and hooks (dummy data for every screen) |
 | `public/generated/**` | asset-generator | generated images + `assets.json` |
 | `public/**` (other) | frontend-app | PWA manifest, icons, service worker |
 | `tests/**` | qa-reviewer | unit/component tests |

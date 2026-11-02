@@ -46,6 +46,18 @@ export interface BoardWords {
   leads: string;
 }
 
+/**
+ * Observer events (additive, for the celebrations layer): where cards fly and land, in viewport
+ * px. Emitted only while someone listens; they never change what the board does.
+ * - flight: a card starts an arc flight (realtime or menu move, deck card, rollback).
+ * - land: a flight finished, or a local drop settled in its new slot (`rect` = the card at rest).
+ * - drop-in: a card never seen in this board appeared at the top of its column (a new lead).
+ */
+export type BoardMotionEvent =
+  | { type: 'flight'; lead: LeadListItem; stageId: string; from: Rect; to: Rect; kind: 'move' | 'rollback' }
+  | { type: 'land'; lead: LeadListItem; stageId: string; rect: Rect; via: 'flight' | 'drop'; kind: 'move' | 'rollback' }
+  | { type: 'drop-in'; lead: LeadListItem; stageId: string; rect: Rect };
+
 export interface BoardConfig {
   canDrag: boolean;
   /** Select mode: dragging a selected card carries every selected card as a deck. */
@@ -167,6 +179,21 @@ export class BoardController {
   private reflowUntil = 0;
   private flightSeq = 0;
   private liveFlip = false;
+  private motionListeners = new Set<(e: BoardMotionEvent) => void>();
+
+  /** Observe flights and landings (celebrations). Returns an unsubscribe function. */
+  onMotion(listener: (e: BoardMotionEvent) => void): () => void {
+    this.motionListeners.add(listener);
+    return () => this.motionListeners.delete(listener);
+  }
+
+  private get observed(): boolean {
+    return this.motionListeners.size > 0;
+  }
+
+  private emitMotion(e: BoardMotionEvent) {
+    for (const l of this.motionListeners) l(e);
+  }
 
   configure(patch: Partial<BoardConfig>) {
     Object.assign(this.cfg, patch);
@@ -371,6 +398,10 @@ export class BoardController {
         }
         // Never seen here: a new lead at the top of its column drops in; reflows and pages fade in.
         if (!reflow && this.indexOf(h.stageId, id) === 0) {
+          if (this.observed) {
+            const lead = this.leadsOf(h.stageId)[0];
+            if (lead) this.emitMotion({ type: 'drop-in', lead, stageId: h.stageId, rect: this.restRect(h) });
+          }
           dropIn(h.li, this.ms(physics.newLeadDropMs), profile.springs, physics.fadeMs);
           pulseRing(h.ring, 'accent', this.ms(physics.newLeadPulseMs), profile.pulses);
         } else if (profile.springs) fadeIn(h.li, this.ms(physics.reflowFadeMs), true);
@@ -393,6 +424,7 @@ export class BoardController {
     if (h) {
       h.li.style.opacity = '';
       pulseRing(h.ring, f.kind === 'rollback' ? 'danger' : 'stage', this.ms(this.cfg.physics.ringPulseMs), this.cfg.profile.pulses);
+      if (this.observed) this.emitMotion({ type: 'land', lead: f.lead, stageId: h.stageId, rect: this.restRect(h), via: 'flight', kind: f.kind });
     }
     if (rest.length === 0) {
       this.releaseFlightQuality?.();
@@ -1071,6 +1103,7 @@ export class BoardController {
     else if (landed === active.lead.id) {
       pulseRing(h.ring, 'stage', this.ms(physics.ringPulseMs), profile.pulses);
       if (!profile.springs) fadeIn(h.li, physics.fadeMs);
+      if (this.observed) this.emitMotion({ type: 'land', lead: active.lead, stageId: h.stageId, rect: this.restRect(h), via: 'drop', kind: 'move' });
     }
   }
 
@@ -1084,6 +1117,7 @@ export class BoardController {
     const key = `${lead.id}:${++this.flightSeq}`;
     this.store.setState((s) => ({ flights: [...s.flights.filter((f) => f.lead.id !== lead.id), { key, lead, from, to, kind }] }));
     if (!this.releaseFlightQuality) this.releaseFlightQuality = this.cfg.quality?.acquire() ?? null;
+    if (this.observed) this.emitMotion({ type: 'flight', lead, stageId: h.stageId, from, to, kind });
   }
 
   // ------------------------------------------------------------------ menu move
