@@ -63,7 +63,7 @@ function Deals() {
   const now = useNow(60_000);
   const mode = useDealsView((s) => s.mode);
   const setMode = useDealsView((s) => s.setMode);
-  const list = useListState<Filters>('deals', { filters: { status: ['open'] }, sort: { key: 'updatedAt', dir: 'desc' } });
+  const list = useListState<Filters>('deals', { filters: {}, sort: { key: 'updatedAt', dir: 'desc' } });
   const pipelines = useDealPipelines();
   const canCreate = useCan('deals.create');
   const canUpdate = useCan('deals.update');
