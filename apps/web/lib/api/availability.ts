@@ -8,18 +8,12 @@ import { ApiRequestError } from '../api-error';
  * endpoint ships (`git grep "ApiRoute(API_ROUTES.<id>"` in apps/api shows the served ones).
  *
  * Served since change #19 wave A (REALTIME): presence and PUT /me/status, the Team Floor snapshot,
- * calls list/get/update, attendance, conversations, messages, templates and quick replies.
- * Super Admin companies (PLATFORM, this wave) are called directly and treat a 404 as "not yet".
+ * calls list/get/update and recording URLs, attendance, conversations, messages, templates, quick
+ * replies, office zone signals and markers. PLATFORM: Super Admin companies, files, branding, domains.
  */
 export const PENDING_ROUTES: ReadonlySet<ApiRouteId> = new Set<ApiRouteId>([
-  // calls: click-to-call through a provider and recording URLs (later waves; SIM calls come from the app)
+  // calls: click-to-call through a provider (later waves; SIM calls come from the Android app)
   'callCreate',
-  'callRecording',
-  // office zones (REALTIME, after wave A)
-  'myZoneSignal',
-  'officeMarkerList',
-  'officeMarkerCreate',
-  'officeMarkerDelete',
   // automation and integrations (later waves)
   'workflowList',
   'workflowGet',

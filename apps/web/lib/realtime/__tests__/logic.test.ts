@@ -1,6 +1,13 @@
 import { APP_SCREENS, EVENT_NAMES, SYNC_SCOPES } from '@vistar/shared';
 import { describe, expect, it } from 'vitest';
-import { activityFor, IDLE_AFTER_MS, knownScopes, leadIdForPath, scopesForEvent, screenForPath } from '../logic';
+import {
+  activityFor,
+  IDLE_AFTER_MS,
+  knownScopes,
+  leadIdForPath,
+  scopesForEvent,
+  screenForPath,
+} from '../logic';
 
 const LEAD = '0190f5a0-1111-7000-8000-000000000001';
 
@@ -32,7 +39,8 @@ describe('screenForPath', () => {
   });
 
   it('only returns contract screens', () => {
-    for (const p of ['/app', '/app/x/y', '/me/more', '/', '/app/leads/not-a-uuid']) expect(APP_SCREENS).toContain(screenForPath(p));
+    for (const p of ['/app', '/app/x/y', '/me/more', '/', '/app/leads/not-a-uuid'])
+      expect(APP_SCREENS).toContain(screenForPath(p));
   });
 });
 
@@ -61,7 +69,8 @@ describe('activityFor', () => {
 describe('scopesForEvent', () => {
   it('maps every contract event to known sync scopes', () => {
     const scopes = new Set<string>(SYNC_SCOPES);
-    for (const name of EVENT_NAMES) for (const s of scopesForEvent(name)) expect(scopes.has(s)).toBe(true);
+    for (const name of EVENT_NAMES)
+      for (const s of scopesForEvent(name)) expect(scopes.has(s)).toBe(true);
   });
   it('lead and stage events refresh lists, boards and the dashboard', () => {
     expect(scopesForEvent('stage.changed')).toEqual(['leads', 'board', 'dashboard']);

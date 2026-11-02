@@ -81,7 +81,6 @@ export function startRealtime(qc: QueryClient, opts: RealtimeOptions): RealtimeH
   let lastInputAt = Date.now();
   let beatTimer = 0;
   let flushTimer = 0;
-  let lastRestKey = '';
   const pending = new Set<SyncScope>();
 
   const flush = () => {
@@ -133,7 +132,7 @@ export function startRealtime(qc: QueryClient, opts: RealtimeOptions): RealtimeH
   });
   socket.on('connect', () => {
     setConnected(true);
-    beat(true);
+    beat();
   });
   socket.on('disconnect', () => setConnected(false));
   let retryTimer = 0;
@@ -171,22 +170,23 @@ export function startRealtime(qc: QueryClient, opts: RealtimeOptions): RealtimeH
   }
 
   /**
-   * Socket heartbeat every interval (with `screen`, for servers whose socket schema has it). The REST
-   * heartbeat carries `screen` for today's servers: sent when the screen, activity or lead changes,
-   * and every interval while the socket is down (fallback).
+   * Socket heartbeat every interval with activity, screen and open lead (socket HeartbeatSchema has
+   * `screen` since ba3bf1b). POST /me/presence/heartbeat only while the socket is down (fallback).
    */
-  function beat(force = false) {
+  function beat() {
     if (stopped || !opts.heartbeat) return;
     const hb = heartbeat();
     if (socket.connected) {
-      const payload: Heartbeat & { screen?: PresenceHeartbeat['screen'] } = { activity: hb.activity, currentLeadId: hb.currentLeadId ?? null, client: 'web', screen: hb.screen };
+      const payload: Heartbeat = {
+        activity: hb.activity,
+        currentLeadId: hb.currentLeadId ?? null,
+        client: 'web',
+        screen: hb.screen,
+      };
       socket.emit('presence.heartbeat', payload);
+      return;
     }
-    const key = `${hb.screen}|${hb.activity}|${hb.currentLeadId ?? ''}`;
-    if (force || key !== lastRestKey || !socket.connected) {
-      lastRestKey = key;
-      void api.call('myPresenceHeartbeat', { body: hb }).catch(() => undefined);
-    }
+    void api.call('myPresenceHeartbeat', { body: hb }).catch(() => undefined);
   }
 
   const onInput = () => {

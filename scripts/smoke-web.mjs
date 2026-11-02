@@ -10,6 +10,7 @@
 //
 // Visits key routes per persona in light and dark at desktop and mobile widths, and fails on page
 // errors, console errors, failed redirects or blank pages. Screenshots: %TEMP%/vistar-smoke.
+/* global document, window -- used inside page.evaluate callbacks, which run in the browser */
 import { chromium } from '@playwright/test';
 import { createHmac } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -86,7 +87,8 @@ function totp(secret, step) {
 }
 
 const TOTP_FILE = join(outDir, 'totp.json');
-const readTotpStore = () => (existsSync(TOTP_FILE) ? JSON.parse(readFileSync(TOTP_FILE, 'utf8')) : {});
+const readTotpStore = () =>
+  existsSync(TOTP_FILE) ? JSON.parse(readFileSync(TOTP_FILE, 'utf8')) : {};
 const writeTotpStore = (s) => writeFileSync(TOTP_FILE, JSON.stringify(s, null, 2));
 
 /** A code for a time step the API has not accepted yet (it rejects a reused step). */
@@ -117,17 +119,24 @@ async function signInSuper(page, email) {
   await page.goto(`${base}/super-admin/login`, { waitUntil: 'domcontentloaded' });
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(PASSWORD);
-  const challengeRes = page.waitForResponse((r) => r.url().includes('/api/super/auth/login') && r.request().method() === 'POST');
+  const challengeRes = page.waitForResponse(
+    (r) => r.url().includes('/api/super/auth/login') && r.request().method() === 'POST',
+  );
   await page.locator('form button[type="submit"]').click();
   const res = await challengeRes;
   const challenge = await res.json().catch(() => null);
-  if (!res.ok() || !challenge?.challengeToken) throw new Error(`super login ${res.status()}: ${JSON.stringify(challenge)?.slice(0, 200)}`);
+  if (!res.ok() || !challenge?.challengeToken)
+    throw new Error(`super login ${res.status()}: ${JSON.stringify(challenge)?.slice(0, 200)}`);
   const apiOrigin = new URL(res.url()).origin;
   const key = `${apiOrigin}|${email}`;
   let secret = process.env.SMOKE_TOTP_SECRET ?? null;
-  if (challenge.enrollmentRequired && challenge.otpauthUrl) secret = new URL(challenge.otpauthUrl).searchParams.get('secret');
+  if (challenge.enrollmentRequired && challenge.otpauthUrl)
+    secret = new URL(challenge.otpauthUrl).searchParams.get('secret');
   secret ??= readTotpStore()[key]?.secret ?? null;
-  if (!secret) throw new Error(`Super Admin ${email} is enrolled but its TOTP secret is unknown: set SMOKE_TOTP_SECRET or reset the enrolment on this database`);
+  if (!secret)
+    throw new Error(
+      `Super Admin ${email} is enrolled but its TOTP secret is unknown: set SMOKE_TOTP_SECRET or reset the enrolment on this database`,
+    );
   const code = await freshCode(key, secret);
   await page.locator('input[name="code"]').fill(code);
   await page.locator('form button[type="submit"]').click();
@@ -148,7 +157,8 @@ for (const persona of personas) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !IGNORED_CONSOLE.some((r) => r.test(m.text()))) errors.push(`console: ${m.text().slice(0, 160)}`);
+    if (m.type() === 'error' && !IGNORED_CONSOLE.some((r) => r.test(m.text())))
+      errors.push(`console: ${m.text().slice(0, 160)}`);
   });
 
   let signInError = null;
@@ -175,7 +185,9 @@ for (const persona of personas) {
       await context.addCookies([
         {
           name: 'vistar_theme',
-          value: encodeURIComponent(JSON.stringify({ mode: theme, darkFrom: '19:00', darkTo: '07:00', tz: 'Asia/Kolkata' })),
+          value: encodeURIComponent(
+            JSON.stringify({ mode: theme, darkFrom: '19:00', darkTo: '07:00', tz: 'Asia/Kolkata' }),
+          ),
           domain: host,
           path: '/',
         },
@@ -185,24 +197,36 @@ for (const persona of personas) {
       const problems = [];
       if (signInError) problems.push(signInError);
       else {
-        await page.goto(`${base}${path}`, { waitUntil: 'networkidle' }).catch((e) => problems.push(`goto: ${e.message.split('\n')[0]}`));
+        await page
+          .goto(`${base}${path}`, { waitUntil: 'networkidle' })
+          .catch((e) => problems.push(`goto: ${e.message.split('\n')[0]}`));
         await page.waitForTimeout(800);
         const finalPath = new URL(page.url()).pathname;
         const textLen = (await page.locator('body').innerText()).trim().length;
-        const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
-        const hScroll = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+        const dataTheme = await page.evaluate(() =>
+          document.documentElement.getAttribute('data-theme'),
+        );
+        const hScroll = await page.evaluate(
+          () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        );
         const mockUse = MOCK ? [] : await page.evaluate(() => window.__vistarMockUse ?? []);
         const slug = `${MOCK ? 'mock-' : ''}${persona ?? 'anon'}${path.replace(/[^a-z0-9]+/gi, '-')}-${theme}-${width}`;
         await page.screenshot({ path: join(outDir, `${slug}.png`) });
         const onLogin = /\/login$/.test(finalPath);
-        if (!finalPath.startsWith(expect) || (onLogin && !expect.endsWith('/login'))) problems.push(`landed on ${finalPath}, expected ${expect}`);
+        if (!finalPath.startsWith(expect) || (onLogin && !expect.endsWith('/login')))
+          problems.push(`landed on ${finalPath}, expected ${expect}`);
         if (textLen < 20) problems.push('blank page');
         if (dataTheme !== theme) problems.push(`data-theme=${dataTheme}`);
-        if (hScroll && width < 400 && !path.includes('leads')) problems.push('horizontal scroll at mobile width');
+        if (hScroll && width < 400 && !path.includes('leads'))
+          problems.push('horizontal scroll at mobile width');
         if (mockUse.length) problems.push(`mock data layer used: ${mockUse.join(', ')}`);
         problems.push(...errors);
       }
-      results.push({ name: `${persona ?? 'signed-out'} ${path} [${theme} ${width}]`, ok: problems.length === 0, detail: problems.join(' | ') });
+      results.push({
+        name: `${persona ?? 'signed-out'} ${path} [${theme} ${width}]`,
+        ok: problems.length === 0,
+        detail: problems.join(' | '),
+      });
     }
   }
   await context.close();
@@ -210,6 +234,9 @@ for (const persona of personas) {
 await browser.close();
 
 const failed = results.filter((r) => !r.ok);
-for (const r of results) console.info(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.ok ? '' : `  (${r.detail})`}`);
-console.info(`\n${results.length - failed.length}/${results.length} web checks passed (${MOCK ? 'mock data' : 'API'} mode). Screenshots: ${outDir}`);
+for (const r of results)
+  console.info(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.ok ? '' : `  (${r.detail})`}`);
+console.info(
+  `\n${results.length - failed.length}/${results.length} web checks passed (${MOCK ? 'mock data' : 'API'} mode). Screenshots: ${outDir}`,
+);
 process.exit(failed.length ? 1 : 0);

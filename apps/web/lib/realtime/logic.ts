@@ -43,7 +43,13 @@ export function screenForPath(pathname: string, search = ''): AppScreen {
 /** Lead open on the page (lead detail route or the `?lead=` drawer), for the heartbeat. */
 export function leadIdForPath(pathname: string, search = ''): string | null {
   const parts = pathname.split('/').filter(Boolean);
-  if ((parts[0] === 'app' || parts[0] === 'me') && parts[1] === 'leads' && parts[2] && UUID.test(parts[2])) return parts[2];
+  if (
+    (parts[0] === 'app' || parts[0] === 'me') &&
+    parts[1] === 'leads' &&
+    parts[2] &&
+    UUID.test(parts[2])
+  )
+    return parts[2];
   const q = new URLSearchParams(search).get('lead');
   return q && UUID.test(q) ? q : null;
 }
@@ -51,7 +57,11 @@ export function leadIdForPath(pathname: string, search = ''): string | null {
 /** No input for this long while the tab is visible -> `idle`. */
 export const IDLE_AFTER_MS = 120_000;
 
-export function activityFor(hidden: boolean, lastInputAt: number, now: number): 'active' | 'idle' | 'hidden' {
+export function activityFor(
+  hidden: boolean,
+  lastInputAt: number,
+  now: number,
+): 'active' | 'idle' | 'hidden' {
   if (hidden) return 'hidden';
   return now - lastInputAt > IDLE_AFTER_MS ? 'idle' : 'active';
 }
@@ -63,17 +73,26 @@ export function activityFor(hidden: boolean, lastInputAt: number, now: number): 
 export function scopesForEvent(type: EventName): SyncScope[] {
   if (type.startsWith('lead.') || type === 'stage.changed') return ['leads', 'board', 'dashboard'];
   if (type === 'activity.created') return ['leads'];
-  if (type === 'feed.item' || type === 'dashboard.kpis_updated' || type === 'attention.raised' || type === 'attention.resolved') return ['dashboard'];
+  if (
+    type === 'feed.item' ||
+    type === 'dashboard.kpis_updated' ||
+    type === 'attention.raised' ||
+    type === 'attention.resolved'
+  )
+    return ['dashboard'];
   if (type.startsWith('task.')) return ['tasks', 'dashboard'];
   if (type.startsWith('call.')) return ['calls', 'dashboard', 'team-floor'];
-  if (type === 'employee.status_changed' || type === 'employee.zone_changed') return ['team-floor', 'presence'];
-  if (type.startsWith('attendance.') || type === 'location.updated') return ['attendance', 'team-floor'];
+  if (type === 'employee.status_changed' || type === 'employee.zone_changed')
+    return ['team-floor', 'presence'];
+  if (type.startsWith('attendance.') || type === 'location.updated')
+    return ['attendance', 'team-floor'];
   if (type.startsWith('message.') || type === 'conversation.updated') return ['conversations'];
   if (type === 'notification.created') return ['notifications'];
   if (type.startsWith('workflow.')) return ['workflows'];
   if (type === 'webhook.delivery_updated') return ['workflows'];
   if (type === 'import.progress') return ['leads', 'board'];
-  if (type === 'customization.changed' || type.startsWith('pack.')) return ['customization', 'workspace'];
+  if (type === 'customization.changed' || type.startsWith('pack.'))
+    return ['customization', 'workspace'];
   if (type.startsWith('record.')) return ['records'];
   if (type === 'theme.changed' || type === 'workspace.branding_changed') return ['workspace'];
   if (type === 'floor.published' || type === 'floor_request.updated') return ['team-floor'];

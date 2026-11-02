@@ -33,7 +33,8 @@ export interface ApiFloorSource {
 
 export function createApiFloorSource(opts: { teamId?: string | null } = {}): ApiFloorSource {
   return {
-    load: () => api.call('teamFloorSnapshot', { query: opts.teamId ? { teamId: opts.teamId } : {} }),
+    load: () =>
+      api.call('teamFloorSnapshot', { query: opts.teamId ? { teamId: opts.teamId } : {} }),
     subscribe(onEvents) {
       let batch: DomainEvent[] = [];
       let frame = 0;

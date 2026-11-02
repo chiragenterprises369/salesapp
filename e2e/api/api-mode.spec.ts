@@ -18,7 +18,10 @@ const expect = baseExpect.configure({ timeout: 20_000 });
 const PASSWORD = process.env.SMOKE_PASSWORD ?? 'vistar-demo-123';
 const IGNORED = [/Download the React DevTools/i, /favicon/i];
 
-test.skip(process.env.E2E_API_MODE !== '1', 'API-mode check: set E2E_API_MODE=1 and point the build at a demo API');
+test.skip(
+  process.env.E2E_API_MODE !== '1',
+  'API-mode check: set E2E_API_MODE=1 and point the build at a demo API',
+);
 test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
 const ACCOUNTS = {
@@ -33,13 +36,18 @@ function watch(page: Page) {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !IGNORED.some((r) => r.test(m.text()))) errors.push(`console: ${m.text().slice(0, 200)}`);
+    if (m.type() === 'error' && !IGNORED.some((r) => r.test(m.text())))
+      errors.push(`console: ${m.text().slice(0, 200)}`);
   });
   return errors;
 }
 
 async function noMockUse(page: Page) {
-  expect(await page.evaluate(() => (window as unknown as { __vistarMockUse?: string[] }).__vistarMockUse ?? [])).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __vistarMockUse?: string[] }).__vistarMockUse ?? [],
+    ),
+  ).toEqual([]);
   expect(await page.evaluate(() => localStorage.getItem('vistar.mock.persona'))).toBeNull();
 }
 
@@ -53,11 +61,17 @@ async function signIn(page: Page, email: string) {
   await page.waitForURL((u) => !u.pathname.startsWith('/login'));
 }
 
-const isJson = (method: string, path: RegExp) => (r: Response) => r.request().method() === method && path.test(new URL(r.url()).pathname);
+const isJson = (method: string, path: RegExp) => (r: Response) =>
+  r.request().method() === method && path.test(new URL(r.url()).pathname);
 
 /** Total of the first lead list page the page asks for (the API applies the data scope). */
 async function leadTotal(page: Page, path: string): Promise<number> {
-  const res = page.waitForResponse((r) => r.request().method() === 'GET' && /\/api\/v1\/leads$/.test(new URL(r.url()).pathname) && r.status() === 200);
+  const res = page.waitForResponse(
+    (r) =>
+      r.request().method() === 'GET' &&
+      /\/api\/v1\/leads$/.test(new URL(r.url()).pathname) &&
+      r.status() === 200,
+  );
   await page.goto(path, { waitUntil: 'domcontentloaded' });
   const body = (await (await res).json()) as { items: unknown[]; total?: number };
   return body.total ?? body.items.length;
@@ -93,12 +107,24 @@ function totp(secret: string, step: number): string {
 /** Shared with scripts/smoke-web.mjs: secret captured at enrolment and the last used time step. */
 const TOTP_FILE = join(tmpdir(), 'vistar-smoke', 'totp.json');
 
-async function superCode(apiOrigin: string, email: string, otpauthUrl: string | null): Promise<string> {
+async function superCode(
+  apiOrigin: string,
+  email: string,
+  otpauthUrl: string | null,
+): Promise<string> {
   mkdirSync(join(tmpdir(), 'vistar-smoke'), { recursive: true });
-  const store = (existsSync(TOTP_FILE) ? JSON.parse(readFileSync(TOTP_FILE, 'utf8')) : {}) as Record<string, { secret: string; lastStep?: number }>;
+  const store = (
+    existsSync(TOTP_FILE) ? JSON.parse(readFileSync(TOTP_FILE, 'utf8')) : {}
+  ) as Record<string, { secret: string; lastStep?: number }>;
   const key = `${apiOrigin}|${email}`;
-  const secret = (otpauthUrl ? new URL(otpauthUrl).searchParams.get('secret') : null) ?? process.env.SMOKE_TOTP_SECRET ?? store[key]?.secret;
-  if (!secret) throw new Error('Super Admin TOTP secret unknown (run scripts/smoke-web.mjs first or set SMOKE_TOTP_SECRET)');
+  const secret =
+    (otpauthUrl ? new URL(otpauthUrl).searchParams.get('secret') : null) ??
+    process.env.SMOKE_TOTP_SECRET ??
+    store[key]?.secret;
+  if (!secret)
+    throw new Error(
+      'Super Admin TOTP secret unknown (run scripts/smoke-web.mjs first or set SMOKE_TOTP_SECRET)',
+    );
   let step = Math.floor(Date.now() / 30_000);
   const last = store[key]?.lastStep ?? 0;
   if (step <= last) {
@@ -112,7 +138,9 @@ async function superCode(apiOrigin: string, email: string, otpauthUrl: string | 
 
 // ---------------------------------------------------------------- tests
 
-test('scopes: admin sees every lead, a manager their team, an employee their own', async ({ page }) => {
+test('scopes: admin sees every lead, a manager their team, an employee their own', async ({
+  page,
+}) => {
   const errors = watch(page);
   await signIn(page, ACCOUNTS.company_admin);
   const all = await leadTotal(page, '/app/leads?view=table');
@@ -162,8 +190,15 @@ test('board move survives a reload (admin)', async ({ page }) => {
   const face = card.locator('[aria-roledescription="draggable card"], [role="checkbox"]').first();
   await face.focus();
   const name = (await face.getAttribute('aria-label'))?.split(',')[0] ?? '';
-  const saved = page.waitForResponse((r) => ['POST', 'PATCH'].includes(r.request().method()) && new URL(r.url()).pathname.includes(`/api/v1/leads/${id}`));
-  await page.getByRole('button', { name: new RegExp(`^Move .* to stage$`) }).first().click();
+  const saved = page.waitForResponse(
+    (r) =>
+      ['POST', 'PATCH'].includes(r.request().method()) &&
+      new URL(r.url()).pathname.includes(`/api/v1/leads/${id}`),
+  );
+  await page
+    .getByRole('button', { name: new RegExp(`^Move .* to stage$`) })
+    .first()
+    .click();
   await page.getByRole('menuitem', { name: 'Contacted' }).click();
   expect((await saved).ok(), `move ${name} saved`).toBe(true);
   await expect(to.locator(`li[data-lead-id="${id}"]`)).toHaveCount(1);
@@ -180,7 +215,9 @@ test('completing a task survives a reload (manager)', async ({ page }) => {
   const errors = watch(page);
   await signIn(page, ACCOUNTS.manager);
   await page.goto('/app/tasks', { waitUntil: 'domcontentloaded' });
-  const box = page.locator('[data-task-row] input[type="checkbox"]:not(:checked):not(:disabled)').first();
+  const box = page
+    .locator('[data-task-row] input[type="checkbox"]:not(:checked):not(:disabled)')
+    .first();
   await expect(box).toBeVisible();
   const label = (await box.getAttribute('aria-label'))!;
   const saved = page.waitForResponse(isJson('PATCH', /\/api\/v1\/tasks\/[0-9a-f-]{36}$/));
@@ -190,7 +227,12 @@ test('completing a task survives a reload (manager)', async ({ page }) => {
   const task = (await res.json()) as { id: string; status: string };
   expect(task.status).toBe('done');
 
-  const reloaded = page.waitForResponse((r) => r.request().method() === 'GET' && /\/api\/v1\/tasks$/.test(new URL(r.url()).pathname) && r.status() === 200);
+  const reloaded = page.waitForResponse(
+    (r) =>
+      r.request().method() === 'GET' &&
+      /\/api\/v1\/tasks$/.test(new URL(r.url()).pathname) &&
+      r.status() === 200,
+  );
   await page.reload({ waitUntil: 'domcontentloaded' });
   const list = (await (await reloaded).json()) as { items: Array<{ id: string; status: string }> };
   // The server copy is done: either listed as done or no longer in the open list.
@@ -221,12 +263,18 @@ test('a personal setting survives a reload, then the employee signs out', async 
   await radios.nth(target).click();
   expect((await saved).ok()).toBe(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('radiogroup', { name: 'Reduce motion' }).getByRole('radio').nth(target)).toHaveAttribute('aria-checked', 'true');
+  await expect(
+    page.getByRole('radiogroup', { name: 'Reduce motion' }).getByRole('radio').nth(target),
+  ).toHaveAttribute('aria-checked', 'true');
 
   // Put it back (keeps the demo database as it was).
   if (before >= 0) {
     const restored = page.waitForResponse(isJson('PATCH', /\/api\/v1\/me\/settings$/));
-    await page.getByRole('radiogroup', { name: 'Reduce motion' }).getByRole('radio').nth(before).click();
+    await page
+      .getByRole('radiogroup', { name: 'Reduce motion' })
+      .getByRole('radio')
+      .nth(before)
+      .click();
     await restored;
   }
   await noMockUse(page);
@@ -251,10 +299,16 @@ test('Super Admin signs in with TOTP and lists the companies', async ({ page }) 
   const res = await challenge;
   expect(res.status()).toBe(200);
   const body = (await res.json()) as { enrollmentRequired: boolean; otpauthUrl?: string | null };
-  const code = await superCode(new URL(res.url()).origin, ACCOUNTS.super_admin, body.enrollmentRequired ? (body.otpauthUrl ?? null) : null);
+  const code = await superCode(
+    new URL(res.url()).origin,
+    ACCOUNTS.super_admin,
+    body.enrollmentRequired ? (body.otpauthUrl ?? null) : null,
+  );
   await page.locator('input[name="code"]').fill(code);
   await page.locator('form button[type="submit"]').click();
-  await page.waitForURL((u) => u.pathname.startsWith('/super-admin') && !u.pathname.startsWith('/super-admin/login'));
+  await page.waitForURL(
+    (u) => u.pathname.startsWith('/super-admin') && !u.pathname.startsWith('/super-admin/login'),
+  );
   await page.goto('/super-admin/companies', { waitUntil: 'networkidle' });
   await expect(page.getByText('Shakti Industries').first()).toBeVisible();
   await noMockUse(page);
