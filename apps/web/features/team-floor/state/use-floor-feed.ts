@@ -1,11 +1,14 @@
 'use client';
 
-import type { DomainEvent, TeamFloorSnapshot } from '@vistar/shared';
+import type { DomainEvent, TeamFloorRef, TeamFloorSnapshot } from '@vistar/shared';
 import { createEventSimulator, mockTeamFloorSnapshot } from '@vistar/shared/fixtures';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { floorRootReducer, initialFloorState } from './reducer';
+import { api } from '@/lib/api/client';
 import { isMockData } from '@/lib/api/data-source';
+import { onRealtimeEvent, onRealtimeStatus } from '@/lib/realtime/client';
 import { createApiFloorSource } from '@/lib/realtime/floor-source';
+import { INITIAL_LIVE_FLOOR, liveFloorReducer, type LiveState } from '../workspace/live-presence';
+import { initialFloorState } from './reducer';
 import { withStressEmployees } from './stress';
 import { loadTemplate, resolveTemplateId, type FloorTemplate, type TemplateId } from './template';
 import type { FloorAction, FloorState } from './types';
@@ -61,34 +64,53 @@ export interface FloorFeed {
   retry: () => void;
   /** Local (Wave 1) actions: resolve/restore attention, reassign. */
   dispatch: (action: Exclude<FloorAction, { kind: 'reset' } | { kind: 'events' }>) => void;
+  /** Server presence per person (D-062): detailed status, version, zone, activity, screen, last seen. */
+  live: LiveState;
+  /** Realtime socket connected (always true in the test-only mock mode). */
+  connected: boolean;
+  /** Which floor the server says to draw (snapshot.floor); null until loaded or in mock mode. */
+  floorRef: TeamFloorRef | null;
 }
 
 const DEDUPE_MAX = 500;
 const BUFFER_MAX = 500;
+/** Last seen and zone confidence move without events (D-062): refresh them from the snapshot. */
+const LIVE_REFRESH_MS = 60_000;
+/** Events the feed takes besides the floor events of the API floor source. */
+const EXTRA_EVENTS = new Set(['attendance.checked_in', 'attendance.checked_out', 'floor.published']);
 
 /**
- * One hook owns the floor data: initial snapshot and floor template, then events through
- * `floorRootReducer`. Dedupes by event id (last 500), buffers while paused, prunes expired effects.
+ * One hook owns the floor data: initial snapshot and floor template, then events through the live
+ * presence reducer (version ordering, zones, activity) and `floorRootReducer`. Dedupes by event id
+ * (last 500), buffers while paused, prunes expired effects, reloads the snapshot after a reconnect and
+ * after `floor.published`, and refreshes last seen and zone confidence every minute while visible.
  * The template follows the head count (SPEC 12.1); `template` overrides it (dev and screenshots).
+ * `enabled: false` keeps the hook idle (the caller passes a feed it lifted, e.g. the floor workspace).
  */
-export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?: number; template?: TemplateId | null } = {}): FloorFeed {
+export function useFloorFeed(
+  opts: { userIds?: readonly string[] | null; stress?: number; template?: TemplateId | null; enabled?: boolean } = {},
+): FloorFeed {
   const scopeKey = opts.userIds ? [...opts.userIds].sort().join(',') : '*';
   const stress = opts.stress ?? 0;
   const templateOverride = opts.template ?? null;
-  const [state, dispatch] = useReducer(floorRootReducer, null);
+  const enabled = opts.enabled ?? true;
+  const [{ floor: state, live }, dispatch] = useReducer(liveFloorReducer, INITIAL_LIVE_FLOOR);
   const [template, setTemplate] = useState<FloorTemplate | null>(null);
   const [status, setStatus] = useState<FeedStatus>('loading');
   const [attempt, setAttempt] = useState(0);
   const [paused, setPausedState] = useState(false);
+  const [connected, setConnected] = useState(() => isMockData());
+  const [floorRef, setFloorRef] = useState<TeamFloorRef | null>(null);
   const pausedRef = useRef(false);
   const buffer = useRef<DomainEvent[]>([]);
   const seen = useRef<{ set: Set<string>; order: string[] }>({ set: new Set(), order: [] });
 
   useEffect(() => {
+    if (!enabled) return;
     // API mode: GET /team-floor/snapshot + the realtime socket (lib/realtime); mock mode (tests,
     // dev stress): the mock snapshot and event simulator.
-    const api = !isMockData() && stress === 0 ? createApiFloorSource() : null;
-    const source: FloorSource = api ?? createMockFloorSource({ stress });
+    const api$ = !isMockData() && stress === 0 ? createApiFloorSource() : null;
+    const source: FloorSource = api$ ?? createMockFloorSource({ stress });
     // Dev stress mode pads the whole workspace with synthetic people, so the team scope is lifted.
     const userIds = scopeKey === '*' || stress > 0 ? null : scopeKey.split(',').filter(Boolean);
     let cancelled = false;
@@ -114,6 +136,31 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
       dispatch({ kind: 'events', events: fresh, now: Date.now() });
     };
 
+    /** Zone names of the published seat map (zone events carry only the id). */
+    const loadZoneNames = () => {
+      if (!api$) return;
+      void api
+        .call('teamFloorLayout')
+        .then((layout) => {
+          const zones = layout.floor?.seatMap.zones ?? [];
+          if (!cancelled && zones.length) dispatch({ kind: 'zones', zones: zones.map((z) => ({ id: z.id, name: z.name })) });
+        })
+        .catch(() => undefined);
+    };
+
+    /** Full reload (after a reconnect or a newly published floor): events missed while away cannot leave it stale. */
+    const reload = () => {
+      if (!api$) return;
+      void api$
+        .load()
+        .then((snapshot) => {
+          if (cancelled || !loaded) return;
+          dispatch({ kind: 'load', snapshot, floor: initialFloorState(snapshot, { userIds, template: loaded }) });
+          setFloorRef(snapshot.floor ?? null);
+        })
+        .catch(() => undefined);
+    };
+
     source
       .load()
       .then(async (snapshot) => {
@@ -123,31 +170,55 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
         if (cancelled) return;
         loaded = tpl;
         setTemplate(tpl);
-        dispatch({ kind: 'reset', state: initialFloorState(snapshot, { userIds, template: tpl }) });
+        setFloorRef(snapshot.floor ?? null);
+        dispatch({ kind: 'load', snapshot, floor: initialFloorState(snapshot, { userIds, template: tpl }) });
         setStatus('ready');
         unsubscribe = source.subscribe(accept);
+        loadZoneNames();
       })
       .catch(() => {
         if (!cancelled) setStatus('error');
       });
 
     const pruneTimer = setInterval(() => dispatch({ kind: 'prune', now: Date.now() }), 1000);
-    // After a socket reconnect, reload the snapshot (events missed while offline).
-    const offResync = api?.onResync(() => {
-      void api
-        .load()
-        .then((snapshot) => {
-          if (!cancelled && loaded) dispatch({ kind: 'reset', state: initialFloorState(snapshot, { userIds, template: loaded }) });
+    const offResync = api$?.onResync(reload);
+    const offStatus = api$
+      ? onRealtimeStatus((up) => {
+          if (!cancelled) setConnected(up);
         })
-        .catch(() => undefined);
-    });
+      : null;
+    const offExtra = api$
+      ? onRealtimeEvent((e) => {
+          if (!EXTRA_EVENTS.has(e.type)) return;
+          if (e.type === 'floor.published') {
+            reload();
+            loadZoneNames();
+            return;
+          }
+          accept([e]);
+        })
+      : null;
+    const refreshTimer = api$
+      ? setInterval(() => {
+          if (document.hidden || pausedRef.current || !loaded) return;
+          void api$
+            .load()
+            .then((snapshot) => {
+              if (!cancelled) dispatch({ kind: 'refresh', snapshot, now: Date.now() });
+            })
+            .catch(() => undefined);
+        }, LIVE_REFRESH_MS)
+      : null;
     return () => {
       cancelled = true;
       unsubscribe?.();
       offResync?.();
+      offStatus?.();
+      offExtra?.();
       clearInterval(pruneTimer);
+      if (refreshTimer) clearInterval(refreshTimer);
     };
-  }, [scopeKey, stress, templateOverride, attempt]);
+  }, [scopeKey, stress, templateOverride, attempt, enabled]);
 
   const setPaused = useCallback((next: boolean) => {
     pausedRef.current = next;
@@ -166,5 +237,5 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
 
   const localDispatch = useCallback<FloorFeed['dispatch']>((action) => dispatch(action), []);
 
-  return { status, state, template, paused, setPaused, retry, dispatch: localDispatch };
+  return { status, state, template, paused, setPaused, retry, dispatch: localDispatch, live, connected, floorRef };
 }

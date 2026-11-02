@@ -1,9 +1,10 @@
 'use client';
 
+import { Suspense } from 'react';
 import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/common/empty-state';
-import { PageHeader } from '@/components/common/page-header';
-import { TeamFloor } from '@/features/team-floor';
+import { Skeleton } from '@/components/ui/skeleton';
+import { FloorWorkspace } from '@/features/team-floor/workspace';
 import { isRouteLive } from '@/lib/api/availability';
 import { isMockData } from '@/lib/api/data-source';
 import { useMe } from '@/lib/session/session';
@@ -25,19 +26,38 @@ export function FloorNotLiveYet() {
   );
 }
 
-/** Live Team Floor (company panel). Managers see their team only (dataScope=team). */
+/** The workspace reads the URL (lead drawer, panels): suspense boundary for useSearchParams. */
+export function FloorWorkspaceFallback() {
+  return <Skeleton className="h-[calc(100dvh-10rem)] min-h-[420px] w-full rounded-lg" aria-label="Team floor loading" />;
+}
+
+/**
+ * Live Team Floor (company panel) as a workspace (SPEC 29.11): the floor, person panel, module panels,
+ * command bar and full screen in one tab. Managers see their team only (dataScope=team).
+ */
 export function TeamFloorView() {
   const me = useMe()!;
   const ready = useLiveFloorReady();
   const teamOnly = me.role.dataScope === 'team';
   return (
     <RequirePermission anyOf={['teamfloor.read']}>
-      <PageHeader
-        title="Live Team Floor"
-        description={teamOnly ? 'Who is on a call, free or on a break in your team, right now.' : 'Who is on a call, free or on a break across the workspace, right now.'}
-        className="mb-3"
-      />
-      {ready ? <TeamFloor mode={me.settings.teamFloorMode} userIds={teamOnly ? me.teamMemberIds : null} /> : <FloorNotLiveYet />}
+      {ready ? (
+        <Suspense fallback={<FloorWorkspaceFallback />}>
+          <FloorWorkspace
+            panel="company"
+            title="Live Team Floor"
+            description={
+              teamOnly
+                ? 'Who is where and doing what in your team, right now. Open leads, chats, tasks and calls without leaving the floor.'
+                : 'Who is where and doing what across the company, right now. Open leads, chats, tasks and calls without leaving the floor.'
+            }
+            mode={me.settings.teamFloorMode}
+            userIds={teamOnly ? me.teamMemberIds : null}
+          />
+        </Suspense>
+      ) : (
+        <FloorNotLiveYet />
+      )}
     </RequirePermission>
   );
 }
