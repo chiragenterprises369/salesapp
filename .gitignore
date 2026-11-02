@@ -43,3 +43,6 @@ e2e/.report/
 
 # User reference images (large; kept outside product paths, never shipped)
 references/
+
+# Screenshot loop iterations (large); only the final top-level sets are committed
+docs/screenshots/*/iter-*/
