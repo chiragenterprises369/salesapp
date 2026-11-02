@@ -28,11 +28,18 @@ export function SpaceBackdrop() {
   useEffect(() => {
     if (!spatial) return;
     let cancelled = false;
-    void import('./space-effects').then((m) => {
-      if (!cancelled) start(m.startSpaceEffects);
-    });
+    // Ambient effects are not essential: load them when the browser is idle so they never compete
+    // with the first render (LCP) of the page.
+    const load = () =>
+      void import('./space-effects').then((m) => {
+        if (!cancelled) start(m.startSpaceEffects);
+      });
+    const idle = typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback(load, { timeout: 2000 }) : null;
+    const timer = idle === null ? window.setTimeout(load, 800) : null;
     return () => {
       cancelled = true;
+      if (idle !== null) window.cancelIdleCallback(idle);
+      if (timer !== null) window.clearTimeout(timer);
       effects.current?.stop();
       effects.current = null;
     };
