@@ -11,6 +11,17 @@ import { normaliseAnswers, validateAnswers, type FormValue, type RenderField } f
 
 export type { FormValue, RenderField } from './logic';
 
+export interface RenderableForm {
+  name: string;
+  fields: readonly RenderField[];
+  submitLabel: string;
+  successMessage: string;
+  consent: { enabled: boolean; required: boolean; text: string };
+  layout: 'card' | 'plain';
+  showLogo: boolean;
+  honeypotField: string;
+}
+
 /**
  * Renders a lead capture form: the builder preview and the hosted page share this component, so what
  * the admin sees is what visitors get. The honeypot input sits off-screen (not display:none) so bots

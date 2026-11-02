@@ -168,7 +168,8 @@ export function DocumentEditor({ kind, existing, seed = {}, onDone }: { kind: Do
   const chosenListId = priceListId === undefined ? (defaultList?.id ?? null) : priceListId;
   const priceList = usePriceList(chosenListId);
   const termsValue = terms ?? (kind === 'quotation' ? seller.data?.profile?.quotationTerms : seller.data?.profile?.invoiceTerms) ?? '';
-  const preview = useMemo(() => previewTotals(lines, sellerState, placeOfSupply), [lines, sellerState, placeOfSupply]);
+  const gstRegistered = !seller.data?.profile || !!seller.data.profile.gstin;
+  const preview = useMemo(() => previewTotals(lines, sellerState, placeOfSupply, { gstRegistered }), [lines, sellerState, placeOfSupply, gstRegistered]);
   const amounts = mapAmounts(lines, preview.lines);
   const sellerIncomplete = seller.isSuccess && !seller.data.complete;
 
@@ -401,7 +402,7 @@ export function DocumentEditor({ kind, existing, seed = {}, onDone }: { kind: Do
                       {errors.lines}
                     </p>
                   )}
-                  <LineItemsEditor lines={lines} onChange={setLines} amounts={amounts} errors={errors} priceList={priceList.data ?? null} taxMode={preview.totals.taxMode} />
+                  <LineItemsEditor lines={lines} onChange={setLines} amounts={amounts} errors={errors} priceList={priceList.data ?? null} taxMode={preview.totals.taxMode} noGst={!gstRegistered} />
                 </FormSection>
               </Card>
               <Card className="p-4">
@@ -421,6 +422,7 @@ export function DocumentEditor({ kind, existing, seed = {}, onDone }: { kind: Do
           <Card className="p-4">
             <h2 className="mb-3 text-sm font-semibold text-fg">Totals</h2>
             <TotalsPanel totals={preview.totals} placeOfSupply={placeOfSupply} sellerState={sellerState} />
+            {!gstRegistered && <p className="mt-3 text-xs text-muted-strong">Your billing details have no GSTIN, so no GST is charged (not GST registered).</p>}
             {!sellerState && seller.isSuccess && <p className="mt-3 text-xs text-warning-text">No seller state yet: GST is shown as CGST + SGST until your billing details have a state.</p>}
             {placeOfSupply && sellerState && <p className="mt-3 text-xs text-muted-strong">Seller state {stateName(sellerState)} ({sellerState}), place of supply {stateName(placeOfSupply)} ({placeOfSupply}).</p>}
           </Card>

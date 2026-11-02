@@ -79,7 +79,8 @@ export function DealFormSheet({ open, onOpenChange, deal, defaults = {}, onSaved
   const stageId = draft.stageId || stages.find((s) => s.type === 'open')?.id || '';
   const stage = stages.find((s) => s.id === stageId);
   const sellerState = seller.data?.stateCode ?? null;
-  const preview = useMemo(() => previewTotals(draft.lines, sellerState, sellerState), [draft.lines, sellerState]);
+  const gstRegistered = !seller.data?.profile || !!seller.data.profile.gstin;
+  const preview = useMemo(() => previewTotals(draft.lines, sellerState, sellerState, { gstRegistered }), [draft.lines, sellerState, gstRegistered]);
   const lineValue = Math.round(preview.totals.taxablePaise / 100);
 
   const onSubmit = async (customFields: CustomFieldValues) => {
@@ -191,7 +192,7 @@ export function DealFormSheet({ open, onOpenChange, deal, defaults = {}, onSaved
             <FormSection title="Products" description="Optional. With products, the deal value is the sum of the lines before GST.">
               {draft.withProducts ? (
                 <>
-                  <LineItemsEditor lines={draft.lines} onChange={(lines) => set({ lines })} amounts={mapAmounts(draft.lines, preview.lines)} errors={errors} priceList={null} taxMode={preview.totals.taxMode} />
+                  <LineItemsEditor lines={draft.lines} onChange={(lines) => set({ lines })} amounts={mapAmounts(draft.lines, preview.lines)} errors={errors} priceList={null} taxMode={preview.totals.taxMode} noGst={!gstRegistered} />
                   <Button variant="ghost" className="w-max" onClick={() => set({ withProducts: false, lines: [emptyLine()], value: String(lineValue) })}>
                     Remove products and enter a value
                   </Button>

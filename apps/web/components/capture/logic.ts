@@ -43,7 +43,7 @@ export function normaliseAnswers(fields: readonly RenderField[], values: Record<
 }
 
 /** Same rules as the API (unique keys, options for choices, one field for the name and one for phone or email, each lead field once). */
-export function builderProblems(fields: ReadonlyArray<Pick<CaptureField, 'id' | 'label' | 'type' | 'options' | 'mapTo'>>): Record<string, string> {
+export function builderProblems(fields: ReadonlyArray<{ id: string; label: string; type: string; options: readonly unknown[]; mapTo?: string | null }>): Record<string, string> {
   const e: Record<string, string> = {};
   const seen = new Set<string>();
   fields.forEach((f, i) => {

@@ -217,9 +217,10 @@ test('quotation: inter-state supply uses IGST, totals match the shared GST math,
   expect(url).toMatch(/\/d\/[A-Za-z0-9_-]{32,64}$/);
   await dialog.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByText('Sent', { exact: true }).first()).toBeVisible();
-  const guest = await browser.newContext();
+  const guest = await browser.newContext({ baseURL: test.info().project.use.baseURL });
   const pub = await guest.newPage();
-  await pub.goto(url, { waitUntil: 'networkidle' });
+  // Open the shared page on this web build (the API builds the link from its WEB_ORIGIN).
+  await pub.goto(new URL(url).pathname, { waitUntil: 'networkidle' });
   await expect(pub.getByRole('heading', { level: 1, name: new RegExp(`Quotation ${q.number.replace(/\//g, '\\/')}`) })).toBeVisible();
   await expect(pub.getByRole('article')).toContainText('IGST');
   await guest.close();
@@ -301,7 +302,7 @@ test('capture form: a hosted-page submission becomes a routed website lead with 
   const forms = await apiGet<{ items: Array<{ id: string; key: string; status: string; fields: Array<{ id: string; label: string; mapTo: string | null; required: boolean; type: string }>; settings: { ownerId: string | null } }> }>(page.request, token, '/capture-forms');
   const form = forms.items.find((f) => f.status === 'active');
   expect(form, 'the demo seed has an active capture form').toBeTruthy();
-  const guest = await browser.newContext();
+  const guest = await browser.newContext({ baseURL: test.info().project.use.baseURL });
   const pub = await guest.newPage();
   const errors = watch(pub);
   await pub.goto(`/f/${form!.key}?utm_source=e2e&utm_campaign=crm-web`, { waitUntil: 'networkidle' });

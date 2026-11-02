@@ -52,6 +52,7 @@ export function LineItemsEditor({
   priceList,
   disabled,
   taxMode,
+  noGst,
 }: {
   lines: LineDraft[];
   onChange: (next: LineDraft[]) => void;
@@ -60,6 +61,8 @@ export function LineItemsEditor({
   priceList: PriceList | null;
   disabled?: boolean;
   taxMode: 'intra' | 'inter';
+  /** Seller not GST registered: lines carry no GST. */
+  noGst?: boolean;
 }) {
   const [details, setDetails] = useState<ReadonlySet<string>>(() => new Set());
   const set = (i: number, patch: Partial<LineDraft>) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -140,7 +143,7 @@ export function LineItemsEditor({
                     <dd className="text-sm tabular-nums">{formatPaise(a?.taxablePaise ?? 0)}</dd>
                   </div>
                   <div>
-                    <dt className="text-2xs text-muted-strong">{taxMode === 'intra' ? `CGST + SGST ${l.gstRate / 2}% each` : `IGST ${l.gstRate}%`}</dt>
+                    <dt className="text-2xs text-muted-strong">{noGst ? 'No GST' : taxMode === 'intra' ? `CGST + SGST ${l.gstRate / 2}% each` : `IGST ${l.gstRate}%`}</dt>
                     <dd className="text-sm tabular-nums">{formatPaise((a?.cgstPaise ?? 0) + (a?.sgstPaise ?? 0) + (a?.igstPaise ?? 0))}</dd>
                   </div>
                   <div>

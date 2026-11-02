@@ -70,10 +70,14 @@ export function toGstInput(l: LineDraft) {
   };
 }
 
-/** Live totals for the drafts (blank rows ignored). */
-export function previewTotals(lines: readonly LineDraft[], sellerStateCode: string | null | undefined, placeOfSupplyStateCode: string | null | undefined) {
+/**
+ * Live totals for the drafts (blank rows ignored). A seller without a GSTIN is not GST registered: like
+ * the API, every line is computed at 0% then.
+ */
+export function previewTotals(lines: readonly LineDraft[], sellerStateCode: string | null | undefined, placeOfSupplyStateCode: string | null | undefined, opts: { gstRegistered?: boolean } = {}) {
   const used = lines.filter((l) => !isBlankLine(l));
-  return computeDocument(used.map(toGstInput), { sellerStateCode, placeOfSupplyStateCode });
+  const registered = opts.gstRegistered ?? true;
+  return computeDocument(used.map((l) => ({ ...toGstInput(l), ...(registered ? {} : { gstRate: 0 }) })), { sellerStateCode, placeOfSupplyStateCode });
 }
 
 /** Validate drafts; errors keyed `lines.<index>.<field>` like the API. */

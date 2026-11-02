@@ -26,6 +26,12 @@ describe('document line drafts', () => {
     expect(totals.amountInWords.startsWith('Rupees')).toBe(true);
   });
 
+  it('charges no GST when the seller is not GST registered (no GSTIN), like the API', () => {
+    const { totals } = previewTotals([line({ gstRate: 18 })], '27', '29', { gstRegistered: false });
+    expect(totals.taxPaise).toBe(0);
+    expect(totals.totalPaise).toBe(200_000);
+  });
+
   it('ignores blank rows and validates the rest', () => {
     const lines = [line({}), emptyLine(), line({ quantity: '0', unitPrice: 'abc', discount: '120', hsnSac: '12' })];
     expect(toLineInputs(lines)).toHaveLength(2);
