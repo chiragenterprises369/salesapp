@@ -1,0 +1,44 @@
+{
+  "base": "http://localhost:3001",
+  "label": "baseline-main",
+  "theme": "dark",
+  "preset": "desktop",
+  "results": [
+    {
+      "style": "classic",
+      "path": "/login",
+      "score": 100,
+      "fcp": 255,
+      "lcp": 672,
+      "tbt": 26,
+      "cls": 0,
+      "jsKb": 293,
+      "landed": "/login",
+      "runs": 3
+    },
+    {
+      "style": "classic",
+      "path": "/app",
+      "score": 85,
+      "fcp": 268,
+      "lcp": 1599,
+      "tbt": 234,
+      "cls": 0,
+      "jsKb": 695,
+      "landed": "/app",
+      "runs": 3
+    },
+    {
+      "style": "classic",
+      "path": "/app/leads",
+      "score": 83,
+      "fcp": 294,
+      "lcp": 1262,
+      "tbt": 295,
+      "cls": 0,
+      "jsKb": 695,
+      "landed": "/app/leads",
+      "runs": 3
+    }
+  ]
+}

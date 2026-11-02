@@ -1,0 +1,116 @@
+{
+  "base": "http://localhost:3001",
+  "label": "after",
+  "theme": "dark",
+  "preset": "desktop",
+  "results": [
+    {
+      "style": "classic",
+      "path": "/login",
+      "score": 100,
+      "fcp": 251,
+      "lcp": 663,
+      "tbt": 8,
+      "cls": 0,
+      "jsKb": 296,
+      "landed": "/login",
+      "runs": 3
+    },
+    {
+      "style": "classic",
+      "path": "/app",
+      "score": 94,
+      "fcp": 251,
+      "lcp": 1570,
+      "tbt": 55,
+      "cls": 0,
+      "jsKb": 700,
+      "landed": "/app",
+      "runs": 3
+    },
+    {
+      "style": "classic",
+      "path": "/app/leads",
+      "score": 98,
+      "fcp": 252,
+      "lcp": 1043,
+      "tbt": 100,
+      "cls": 0,
+      "jsKb": 700,
+      "landed": "/app/leads",
+      "runs": 3
+    },
+    {
+      "style": "depth",
+      "path": "/login",
+      "score": 99,
+      "fcp": 286,
+      "lcp": 587,
+      "tbt": 65,
+      "cls": 0,
+      "jsKb": 296,
+      "landed": "/login",
+      "runs": 3
+    },
+    {
+      "style": "depth",
+      "path": "/app",
+      "score": 84,
+      "fcp": 292,
+      "lcp": 1779,
+      "tbt": 229,
+      "cls": 0,
+      "jsKb": 703,
+      "landed": "/app",
+      "runs": 3
+    },
+    {
+      "style": "depth",
+      "path": "/app/leads",
+      "score": 83,
+      "fcp": 285,
+      "lcp": 1328,
+      "tbt": 321,
+      "cls": 0,
+      "jsKb": 703,
+      "landed": "/app/leads",
+      "runs": 3
+    },
+    {
+      "style": "neon",
+      "path": "/login",
+      "score": 100,
+      "fcp": 281,
+      "lcp": 641,
+      "tbt": 62,
+      "cls": 0,
+      "jsKb": 296,
+      "landed": "/login",
+      "runs": 3
+    },
+    {
+      "style": "neon",
+      "path": "/app",
+      "score": 83,
+      "fcp": 287,
+      "lcp": 1795,
+      "tbt": 240,
+      "cls": 0,
+      "jsKb": 703,
+      "landed": "/app",
+      "runs": 3
+    },
+    {
+      "style": "neon",
+      "path": "/app/leads",
+      "score": 97,
+      "fcp": 252,
+      "lcp": 1156,
+      "tbt": 91,
+      "cls": 0,
+      "jsKb": 703,
+      "landed": "/app/leads",
+      "runs": 3
+    }
+  ]
+}

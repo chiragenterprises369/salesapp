@@ -1,0 +1,52 @@
+{
+  "base": "http://localhost:3001",
+  "shots": [],
+  "axe": [],
+  "contrast": [],
+  "fps": [],
+  "transitions": [
+    {
+      "motion": "full",
+      "running": true,
+      "vtAnimations": [
+        "::view-transition-group(_t_0_) -ua-view-transition-group-anim-_t_0_ 50ms",
+        "::view-transition-new(_t_0_) vs-glide-in 50ms",
+        "::view-transition-old(_t_0_) vs-glide-out 50ms",
+        "::view-transition-group(root)  0ms",
+        "::view-transition  0ms"
+      ],
+      "hitIsRoot": false,
+      "hit": "DIV",
+      "vtCount": 1,
+      "vtCountAfter": 1,
+      "msToUrl": 997
+    },
+    {
+      "motion": "reduced",
+      "running": true,
+      "vtAnimations": [
+        "::view-transition-group(_t_0_) -ua-view-transition-group-anim-_t_0_ 183ms",
+        "::view-transition-new(_t_0_) vs-fade-in 183ms",
+        "::view-transition-old(_t_0_) vs-fade-out 183ms",
+        "::view-transition-group(root)  0ms",
+        "::view-transition  0ms"
+      ],
+      "hitIsRoot": false,
+      "hit": "DIV",
+      "vtCount": 1,
+      "vtCountAfter": 1,
+      "msToUrl": 975
+    },
+    {
+      "motion": "off",
+      "running": false,
+      "vtAnimations": [],
+      "hitIsRoot": false,
+      "hit": "DIV",
+      "vtCount": 0,
+      "vtCountAfter": 0,
+      "msToUrl": 1978
+    }
+  ],
+  "errors": []
+}
