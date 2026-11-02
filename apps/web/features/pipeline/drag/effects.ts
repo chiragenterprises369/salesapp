@@ -38,10 +38,10 @@ export function pulseRing(ring: HTMLElement | null, tone: RingTone, ms: number, 
 }
 
 /** A new lead lands at the top of its column: drops in from above with a soft landing. */
-export function dropIn(li: HTMLElement, ms: number, animated: boolean) {
+export function dropIn(li: HTMLElement, ms: number, animated: boolean, fadeMs = 150) {
   if (!canAnimate(li)) return;
   if (!animated) {
-    fadeIn(li, 150);
+    fadeIn(li, fadeMs);
     return;
   }
   li.animate(

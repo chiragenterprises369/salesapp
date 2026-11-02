@@ -68,8 +68,13 @@ export interface CardHandle {
   list: HTMLElement;
   /** Confirmation ring (pulses in the stage colour after a drop). */
   ring: HTMLElement | null;
-  /** Vertical nudge (neighbours make room, FLIP after data changes). Transform only. */
+  /**
+   * Vertical nudge (neighbours make room, FLIP after data changes). Transform only. Spring frames
+   * write the transform themselves (onChange); instant changes go through `BoardController.snap`.
+   */
   y: SpringValue<number>;
+  /** Element the nudge transform is written to. */
+  nudge: HTMLElement;
   /** Rest layout in list coordinates (kept fresh by the column layout pass). */
   restTop: number;
   height: number;

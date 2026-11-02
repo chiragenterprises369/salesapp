@@ -61,6 +61,12 @@ export interface BoardPhysicsConfig {
   numberTickMs: number;
   /** Height of a realtime / rollback arc (px, scales with distance up to this). */
   arcHeight: number;
+  /** A new lead (realtime, quick add) dropping into its column from above, and its highlight (ms). */
+  newLeadDropMs: number;
+  newLeadPulseMs: number;
+  /** Reduced motion / flat: the fade that replaces moves (ms). Filter reflow fade-in (ms). */
+  fadeMs: number;
+  reflowFadeMs: number;
 
   autoScroll: {
     /** Edge bands (px) of the board (horizontal) and of a column (vertical). */
@@ -80,6 +86,8 @@ export interface BoardPhysicsConfig {
   longPressMs: number;
   mouseSlop: number;
   touchSlop: number;
+  /** Haptic tick on a touch pick-up (ms of navigator.vibrate; 0 = off). */
+  hapticMs: number;
   /** Minimum touch target (px). */
   minTarget: number;
 }
@@ -113,6 +121,10 @@ export const DEFAULT_BOARD_PHYSICS: BoardPhysicsConfig = {
   countPulseMs: 240,
   numberTickMs: 400,
   arcHeight: 90,
+  newLeadDropMs: 520,
+  newLeadPulseMs: 900,
+  fadeMs: 150,
+  reflowFadeMs: 200,
 
   autoScroll: { boardEdge: 72, columnEdge: 56, maxSpeed: 18, rampMs: 350, curve: 2 },
 
@@ -121,6 +133,7 @@ export const DEFAULT_BOARD_PHYSICS: BoardPhysicsConfig = {
   longPressMs: 180,
   mouseSlop: 4,
   touchSlop: 8,
+  hapticMs: 8,
   minTarget: 44,
 };
 

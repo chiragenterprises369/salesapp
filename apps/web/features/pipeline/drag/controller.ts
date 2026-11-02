@@ -94,6 +94,11 @@ function intersectsViewport(r: Rect): boolean {
   return r.x + r.width > 0 && r.y + r.height > 0 && r.x < window.innerWidth && r.y < window.innerHeight;
 }
 
+/** Write a card's vertical nudge. 2D translate on purpose: translate3d would promote every nudged card to its own layer. */
+export function writeNudge(el: HTMLElement | null, v: number) {
+  if (el) el.style.transform = Math.abs(v) < 0.01 ? '' : `translateY(${v}px)`;
+}
+
 /** Same stiffness, at least critically damped: lands without overshoot. */
 function noOvershoot(p: SpringParams): SpringParams {
   const m = p.mass ?? 1;
@@ -235,7 +240,17 @@ export class BoardController {
   registerCard(h: CardHandle) {
     this.cards.set(h.id, h);
     h.shift = this.shiftFor(h.stageId, h.id);
-    h.y.set(h.shift);
+    this.snap(h, h.shift);
+  }
+
+  /**
+   * Instant nudge: set the spring and write the transform now. The spring's own DOM writes are
+   * scheduled for the next frame and a re-render of the card can cancel them, which would leave a
+   * stale transform when React's last rendered value happens to match (reduced motion, flat mode).
+   */
+  private snap(h: CardHandle, v: number) {
+    h.y.set(v);
+    writeNudge(h.nudge, v);
   }
 
   unregisterCard(h: CardHandle) {
@@ -284,15 +299,15 @@ export class BoardController {
     h.shift = target;
     const s = this.store.getState();
     if (!this.cfg.profile.springs || s.active?.lead.id === h.id) {
-      h.y.set(target);
+      this.snap(h, target);
       return;
     }
     const delta = prevTop + h.y.get() - top;
     if (Math.abs(delta - target) < 0.5) {
-      h.y.set(target);
+      this.snap(h, target);
       return;
     }
-    h.y.set(delta);
+    this.snap(h, delta);
     h.y.start(target, { config: this.spring(this.cfg.physics.gap) });
   }
 
@@ -344,7 +359,7 @@ export class BoardController {
         if (d && now - d.t <= DEPARTURE_TTL && d.list.isConnected) {
           // Known card that changed place without a local drag: fly it over (arc).
           if (!profile.springs) {
-            fadeIn(h.li, 150);
+            fadeIn(h.li, physics.fadeMs);
             if (rolled) pulseRing(h.ring, 'danger', physics.ringPulseMs, false);
             continue;
           }
@@ -356,9 +371,9 @@ export class BoardController {
         }
         // Never seen here: a new lead at the top of its column drops in; reflows and pages fade in.
         if (!reflow && this.indexOf(h.stageId, id) === 0) {
-          dropIn(h.li, this.ms(520), profile.springs);
-          pulseRing(h.ring, 'accent', this.ms(900), profile.pulses);
-        } else if (profile.springs) fadeIn(h.li, this.ms(200), true);
+          dropIn(h.li, this.ms(physics.newLeadDropMs), profile.springs, physics.fadeMs);
+          pulseRing(h.ring, 'accent', this.ms(physics.newLeadPulseMs), profile.pulses);
+        } else if (profile.springs) fadeIn(h.li, this.ms(physics.reflowFadeMs), true);
       }
       this.arrivals.clear();
     }
@@ -482,7 +497,7 @@ export class BoardController {
       window.clearTimeout(h.shiftTimer);
       h.shiftTimer = 0;
       if (!profile.springs) {
-        h.y.set(target);
+        this.snap(h, target);
         continue;
       }
       let delay = 0;
@@ -576,7 +591,7 @@ export class BoardController {
     if (phase === 'dropping') this.endDrop();
     const p = this.cfg.physics;
     this.press = { lead, stageId };
-    this.pickup.begin(e, { mouseSlop: p.mouseSlop, touchSlop: p.touchSlop, longPressMs: p.longPressMs, hapticMs: 8 });
+    this.pickup.begin(e, { mouseSlop: p.mouseSlop, touchSlop: p.touchSlop, longPressMs: p.longPressMs, hapticMs: p.hapticMs });
   }
 
   /** True once after a drag ended, so the trailing click does not open the lead. */
@@ -1055,7 +1070,7 @@ export class BoardController {
     if (rolled) pulseRing(h.ring, 'danger', this.ms(physics.ringPulseMs), profile.pulses);
     else if (landed === active.lead.id) {
       pulseRing(h.ring, 'stage', this.ms(physics.ringPulseMs), profile.pulses);
-      if (!profile.springs) fadeIn(h.li, 150);
+      if (!profile.springs) fadeIn(h.li, physics.fadeMs);
     }
   }
 

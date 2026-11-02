@@ -1,15 +1,16 @@
 'use client';
 
-import { animated, useSpringValue } from '@react-spring/web';
+import { useSpringValue } from '@react-spring/web';
 import { formatInr, type LeadListItem, type Stage } from '@vistar/shared';
 import { CalendarClock, Check, UserRound } from 'lucide-react';
-import { memo, useCallback, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { memo, useCallback, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { LeadQuickActions, useLeadActions } from '@/components/leads-shared/lead-actions';
 import { Avatar } from '@/components/ui/avatar';
 import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
 import { useLeadsViewState } from '@/lib/leads/state';
 import { useBoardController, useDragState } from './drag/context';
+import { writeNudge } from './drag/controller';
 import type { CardHandle, DragState } from './drag/types';
 import { followUpLabel } from './hooks';
 import { MoveMenu } from './move-menu';
@@ -207,7 +208,13 @@ export const BoardCard = memo(function BoardCard({
   const placeholder = useDragState((s) => placeholderOf(s, lead.id, stageId));
   const selected = useLeadsViewState((s) => s.selectedIds.has(lead.id));
   const toggleSelected = useLeadsViewState((s) => s.toggleSelected);
-  const y = useSpringValue(0);
+  const nudgeRef = useRef<HTMLDivElement>(null);
+  // The nudge transform is written imperatively (spring frames here, instant changes in the
+  // controller), never through React props, so a re-render can never restore a stale value.
+  const y = useSpringValue(0, {
+    onChange: (r: { value: number }) => writeNudge(nudgeRef.current, r.value),
+    onRest: (r: { value: number }) => writeNudge(nudgeRef.current, r.value),
+  });
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -228,9 +235,10 @@ export const BoardCard = memo(function BoardCard({
   useLayoutEffect(() => {
     const li = liRef.current;
     const card = cardRef.current;
+    const nudge = nudgeRef.current;
     const list = li?.parentElement;
-    if (!li || !card || !list) return;
-    const h: CardHandle = { id: lead.id, stageId, li, card, list, ring: ringRef.current, y, restTop: 0, height: 0, shift: 0, shiftTimer: 0 };
+    if (!li || !card || !nudge || !list) return;
+    const h: CardHandle = { id: lead.id, stageId, li, card, list, ring: ringRef.current, y, nudge, restTop: 0, height: 0, shift: 0, shiftTimer: 0 };
     ctrl.registerCard(h);
     return () => ctrl.unregisterCard(h);
   }, [ctrl, lead.id, stageId, y]);
@@ -267,7 +275,6 @@ export const BoardCard = memo(function BoardCard({
   const showActions = engaged && !selectMode && !isPlaceholder && (showQuick || canMove);
   const actionCount = (showQuick ? 3 : 0) + (canMove ? 1 : 0);
   const virtual = virtualStart !== undefined;
-  const transform = useMemo(() => y.to((v) => (v === 0 ? 'none' : `translateY(${v}px)`)), [y]);
 
   return (
     <li
@@ -289,8 +296,8 @@ export const BoardCard = memo(function BoardCard({
             }
       }
     >
-      {/* 2D translate on purpose: translate3d would promote every nudged card to its own layer. */}
-      <animated.div style={{ transform }} className="relative">
+      {/* Vertical nudge (neighbours making room, FLIP); transform written by writeNudge only. */}
+      <div ref={nudgeRef} className="relative">
         <div
           className={cn('vb-lift relative', enterDelay !== undefined && 'vb-enter')}
           data-placeholder={isPlaceholder ? placeholder : undefined}
@@ -357,7 +364,7 @@ export const BoardCard = memo(function BoardCard({
             </div>
           )}
         </div>
-      </animated.div>
+      </div>
     </li>
   );
 });
