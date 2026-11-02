@@ -1,5 +1,7 @@
 import { Body, Controller, Param, Query, Req } from '@nestjs/common';
 import {
+  PipelineListQuerySchema,
+  type PipelineListQuery,
   API_ROUTES,
   IdParamSchema,
   LeadMoveSchema,
@@ -27,8 +29,8 @@ export class PipelineController {
   constructor(private readonly pipelines: PipelineService) {}
 
   @ApiRoute(API_ROUTES.pipelineList)
-  list(@CurrentAuth() auth: AuthContext) {
-    return this.pipelines.list(auth);
+  list(@CurrentAuth() auth: AuthContext, @Query(new ZodPipe(PipelineListQuerySchema)) q: PipelineListQuery) {
+    return this.pipelines.list(auth, q.entity);
   }
 
   @ApiRoute(API_ROUTES.pipelineBoard)

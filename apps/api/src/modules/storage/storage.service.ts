@@ -258,6 +258,27 @@ export class StorageService {
     }
   }
 
+  /** Read a small stored object fully (e.g. the branding logo for PDFs). null when missing or larger than maxBytes. */
+  async readBuffer(row: { key: string; driver: string }, maxBytes = 5 * 1024 * 1024): Promise<Buffer | null> {
+    try {
+      const body = await this.driver(row.driver).get(row.key);
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of body) {
+        const b = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+        size += b.length;
+        if (size > maxBytes) {
+          body.destroy();
+          return null;
+        }
+        chunks.push(b);
+      }
+      return Buffer.concat(chunks);
+    } catch {
+      return null;
+    }
+  }
+
   /** Stream a stored file with safe headers. */
   async send(res: Response, row: { key: string; driver: string; mime: string; size: number; name: string }, opts: { cache: 'public' | 'private'; download?: boolean }): Promise<void> {
     let body;
