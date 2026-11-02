@@ -9,6 +9,8 @@ import { toast } from '@/components/ui/toast';
 import { cn } from '@/lib/cn';
 import { useReadOnly } from '@/lib/auth/use-auth';
 import { useMe, useSessionActions } from '@/lib/session/session';
+import { INTERFACE_STYLES, useInterfaceSettings, type InterfaceStyle } from '@/lib/theme';
+import { InterfaceStyleRadio } from './interface-preferences';
 import { SaveBar, SettingsCard } from './settings-card';
 
 type ViewChoice = LeadsViewMode | 'none';
@@ -20,25 +22,35 @@ const VIEW_OPTIONS: ReadonlyArray<{ value: ViewChoice; label: string; hint: stri
 ];
 
 /**
- * Workspace defaults for people who have not chosen for themselves: theme (`defaultTheme`) and the
- * Leads page view (`defaultLeadsViewMode`, setting key leads.defaultViewMode). PATCH /workspace.
+ * Workspace defaults for people who have not chosen for themselves: theme (`defaultTheme`), interface
+ * style (`ui.defaultInterfaceStyle`, D-052, adapter until the contract lands) and the Leads page view
+ * (`defaultLeadsViewMode`, setting key leads.defaultViewMode). PATCH /workspace.
  */
 export function ThemeDefaultsForm() {
   const me = useMe()!;
   const { updateWorkspace } = useSessionActions();
+  const { defaultInterfaceStyle, setDefaultInterfaceStyle } = useInterfaceSettings();
   const { reason } = useReadOnly();
   const savedTheme = me.workspace.defaultTheme;
   const savedView: ViewChoice = me.workspace.defaultLeadsViewMode ?? 'none';
   const [theme, setTheme] = useState<ThemeMode>(savedTheme);
+  const [style, setStyle] = useState<InterfaceStyle>(defaultInterfaceStyle);
+  // The stored default can arrive after the first render (adapter load) or change in another tab.
+  const [seenStyle, setSeenStyle] = useState<InterfaceStyle>(defaultInterfaceStyle);
+  if (seenStyle !== defaultInterfaceStyle) {
+    setSeenStyle(defaultInterfaceStyle);
+    setStyle(defaultInterfaceStyle);
+  }
   const [view, setView] = useState<ViewChoice>(savedView);
   const [saving, setSaving] = useState(false);
-  const dirty = theme !== savedTheme || view !== savedView;
+  const dirty = theme !== savedTheme || view !== savedView || style !== defaultInterfaceStyle;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      await updateWorkspace({ defaultTheme: theme, defaultLeadsViewMode: view === 'none' ? null : view });
+      if (theme !== savedTheme || view !== savedView) await updateWorkspace({ defaultTheme: theme, defaultLeadsViewMode: view === 'none' ? null : view });
+      if (style !== defaultInterfaceStyle) setDefaultInterfaceStyle(style);
       toast.success('Workspace defaults saved');
     } catch {
       toast.error('Defaults not saved. Check your connection and try again.');
@@ -56,6 +68,18 @@ export function ThemeDefaultsForm() {
         )}
       </SettingsCard>
       <SettingsCard
+        title="Interface style"
+        description="Used by everyone who has not picked a style. Phones, touch screens, older devices and reduced motion always use Classic; the employee app shows Neon Space as Depth."
+      >
+        <InterfaceStyleRadio
+          label="Default interface style"
+          value={style}
+          styles={INTERFACE_STYLES}
+          onValueChange={(v) => v !== 'default' && setStyle(v)}
+          disabled={!!reason}
+        />
+      </SettingsCard>
+      <SettingsCard
         title="Leads page view"
         description="The view people see the first time they open Leads. Anyone can switch, and Vistar remembers their choice."
         footer={
@@ -66,6 +90,7 @@ export function ThemeDefaultsForm() {
             onDiscard={() => {
               setTheme(savedTheme);
               setView(savedView);
+              setStyle(defaultInterfaceStyle);
             }}
           />
         }
