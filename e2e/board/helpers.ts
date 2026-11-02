@@ -108,12 +108,9 @@ export async function leadIdOf(li: Locator): Promise<string> {
   return id;
 }
 
-/** The card's lead name (accessible name of the focusable card). */
+/** The card's lead name (the name row of the card). */
 export async function leadNameOf(li: Locator): Promise<string> {
-  return faceOf(li).evaluate(
-    (el) =>
-      document.getElementById(el.getAttribute('aria-labelledby') ?? '')?.textContent?.trim() ?? '',
-  );
+  return ((await faceOf(li).locator('[data-lead-name]').textContent()) ?? '').trim();
 }
 
 /** Point on a card that is safe to grab (name row, away from the hover actions). */
