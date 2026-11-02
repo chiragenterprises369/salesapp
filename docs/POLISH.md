@@ -60,3 +60,13 @@ Source: `docs/screenshots/leads-neon/events/CRITIQUE.md` (3 iterations; the fina
 - Stage move: on the Neon Space skin, a wider ribbon with a few sparks would match the reference more closely. Depth keeps the thin trail.
 - Neon Space and Aurora event frames need the skin branch. Capture them after the merge (`capture.mjs --skin=neon` only switches the canvas palette).
 - Stress FPS: a few frames of 67 to 117 ms appear when 5 wins and 3 moves patch the 2,500-lead board within half a second (p95 stays 16.8 ms). Profile whether the board re-render or the diff (`diffBoards` walks every loaded card) causes them; a per-column diff that skips unchanged columns by reference would be the first thing to try.
+
+## Android employee app (mobile-app, change #19 wave A)
+
+- APK is 77.5 MB (three ABIs plus the bundled ML Kit barcode model for QR scanning). Options: `--split-per-abi` uploads, dropping x86_64, or the unbundled ML Kit model through Google Play services.
+- NFC room markers: the contract has `source: nfc`; the app scans QR only. Add an NFC tag reader (`NfcAdapter` reader mode) when the first company uses tags.
+- Manual room pick works only on a published custom floor (the server accepts zones of the seat map or of markers); with the default template the button is disabled with a note. A server-side template zone list would allow it everywhere.
+- Text scale 1.3 and TalkBack were checked in code (48 dp targets, semantics labels, capped text scaler) and in the widget test, not yet on a phone or in the browser (Kiro Crew prompt: `docs/screenshots/mobile/README.md`).
+- Goldens were not added this wave (browser screenshots moved to Kiro Crew at the user's request).
+- The web preview needs the API started with `WEB_ORIGIN` including `http://localhost:3010` until PLATFORM wires `DEV_CORS_PORTS` into `enableCors`.
+- Recording upload (`POST /calls/{id}/recording`) is implemented on the merged realtime branch but was not exercised end to end (needs a phone with a call recorder). Queued recordings wait for their call id (up to about an hour of deferrals) and then drop.

@@ -15,7 +15,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "app.vistar.employee"
-    compileSdk = flutter.compileSdkVersion
+    // permission_handler_android 14.1 needs compile SDK 37 (the app still targets flutter.targetSdkVersion).
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

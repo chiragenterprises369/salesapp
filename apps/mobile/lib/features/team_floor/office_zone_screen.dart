@@ -135,11 +135,17 @@ class _OfficeZoneScreenState extends ConsumerState<OfficeZoneScreen> {
             ),
             const SizedBox(height: VSpace.sm),
             OutlinedButton.icon(
-              onPressed: _sending || plan == null || plan.zones.isEmpty ? null : () => _pick(plan),
+              // The server accepts zones of the published floor (or zones with markers); the default
+              // template has none, so picking needs the company's custom floor.
+              onPressed: _sending || plan == null || !plan.isPublished || plan.zones.isEmpty ? null : () => _pick(plan),
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               icon: const Icon(LucideIcons.listChecks, size: 18),
               label: const Text('Pick the room by hand'),
             ),
+            if (plan != null && !plan.isPublished) ...[
+              const SizedBox(height: VSpace.xs),
+              Text('Picking a room works once your company\'s own floor is published. QR codes work as soon as your admin prints them.', style: context.text.bodySmall!.copyWith(color: c.mutedStrong), textAlign: TextAlign.center),
+            ],
             const SizedBox(height: VSpace.lg),
             SectionCard(
               title: 'Automatic detection',
