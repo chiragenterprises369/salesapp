@@ -37,3 +37,15 @@ Source: `docs/screenshots/board-physics/` (final set, iteration 2 of 3; iteratio
 - First drag after page load has one long frame (50 to 170 ms on a GeForce GT 710) while the overlay layer is created. Pre-warm the overlay layer on the first pointer hover over a card.
 - Workflow builder node physics constants (lift, tilt gain, repulsion, throw) still live in `features/workflow-builder/physics/world.ts`; they use the shared spring presets but are not tunable from a config file or the demo page yet.
 - Target column highlight is a ring only; a faint tint shift on the column body would make the drop target easier to spot on wide boards.
+
+## Board event celebrations, SPEC 28.1 (frontend-physics)
+
+Source: `docs/screenshots/leads-neon/events/CRITIQUE.md` (3 iterations; the final frames capture commit 869028e).
+
+- New lead: the stream-in starts at the board's left edge, so the canvas bounds clip most of the ribbon. Give the canvas a margin to the left of New, or start the ribbon from the toolbar's "New lead" button.
+- Won: the burst covers the Won header (count and total) and the top card's name for about a second. Raise the shells into the toolbar band above the header.
+- Quote sent: the envelope ends on the column total for about 300 ms. End it beside the total.
+- Lost: the slivers are plain triangles. Strips with a straight cut edge would read more like a torn card.
+- Stage move: on the Neon Space skin, a wider ribbon with a few sparks would match the reference more closely. Depth keeps the thin trail.
+- Neon Space and Aurora event frames need the skin branch. Capture them after the merge (`capture.mjs --skin=neon` only switches the canvas palette).
+- Stress FPS: a few frames of 67 to 117 ms appear when 5 wins and 3 moves patch the 2,500-lead board within half a second (p95 stays 16.8 ms). Profile whether the board re-render or the diff (`diffBoards` walks every loaded card) causes them; a per-column diff that skips unchanged columns by reference would be the first thing to try.

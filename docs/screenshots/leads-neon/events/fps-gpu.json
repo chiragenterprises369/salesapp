@@ -1,0 +1,50 @@
+{
+  "base": "http://localhost:3004",
+  "at": "2026-11-02T10:03:19.530Z",
+  "viewport": "1440x900@1x",
+  "case": "Won x5 + 3 moves, 2,500-lead stress board",
+  "results": [
+    {
+      "theme": "dark",
+      "gpu": true,
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "setting": "full",
+      "seconds": 8.5,
+      "frames": 485,
+      "avgMs": 17.5,
+      "fps": 57,
+      "p95Ms": 16.8,
+      "worstMs": 116.7,
+      "framesOver33ms": 6,
+      "maxParticles": 129,
+      "peakParticles": 129,
+      "overCap": 0,
+      "cap": 300,
+      "bursts": 4,
+      "skipped": 1,
+      "tierBefore": "high",
+      "tierAfter": "high"
+    },
+    {
+      "theme": "light",
+      "gpu": true,
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GT 710 (0x0000128B) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "setting": "full",
+      "seconds": 8.5,
+      "frames": 482,
+      "avgMs": 17.5,
+      "fps": 57,
+      "p95Ms": 16.8,
+      "worstMs": 100,
+      "framesOver33ms": 8,
+      "maxParticles": 131,
+      "peakParticles": 132,
+      "overCap": 0,
+      "cap": 300,
+      "bursts": 4,
+      "skipped": 1,
+      "tierBefore": "high",
+      "tierAfter": "high"
+    }
+  ]
+}

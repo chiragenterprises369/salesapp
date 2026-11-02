@@ -1,0 +1,50 @@
+{
+  "base": "http://localhost:3004",
+  "at": "2026-11-02T10:02:54.804Z",
+  "viewport": "1440x900@1x",
+  "case": "Won x5 + 3 moves, 2,500-lead stress board",
+  "results": [
+    {
+      "theme": "dark",
+      "gpu": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "setting": "full",
+      "seconds": 8.5,
+      "frames": 484,
+      "avgMs": 17.6,
+      "fps": 57,
+      "p95Ms": 16.8,
+      "worstMs": 66.7,
+      "framesOver33ms": 10,
+      "maxParticles": 128,
+      "peakParticles": 131,
+      "overCap": 0,
+      "cap": 300,
+      "bursts": 4,
+      "skipped": 1,
+      "tierBefore": "high",
+      "tierAfter": "high"
+    },
+    {
+      "theme": "light",
+      "gpu": false,
+      "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+      "setting": "full",
+      "seconds": 8.4,
+      "frames": 493,
+      "avgMs": 17,
+      "fps": 59,
+      "p95Ms": 16.8,
+      "worstMs": 33.4,
+      "framesOver33ms": 2,
+      "maxParticles": 138,
+      "peakParticles": 140,
+      "overCap": 0,
+      "cap": 300,
+      "bursts": 4,
+      "skipped": 1,
+      "tierBefore": "high",
+      "tierAfter": "high"
+    }
+  ]
+}
