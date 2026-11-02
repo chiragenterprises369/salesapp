@@ -24,7 +24,7 @@ export function SettingsCard({
   const H = headingLevel;
   return (
     <Card className={cn('overflow-hidden', className)}>
-      <div className="px-4 pt-4 pb-3 sm:px-5">
+      <div data-slot="settings-card-head" className="px-4 pt-4 pb-3 sm:px-5">
         <H className="text-sm font-semibold text-fg">{title}</H>
         {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
       </div>

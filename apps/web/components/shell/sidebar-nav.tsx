@@ -26,7 +26,7 @@ export function SidebarNav({ groups, expanded, density = 'default', onNavigate, 
         <div key={group.id} className="flex flex-col gap-0.5">
           {group.label &&
             (expanded ? (
-              <p className="px-2 pb-1 text-xs font-medium text-muted">{group.label}</p>
+              <p data-slot="nav-group-label" className="px-2 pb-1 text-xs font-medium text-muted">{group.label}</p>
             ) : (
               gi > 0 && <span aria-hidden className="mx-auto mb-1 h-px w-6 bg-border" />
             ))}
@@ -37,6 +37,7 @@ export function SidebarNav({ groups, expanded, density = 'default', onNavigate, 
                 <Link
                   href={item.href}
                   onClick={onNavigate}
+                  data-slot="nav-item"
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'focus-ring group flex items-center rounded-md text-fg-secondary transition-colors duration-150 ease-standard',

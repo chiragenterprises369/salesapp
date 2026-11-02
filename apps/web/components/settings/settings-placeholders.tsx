@@ -2,7 +2,7 @@
 
 import { formatNumber, type AuditLog, type ChipTone } from '@vistar/shared';
 import { TAGS, WHATSAPP_TEMPLATE_FIXTURES } from '@vistar/shared/fixtures';
-import { ImageUp, Route, ScrollText } from 'lucide-react';
+import { Route, ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import { columnClass, DataTable, type DataColumn } from '@/components/common/data-table';
 import { formatDateTimeIn } from '@/components/common/time';
@@ -19,29 +19,6 @@ import { SettingsCard } from './settings-card';
  */
 function ViewOnly() {
   return <Chip tone="grey">View only for now</Chip>;
-}
-
-export function BrandingSettings() {
-  const me = useMe()!;
-  return (
-    <SettingsCard title="Logo and colour" description="Used on the sidebar, emails and the Employee app icon.">
-      <div className="mb-3">
-        <ViewOnly />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border-strong bg-surface-2 px-4 py-8 text-center">
-          <ImageUp aria-hidden className="size-5 text-fg-secondary" />
-          <p className="text-sm font-medium text-fg">{me.workspace.logoUrl ? 'Logo uploaded' : 'No logo yet'}</p>
-          <p className="text-xs text-muted">PNG or SVG, square, up to 1 MB. Uploading arrives with file storage.</p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-fg-secondary">Accent colour</span>
-          <span className="text-sm text-fg">{me.workspace.accentColor ?? 'Vistar indigo (default)'}</span>
-          <span className="text-xs text-muted">Custom colours are adjusted automatically so text stays readable in light and dark themes.</span>
-        </div>
-      </div>
-    </SettingsCard>
-  );
 }
 
 export function TagsSettings() {

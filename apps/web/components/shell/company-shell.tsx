@@ -11,9 +11,11 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { useNavExtensions } from '@/lib/packs';
 import { useMe } from '@/lib/session/session';
+import { brandName } from '@/lib/branding/workspace-branding';
+import { BrandMark } from './brand-mark';
+import { ShellBreadcrumbs } from './breadcrumbs';
 import { CommandMenu, SearchTrigger } from './command-menu';
 import { ImpersonationBanner } from './impersonation-banner';
-import { LogoMark } from './logo';
 import { NavDrawer } from './nav-drawer';
 import { companyNav } from './nav-utils';
 import { NotificationsMenu } from './notifications-menu';
@@ -27,13 +29,14 @@ import { UserMenu } from './user-menu';
 const PLAN_LABEL: Record<MeResponse['workspace']['plan'], string> = { free: 'Free', starter: 'Starter', growth: 'Growth', enterprise: 'Enterprise' };
 
 function WorkspaceHeader({ me, expanded }: { me: MeResponse; expanded: boolean }) {
+  const name = brandName(me.workspace);
   // Expanded: the visible name is the link text (WCAG 2.5.3 label in name). Icon rail: aria-label.
   return (
-    <Link href="/app" className={cn('focus-ring flex min-w-0 items-center gap-2 rounded-md', !expanded && 'mx-auto')} aria-label={expanded ? undefined : `${me.workspace.name} dashboard`}>
-      <LogoMark />
+    <Link href="/app" className={cn('focus-ring flex min-w-0 items-center gap-2 rounded-md', !expanded && 'mx-auto')} aria-label={expanded ? undefined : `${name} dashboard`}>
+      <BrandMark className={expanded ? undefined : 'max-w-8'} />
       {expanded && (
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-fg">{me.workspace.name}</span>
+          <span className="block truncate text-sm font-semibold text-fg">{name}</span>
           <span className="block text-2xs text-muted">{PLAN_LABEL[me.workspace.plan]} plan</span>
           <span className="sr-only">, dashboard</span>
         </span>
@@ -41,6 +44,8 @@ function WorkspaceHeader({ me, expanded }: { me: MeResponse; expanded: boolean }
     </Link>
   );
 }
+
+const COMPANY_ROOT = { label: 'Company', href: '/app' };
 
 /**
  * Company panel shell: grouped sidebar (expanded / icon rail, collapse persisted on this device), icon
@@ -66,6 +71,7 @@ export function CompanyShell({ children }: { children: ReactNode }) {
         <ImpersonationBanner />
         <div className="flex min-h-0 flex-1">
           <aside
+            data-slot="sidebar"
             className={cn(
               'relative isolate hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 ease-standard md:flex',
               'spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome',
@@ -96,15 +102,19 @@ export function CompanyShell({ children }: { children: ReactNode }) {
           </aside>
 
           <div className="flex min-w-0 flex-1 flex-col">
-            <header className="relative isolate flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 sm:px-4 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+            <header
+              data-slot="topbar"
+              className="relative isolate flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 sm:px-4 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome premium:lg:gap-4"
+            >
               <GlassSheen />
               <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}>
                 <Menu aria-hidden />
               </Button>
-              <Link href="/app" aria-label={`${me.workspace.name} dashboard`} className="focus-ring rounded-md md:hidden">
-                <LogoMark />
+              <Link href="/app" aria-label={`${brandName(me.workspace)} dashboard`} className="focus-ring rounded-md md:hidden">
+                <BrandMark />
               </Link>
-              <div className="flex min-w-0 flex-1 items-center">
+              <ShellBreadcrumbs groups={groups} root={COMPANY_ROOT} className="hidden flex-1 premium:lg:flex" />
+              <div className="flex min-w-0 flex-1 items-center premium:lg:w-[min(30rem,34vw)] premium:lg:flex-none">
                 <SearchTrigger />
               </div>
               <div className="flex shrink-0 items-center gap-0.5">
@@ -119,7 +129,7 @@ export function CompanyShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <NavDrawer open={mobileNavOpen} onOpenChange={setMobileNavOpen} title={`${me.workspace.name} navigation`} header={<WorkspaceHeader me={me} expanded />}>
+        <NavDrawer open={mobileNavOpen} onOpenChange={setMobileNavOpen} title={`${brandName(me.workspace)} navigation`} header={<WorkspaceHeader me={me} expanded />}>
           <SidebarNav groups={groups} expanded label="Main" onNavigate={() => setMobileNavOpen(false)} />
         </NavDrawer>
         <CommandMenu groups={groups} />

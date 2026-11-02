@@ -14,6 +14,7 @@ export function PopoverContent({ className, align = 'end', sideOffset = 6, ...pr
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
+        data-slot="popover"
         align={align}
         sideOffset={sideOffset}
         collisionPadding={8}
