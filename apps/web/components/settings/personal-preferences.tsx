@@ -1,6 +1,6 @@
 'use client';
 
-import { NOTIFICATION_TYPES, type NotificationType, type TeamFloorMode, type UserSettings, type UserSettingsUpdate } from '@vistar/shared';
+import { NOTIFICATION_TYPES, resolveCelebrations, type CelebrationIntensity, type NotificationType, type TeamFloorMode, type UserSettings, type UserSettingsUpdate } from '@vistar/shared';
 import { Check } from 'lucide-react';
 import { RadioGroup } from 'radix-ui';
 import { useState } from 'react';
@@ -9,6 +9,7 @@ import { Switch } from '@/components/common/switch';
 import { ScheduleFields, ThemeModeRadio } from '@/components/common/theme-mode-picker';
 import { FormField, Label } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
+import { useCelebrationSetting } from '@/features/pipeline/celebrations/settings';
 import { cn } from '@/lib/cn';
 import { useReadOnly } from '@/lib/auth/use-auth';
 import { useCan, useMe, useSessionActions } from '@/lib/session/session';
@@ -37,6 +38,12 @@ const FLOOR: ReadonlyArray<{ value: TeamFloorMode; label: string }> = [
   { value: 'auto', label: 'Automatic (3D on capable computers, flat on phones)' },
   { value: '3d', label: '3D office' },
   { value: 'flat', label: 'Flat list' },
+];
+
+const CELEBRATIONS: ReadonlyArray<{ value: CelebrationIntensity; label: string; hint: string }> = [
+  { value: 'full', label: 'Full', hint: 'Light ribbons, a quote envelope, a short burst on Won' },
+  { value: 'subtle', label: 'Subtle', hint: 'Smaller, quieter effects' },
+  { value: 'off', label: 'Off', hint: 'A simple highlight that fades' },
 ];
 
 function useSaved() {
@@ -131,6 +138,8 @@ export function PersonalPreferences({ touch = false }: { touch?: boolean }) {
         </RadioGroup.Root>
       </SettingsCard>
 
+      <LeadsBoardCard />
+
       <SettingsCard title="Notifications" description="Choose how and when Vistar tells you about your work." footer={<Saved status={notifySaved.status} />}>
         <div className="flex flex-col gap-4">
           {(
@@ -209,5 +218,61 @@ export function PersonalPreferences({ touch = false }: { touch?: boolean }) {
         </SettingsCard>
       )}
     </div>
+  );
+}
+
+/**
+ * Leads Board celebrations (SPEC 28.1, `leads.celebrations`). Until the user picks one, the choice
+ * follows motion intensity (Full -> Full, Reduced -> Subtle, Off -> Off); reduced motion turns
+ * every effect into a simple fade whatever is chosen here.
+ */
+function LeadsBoardCard() {
+  const { reason } = useReadOnly();
+  const { setting, motion, reduced } = useCelebrationSetting();
+  const saved = useSaved();
+  const [choice, setChoice] = useState<CelebrationIntensity | null>(setting);
+  // Not chosen yet: show what the motion intensity gives (reduced motion aside, explained below).
+  const shown = choice ?? resolveCelebrations(null, reduced ? 'full' : motion);
+
+  return (
+    <SettingsCard title="Leads Board" description="Small animations when leads arrive, move, get a quote, are won or lost." footer={<Saved status={saved.status} />}>
+      <RadioGroup.Root
+        value={shown}
+        disabled={!!reason}
+        onValueChange={(v) => {
+          const next = v as CelebrationIntensity;
+          setChoice(next);
+          void saved.save({ celebrations: next });
+        }}
+        aria-label="Board celebrations"
+        className="grid gap-2 sm:grid-cols-3"
+      >
+        {CELEBRATIONS.map((c) => (
+          <RadioGroup.Item
+            key={c.value}
+            value={c.value}
+            className={cn(
+              'focus-ring group flex min-h-11 items-center gap-3 rounded-md border border-border bg-surface px-3 py-2 text-left',
+              'hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-accent data-[state=checked]:bg-accent-soft',
+            )}
+          >
+            <span aria-hidden className="flex size-4 shrink-0 items-center justify-center rounded-full border border-input group-data-[state=checked]:border-accent">
+              <RadioGroup.Indicator className="size-2 rounded-full bg-accent" />
+            </span>
+            <span>
+              <span className="block text-sm font-medium text-fg group-data-[state=checked]:text-accent-soft-fg">{c.label}</span>
+              <span className="block text-xs text-muted group-data-[state=checked]:text-muted-strong">{c.hint}</span>
+            </span>
+          </RadioGroup.Item>
+        ))}
+      </RadioGroup.Root>
+      {reduced ? (
+        <p className="mt-3 text-xs text-muted-strong" data-celebrations-note="reduced-motion">
+          Reduce motion is on, so the Board shows a simple fade instead of these animations.
+        </p>
+      ) : choice === null ? (
+        <p className="mt-3 text-xs text-muted-strong">Follows your motion intensity until you choose.</p>
+      ) : null}
+    </SettingsCard>
   );
 }

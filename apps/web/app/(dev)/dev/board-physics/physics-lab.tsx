@@ -1,7 +1,7 @@
 'use client';
 
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
-import { formatNumber } from '@vistar/shared';
+import { formatNumber, type CelebrationIntensity } from '@vistar/shared';
 import { MOCK_PIPELINE_ID } from '@vistar/shared/fixtures';
 import { Copy, RotateCcw } from 'lucide-react';
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
@@ -9,13 +9,16 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toast';
 import { boardPhysics, useBoardPhysics, type BoardPhysicsConfig } from '@/features/pipeline/board-physics.config';
 import { BoardView } from '@/features/pipeline/board-view';
+import { useCelebrationSetting } from '@/features/pipeline/celebrations';
 import { setBoardFlatMode, useBoardFlatMode } from '@/features/pipeline/motion-prefs';
 import { physicsClock, QualityMonitor, QUALITY_TIERS, useFrameRate, usePageVisible, useQuality, useTimeScale, type QualityTier } from '@/features/shared/physics';
 import { cn } from '@/lib/cn';
 import { leadKeys, useLeadsBoard } from '@/lib/leads/data';
 import { useLeadsViewState } from '@/lib/leads/state';
+import { useSessionActions } from '@/lib/session/session';
 import { useReducedMotion } from '@/lib/use-reduced-motion';
-import { buildStressBoard, createRealtimeSim, stressCommit } from './simulation';
+import { createRealtimeSim } from '@/lib/leads/mock-realtime';
+import { buildStressBoard, stressCommit } from './simulation';
 
 const STRESS_COUNT = 2500;
 const SLOW_MOTION = 0.2;
@@ -126,7 +129,17 @@ function StressBoard({ quality }: { quality: QualityMonitor }) {
 }
 
 /** Live realtime simulation (toggle) and manual triggers, bound to the nearest query client. */
-let simApi: { move: () => void; create: () => void } | null = null;
+interface SimApi {
+  move: () => void;
+  create: () => void;
+  quote: () => void;
+  won: () => void;
+  lost: () => void;
+  wonBurst: () => void;
+  /** FPS check: five wins plus three teammate moves at once. */
+  stress: () => void;
+}
+let simApi: SimApi | null = null;
 let simAuto = false;
 const simListeners = new Set<() => void>();
 
@@ -136,7 +149,18 @@ function SimBinding({ persist }: { persist: boolean }) {
   const [auto, setAuto] = useState(simAuto);
   useEffect(() => {
     const sim = createRealtimeSim(client, MOCK_PIPELINE_ID, persist);
-    simApi = { move: sim.moveByTeammate, create: sim.newLead };
+    simApi = {
+      move: sim.moveByTeammate,
+      create: sim.newLead,
+      quote: () => sim.moveTo('quote'),
+      won: () => sim.moveTo('won'),
+      lost: () => sim.moveTo('lost'),
+      wonBurst: () => sim.wonBurst(5),
+      stress: () => {
+        sim.wonBurst(5);
+        sim.movesAtOnce(3);
+      },
+    };
     const onChange = () => setAuto(simAuto);
     simListeners.add(onChange);
     return () => {
@@ -314,6 +338,8 @@ export function PhysicsLab() {
           </div>
         </Group>
 
+        <CelebrationControls />
+
         <Group title="Card">
           <Slider label="Lift scale" value={cfg.liftScale} min={1} max={1.12} step={0.01} onChange={num('liftScale')} />
           <Slider label="Tilt limit" value={cfg.tiltMax} min={0} max={15} step={0.5} unit="°" onChange={num('tiltMax')} />
@@ -376,5 +402,62 @@ function NormalBoard({ quality }: { quality: QualityMonitor }) {
       <SimBinding persist />
       <BoardView pipelineId={MOCK_PIPELINE_ID} quality={quality} />
     </>
+  );
+}
+
+const CELEBRATION_CHOICES: ReadonlyArray<{ value: CelebrationIntensity | null; label: string }> = [
+  { value: null, label: 'Auto' },
+  { value: 'full', label: 'Full' },
+  { value: 'subtle', label: 'Subtle' },
+  { value: 'off', label: 'Off' },
+];
+
+/** Event celebrations (SPEC 28.1): trigger each event on the current board and switch the intensity. */
+function CelebrationControls() {
+  const { setting, effective } = useCelebrationSetting();
+  const { updateSettings } = useSessionActions();
+  const events: Array<[string, () => void]> = [
+    ['New lead', () => simApi?.create()],
+    ['Stage move', () => simApi?.move()],
+    ['Quote sent', () => simApi?.quote()],
+    ['Won', () => simApi?.won()],
+    ['Lost', () => simApi?.lost()],
+    ['Won x5', () => simApi?.wonBurst()],
+  ];
+  return (
+    <Group title="Celebrations">
+      <div className="grid grid-cols-2 gap-2" data-celebration-triggers="">
+        {events.map(([label, run]) => (
+          <Button key={label} size="sm" onClick={run}>
+            {label}
+          </Button>
+        ))}
+      </div>
+      <Button size="sm" variant="ghost" onClick={() => simApi?.stress()}>
+        Won x5 + 3 moves (FPS check)
+      </Button>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm text-fg" id="celebrations-label">
+          Intensity <span className="text-xs text-muted">(now {effective})</span>
+        </span>
+        <div role="radiogroup" aria-labelledby="celebrations-label" className="grid grid-cols-4 gap-1">
+          {CELEBRATION_CHOICES.map((c) => (
+            <button
+              key={c.label}
+              type="button"
+              role="radio"
+              aria-checked={setting === c.value}
+              onClick={() => void updateSettings({ celebrations: c.value })}
+              className={cn(
+                'focus-ring h-8 rounded-md border text-xs font-medium',
+                setting === c.value ? 'border-accent bg-accent-soft text-accent-soft-fg' : 'border-border bg-surface text-fg-secondary hover:bg-surface-2',
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </Group>
   );
 }
