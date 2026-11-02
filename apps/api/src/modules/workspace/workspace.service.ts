@@ -82,6 +82,8 @@ export class WorkspaceService {
       defaultTheme: ThemeModeSchema.catch('system').parse(ws.defaultTheme),
       defaultLeadsViewMode: values.defaultLeadsViewMode,
       showEmployeeRank: values.showEmployeeRank,
+      defaultInterfaceStyle: values.defaultInterfaceStyle,
+      defaultBoardSkin: values.defaultBoardSkin,
       supportAccess: {
         until: supportActive ? ws.supportAccessUntil!.toISOString() : null,
         includeContent: supportActive ? ws.supportAccessContent : false,
@@ -97,7 +99,7 @@ export class WorkspaceService {
     if (body.timezone !== undefined) assertTimeZone(body.timezone);
     const before = await this.get(wid);
 
-    const { defaultLeadsViewMode, showEmployeeRank, ...columns } = body;
+    const { defaultLeadsViewMode, showEmployeeRank, defaultInterfaceStyle, defaultBoardSkin, ...columns } = body;
     const data: Prisma.WorkspaceUpdateInput = {};
     if (columns.name !== undefined) data.name = columns.name;
     if (columns.timezone !== undefined) data.timezone = columns.timezone;
@@ -109,7 +111,7 @@ export class WorkspaceService {
 
     const ops = [
       ...(Object.keys(data).length ? [db.workspace.update({ where: { id: wid }, data })] : []),
-      ...this.settings.workspaceSettingWrites(db, wid, { defaultLeadsViewMode, showEmployeeRank }),
+      ...this.settings.workspaceSettingWrites(db, wid, { defaultLeadsViewMode, showEmployeeRank, defaultInterfaceStyle, defaultBoardSkin }),
     ];
     if (ops.length) await db.$transaction(ops);
 

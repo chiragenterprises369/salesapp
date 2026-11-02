@@ -11,5 +11,6 @@ mkdirSync(outDir, { recursive: true });
 
 const doc = buildOpenApiDocument();
 writeFileSync(join(outDir, 'openapi.json'), JSON.stringify(doc, null, 2) + '\n');
-writeFileSync(join(outDir, 'openapi.yaml'), stringify(doc));
+// YAML 1.1 output quotes strings such as off, on, yes and no, so 1.1 readers keep them as strings.
+writeFileSync(join(outDir, 'openapi.yaml'), stringify(doc, { version: '1.1' }));
 console.info(`OpenAPI: ${Object.keys(doc.paths ?? {}).length} paths -> ${outDir}`);

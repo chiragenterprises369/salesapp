@@ -128,12 +128,13 @@ One Next.js app, three route groups, one design system:
 - Small muted text directly on `bg` must use `text-muted-strong` (AA). Radius `rounded-md` 8px, cards `rounded-lg` 12px. Elevation `shadow-card | raised | overlay | lift`.
 - Motion 150-250 ms (`duration-150..250`, `ease-standard`); respect `useReducedMotion()`.
 - JS consumers (Three.js, canvas, email): `palettes[theme]`, `useDocumentTheme()`.
+- **Appearance (D-052)**: `UserSettings.interfaceStyle` (`classic|depth|neon|null`, null follows `Workspace.defaultInterfaceStyle`, default `classic`), `motionIntensity` (`full|reduced|off`, default `full`), `boardSkin` (`flat|depth|neon|null`, null follows `Workspace.defaultBoardSkin`, default `depth`), `celebrations` (`full|subtle|off|null`, null follows motion). Effective values only through `resolveInterfaceStyle()`, `resolveBoardSkin()`, `resolveMotion()` and `resolveCelebrations()` in `packages/shared/src/appearance.ts`, given `DeviceCaps`; neon falls back to `flat` (board) and `classic` (app) on mobile, low-end devices and reduced motion. Workspace defaults are admin-only and audited.
 
 ## 10. Other contracts
 
 - **Webhooks**: `X-Vistar-Signature: t=<unix>,v1=<hex>` over `${t}.${rawBody}`, HMAC-SHA256, 300 s tolerance, `Idempotency-Key`, retry schedule `WEBHOOK_RETRY_DELAYS_SEC`, then dead-letter. Helpers in `infra/crypto/secrets.ts`.
 - **Workflow graph**: `WorkflowGraphSchema { schemaVersion, version, nodes, edges }`, node configs `nodeConfigSchemas`, handles from `NODE_CATALOG[type].outputs(config)`, validation `validateGraph()`, variables `WORKFLOW_VARIABLES` + `renderTemplate()`, shipped `WORKFLOW_TEMPLATES`.
-- **Settings keys**: `SETTING_KEYS` (user: `theme`, `teamFloor.mode`, `notifications`, `a11y.reducedMotion`, `leads.viewMode`; workspace: `leads.defaultViewMode`, `performance.showRank`, `leads.routing`, `ui.labels`).
+- **Settings keys**: `SETTING_KEYS` (user: `theme`, `teamFloor.mode`, `notifications`, `a11y.reducedMotion`, `leads.viewMode`, `ui.interfaceStyle`, `ui.motionIntensity`, `leads.boardSkin`, `leads.celebrations`; workspace: `leads.defaultViewMode`, `performance.showRank`, `leads.routing`, `ui.labels`, `ui.defaultInterfaceStyle`, `leads.defaultBoardSkin`).
 - **Env**: `.env.example`. Server secrets never reach the browser; only `NEXT_PUBLIC_*` does.
 
 ## 11. Flexible data layer and Industry Packs (Part 1, SPEC 22)
@@ -175,6 +176,7 @@ Written by the orchestrator when Wave 2 starts, before agents are dispatched:
 | 2026-11-01 | Wave 1 prep: web session contract (`lib/session`, `AppProviders`), feature public APIs + dev preview routes, `ScopeService`, `DevAuthGuard` (Wave 1 only), user mapper, `DEFAULT_USER_SETTINGS`, skills `vistar-workflow-nodes`, `vistar-3d-floor`. |
 | 2026-11-01 | Wave 1 contract requests: `InviteAcceptSchema.email` (link invites), `API_KEY_PREFIX`, `z.stringbool()` for boolean query params, `SavedView.viewMode` column, `Lead.position COLLATE "C"`, `pg_trgm` search indexes, routes `attentionResolve` and `userMessage`, session actions `updateProfile` / `setStatus` / `updateSupportAccess`, `ProfileUpdate` / `StatusUpdate` / `SupportAccessUpdate` types, new leads at the top of their column (`topOfColumn`, `useCreateLead` inserts at the top), `ai_node` off by default. |
 | 2026-11-01 | Industry Packs Part 1 (section 11): customization + packs contracts, `records.*` and `platform.packs.manage` permissions, `MeResponse.labels/packs`, `Pipeline.key/packKey`, `customFields` on Task and Call, `customFieldList` replaced by `fieldList` (`GET /fields`), new routes and events, migration `20261101180000_flexible_data_layer`, `packs/generic-sales/manifest.json`, nav items Industry / Custom objects / Labels / Industry packs. |
+| 2026-11-02 | Appearance settings (D-052, section 9): `INTERFACE_STYLES`, `MOTION_INTENSITIES`, `BOARD_SKINS`, `CELEBRATION_INTENSITIES`, `UserSettings.interfaceStyle/motionIntensity/boardSkin/celebrations`, `Workspace.defaultInterfaceStyle/defaultBoardSkin` (audited), resolvers in `appearance.ts`; no migration (Setting rows). Mock sessions fill missing keys from `DEFAULT_USER_SETTINGS`; `openapi.yaml` is written as YAML 1.1 so `off` stays a string. |
 
 ## Planned: User-Workspace membership (D-036, before Wave 2 agents start)
 

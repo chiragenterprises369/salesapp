@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  DEFAULT_USER_SETTINGS,
   type MeResponse,
   type PlatformAdmin,
   type Principal,
@@ -78,12 +79,14 @@ function write(key: string, value: unknown) {
 
 function build(persona: MockPersona, impersonating = false): Session {
   if (persona === 'super_admin') return { audience: 'platform', admin: mockPlatformAdmin(), accessToken: null };
+  // Settings saved before a key existed (e.g. the D-052 appearance keys) get that key's default.
+  const savedSettings = read<Partial<UserSettings>>(keySettings(persona));
   const me = mockMe(persona, {
     labels: readMockDb().state.labelOverrides,
     packs: readMockDb()
       .packs.filter((p) => p.status === 'active' && p.installedVersion)
       .map((p) => ({ key: p.key, version: p.installedVersion!, modes: p.modes })),
-    settings: read<UserSettings>(keySettings(persona)) ?? undefined,
+    settings: savedSettings ? { ...DEFAULT_USER_SETTINGS, ...savedSettings } : undefined,
     workspace: read<Partial<Workspace>>(KEY_WORKSPACE) ?? undefined,
     impersonating,
   });

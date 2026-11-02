@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {
+  BoardSkinSchema,
   DEFAULT_USER_SETTINGS,
+  InterfaceStyleSchema,
   LeadsViewModeSchema,
   SETTING_KEYS,
   UserSettingsSchema,
+  type BoardSkin,
+  type InterfaceStyle,
   type LeadsViewMode,
   type UserSettings,
   type UserSettingsUpdate,
@@ -21,8 +25,15 @@ const USER_KEY_VALUES: string[] = Object.values(SETTING_KEYS.user);
 export interface WorkspaceSettingValues {
   defaultLeadsViewMode: LeadsViewMode | null;
   showEmployeeRank: boolean;
+  defaultInterfaceStyle: InterfaceStyle;
+  defaultBoardSkin: BoardSkin;
 }
-const WORKSPACE_DEFAULTS: WorkspaceSettingValues = { defaultLeadsViewMode: null, showEmployeeRank: true };
+const WORKSPACE_DEFAULTS: WorkspaceSettingValues = {
+  defaultLeadsViewMode: null,
+  showEmployeeRank: true,
+  defaultInterfaceStyle: 'classic',
+  defaultBoardSkin: 'depth',
+};
 
 function settingWhere(workspaceId: string, scope: 'user' | 'workspace', scopeId: string, key: string) {
   return { workspaceId_scope_scopeId_key: { workspaceId, scope, scopeId, key } } as const;
@@ -67,6 +78,10 @@ export class SettingsService {
       ...(patch.teamFloorMode !== undefined ? { teamFloorMode: patch.teamFloorMode } : {}),
       ...(patch.reducedMotion !== undefined ? { reducedMotion: patch.reducedMotion } : {}),
       ...(patch.leadsViewMode !== undefined ? { leadsViewMode: patch.leadsViewMode } : {}),
+      ...(patch.interfaceStyle !== undefined ? { interfaceStyle: patch.interfaceStyle } : {}),
+      ...(patch.motionIntensity !== undefined ? { motionIntensity: patch.motionIntensity } : {}),
+      ...(patch.boardSkin !== undefined ? { boardSkin: patch.boardSkin } : {}),
+      ...(patch.celebrations !== undefined ? { celebrations: patch.celebrations } : {}),
     };
     const settings = UserSettingsSchema.parse(next);
     const changed = USER_FIELDS.filter((f) => patch[f] !== undefined && JSON.stringify(current[f]) !== JSON.stringify(settings[f]));
@@ -75,7 +90,7 @@ export class SettingsService {
         changed.map((field) => {
           const key = SETTING_KEYS.user[field];
           const value = settings[field];
-          // null (e.g. leadsViewMode) = back to default: drop the row.
+          // null (leadsViewMode, interfaceStyle, boardSkin, celebrations) = back to the default: drop the row.
           if (value === null) return db.setting.deleteMany({ where: { scope: 'user', scopeId: userId, key } });
           return db.setting.upsert({
             where: settingWhere(workspaceId, 'user', userId, key),
@@ -89,42 +104,46 @@ export class SettingsService {
   }
 
   async getWorkspaceSettings(db: TenantPrisma, workspaceId: string): Promise<WorkspaceSettingValues> {
-    const keys = [SETTING_KEYS.workspace.defaultLeadsViewMode, SETTING_KEYS.workspace.showEmployeeRank];
+    const keys = [
+      SETTING_KEYS.workspace.defaultLeadsViewMode,
+      SETTING_KEYS.workspace.showEmployeeRank,
+      SETTING_KEYS.workspace.defaultInterfaceStyle,
+      SETTING_KEYS.workspace.defaultBoardSkin,
+    ];
     const rows = await db.setting.findMany({ where: { scope: 'workspace', scopeId: workspaceId, key: { in: keys } }, select: { key: true, value: true } });
     const byKey = new Map(rows.map((r) => [r.key, r.value as unknown]));
     const view = LeadsViewModeSchema.safeParse(byKey.get(SETTING_KEYS.workspace.defaultLeadsViewMode));
     const rank = z.boolean().safeParse(byKey.get(SETTING_KEYS.workspace.showEmployeeRank));
+    const style = InterfaceStyleSchema.safeParse(byKey.get(SETTING_KEYS.workspace.defaultInterfaceStyle));
+    const skin = BoardSkinSchema.safeParse(byKey.get(SETTING_KEYS.workspace.defaultBoardSkin));
     return {
       defaultLeadsViewMode: view.success ? view.data : WORKSPACE_DEFAULTS.defaultLeadsViewMode,
       showEmployeeRank: rank.success ? rank.data : WORKSPACE_DEFAULTS.showEmployeeRank,
+      defaultInterfaceStyle: style.success ? style.data : WORKSPACE_DEFAULTS.defaultInterfaceStyle,
+      defaultBoardSkin: skin.success ? skin.data : WORKSPACE_DEFAULTS.defaultBoardSkin,
     };
   }
 
   /** Write operations for workspace Setting rows (run inside the caller's batch transaction). */
   workspaceSettingWrites(db: TenantPrisma, workspaceId: string, values: Partial<WorkspaceSettingValues>) {
+    const upsert = (key: string, value: Prisma.InputJsonValue) =>
+      db.setting.upsert({
+        where: settingWhere(workspaceId, 'workspace', workspaceId, key),
+        create: { workspaceId, scope: 'workspace', scopeId: workspaceId, key, value },
+        update: { value },
+      });
     const ops = [];
     if (values.defaultLeadsViewMode !== undefined) {
       const key = SETTING_KEYS.workspace.defaultLeadsViewMode;
       ops.push(
         values.defaultLeadsViewMode === null
           ? db.setting.deleteMany({ where: { scope: 'workspace', scopeId: workspaceId, key } })
-          : db.setting.upsert({
-              where: settingWhere(workspaceId, 'workspace', workspaceId, key),
-              create: { workspaceId, scope: 'workspace', scopeId: workspaceId, key, value: values.defaultLeadsViewMode },
-              update: { value: values.defaultLeadsViewMode },
-            }),
+          : upsert(key, values.defaultLeadsViewMode),
       );
     }
-    if (values.showEmployeeRank !== undefined) {
-      const key = SETTING_KEYS.workspace.showEmployeeRank;
-      ops.push(
-        db.setting.upsert({
-          where: settingWhere(workspaceId, 'workspace', workspaceId, key),
-          create: { workspaceId, scope: 'workspace', scopeId: workspaceId, key, value: values.showEmployeeRank },
-          update: { value: values.showEmployeeRank },
-        }),
-      );
-    }
+    if (values.showEmployeeRank !== undefined) ops.push(upsert(SETTING_KEYS.workspace.showEmployeeRank, values.showEmployeeRank));
+    if (values.defaultInterfaceStyle !== undefined) ops.push(upsert(SETTING_KEYS.workspace.defaultInterfaceStyle, values.defaultInterfaceStyle));
+    if (values.defaultBoardSkin !== undefined) ops.push(upsert(SETTING_KEYS.workspace.defaultBoardSkin, values.defaultBoardSkin));
     return ops;
   }
 }

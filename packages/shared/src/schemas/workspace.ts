@@ -1,8 +1,12 @@
 import { z } from 'zod';
 import {
+  BoardSkinSchema,
+  CelebrationIntensitySchema,
   DataScopeSchema,
   EmployeeStatusSchema,
+  InterfaceStyleSchema,
   LeadsViewModeSchema,
+  MotionIntensitySchema,
   PlanSchema,
   RoleKindSchema,
   TeamFloorModeSchema,
@@ -66,6 +70,10 @@ export const WorkspaceSchema = z.object({
   defaultLeadsViewMode: LeadsViewModeSchema.nullable(),
   /** Show rank on My Performance (Setting key performance.showRank). */
   showEmployeeRank: z.boolean(),
+  /** Admin-set app interface style for users who have not chosen one (Setting key ui.defaultInterfaceStyle). */
+  defaultInterfaceStyle: InterfaceStyleSchema.default('classic'),
+  /** Admin-set Leads Board skin for users who have not chosen one (Setting key leads.defaultBoardSkin). */
+  defaultBoardSkin: BoardSkinSchema.default('depth'),
   supportAccess: SupportAccessSchema,
   /** Effective flags = plan defaults + Super Admin overrides. */
   features: FeatureFlagsSchema,
@@ -83,7 +91,10 @@ export const WorkspaceUpdateSchema = WorkspaceSchema.pick({
   defaultTheme: true,
   defaultLeadsViewMode: true,
   showEmployeeRank: true,
-}).partial();
+})
+  // Plain enums, not the defaulted response fields: Zod 4 applies defaults inside optional keys.
+  .extend({ defaultInterfaceStyle: InterfaceStyleSchema, defaultBoardSkin: BoardSkinSchema })
+  .partial();
 export type WorkspaceUpdate = z.infer<typeof WorkspaceUpdateSchema>;
 
 export const SupportAccessUpdateSchema = z.object({
@@ -104,6 +115,10 @@ export const SETTING_KEYS = {
     notifications: 'notifications',
     reducedMotion: 'a11y.reducedMotion',
     leadsViewMode: 'leads.viewMode',
+    interfaceStyle: 'ui.interfaceStyle',
+    motionIntensity: 'ui.motionIntensity',
+    boardSkin: 'leads.boardSkin',
+    celebrations: 'leads.celebrations',
   },
   workspace: {
     defaultLeadsViewMode: 'leads.defaultViewMode',
@@ -111,6 +126,8 @@ export const SETTING_KEYS = {
     leadRouting: 'leads.routing',
     /** LabelOverrides (customization/labels.ts) */
     labels: 'ui.labels',
+    defaultInterfaceStyle: 'ui.defaultInterfaceStyle',
+    defaultBoardSkin: 'leads.defaultBoardSkin',
   },
 } as const;
 
@@ -217,6 +234,14 @@ export const UserSettingsSchema = z.object({
   reducedMotion: z.enum(['system', 'on', 'off']).default('system'),
   /** Last chosen Leads page view; null = never chosen (fall back to workspace default, then "board"). */
   leadsViewMode: LeadsViewModeSchema.nullable().default(null),
+  /** App interface style; null = follow Workspace.defaultInterfaceStyle. Effective value: resolveInterfaceStyle(). */
+  interfaceStyle: InterfaceStyleSchema.nullable().default(null),
+  /** Motion intensity everywhere. Effective value: resolveMotion(). */
+  motionIntensity: MotionIntensitySchema.default('full'),
+  /** Leads Board skin; null = follow Workspace.defaultBoardSkin. Effective value: resolveBoardSkin(). */
+  boardSkin: BoardSkinSchema.nullable().default(null),
+  /** Board event celebrations; null = follow motion intensity. Effective value: resolveCelebrations(). */
+  celebrations: CelebrationIntensitySchema.nullable().default(null),
 });
 export type UserSettings = z.infer<typeof UserSettingsSchema>;
 /** Defaults for a user with no Setting rows (API and mocks). */
@@ -234,6 +259,10 @@ export const UserSettingsUpdateSchema = z
       .partial(),
     reducedMotion: z.enum(['system', 'on', 'off']),
     leadsViewMode: LeadsViewModeSchema.nullable(),
+    interfaceStyle: InterfaceStyleSchema.nullable(),
+    motionIntensity: MotionIntensitySchema,
+    boardSkin: BoardSkinSchema.nullable(),
+    celebrations: CelebrationIntensitySchema.nullable(),
   })
   .partial();
 export type UserSettingsUpdate = z.infer<typeof UserSettingsUpdateSchema>;

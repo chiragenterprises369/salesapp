@@ -550,6 +550,20 @@ components:
             - null
         showEmployeeRank:
           type: boolean
+        defaultInterfaceStyle:
+          type: string
+          enum:
+            - classic
+            - depth
+            - neon
+          default: classic
+        defaultBoardSkin:
+          type: string
+          enum:
+            - flat
+            - depth
+            - neon
+          default: depth
         supportAccess:
           type: object
           properties:
@@ -3499,11 +3513,11 @@ components:
                 properties:
                   x:
                     type: number
-                  y:
+                  "y":
                     type: number
                 required:
                   - x
-                  - y
+                  - "y"
               data:
                 type: object
                 properties:
@@ -3822,11 +3836,11 @@ components:
                     properties:
                       x:
                         type: number
-                      y:
+                      "y":
                         type: number
                     required:
                       - x
-                      - y
+                      - "y"
                   data:
                     type: object
                     properties:
@@ -4144,11 +4158,11 @@ components:
                 darkFrom:
                   type: string
                   pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                  default: 19:00
+                  default: "19:00"
                 darkTo:
                   type: string
                   pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                  default: 07:00
+                  default: "07:00"
             teamFloorMode:
               type: string
               enum:
@@ -4168,7 +4182,7 @@ components:
                 emailDigest:
                   type: string
                   enum:
-                    - off
+                    - "off"
                     - daily
                     - weekly
                   default: daily
@@ -4181,8 +4195,8 @@ components:
               type: string
               enum:
                 - system
-                - on
-                - off
+                - "on"
+                - "off"
               default: system
             leadsViewMode:
               type:
@@ -4191,6 +4205,43 @@ components:
               enum:
                 - board
                 - table
+                - null
+              default: null
+            interfaceStyle:
+              type:
+                - string
+                - "null"
+              enum:
+                - classic
+                - depth
+                - neon
+                - null
+              default: null
+            motionIntensity:
+              type: string
+              enum:
+                - full
+                - reduced
+                - "off"
+              default: full
+            boardSkin:
+              type:
+                - string
+                - "null"
+              enum:
+                - flat
+                - depth
+                - neon
+                - null
+              default: null
+            celebrations:
+              type:
+                - string
+                - "null"
+              enum:
+                - full
+                - subtle
+                - "off"
                 - null
               default: null
           required:
@@ -5196,6 +5247,18 @@ paths:
                     - null
                 showEmployeeRank:
                   type: boolean
+                defaultInterfaceStyle:
+                  type: string
+                  enum:
+                    - classic
+                    - depth
+                    - neon
+                defaultBoardSkin:
+                  type: string
+                  enum:
+                    - flat
+                    - depth
+                    - neon
       responses:
         "200":
           description: OK
@@ -6541,11 +6604,11 @@ paths:
                       darkFrom:
                         type: string
                         pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                        default: 19:00
+                        default: "19:00"
                       darkTo:
                         type: string
                         pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                        default: 07:00
+                        default: "07:00"
                   teamFloorMode:
                     type: string
                     enum:
@@ -6565,7 +6628,7 @@ paths:
                       emailDigest:
                         type: string
                         enum:
-                          - off
+                          - "off"
                           - daily
                           - weekly
                         default: daily
@@ -6578,8 +6641,8 @@ paths:
                     type: string
                     enum:
                       - system
-                      - on
-                      - off
+                      - "on"
+                      - "off"
                     default: system
                   leadsViewMode:
                     type:
@@ -6588,6 +6651,43 @@ paths:
                     enum:
                       - board
                       - table
+                      - null
+                    default: null
+                  interfaceStyle:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - classic
+                      - depth
+                      - neon
+                      - null
+                    default: null
+                  motionIntensity:
+                    type: string
+                    enum:
+                      - full
+                      - reduced
+                      - "off"
+                    default: full
+                  boardSkin:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - flat
+                      - depth
+                      - neon
+                      - null
+                    default: null
+                  celebrations:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - full
+                      - subtle
+                      - "off"
                       - null
                     default: null
                 required:
@@ -6652,7 +6752,7 @@ paths:
                     emailDigest:
                       type: string
                       enum:
-                        - off
+                        - "off"
                         - daily
                         - weekly
                     muted:
@@ -6663,8 +6763,8 @@ paths:
                   type: string
                   enum:
                     - system
-                    - on
-                    - off
+                    - "on"
+                    - "off"
                 leadsViewMode:
                   type:
                     - string
@@ -6672,6 +6772,39 @@ paths:
                   enum:
                     - board
                     - table
+                    - null
+                interfaceStyle:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - classic
+                    - depth
+                    - neon
+                    - null
+                motionIntensity:
+                  type: string
+                  enum:
+                    - full
+                    - reduced
+                    - "off"
+                boardSkin:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - flat
+                    - depth
+                    - neon
+                    - null
+                celebrations:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - full
+                    - subtle
+                    - "off"
                     - null
       responses:
         "200":
@@ -6695,11 +6828,11 @@ paths:
                       darkFrom:
                         type: string
                         pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                        default: 19:00
+                        default: "19:00"
                       darkTo:
                         type: string
                         pattern: ^([01]\d|2[0-3]):[0-5]\d$
-                        default: 07:00
+                        default: "07:00"
                   teamFloorMode:
                     type: string
                     enum:
@@ -6719,7 +6852,7 @@ paths:
                       emailDigest:
                         type: string
                         enum:
-                          - off
+                          - "off"
                           - daily
                           - weekly
                         default: daily
@@ -6732,8 +6865,8 @@ paths:
                     type: string
                     enum:
                       - system
-                      - on
-                      - off
+                      - "on"
+                      - "off"
                     default: system
                   leadsViewMode:
                     type:
@@ -6742,6 +6875,43 @@ paths:
                     enum:
                       - board
                       - table
+                      - null
+                    default: null
+                  interfaceStyle:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - classic
+                      - depth
+                      - neon
+                      - null
+                    default: null
+                  motionIntensity:
+                    type: string
+                    enum:
+                      - full
+                      - reduced
+                      - "off"
+                    default: full
+                  boardSkin:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - flat
+                      - depth
+                      - neon
+                      - null
+                    default: null
+                  celebrations:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - full
+                      - subtle
+                      - "off"
                       - null
                     default: null
                 required:
@@ -19547,11 +19717,11 @@ paths:
                             properties:
                               x:
                                 type: number
-                              y:
+                              "y":
                                 type: number
                             required:
                               - x
-                              - y
+                              - "y"
                           data:
                             type: object
                             properties:
