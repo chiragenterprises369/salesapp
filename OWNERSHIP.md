@@ -106,6 +106,19 @@ ask the orchestrator; do not guess from other sections.
 | qa-reviewer | 2, 4 | tests, accessibility and theme review, skill compliance review, diff review |
 | asset-generator | after Wave 1, once, after manifest approval | Fizzly image generation |
 | superadmin-panel | Phase 9 (or earlier if requested) | Super Admin panel UI + `/api/super` features |
+| mobile-app | change #19 | Flutter Android employee app `apps/mobile/**` (SPEC 29.1), including its Kotlin platform code and web preview build |
+
+## Change #19 streams (wave A, parallel worktrees, at most 5 at a time)
+
+Requirements: SPEC section 29. Heavy steps (builds, typecheck, tests, Playwright, Gradle, seeds) take the lock in `%TEMP%\vistar-handoff\HEAVY-LOCK.md`.
+
+| Stream | Worktree / branch | Owns for this wave | Ports / DB |
+| --- | --- | --- | --- |
+| platform (backend-core) | `.worktrees/backend-core` / `agent/backend-core` | all change #19 contracts in `packages/shared/src/**` (not `design/**`), `apps/api/prisma/**` (schema, the one migration of this wave, clean and demo seeds), API modules for storage, branding, component style, custom domains, platform config (Firebase, APK releases), devices and push, floor requests and published floors, Super Admin companies and switches | API 4001 / `vistar_backend` |
+| realtime (backend-core) | `.worktrees/backend-core-crm` / `agent/backend-core-crm` | API modules for the realtime gateway, presence and status engine, device call ingestion and call list, attendance and location, conversations read API, Team Floor snapshot (no schema edits: requests to the platform stream) | API 4002 / `vistar_backend_crm` |
+| mobile (mobile-app) | `.worktrees/mobile` / `agent/mobile` | `apps/mobile/**` | web preview 3010, API 4020 / `vistar_mobile` |
+| web-premium (frontend-app) | `.worktrees/frontend-app` / `agent/frontend-app` | `components/ui/**`, `styles/**`, `packages/shared/src/design/**`, `components/{shell,settings,common}/**`, settings pages, Super Admin console pages (config section, company switches), page containers and grids in `app/**` (layout classes only), board column width only in `features/pipeline/board-{view,column}.tsx`, `lib/branding/**` | web 3001 / `vistar_shell` |
+| web-api (frontend-app) | `.worktrees/frontend-app-leads` / `agent/frontend-app-leads` | `lib/api/**`, `lib/session/**`, `lib/auth/**`, data sources in `lib/{leads,customization,packs,world}/**`, `app/(auth)/**`, Super Admin login pages, `scripts/smoke-*.mjs` | web 3002 / `vistar_leads` |
 
 ## Wave 1 streams (parallel worktrees)
 

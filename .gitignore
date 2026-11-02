@@ -46,3 +46,6 @@ references/
 
 # Screenshot loop iterations (large); only the final top-level sets are committed
 docs/screenshots/*/iter-*/
+
+# Local upload storage (STORAGE_DRIVER=local, D-065)
+.data/

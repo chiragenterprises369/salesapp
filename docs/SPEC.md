@@ -1092,3 +1092,65 @@ SEED AND TEST
 REPORT
 
 8 lines: what was built, tiers verified with FPS, screenshot paths, asset list with licenses, gaps versus the reference.
+
+## 29. Android employee app, live status, premium UI, branding, custom floors, local completion - ACTIVE (change #19)
+
+Received 2026-11-02 as a question message, the user's answers and two follow-ups. Saved verbatim, then broken down. Production setup (server, domain, accounts) comes later: complete everything locally first.
+
+Question message (verbatim):
+
+> muzhe ye btao ab production ready bnane ke liye kya kya bcha hai isme aur calling ka kaise hoga sim calling chahiye muzhe to iska liye ek app bnana pdega kya?  aur kya harek client ke liye alag alag 3d map team floor bnana possible hai unke space ke hisab se, agar ha to solution btao kaise, aur current code ko as a template use kar skte hai kya? ki kuch dalna baaki hai isme jo similar hota hai har ek crm sales platform me? agar kuch bcha hai to wo abhi implement karo multisubagents use karke aur is machine me flutter installed hai agar app banana ho to wo bhi bnana aur ui component ko improve premium look do bhot simple lg rhe hai current ui component ko rehne do lekin ab jo improve karoge current ui components use admin select kar pae ki abhi ke jaise dikhne chahiye ya improved version dikhne chahiye aur color dashboard color company ko apne hisab se set karte ana chahiye setting mese logo wgera sab kuch aur ha flutter app ui ka bhi premium look bnana hoga aur flutter app me wo sab dikhna chahiye jo employee panel me dikhta hai to ui thoda modern next level bnana aur multiagents spawn karo jldi krne ke liye aur kon employee kya kar rha hai sabka status 100% accuracy ke sath sahi hona cahiye live team floor me, agar kuch puchna hai to pucho muzhe kuch muzhese chahiye to pucho jo chahiye wo dunga aur then start karna
+
+Answers (verbatim):
+
+> pehle android app bna lo poora uske baad test karna mai tb dunga android testing ke liye.employee ke phone koi bhi ho skte hai iphones chorke.iphone app nhi chahiye filhal. app link employee panel me bhi milega aur playstore pe bhi reh skta hai. push notification ke liye firebase json file super admin panel se upload hogi to wo option super admin penel ke ek config section me de dena. premium ui ka mtlb tha ki enterprise level type app ui dikhna chahiye easy to navigate and premium high quality app look hona chhiye. branding domain ka option bhi cahhiye lekin admin control karega ki kis company ko dena hai aur kis company ko nhi super admin panel se deside hoga wo. floor layout ke liye company panel me reference images provide karna compulsory hoga company panel me live team floor sidebar tab me tabhi super admin provide kar paega jab super admin panel me super admin ko receive hoga ref images of company cabin rooms wgera.field staff ke liye gps ya attendance tracking chahiye aur ha tracking sirf working hours me ho.production ka badme dunga pehle local me complete karo.aur dummy data clean kardo aur ui poora screen me fit hona chahiye left ya right me jgah khali nhi dikhni cahiye karo ab wo bhi multiagents ke sath taki jaldi ho sake
+
+Follow-ups (verbatim):
+
+> filhal flutter app web me test check  kar skte ho dekhne ke liye ki kaise bna hai
+
+> admin file upload kega super admin panel me liveteam floor ki jo ai se banaega
+
+### 29.1 Android employee app (Flutter, `apps/mobile`)
+- Everything the employee panel shows (section 17): Today, Leads (list, search, filters, stage change), lead detail with timeline and notes, Tasks (complete, snooze), Calls (log and SIM calling), WhatsApp inbox, Team Floor (flat plan; the 3D floor stays web), status control, My performance, notifications, profile, preferences.
+- Premium enterprise UI: modern, easy to navigate, high quality, light and dark, company branding (logo, brand colour) from the API. The app is always the premium design.
+- SIM calling on any Android brand (no iPhone app for now): tap Call, the phone dialer calls from the employee's own SIM; the app reports call start (phone state) live and, after hang-up, reads the call log (exact duration, connected or missed) and saves it to the lead. Recordings: the app picks up the phone's own recorder files (OEM folders) and uploads them; it never records audio itself (Android 10+ blocks this). Call-log permissions are allowed on Play for business CRM apps with a corporate login.
+- Attendance and GPS (field staff): check-in and check-out with location; location updates only while checked in and only inside the company's working hours (the server rejects anything outside); a consent screen before the first use.
+- Push notifications through Firebase, configured in the Super Admin config section (29.6). The app initialises Firebase at runtime with options it gets from the API, so one APK works for any Firebase project.
+- Distribution: a download link in the employee panel (latest APK uploaded in the Super Admin config section) and the Play Store later.
+- Web preview: the app also builds for the web (`flutter build web`) so its screens can be checked in a browser; native-only features show an "Android only" note there.
+- Device testing comes later, on a phone the user provides. Until then: unit, widget and golden tests plus the web preview.
+
+### 29.2 Live status accuracy (Team Floor)
+- Status is decided on the server from observed facts only: login and logout, web or app open (heartbeat), call in progress (Android phone state), call result (call log), the employee's own status (break, lunch, meeting, field visit), attendance check-in, working hours.
+- No heartbeat for 45 s means Offline with "last seen". Limits that are stated in the UI, not hidden: the system cannot know whether someone is physically at a desk, and for outgoing SIM calls Android does not report when the other side answers ("On call" from dialing; the talk time comes from the call log after the call).
+- The Team Floor (web and app) reads the server snapshot and live events instead of the simulator.
+
+### 29.3 Premium UI (web)
+- The current components stay as "Standard". A new "Premium" version (enterprise look, easy navigation, high quality) is added for every component. The company admin chooses Standard or Premium for the whole company in Settings; employees cannot override it. Default: Standard.
+
+### 29.4 Branding and custom domain
+- Company settings: logo (light and dark), brand colour, dashboard and chart colours, login page image, favicon, display name. Colours are adjusted automatically so text keeps AA contrast.
+- Custom domain (for example `crm.company.com`): only for companies the Super Admin enables in the Super Admin panel. DNS instructions (CNAME plus a TXT check), verification and host-to-company resolution. Local testing uses `*.localhost` names.
+
+### 29.5 Custom Team Floor per company
+- In the Company panel's Live Team Floor tab, the company admin must upload reference images of their office (work area, cabins, meeting rooms, reception, pantry or lounge; floor plan optional) before a custom floor can be made. The request reaches the Super Admin panel.
+- The Super Admin builds the 3D office with an AI tool outside Vistar, uploads the file (GLB or glTF) for that company in the Super Admin panel, places seats and zones on it in a seat tool, previews and publishes it.
+- Until a custom floor is published the company sees the default template with a "your office is being prepared" note.
+
+### 29.6 Super Admin config section
+- Firebase: upload `google-services.json` (app config, delivered to the app at runtime) and the Firebase service account JSON (server sending). Stored encrypted; secrets never shown again.
+- Android app releases: upload an APK with version and notes; the employee panel download link always points to the latest release.
+- Per-company switches: custom domain (29.4).
+
+### 29.7 Full-screen layout
+- Every page fills the screen width: no empty bands on the left or right on wide screens. Wide screens get more columns, not wider margins. Forms use two columns on wide screens.
+
+### 29.8 Dummy data cleanup
+- The app no longer shows dummy data: the web reads the real API and starts empty for a new company. The demo data stays available only as an opt-in seed for tests (`pnpm db:seed:demo`) and the browser mock layer only for automated tests (`NEXT_PUBLIC_DATA_SOURCE=mock`). The local main database is backed up, then reset to a clean state (plans and the Super Admin; companies are created from the Super Admin panel or by sign-up).
+
+### 29.9 Common CRM features to add (from the question message)
+- Contacts and Accounts pages, Deals, Quotations and invoices with GST and PDF, Products and price list, Calendar and meetings, lead routing (round-robin, auto-assign), lead capture forms.
+
+### 29.10 Execution
+- Parallel agents in their own worktrees, at most 5 at a time (7.8 GB RAM; heavy steps serialised by a lock). Wave A: contracts and platform API, realtime and presence API, Android app, premium UI and branding web, web API wiring and cleanup. Wave B: custom floor request and Super Admin floor upload, live Team Floor from the server and attendance UI, CRM features (29.9), Android app wired to the full API, QA.
