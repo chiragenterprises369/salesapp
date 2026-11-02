@@ -1,6 +1,6 @@
 'use client';
 
-import { INDIAN_STATES, stateName, type ContactListItem } from '@vistar/shared';
+import { INDIAN_STATES, stateName, type ContactListItem, type IndianStateCode } from '@vistar/shared';
 import { Contact as ContactIcon, Mail, MapPin, Phone, Plus, Tag } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
@@ -24,7 +24,7 @@ import { ContactFormSheet } from './contact-form';
 
 interface Filters {
   ownerId?: string[];
-  stateCode?: string[];
+  stateCode?: IndianStateCode[];
   tag?: string[];
 }
 
@@ -104,7 +104,7 @@ function ContactsList() {
       <ListToolbar>
         <CrmSearch className="w-full sm:w-72" value={list.q} onChange={list.setQ} placeholder="Search name, phone, email, GSTIN" label="Search contacts" />
         <OwnerFilter value={list.filters.ownerId} onChange={(ownerId) => list.setFilters({ ownerId })} />
-        <FacetFilter label="State" icon={<MapPin aria-hidden />} options={STATE_OPTIONS} value={list.filters.stateCode} onChange={(stateCode) => list.setFilters({ stateCode })} />
+        <FacetFilter label="State" icon={<MapPin aria-hidden />} options={STATE_OPTIONS} value={list.filters.stateCode} onChange={(stateCode) => list.setFilters({ stateCode: stateCode as IndianStateCode[] | undefined })} />
         {tags.length > 0 && <FacetFilter label="Tag" icon={<Tag aria-hidden />} options={tags.map((t) => ({ value: t, label: t }))} value={list.filters.tag} onChange={(tag) => list.setFilters({ tag })} />}
         <ClearFilters active={list.hasFilters} onClear={list.resetFilters} />
         <div className="ml-auto">

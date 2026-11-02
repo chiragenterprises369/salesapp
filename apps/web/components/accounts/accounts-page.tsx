@@ -1,6 +1,6 @@
 'use client';
 
-import { formatInr, INDIAN_STATES, stateName, type AccountListItem } from '@vistar/shared';
+import { formatInr, INDIAN_STATES, stateName, type AccountListItem, type IndianStateCode } from '@vistar/shared';
 import { Building2, Globe, MapPin, Phone, Plus, Tag } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -23,7 +23,7 @@ import { AccountFormSheet } from './account-form';
 
 interface Filters {
   ownerId?: string[];
-  stateCode?: string[];
+  stateCode?: IndianStateCode[];
   tag?: string[];
 }
 
@@ -92,7 +92,7 @@ function AccountsList() {
       <ListToolbar>
         <CrmSearch className="w-full sm:w-72" value={list.q} onChange={list.setQ} placeholder="Search name, GSTIN, phone, website" label="Search accounts" />
         <OwnerFilter value={list.filters.ownerId} onChange={(ownerId) => list.setFilters({ ownerId })} />
-        <FacetFilter label="State" icon={<MapPin aria-hidden />} options={STATE_OPTIONS} value={list.filters.stateCode} onChange={(stateCode) => list.setFilters({ stateCode })} />
+        <FacetFilter label="State" icon={<MapPin aria-hidden />} options={STATE_OPTIONS} value={list.filters.stateCode} onChange={(stateCode) => list.setFilters({ stateCode: stateCode as IndianStateCode[] | undefined })} />
         {tags.length > 0 && <FacetFilter label="Tag" icon={<Tag aria-hidden />} options={tags.map((t) => ({ value: t, label: t }))} value={list.filters.tag} onChange={(tag) => list.setFilters({ tag })} />}
         <ClearFilters active={list.hasFilters} onClear={list.resetFilters} />
         <div className="ml-auto">

@@ -54,7 +54,7 @@ function ContactDetail({ id }: { id: string }) {
   if (q.isPending) return <DetailSkeleton />;
   if (q.isError) return <DetailError error={q.error} onRetry={() => void q.refetch()} backHref="/app/contacts" backLabel="Back to contacts" noun="contact" />;
   const c = q.data;
-  const duplicates = dupes.data ?? [];
+  const duplicates = dupes.data?.items ?? [];
   const docQuery = `contactId=${c.id}${c.account ? `&accountId=${c.account.id}` : ''}`;
 
   return (
