@@ -23,6 +23,14 @@ const K = {
 };
 const RELEASE_LUA = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
 
+export interface Mutation<T> {
+  state: PresenceState;
+  deadline: number | null;
+  result: T;
+  before?: () => Promise<void>;
+  after?: () => Promise<void>;
+}
+
 export const dueMember = (workspaceId: string, userId: string) => `${workspaceId}:${userId}`;
 export function parseDueMember(member: string): { workspaceId: string; userId: string } | null {
   const i = member.indexOf(':');
@@ -70,12 +78,11 @@ export class PresenceStore {
   /**
    * Read-modify-write one user's state under the per-user lock. `fn` gets the current state (null =
    * none yet) and returns the next state and its deadline (null = nothing pending), or null to skip.
+   * `before` runs before the state is saved (durable writes: if it throws, nothing is saved) and
+   * `after` once it is saved (publishing), both still inside the lock, so one user's changes are
+   * persisted and published in version order.
    */
-  async mutate<T>(
-    workspaceId: string,
-    userId: string,
-    fn: (current: PresenceState | null) => Promise<{ state: PresenceState; deadline: number | null; result: T } | null>,
-  ): Promise<T | null> {
+  async mutate<T>(workspaceId: string, userId: string, fn: (current: PresenceState | null) => Promise<Mutation<T> | null>): Promise<T | null> {
     const key = `${workspaceId}:${userId}`;
     const prev = this.chains.get(key) ?? Promise.resolve();
     const run = prev.catch(() => undefined).then(() => this.locked(workspaceId, userId, fn));
@@ -87,17 +94,15 @@ export class PresenceStore {
     }
   }
 
-  private async locked<T>(
-    workspaceId: string,
-    userId: string,
-    fn: (current: PresenceState | null) => Promise<{ state: PresenceState; deadline: number | null; result: T } | null>,
-  ): Promise<T | null> {
+  private async locked<T>(workspaceId: string, userId: string, fn: (current: PresenceState | null) => Promise<Mutation<T> | null>): Promise<T | null> {
     const token = await this.acquire(userId);
     try {
       const current = await this.read(workspaceId, userId);
       const next = await fn(current);
       if (!next) return null;
+      if (next.before) await next.before();
       await this.write(workspaceId, userId, next.state, next.deadline);
+      if (next.after) await next.after();
       return next.result;
     } finally {
       await this.release(userId, token);
