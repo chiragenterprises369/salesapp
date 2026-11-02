@@ -136,7 +136,10 @@ test('tasks: complete with undo is optimistic', async ({ page }) => {
   const title = (await row.locator('p').first().innerText()).trim();
   const same = page.locator('[data-task-row]').filter({ hasText: title });
   const before = await same.count();
-  await row.getByRole('checkbox').check();
+  // The row leaves the open list once done, so click the box by its name (check() would retry on the next row).
+  const box = row.getByRole('checkbox');
+  const label = (await box.getAttribute('aria-label'))!;
+  await page.getByRole('checkbox', { name: label, exact: true }).first().click();
   await expect(page.getByText('Task completed')).toBeVisible();
   await expect(same).toHaveCount(before - 1);
   await page.getByRole('button', { name: 'Undo' }).click();
