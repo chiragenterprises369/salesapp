@@ -274,7 +274,7 @@ function TeamFloorClient({ mode: modeProp = 'auto', readOnly: readOnlyProp = fal
               <Legend />
             </>
           ) : (
-            <FloorPlan state={state} attention={byUser} selectedId={selectedId} onOpen={open} idPrefix={idPrefix} />
+            <FloorPlan state={state} template={feed.template} attention={byUser} selectedId={selectedId} onOpen={open} idPrefix={idPrefix} />
           )}
         </div>
 
