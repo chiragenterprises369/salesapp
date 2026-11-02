@@ -331,7 +331,7 @@ function compute(me: MeResponse, range: DashboardRange, teamId: string | null, n
   }
   world
     .tasks()
-    .filter((t) => t.status === 'open' && t.dueAt && ts(t.dueAt) < now && inScope(t.assignee?.id))
+    .filter((t) => t.status === 'open' && t.dueAt && ts(t.dueAt) < now - 15 * 60_000 && inScope(t.assignee?.id))
     .sort((a, b) => b.dueAt!.localeCompare(a.dueAt!))
     .slice(0, Math.max(3, 12 - attention.length))
     .forEach((t) =>
