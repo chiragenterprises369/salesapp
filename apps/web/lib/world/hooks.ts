@@ -162,7 +162,7 @@ export function useConversation(id: string | null) {
         api.call('conversationGet', { params: { id: id! } }),
         collect((c, l) => api.call('messageList', { params: { id: id! }, query: { cursor: c, limit: l } }), MAX_ROWS),
       ]);
-      return { conversation, messages: messages.items };
+      return { conversation, messages: [...messages.items].sort((a, b) => a.createdAt.localeCompare(b.createdAt)) };
     },
     enabled: !!v.userId && !!id,
   });

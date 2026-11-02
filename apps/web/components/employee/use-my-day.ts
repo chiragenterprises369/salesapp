@@ -2,10 +2,9 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Call, Task } from '@vistar/shared';
-import { DAY_MS, istDayStart } from '@vistar/shared/fixtures';
+import { DAY_MS, istDayStart, istWeekday } from '@vistar/shared/fixtures';
 import { useCallback } from 'react';
 import { toast } from '@/components/ui/toast';
-import { isRouteLive } from '@/lib/api/availability';
 import { api } from '@/lib/api/client';
 import { isMockData } from '@/lib/api/data-source';
 import { leadKeys } from '@/lib/leads/data';
@@ -58,7 +57,7 @@ export function useMyDay() {
   });
 }
 
-/** My recent calls (GET /calls?userId=me once the calls API ships; empty until then). */
+/** My recent calls (GET /calls?userId=me). */
 export function useRecentCalls() {
   const me = useMe()!;
   const mock = isMockData();
@@ -69,17 +68,41 @@ export function useRecentCalls() {
         await wait(300);
         return buildRecentCalls(me, Date.now());
       }
-      if (!isRouteLive('callList')) return [];
       return (await api.call('callList', { query: { userId: me.user.id, limit: 20 } })).items;
     },
     staleTime: 60_000,
   });
 }
 
-/** Calls per day this week (Mon..Sun) for My performance; zeros until the calls API ships. */
-export function weekCalls(me: NonNullable<ReturnType<typeof useMe>>): number[] {
-  return isMockData() ? buildWeekCalls(me) : Array.from({ length: 7 }, () => 0);
+/** Calls per day this week (Mon..Sun) for My performance (GET /calls?userId=me&from=Monday). */
+export function useWeekCalls(): number[] {
+  const me = useMe()!;
+  const mock = isMockData();
+  const q = useQuery({
+    queryKey: ['calls', 'mine', me.user.id, 'week'],
+    queryFn: async (): Promise<number[]> => {
+      if (mock) return buildWeekCalls(me);
+      const now = Date.now();
+      const monday = istDayStart(now) - istWeekday(now) * DAY_MS;
+      const week = Array.from({ length: 7 }, () => 0);
+      let cursor: string | undefined;
+      let seen = 0;
+      do {
+        const page = await api.call('callList', { query: { userId: me.user.id, from: new Date(monday).toISOString(), to: new Date(now).toISOString(), limit: 200, cursor } });
+        for (const c of page.items) {
+          const t = Date.parse(c.startedAt);
+          if (t >= monday && t <= now) week[Math.min(6, Math.floor((t - monday) / DAY_MS))]!++;
+        }
+        seen += page.items.length;
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor && seen < 2_000);
+      return week;
+    },
+    staleTime: 60_000,
+  });
+  return q.data ?? EMPTY_WEEK;
 }
+const EMPTY_WEEK = [0, 0, 0, 0, 0, 0, 0];
 
 /** "+91 98100 00003" */
 export function formatPhone(e164: string | null | undefined): string {

@@ -225,6 +225,19 @@ async function ensureToken(audience: Audience): Promise<void> {
 
 // ------------------------------------------------------------------ requests
 
+/**
+ * A valid access token for the realtime socket handshake (refreshes first when it is about to
+ * expire). Null when there is no session for the audience.
+ */
+export async function getFreshAccessToken(audience: Audience): Promise<string | null> {
+  try {
+    await ensureToken(audience);
+  } catch {
+    return null;
+  }
+  return getAccessTokenFor(audience);
+}
+
 const isPublic = (def: RouteDef) => def.auth === 'public' || def.auth === 'super_public' || def.auth === 'webhook';
 const isPlatformRoute = (def: RouteDef) => def.auth === 'super' || def.auth === 'super_public';
 

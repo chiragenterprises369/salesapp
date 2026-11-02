@@ -2,25 +2,22 @@
 
 import { formatDuration, formatInr } from '@vistar/shared';
 import { AlertCircle, BarChart3, RotateCw, Trophy } from 'lucide-react';
-import { useMemo } from 'react';
 import { RequirePermission } from '@/components/auth/require-permission';
 import { EmptyState } from '@/components/common/empty-state';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useMe } from '@/lib/session/session';
 import { TargetRings } from './targets';
 import { Section } from './today-view';
-import { useMyDay, weekCalls } from './use-my-day';
+import { useMyDay, useWeekCalls } from './use-my-day';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /** My performance: targets, this month's numbers, calls per day this week, and rank if the company shows it. */
 export function PerformanceView() {
-  const me = useMe()!;
   const query = useMyDay();
-  const week = useMemo(() => weekCalls(me), [me]);
+  const week = useWeekCalls();
   const max = Math.max(...week, 1);
 
   return (

@@ -110,7 +110,7 @@ export function restoreTask(id: string, previous: Patch | undefined) {
   const base = useTaskEdits.getState().bases[id];
   if (!base) return;
   void api
-    .call('taskUpdate', { params: { id }, body: { status: base.status, dueAt: base.dueAt } })
+    .call('taskUpdate', { params: { id }, body: { status: base.status, dueAt: base.dueAt ?? undefined } })
     .then(() => useTaskEdits.getState().set(id, undefined))
     .catch(() => undefined);
 }

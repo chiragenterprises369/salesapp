@@ -28,6 +28,7 @@ import { api, configureApiClient, refreshAccessToken, superApi, type SessionEndR
 import { isMockData } from '../api/data-source';
 import { clearAccessToken, decodeTokenClaims, getAccessTokenFor, setAccessToken, type Audience } from '../api/tokens';
 import { readMockDb } from '../mock-db';
+import { startRealtime } from '../realtime/client';
 import { MOCK_PERSONAS, mockMe, mockPlatformAdmin, type MockPersona } from './mock';
 
 /**
@@ -486,6 +487,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (prev.current && prev.current !== identity) qc.removeQueries();
     prev.current = identity;
   }, [identity, qc]);
+
+  // Realtime socket for workspace sessions in API mode (lib/realtime): cache invalidation from
+  // events, resync after reconnect and presence heartbeats (none for read-only support sessions).
+  const supportSession = useSessionStore((s) => !!s.impersonating);
+  useEffect(() => {
+    if (isMockData() || !identity?.startsWith('w:')) return;
+    const handle = startRealtime(qc, { heartbeat: !supportSession });
+    return () => handle.stop();
+  }, [identity, supportSession, qc]);
 
   // Signing out in another tab signs out here too (API mode).
   useEffect(() => {

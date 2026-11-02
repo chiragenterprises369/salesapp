@@ -1,6 +1,6 @@
 import { FEATURE_FLAGS, formatInr, formatNumber, type ChipTone, type Company, type FeatureFlag, type Plan, type WorkspaceStatus } from '@vistar/shared';
 import type { PlatformCompanyFixture } from '@vistar/shared/fixtures';
-import { isRouteLive } from '../api/availability';
+import { isRouteMissing } from '../api/availability';
 import { superApi } from '../api/client';
 import { world } from './world';
 
@@ -234,7 +234,7 @@ function apiCompanyRow(c: Company): PlatformRow {
       leads: formatNumber(c.usage.leads),
       created: date(c.createdAt),
     },
-    search: `    `.toLowerCase(),
+    search: `${c.name} ${c.slug} ${c.ownerEmail ?? ''} ${c.plan} ${c.status}`.toLowerCase(),
   };
 }
 
@@ -243,14 +243,20 @@ function apiCompanyRow(c: Company): PlatformRow {
  * (the table shows its empty state); nothing generated.
  */
 export async function apiPlatformRows(section: string): Promise<PlatformRow[]> {
-  if (section === 'companies' && isRouteLive('superCompanyList')) {
+  if (section === 'companies') {
     const rows: PlatformRow[] = [];
     let cursor: string | undefined;
-    do {
-      const page = await superApi.call('superCompanyList', { query: { cursor, limit: 100 } });
-      rows.push(...page.items.map(apiCompanyRow));
-      cursor = page.nextCursor ?? undefined;
-    } while (cursor && rows.length < 1000);
+    try {
+      do {
+        const page = await superApi.call('superCompanyList', { query: { cursor, limit: 100 } });
+        rows.push(...page.items.map(apiCompanyRow));
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor && rows.length < 1000);
+    } catch (e) {
+      // GET /api/super/companies ships with PLATFORM in this wave; an API without it lists nothing.
+      if (isRouteMissing(e)) return [];
+      throw e;
+    }
     return rows;
   }
   return [];

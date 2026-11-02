@@ -5,13 +5,16 @@
  * - It can be turned on only in builds made with `NEXT_PUBLIC_ALLOW_MOCK_DATA=1` (dev and test
  *   builds; production builds leave it unset) or `NEXT_PUBLIC_DATA_SOURCE=mock` (a mock-only build).
  * - At runtime a test picks it with `localStorage["vistar.dataSource"] = "mock"` before the first
- *   page script runs (Playwright `addInitScript`), so e2e suites need no separate build.
+ *   page script runs (Playwright `addInitScript`), so e2e suites need no separate build. A mock
+ *   persona in storage (`vistar.mock.persona`, what the existing mock e2e suites write) without an
+ *   explicit choice also selects mock; `"api"` always wins.
  *
  * The choice is read once per page load and never changes while the page is open.
  */
 export type DataSource = 'api' | 'mock';
 
 export const DATA_SOURCE_KEY = 'vistar.dataSource';
+const MOCK_PERSONA_KEY = 'vistar.mock.persona';
 
 export const MOCK_DATA_ALLOWED =
   process.env.NEXT_PUBLIC_ALLOW_MOCK_DATA === '1' || process.env.NEXT_PUBLIC_DATA_SOURCE === 'mock';
@@ -26,12 +29,15 @@ export function getDataSource(): DataSource {
   // Server render: no storage. Session-dependent UI renders on the client only.
   if (typeof window === 'undefined') return BUILD_DEFAULT;
   let stored: string | null = null;
+  let persona: string | null = null;
   try {
     stored = window.localStorage.getItem(DATA_SOURCE_KEY);
+    persona = window.localStorage.getItem(MOCK_PERSONA_KEY);
   } catch {
     stored = null;
   }
-  cached = stored === 'mock' || stored === 'api' ? stored : BUILD_DEFAULT;
+  // A mock persona without an explicit choice means a mock e2e suite (they predate the switch).
+  cached = stored === 'mock' || stored === 'api' ? stored : persona ? 'mock' : BUILD_DEFAULT;
   return cached;
 }
 

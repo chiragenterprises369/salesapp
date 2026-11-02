@@ -68,7 +68,7 @@ export function useLeadTaskMutations(lead: Pick<Lead, 'id'>) {
   return {
     create: useMutation({
       mutationFn: ({ title, dueAt }: { title: string; dueAt: string | null }) =>
-        api.call('taskCreate', { body: { title, dueAt, leadId: lead.id, type: 'todo' } }),
+        api.call('taskCreate', { body: { title, dueAt: dueAt ?? undefined, leadId: lead.id, type: 'todo' } }),
       onSuccess: refresh,
     }),
     setDone: useMutation({

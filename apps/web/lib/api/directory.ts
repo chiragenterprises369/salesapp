@@ -152,7 +152,7 @@ export function useTags() {
     queryFn: async (): Promise<Tag[]> => {
       if (mock) {
         noteMockUse('directory');
-        return TAGS.map((name, i) => ({ id: `0190f5a0-0000-7000-8000-9000000000`, name, color: null, usageCount: 0 }));
+        return TAGS.map((name, i) => ({ id: `0190f5a0-0000-7000-8000-9000000000${String(i).padStart(2, '0')}`, name, color: null, usageCount: 0 }));
       }
       return (await api.call('tagList')).items;
     },
