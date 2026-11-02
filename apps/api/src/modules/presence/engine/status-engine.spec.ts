@@ -657,3 +657,49 @@ describe('snapshot and events agree', () => {
     expect(totalEvents).toBeGreaterThan(300 * 20);
   });
 });
+
+describe('status engine: zone signals only inside working hours (D-063)', () => {
+  /** Monday 2026-11-02 21:30 IST (after the default 09:30-18:30 hours). */
+  const NIGHT = t('2026-11-02T16:00:00Z');
+  const qr = (at: number, zoneId: string | null = 'z-meeting') => ({ kind: 'explicit' as const, source: 'qr' as const, signalAt: at, zoneId, confidence: 1 });
+
+  it('a QR scan inside working hours sets the zone', () => {
+    const r = new Run();
+    r.beat(T0);
+    const res = r.feed({ type: 'zone', observations: [qr(T0 + S)] }, T0 + S);
+    expect(res.zoneChange).toMatchObject({ zoneId: 'z-meeting', previousZoneId: null });
+    expect(viewOf(r.state).zone?.zoneId).toBe('z-meeting');
+  });
+
+  it('a zone signal outside working hours is ignored and the heartbeat still counts', () => {
+    const r = new Run(office, NIGHT - MIN);
+    const beat = r.feed({ type: 'heartbeat', deviceId: 'android-1', client: 'android', activity: 'active', sessionId: 's1', at: NIGHT, zone: [qr(NIGHT)] }, NIGHT);
+    expect(r.status).toBe('available');
+    expect(beat.zoneChange).toBeNull();
+    expect(viewOf(r.state).zone).toBeNull();
+    const zone = r.feed({ type: 'zone', observations: [qr(NIGHT + S)] }, NIGHT + S);
+    expect(zone.zoneChange).toBeNull();
+    expect(viewOf(r.state).zone).toBeNull();
+  });
+
+  it('the zone is cleared at the end of the working window (sweeper deadline)', () => {
+    const r = new Run();
+    r.beat(T0);
+    r.feed({ type: 'zone', observations: [qr(T0 + S)] }, T0 + S);
+    // 18:30 IST = 13:00Z is the window end; the deadline includes it while a zone is set
+    const end = t('2026-11-02T13:00:00Z');
+    const deadline = nextDeadline(r.state, office, T0 + 2 * S);
+    expect(deadline).not.toBeNull();
+    expect(deadline!).toBeLessThanOrEqual(end);
+    // keep the user online and re-scan every 4 minutes; the zone holds until the window end, then it is gone
+    let now = T0 + 2 * S;
+    while (now < end + MIN) {
+      now += 30 * S;
+      r.beat(now);
+      if ((now - T0) % (4 * MIN) < 30 * S) r.feed({ type: 'zone', observations: [qr(now)] }, now);
+      if (now > end - 2 * MIN && now < end - MIN) expect(viewOf(r.state).zone?.zoneId).toBe('z-meeting');
+    }
+    expect(viewOf(r.state).zone).toBeNull();
+    expect(r.status).toBe('available');
+  });
+});

@@ -7,6 +7,8 @@ export const TENANT_TABLES = [
   'SavedView', 'File', 'ImportJob', 'Task', 'Call', 'Conversation', 'Message', 'Template', 'QuickReply', 'ConsentRecord', 'Workflow', 'WorkflowVersion', 'WorkflowRun',
   'WorkflowRunStep', 'Integration', 'WebhookEndpoint', 'WebhookDelivery', 'ApiKey', 'Notification', 'PushSubscription', 'AuditLog', 'Target', 'Setting', 'UsageCounter',
   'FeatureFlagOverride', 'ImpersonationSession', 'WorkspacePack', 'PackInstallLog',
+  // change #19 wave B
+  'Product', 'PriceList', 'Quotation', 'Invoice', 'Payment', 'Meeting', 'TimeOff', 'RoutingRule', 'CaptureForm', 'AttendanceSession', 'LocationPing',
 ] as const;
 
 export async function countRows(prisma: PrismaClient, companies: Array<{ id: string; label: string }>): Promise<Map<string, Map<string, number>>> {
