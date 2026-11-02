@@ -49,7 +49,7 @@ import { useCan, useMe } from '@/lib/session/session';
 import { cn } from '@/lib/cn';
 import { CustomFieldDisplay } from '../custom-field-display';
 import { CustomFieldsForm } from '../custom-fields-form';
-import { isNotFound, ObjectIcon, useObjectFields, USER_BY_ID } from './record-meta';
+import { isNotFound, ObjectIcon, useObjectFields, useUserById } from './record-meta';
 import { RecordDetailSkeleton, RecordsNotFound } from './record-states';
 import { RelatedRecords } from './related-records';
 
@@ -112,6 +112,7 @@ function RecordDetailBody({
   basePath: string;
   reload: () => Promise<CustomRecord | undefined>;
 }) {
+  const userById = useUserById();
   const router = useRouter();
   const canUpdate = useCan('records.update');
   const canDelete = useCan('records.delete');
@@ -310,7 +311,7 @@ function RecordDetailBody({
                       patch: { ownerId, expectedVersion: record.version },
                     });
                     if (editing) setEditing({ ...editing, version: saved.version });
-                    const name = ownerId ? (USER_BY_ID.get(ownerId)?.name ?? 'teammate') : null;
+                    const name = ownerId ? (userById.get(ownerId)?.name ?? 'teammate') : null;
                     toast.success(
                       name ? `${singular} assigned to ${name}` : `${singular} unassigned`,
                     );
@@ -393,9 +394,10 @@ function OwnerControl({
   saving: boolean;
   onChange: (ownerId: string | null) => Promise<void>;
 }) {
+  const userById = useUserById();
   const me = useMe();
   const users = useScopedUsers();
-  const owner = record.ownerId ? USER_BY_ID.get(record.ownerId) : null;
+  const owner = record.ownerId ? userById.get(record.ownerId) : null;
   const name = record.ownerId ? (owner?.name ?? 'Former teammate') : 'Unassigned';
   const shown = (
     <>

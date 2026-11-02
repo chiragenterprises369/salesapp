@@ -2,13 +2,16 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { formatInr, formatNumber, type MeResponse } from '@vistar/shared';
-import { createEventSimulator } from '@vistar/shared/fixtures';
+import { createEventSimulator, DAY_MS, istDayStart } from '@vistar/shared/fixtures';
 import { LayoutDashboard, Pause, Play } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
+import { api } from '@/lib/api/client';
+import { isMockData } from '@/lib/api/data-source';
+import { useTeams } from '@/lib/api/directory';
 import { useCan, useMe, useSessionStatus } from '@/lib/session/session';
 import { Select } from '@/components/leads/primitives/select';
 import { EmptyState, ErrorState } from '@/components/leads/states';
@@ -21,6 +24,7 @@ import { applyEvents, initLive, type LiveState } from './live';
 import { LiveFeed } from './live-feed';
 import {
   buildDashboard,
+  RANGE_DAYS,
   RANGE_LABEL,
   teamsFor,
   visibleUserIds,
@@ -47,7 +51,11 @@ const seconds = (n: number) => {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
 };
 
-/** Company dashboard (/app). Mock data + a local event simulator until the realtime stream lands. */
+/**
+ * Company dashboard (/app): GET /dashboard/summary (data scope applied by the API), refreshed by
+ * realtime events. The test-only mock data mode computes it from the mock world and runs a local
+ * event simulator.
+ */
 export function DashboardPage() {
   const status = useSessionStatus();
   const me = useMe();
@@ -72,8 +80,19 @@ export function DashboardPage() {
   return <Dashboard me={me} />;
 }
 
+function useDashboardTeams(me: MeResponse) {
+  const mock = isMockData();
+  const q = useTeams();
+  return useMemo(() => {
+    if (mock) return teamsFor(me);
+    const all = (q.data ?? []).map((t) => ({ id: t.id, name: t.name, memberIds: t.managerId ? [t.managerId, ...t.memberIds] : t.memberIds }));
+    return me.role.dataScope === 'all' ? all : all.filter((t) => t.memberIds.includes(me.user.id));
+  }, [mock, me, q.data]);
+}
+
 function Dashboard({ me }: { me: MeResponse }) {
-  const teams = teamsFor(me);
+  const mock = isMockData();
+  const teams = useDashboardTeams(me);
   const [range, setRange] = useState<DashboardRange>('today');
   const [teamId, setTeamId] = useState<string | null>(
     me.role.dataScope === 'all' ? null : (teams[0]?.id ?? null),
@@ -83,6 +102,11 @@ function Dashboard({ me }: { me: MeResponse }) {
   const query = useQuery({
     queryKey: ['dashboard', 'summary', { range, teamId, user: me.user.id }],
     queryFn: async () => {
+      if (!mock) {
+        const now = Date.now();
+        const from = range === 'today' ? istDayStart(now) : now - RANGE_DAYS[range] * DAY_MS;
+        return api.call('dashboardSummary', { query: { from: new Date(from).toISOString(), to: new Date(now).toISOString(), ...(teamId ? { teamId } : {}) } });
+      }
       await new Promise((r) => setTimeout(r, 450));
       return buildDashboard(me, range, teamId);
     },
@@ -154,7 +178,7 @@ function Dashboard({ me }: { me: MeResponse }) {
         <LiveDashboard
           key={`${range}:${teamId ?? 'all'}:${query.dataUpdatedAt}`}
           initial={query.data}
-          visible={visibleUserIds(me, teamId)}
+          visible={mock ? visibleUserIds(me, teamId) : null}
           paused={paused}
           range={range}
           refreshing={query.isFetching}
@@ -182,12 +206,13 @@ function LiveDashboard({
     initial,
     initLive,
   );
-  const [sim] = useState(() => createEventSimulator({ seed: 99 }));
+  // Mock data mode only; in API mode realtime events refresh the summary query instead.
+  const [sim] = useState(() => (isMockData() ? createEventSimulator({ seed: 99 }) : null));
   const w = useLeadWords();
 
-  // Simulated realtime stream (Wave 1). Skips ticks while paused or the tab is hidden.
+  // Simulated realtime stream (mock mode). Skips ticks while paused or the tab is hidden.
   useEffect(() => {
-    if (paused) return;
+    if (paused || !sim) return;
     const id = setInterval(() => {
       if (document.hidden) return;
       dispatch(sim.next());

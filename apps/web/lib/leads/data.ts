@@ -16,12 +16,15 @@ import type {
 } from '@vistar/shared';
 import { generateKeyBetween } from 'fractional-indexing';
 import { toast } from '@/components/ui/toast';
+import { isMockData } from '../api/data-source';
+import { httpLeadsSource } from './http-source';
 import { mockLeadsSource } from './mock-source';
 
 /**
  * ONE data layer for the Leads page (Board + Table share this cache). OWNER: orchestrator.
- * Wave 1 uses the in-memory mock source; Wave 3 swaps getLeadsSource() to the HTTP client
- * without changing any hook signature. Realtime events (Wave 3) patch these same query keys.
+ * The source is the HTTP API (lib/leads/http-source); the in-memory mock source is used only in the
+ * test-only mock data mode (lib/api/data-source). Hook signatures are the same for both, and
+ * realtime events patch these same query keys.
  */
 export interface LeadsSource {
   list(query: LeadListQuery): Promise<Page<LeadListItem>>;
@@ -36,7 +39,7 @@ export interface LeadsSource {
 }
 
 export function getLeadsSource(): LeadsSource {
-  return mockLeadsSource;
+  return isMockData() ? mockLeadsSource : httpLeadsSource;
 }
 
 export type LeadSort = Pick<LeadListQuery, 'sort' | 'dir'>;

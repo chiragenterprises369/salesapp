@@ -6,7 +6,6 @@ import {
   type FieldTarget,
   type LeadListItem,
 } from '@vistar/shared';
-import { mockUsers } from '@vistar/shared/fixtures';
 import { format } from 'date-fns';
 import { Check, Crosshair, Paperclip, X } from 'lucide-react';
 import { useDeferredValue, useMemo, useState, type ReactNode } from 'react';
@@ -17,6 +16,7 @@ import { Select } from '@/components/leads/primitives/select';
 import { useRecord, useRecords } from '@/lib/customization';
 import { useLead, useLeadsList } from '@/lib/leads/data';
 import { cn } from '@/lib/cn';
+import { useScopedUserList } from '@/lib/api/directory';
 import { configOf, groupIndian, relationTargetOf, shortId, type FieldDef } from './field-utils';
 import { Picker, type PickerOption } from './primitives/picker';
 import { Switch } from './primitives/switch';
@@ -467,8 +467,6 @@ function RemovableChip({
 
 // ---------------------------------------------------------------- user
 
-const ALL_USERS = mockUsers();
-
 function UserInput({
   def,
   value,
@@ -479,14 +477,15 @@ function UserInput({
   disabled,
   required,
 }: CustomFieldInputProps) {
+  const allUsers = useScopedUserList();
   const c = configOf({ type: 'user', config: def.config });
   const users = useMemo(
-    () => ALL_USERS.filter((u) => c.roleKinds.length === 0 || c.roleKinds.includes(u.role)),
-    [c.roleKinds],
+    () => allUsers.filter((u) => c.roleKinds.length === 0 || c.roleKinds.includes(u.role)),
+    [allUsers, c.roleKinds],
   );
   const ids = Array.isArray(value) ? value : typeof value === 'string' && value ? [value] : [];
   const nameOf = (uid: string) =>
-    ALL_USERS.find((u) => u.id === uid)?.name ?? `Former teammate ${shortId(uid)}`;
+    allUsers.find((u) => u.id === uid)?.name ?? `Former teammate ${shortId(uid)}`;
   const options: PickerOption[] = users.map((u) => ({
     value: u.id,
     label: u.name,

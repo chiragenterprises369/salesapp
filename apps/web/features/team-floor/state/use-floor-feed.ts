@@ -4,13 +4,15 @@ import type { DomainEvent, TeamFloorSnapshot } from '@vistar/shared';
 import { createEventSimulator, mockTeamFloorSnapshot } from '@vistar/shared/fixtures';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { floorRootReducer, initialFloorState } from './reducer';
+import { isMockData } from '@/lib/api/data-source';
+import { createApiFloorSource } from '@/lib/realtime/floor-source';
 import { withStressEmployees } from './stress';
 import { loadTemplate, resolveTemplateId, type FloorTemplate, type TemplateId } from './template';
 import type { FloorAction, FloorState } from './types';
 
 /**
- * Data source for the floor. Wave 1: mock snapshot + event simulator. Wave 3: replace
- * `createMockFloorSource` with GET /team-floor/snapshot + the realtime socket (same events).
+ * Data source for the floor: GET /team-floor/snapshot + the realtime socket in API mode
+ * (lib/realtime/floor-source), the mock snapshot + event simulator in the test-only mock mode.
  */
 export interface FloorSource {
   load(): Promise<TeamFloorSnapshot>;
@@ -83,11 +85,15 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
   const seen = useRef<{ set: Set<string>; order: string[] }>({ set: new Set(), order: [] });
 
   useEffect(() => {
-    const source = createMockFloorSource({ stress });
+    // API mode: GET /team-floor/snapshot + the realtime socket (lib/realtime); mock mode (tests,
+    // dev stress): the mock snapshot and event simulator.
+    const api = !isMockData() && stress === 0 ? createApiFloorSource() : null;
+    const source: FloorSource = api ?? createMockFloorSource({ stress });
     // Dev stress mode pads the whole workspace with synthetic people, so the team scope is lifted.
     const userIds = scopeKey === '*' || stress > 0 ? null : scopeKey.split(',').filter(Boolean);
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
+    let loaded: FloorTemplate | null = null;
 
     const accept = (events: DomainEvent[]) => {
       const fresh: DomainEvent[] = [];
@@ -115,6 +121,7 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
         const people = scope ? snapshot.employees.filter((e) => scope.has(e.user.id)).length : snapshot.employees.length;
         const tpl = await loadTemplate(resolveTemplateId(people, templateOverride));
         if (cancelled) return;
+        loaded = tpl;
         setTemplate(tpl);
         dispatch({ kind: 'reset', state: initialFloorState(snapshot, { userIds, template: tpl }) });
         setStatus('ready');
@@ -125,9 +132,19 @@ export function useFloorFeed(opts: { userIds?: readonly string[] | null; stress?
       });
 
     const pruneTimer = setInterval(() => dispatch({ kind: 'prune', now: Date.now() }), 1000);
+    // After a socket reconnect, reload the snapshot (events missed while offline).
+    const offResync = api?.onResync(() => {
+      void api
+        .load()
+        .then((snapshot) => {
+          if (!cancelled && loaded) dispatch({ kind: 'reset', state: initialFloorState(snapshot, { userIds, template: loaded }) });
+        })
+        .catch(() => undefined);
+    });
     return () => {
       cancelled = true;
       unsubscribe?.();
+      offResync?.();
       clearInterval(pruneTimer);
     };
   }, [scopeKey, stress, templateOverride, attempt]);

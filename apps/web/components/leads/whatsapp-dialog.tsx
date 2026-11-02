@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/cn';
 import { useMe } from '@/lib/session/session';
+import { isMockData } from '@/lib/api/data-source';
 import { firstName, formatPhone } from './lead-meta';
 
 /** Stable mock ids for the fixture templates (API: WhatsAppTemplate.id). */
@@ -67,11 +68,14 @@ export function WhatsAppDialog({
   onSend,
 }: WhatsAppDialogProps) {
   const me = useMe();
-  const [templateId, setTemplateId] = useState(WHATSAPP_TEMPLATES[0]!.id);
-  const template = WHATSAPP_TEMPLATES.find((t) => t.id === templateId) ?? WHATSAPP_TEMPLATES[0]!;
+  // Approved templates come from the WhatsApp integration (GET /templates), which is not connected
+  // yet; only the test-only mock data mode has sample templates.
+  const templates = isMockData() ? WHATSAPP_TEMPLATES : [];
+  const [templateId, setTemplateId] = useState(templates[0]?.id ?? '');
+  const template = templates.find((t) => t.id === templateId) ?? templates[0];
   const total = count ?? leads.length;
   const single = total === 1 ? leads[0] : null;
-  const preview = renderTemplate(template, leads[0] ?? null, me?.workspace.name ?? 'our team');
+  const preview = template ? renderTemplate(template, leads[0] ?? null, me?.workspace.name ?? 'our team') : '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -86,6 +90,13 @@ export function WhatsAppDialog({
               : 'Variables are filled for each lead. Leads without a phone number or WhatsApp consent are skipped.'}
           </DialogDescription>
         </DialogHeader>
+        {!template ? (
+          <DialogBody>
+            <p className="py-6 text-center text-sm text-muted-strong">
+              WhatsApp is not connected yet. Once a company admin connects WhatsApp Business in Integrations, approved templates appear here.
+            </p>
+          </DialogBody>
+        ) : (
         <DialogBody className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <RadioGroup.Root
             value={templateId}
@@ -94,7 +105,7 @@ export function WhatsAppDialog({
             className="flex flex-col gap-1.5"
             loop
           >
-            {WHATSAPP_TEMPLATES.map((t) => (
+            {templates.map((t) => (
               <RadioGroup.Item
                 key={t.id}
                 value={t.id}
@@ -148,11 +159,12 @@ export function WhatsAppDialog({
             )}
           </div>
         </DialogBody>
+        )}
         <DialogFooter>
           <DialogClose asChild>
             <Button>Cancel</Button>
           </DialogClose>
-          <Button variant="primary" loading={sending} onClick={() => void onSend(template)}>
+          <Button variant="primary" loading={sending} disabled={!template} onClick={() => template && void onSend(template)}>
             <MessageCircle aria-hidden />
             {single ? 'Send template' : `Send to ${total} leads`}
           </Button>

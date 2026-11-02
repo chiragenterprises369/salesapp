@@ -1,7 +1,7 @@
 'use client';
 
 import { formatNumber, type AuditLog, type ChipTone } from '@vistar/shared';
-import { TAGS, WHATSAPP_TEMPLATE_FIXTURES } from '@vistar/shared/fixtures';
+import { WHATSAPP_TEMPLATE_FIXTURES } from '@vistar/shared/fixtures';
 import { ImageUp, Route, ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import { columnClass, DataTable, type DataColumn } from '@/components/common/data-table';
@@ -11,6 +11,8 @@ import { Chip } from '@/components/ui/chip';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { useMe } from '@/lib/session/session';
 import { useAuditLog } from '@/lib/world/hooks';
+import { useTags } from '@/lib/api/directory';
+import { isMockData } from '@/lib/api/data-source';
 import { SettingsCard } from './settings-card';
 
 /**
@@ -45,18 +47,24 @@ export function BrandingSettings() {
 }
 
 export function TagsSettings() {
+  const tags = useTags();
+  const list = tags.data ?? [];
   return (
     <SettingsCard title="Tags in use" description="Tags group leads across stages, for example export buyers or tender enquiries.">
       <div className="mb-3">
         <ViewOnly />
       </div>
-      <ul className="flex flex-wrap gap-2" aria-label="Tags">
-        {TAGS.map((t) => (
-          <li key={t}>
-            <Chip size="md">{t}</Chip>
-          </li>
-        ))}
-      </ul>
+      {!tags.isPending && list.length === 0 ? (
+        <p className="text-sm text-muted-strong">{tags.isError ? 'Tags did not load. Reload the page to try again.' : 'No tags yet. Add a tag to a lead and it shows up here.'}</p>
+      ) : (
+        <ul className="flex flex-wrap gap-2" aria-label="Tags">
+          {list.map((t) => (
+            <li key={t.id}>
+              <Chip size="md">{t.name}</Chip>
+            </li>
+          ))}
+        </ul>
+      )}
     </SettingsCard>
   );
 }
@@ -69,13 +77,15 @@ const TEMPLATE_COLUMNS: DataColumn[] = [
 ];
 
 export function TemplatesSettings() {
+  // Approved templates come from WhatsApp Business (GET /templates), which is not connected yet.
+  const templates = isMockData() ? WHATSAPP_TEMPLATE_FIXTURES : [];
   return (
     <>
       <div>
         <ViewOnly />
       </div>
-      <DataTable label="WhatsApp templates" columns={TEMPLATE_COLUMNS} status="ready" empty={{ title: 'No templates' }}>
-        {WHATSAPP_TEMPLATE_FIXTURES.map((t) => (
+      <DataTable label="WhatsApp templates" columns={TEMPLATE_COLUMNS} status={templates.length ? 'ready' : 'empty'} empty={{ title: 'No templates yet' }}>
+        {templates.map((t) => (
           <TableRow key={t.name}>
             <TableCell className="font-mono text-xs">{t.name}</TableCell>
             <TableCell className="text-fg-secondary">{t.category === 'marketing' ? 'Marketing' : 'Utility'}</TableCell>

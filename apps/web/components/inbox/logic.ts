@@ -88,7 +88,10 @@ export function applyEdits(c: Conversation, e: InboxEdits): Conversation {
 
 export function threadWithEdits(messages: readonly Message[], conversationId: string, e: InboxEdits): Message[] {
   const extra = e.sent[conversationId];
-  return extra?.length ? [...messages, ...extra] : [...messages];
+  if (!extra?.length) return [...messages];
+  // A sent message the server list already holds (API mode refetch) shows once.
+  const ids = new Set(messages.map((m) => m.id));
+  return [...messages, ...extra.filter((m) => !ids.has(m.id))];
 }
 
 // ---------------------------------------------------------------- 24 h window
