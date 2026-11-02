@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../json.dart';
 import 'lead.dart';
 import 'task.dart';
@@ -109,7 +111,9 @@ class MyToday {
       );
 }
 
-/// Team Floor: one person on the plan.
+// ---------------------------------------------------------------- Team Floor
+
+/// Team Floor: one person (TeamFloorEmployee with the change #19 `presence`).
 class FloorPerson {
   const FloorPerson({
     required this.user,
@@ -122,6 +126,13 @@ class FloorPerson {
     this.targetPct,
     this.lastSeenAt,
     this.seatId,
+    this.version = 0,
+    this.source,
+    this.since,
+    this.zone,
+    this.activity = const PresenceActivity(),
+    this.isFieldStaff = false,
+    this.checkedIn = false,
   });
 
   final UserSummary user;
@@ -135,224 +146,484 @@ class FloorPerson {
   final DateTime? lastSeenAt;
   final String? seatId;
 
+  /// Presence.version; events at or below it are stale and ignored.
+  final int version;
+  final String? source;
+  final DateTime? since;
+
+  /// Room or zone in the office (BLE, Wi-Fi, QR, NFC or manual), null when unknown.
+  final ZoneLocation? zone;
+  final PresenceActivity activity;
+  final bool isFieldStaff;
+  final bool checkedIn;
+
   static FloorPerson parse(Json j) {
     final call = obj(j['activeCall']);
+    final p = obj(j['presence']);
+    final activity = PresenceActivity.parse(p['activity']);
     return FloorPerson(
       user: UserSummary.parse(obj(j['user'])),
-      status: PresenceStatus.parse(j['status']),
+      status: PresenceStatus.best(p['status'], j['status']),
       deskIndex: toInt(j['deskIndex']),
-      currentLeadName: strOrNull(j['currentLeadName']) ?? strOrNull(call['leadName']),
-      activeCallStartedAt: date(call['startedAt']),
+      currentLeadName: strOrNull(j['currentLeadName']) ?? strOrNull(call['leadName']) ?? activity.leadName,
+      activeCallStartedAt: date(call['startedAt']) ?? activity.callStartedAt,
       callsToday: toInt(j['callsToday']),
       avgTalkSec: toInt(j['avgTalkSec']),
       targetPct: toDoubleOrNull(j['targetPct']),
-      lastSeenAt: date(j['lastSeenAt']),
-      seatId: strOrNull(j['seatId']),
+      lastSeenAt: date(p['lastSeenAt']) ?? date(j['lastSeenAt']),
+      seatId: strOrNull(p['seatId']) ?? strOrNull(j['seatId']),
+      version: toInt(p['version']),
+      source: strOrNull(p['source']),
+      since: date(p['since']),
+      zone: ZoneLocation.parse(p['location']),
+      activity: activity,
+      isFieldStaff: toBool(p['isFieldStaff']),
+      checkedIn: toBool(p['checkedIn']),
     );
   }
 
-  FloorPerson withStatus(PresenceStatus s) => FloorPerson(
-        user: user,
-        status: s,
-        deskIndex: deskIndex,
-        currentLeadName: s == PresenceStatus.onCall ? currentLeadName : null,
-        activeCallStartedAt: s == PresenceStatus.onCall ? (activeCallStartedAt ?? DateTime.now().toUtc()) : null,
-        callsToday: callsToday,
-        avgTalkSec: avgTalkSec,
-        targetPct: targetPct,
-        lastSeenAt: lastSeenAt,
-        seatId: seatId,
-      );
+  FloorPerson copyWith({PresenceStatus? status, int? version, ZoneLocation? zone, bool clearZone = false, String? leadName, DateTime? callStartedAt, PresenceActivity? activity, DateTime? since}) {
+    final s = status ?? this.status;
+    return FloorPerson(
+      user: user,
+      status: s,
+      deskIndex: deskIndex,
+      currentLeadName: s == PresenceStatus.onCall ? (leadName ?? currentLeadName) : null,
+      activeCallStartedAt: s == PresenceStatus.onCall ? (callStartedAt ?? activeCallStartedAt ?? DateTime.now().toUtc()) : null,
+      callsToday: callsToday,
+      avgTalkSec: avgTalkSec,
+      targetPct: targetPct,
+      lastSeenAt: lastSeenAt,
+      seatId: seatId,
+      version: version ?? this.version,
+      source: source,
+      since: since ?? this.since,
+      zone: clearZone ? null : (zone ?? this.zone),
+      activity: activity ?? this.activity,
+      isFieldStaff: isFieldStaff,
+      checkedIn: checkedIn,
+    );
+  }
 }
 
-/// A zone on the flat plan, in plan units (0..1 of the plan width/height).
-class FloorZone {
-  const FloorZone({required this.id, required this.kind, required this.label, required this.x, required this.y, required this.w, required this.h});
-  final String id;
-  final String kind; // work | cabin | meeting | reception | pantry | lounge
-  final String label;
-  final double x, y, w, h;
+/// A plan point, normalised to 0..1 of the plan width (x) and depth (y).
+class PlanPoint {
+  const PlanPoint(this.x, this.y);
+  final double x;
+  final double y;
+}
 
-  static FloorZone parse(Json j) => FloorZone(
-        id: str(j['id']),
-        kind: str(j['kind'], 'work'),
-        label: str(j['label'] ?? j['name']),
-        x: toDoubleOrNull(j['x']) ?? 0,
-        y: toDoubleOrNull(j['y']) ?? 0,
-        w: toDoubleOrNull(j['w'] ?? j['width']) ?? 0.2,
-        h: toDoubleOrNull(j['h'] ?? j['height']) ?? 0.2,
-      );
+/// A room or zone on the flat plan.
+class FloorZone {
+  const FloorZone({required this.id, required this.kind, required this.label, required this.polygon});
+  final String id;
+
+  /// work | cabin | meeting | reception | pantry | other
+  final String kind;
+  final String label;
+  final List<PlanPoint> polygon;
+
+  double get minX => polygon.map((p) => p.x).reduce(math.min);
+  double get minY => polygon.map((p) => p.y).reduce(math.min);
+
+  static String normaliseKind(String k) => switch (k) {
+        'work_area' || 'work' => 'work',
+        'cabin' => 'cabin',
+        'meeting_room' || 'meeting' => 'meeting',
+        'reception' => 'reception',
+        'pantry_lounge' || 'pantry' || 'lounge' => 'pantry',
+        _ => 'other',
+      };
 }
 
 class FloorSeat {
-  const FloorSeat({required this.id, required this.index, required this.x, required this.y, this.zoneId, this.userId});
+  const FloorSeat({required this.id, required this.index, required this.x, required this.y, this.zoneId, this.userId, this.kind = 'desk', this.label});
   final String id;
+
+  /// Desk order (seats without a fixed person are filled in this order).
   final int index;
   final double x, y;
   final String? zoneId;
   final String? userId;
 
-  static FloorSeat parse(Json j) => FloorSeat(
-        id: str(j['id']),
-        index: toInt(j['index'] ?? j['deskIndex']),
-        x: toDoubleOrNull(j['x']) ?? 0,
-        y: toDoubleOrNull(j['y']) ?? 0,
-        zoneId: strOrNull(j['zoneId']),
-        userId: strOrNull(j['userId']),
-      );
+  /// desk | cabin | meeting | lounge | reception
+  final String kind;
+  final String? label;
 }
 
-/// The published floor of the company (seat map placed by the Super Admin on the AI-made file,
-/// SPEC 29.5) or the default template. The app draws it flat.
+/// The company's floor drawn flat: the published seat map of the custom floor (from the
+/// AI-made file the Super Admin uploaded, SPEC 29.5 and 29.11) or the default template.
 class FloorPlan {
-  const FloorPlan({required this.source, required this.name, required this.aspect, required this.zones, required this.seats, this.preparing = false});
+  const FloorPlan({required this.source, required this.name, required this.aspect, required this.zones, required this.seats, this.preparing = false, this.requestStatus, this.version});
 
-  /// published | template
+  /// custom | template
   final String source;
   final String name;
 
-  /// width / height of the plan.
+  /// width / depth of the plan.
   final double aspect;
   final List<FloorZone> zones;
   final List<FloorSeat> seats;
 
   /// A custom floor was requested and is being prepared (shows the note).
   final bool preparing;
+  final String? requestStatus;
+  final int? version;
 
-  bool get isPublished => source == 'published';
+  bool get isPublished => source == 'custom';
 
-  static FloorPlan parse(Json j) => FloorPlan(
-        source: str(j['source'], 'template'),
-        name: str(j['name'], 'Sales floor'),
-        aspect: toDoubleOrNull(j['aspect']) ?? 1.4,
-        zones: listOf(j['zones'], FloorZone.parse),
-        seats: listOf(j['seats'], FloorSeat.parse),
-        preparing: toBool(j['preparing']) || str(j['requestStatus']) == 'in_progress',
+  FloorZone? zone(String? id) => id == null ? null : zones.where((z) => z.id == id).firstOrNull;
+
+  /// The seat of [person]: the server's seatId, else the person's desk index in desk order.
+  FloorSeat? seatFor(FloorPerson person, {Set<String> taken = const {}}) {
+    if (person.seatId != null) {
+      final s = seats.where((x) => x.id == person.seatId).firstOrNull;
+      if (s != null) return s;
+    }
+    final fixed = seats.where((x) => x.userId == person.user.id).firstOrNull;
+    if (fixed != null) return fixed;
+    final desks = seats.where((x) => x.userId == null && !taken.contains(x.id)).toList()..sort((a, b) => a.index.compareTo(b.index));
+    return person.deskIndex >= 0 && person.deskIndex < desks.length ? desks[person.deskIndex] : null;
+  }
+
+  /// GET /team-floor/layout (TeamFloorLayoutSchema): seat map in metres, x/z on the floor.
+  static FloorPlan fromLayout(Json j, {Json? template}) {
+    final req = obj(j['request']);
+    final reqStatus = strOrNull(req['status']);
+    final preparing = reqStatus == 'submitted' || reqStatus == 'in_progress';
+    final floor = obj(j['floor']);
+    final seatMap = obj(floor['seatMap']);
+    if (str(j['source']) != 'custom' || listOf(seatMap['seats'], (s) => s).isEmpty) {
+      final t = FloorPlan.fromTemplate(template ?? const {});
+      return FloorPlan(source: 'template', name: t.name, aspect: t.aspect, zones: t.zones, seats: t.seats, preparing: preparing, requestStatus: reqStatus);
+    }
+    return FloorPlan.fromSeatMap(seatMap, name: 'Your office', version: toIntOrNull(floor['version'] ?? j['version']), requestStatus: reqStatus);
+  }
+
+  /// SeatMapSchema: seats `position [x, y, z]`, zones `polygon [[x, z], ...]` in metres.
+  static FloorPlan fromSeatMap(Json m, {String name = 'Your office', int? version, String? requestStatus}) {
+    final rawSeats = listOf(m['seats'], (s) => s);
+    final rawZones = listOf(m['zones'], (z) => z);
+    final xs = <double>[];
+    final ys = <double>[];
+    List<double> vec(Object? v) => v is List ? v.map((e) => toDoubleOrNull(e) ?? 0).toList() : const [];
+    for (final s in rawSeats) {
+      final p = vec(s['position']);
+      if (p.length >= 3) {
+        xs.add(p[0]);
+        ys.add(p[2]);
+      }
+    }
+    for (final z in rawZones) {
+      for (final pt in (z['polygon'] is List ? z['polygon'] as List : const [])) {
+        final p = vec(pt);
+        if (p.length >= 2) {
+          xs.add(p[0]);
+          ys.add(p[1]);
+        }
+      }
+    }
+    if (xs.isEmpty) return FloorPlan.fromTemplate(const {});
+    const margin = 0.6;
+    final minX = xs.reduce(math.min) - margin, maxX = xs.reduce(math.max) + margin;
+    final minY = ys.reduce(math.min) - margin, maxY = ys.reduce(math.max) + margin;
+    final w = math.max(maxX - minX, 1.0), h = math.max(maxY - minY, 1.0);
+    PlanPoint norm(double x, double y) => PlanPoint((x - minX) / w, (y - minY) / h);
+    final zones = [
+      for (final z in rawZones)
+        FloorZone(
+          id: str(z['id']),
+          kind: FloorZone.normaliseKind(str(z['kind'], 'other')),
+          label: str(z['name'] ?? z['label']),
+          polygon: [for (final pt in (z['polygon'] as List? ?? const [])) if (vec(pt).length >= 2) norm(vec(pt)[0], vec(pt)[1])],
+        ),
+    ].where((z) => z.polygon.length >= 3).toList();
+    var i = 0;
+    final seats = [
+      for (final s in rawSeats)
+        if (vec(s['position']).length >= 3)
+          FloorSeat(
+            id: str(s['id']),
+            index: i++,
+            x: norm(vec(s['position'])[0], vec(s['position'])[2]).x,
+            y: norm(vec(s['position'])[0], vec(s['position'])[2]).y,
+            zoneId: strOrNull(s['zoneId']),
+            userId: strOrNull(s['assignedUserId']),
+            kind: str(s['kind'], 'desk'),
+            label: strOrNull(s['label']),
+          ),
+    ];
+    return FloorPlan(source: 'custom', name: name, aspect: (w / h).clamp(0.5, 3.0), zones: zones, seats: seats, version: version, requestStatus: requestStatus);
+  }
+
+  /// The app's flattened default template: zones as rectangles (x, y, w, h in 0..1).
+  static FloorPlan fromTemplate(Json j) {
+    final zones = listOf(j['zones'], (z) {
+      final x = toDoubleOrNull(z['x']) ?? 0, y = toDoubleOrNull(z['y']) ?? 0, w = toDoubleOrNull(z['w']) ?? 0.2, h = toDoubleOrNull(z['h']) ?? 0.2;
+      return FloorZone(
+        id: str(z['id']),
+        kind: FloorZone.normaliseKind(str(z['kind'], 'work')),
+        label: str(z['label'] ?? z['name']),
+        polygon: [PlanPoint(x, y), PlanPoint(x + w, y), PlanPoint(x + w, y + h), PlanPoint(x, y + h)],
       );
+    });
+    final seats = listOf(j['seats'], (s) => FloorSeat(
+          id: str(s['id']),
+          index: toInt(s['index']),
+          x: toDoubleOrNull(s['x']) ?? 0,
+          y: toDoubleOrNull(s['y']) ?? 0,
+          zoneId: strOrNull(s['zoneId']),
+          kind: str(s['kind'], 'desk'),
+        ));
+    return FloorPlan(source: 'template', name: str(j['name'], 'Sales floor'), aspect: toDoubleOrNull(j['aspect']) ?? 1.25, zones: zones, seats: seats, preparing: toBool(j['preparing']));
+  }
 }
 
 class TeamFloorSnapshot {
-  const TeamFloorSnapshot({required this.people, required this.kpis, required this.generatedAt});
+  const TeamFloorSnapshot({required this.people, required this.kpis, required this.generatedAt, this.presenceCounts = const {}, this.floorVersion});
   final List<FloorPerson> people;
   final Map<String, int> kpis;
+  final Map<String, int> presenceCounts;
   final DateTime generatedAt;
+  final int? floorVersion;
+
+  int get available => presenceCounts['available'] ?? people.where((p) => p.status == PresenceStatus.available).length;
+  int get onCall => presenceCounts['on_call'] ?? people.where((p) => p.status == PresenceStatus.onCall).length;
+  int get active => people.where((p) => p.status != PresenceStatus.offline).length;
 
   static TeamFloorSnapshot parse(Json j) => TeamFloorSnapshot(
         people: listOf(j['employees'], FloorPerson.parse),
         kpis: obj(j['kpis']).map((k, v) => MapEntry(k, toInt(v))),
+        presenceCounts: obj(j['presenceCounts']).map((k, v) => MapEntry(k, toInt(v))),
         generatedAt: date(j['generatedAt']) ?? DateTime.now().toUtc(),
+        floorVersion: toIntOrNull(obj(j['floor'])['version']),
       );
 
-  TeamFloorSnapshot applyStatus(String userId, PresenceStatus status) => TeamFloorSnapshot(
-        people: [for (final p in people) p.user.id == userId ? p.withStatus(status) : p],
-        kpis: kpis,
-        generatedAt: generatedAt,
-      );
+  TeamFloorSnapshot _with(List<FloorPerson> people) =>
+      TeamFloorSnapshot(people: people, kpis: kpis, generatedAt: generatedAt, floorVersion: floorVersion);
+
+  /// employee.status_changed. Events whose version is not above the one held are dropped (b302671).
+  TeamFloorSnapshot applyStatus(String userId, PresenceStatus status, {int? version, String? leadName, DateTime? at, PresenceActivity? activity}) => _with([
+        for (final p in people)
+          if (p.user.id == userId && (version == null || version > p.version))
+            p.copyWith(status: status, version: version, leadName: leadName, callStartedAt: status == PresenceStatus.onCall ? at : null, activity: activity, since: at)
+          else
+            p,
+      ]);
+
+  /// employee.zone_changed.
+  TeamFloorSnapshot applyZone(String userId, ZoneLocation? zone) => _with([
+        for (final p in people)
+          if (p.user.id == userId) p.copyWith(zone: zone, clearZone: zone == null || zone.zoneId == null) else p,
+      ]);
 }
 
+// ---------------------------------------------------------------- Attendance
+
+class GeoPoint {
+  const GeoPoint(this.lat, this.lng, [this.accuracy]);
+  final double lat;
+  final double lng;
+  final double? accuracy;
+
+  static GeoPoint? parse(Object? raw) {
+    if (raw is! Map) return null;
+    final j = obj(raw);
+    final lat = toDoubleOrNull(j['lat']);
+    final lng = toDoubleOrNull(j['lng']);
+    return lat == null || lng == null ? null : GeoPoint(lat, lng, toDoubleOrNull(j['accuracy']));
+  }
+}
+
+/// AttendanceSessionSchema.
 class AttendanceSession {
-  const AttendanceSession({required this.id, required this.checkInAt, this.checkOutAt, this.checkInLat, this.checkInLng, this.checkOutLat, this.checkOutLng, this.address});
+  const AttendanceSession({required this.id, required this.checkInAt, this.checkOutAt, this.checkIn, this.checkOut, this.checkOutReason, this.workedMin = 0, this.pointCount = 0});
   final String id;
   final DateTime checkInAt;
   final DateTime? checkOutAt;
-  final double? checkInLat, checkInLng, checkOutLat, checkOutLng;
-  final String? address;
+  final GeoPoint? checkIn;
+  final GeoPoint? checkOut;
+
+  /// manual | end_of_day | admin
+  final String? checkOutReason;
+  final int workedMin;
+  final int pointCount;
 
   bool get open => checkOutAt == null;
 
   Duration duration(DateTime now) => (checkOutAt ?? now).difference(checkInAt);
 
-  static AttendanceSession parse(Json j) {
-    final inLoc = obj(j['checkInLocation']);
-    final outLoc = obj(j['checkOutLocation']);
-    return AttendanceSession(
-      id: str(j['id']),
-      checkInAt: date(j['checkInAt']) ?? DateTime.now().toUtc(),
-      checkOutAt: date(j['checkOutAt']),
-      checkInLat: toDoubleOrNull(j['checkInLat'] ?? inLoc['lat']),
-      checkInLng: toDoubleOrNull(j['checkInLng'] ?? inLoc['lng']),
-      checkOutLat: toDoubleOrNull(j['checkOutLat'] ?? outLoc['lat']),
-      checkOutLng: toDoubleOrNull(j['checkOutLng'] ?? outLoc['lng']),
-      address: strOrNull(j['address']),
-    );
-  }
+  String? get closedNote => switch (checkOutReason) {
+        'end_of_day' => 'Closed at the end of working hours',
+        'admin' => 'Closed by your admin',
+        _ => null,
+      };
+
+  static AttendanceSession parse(Json j) => AttendanceSession(
+        id: str(j['id']),
+        checkInAt: date(j['checkInAt']) ?? DateTime.now().toUtc(),
+        checkOutAt: date(j['checkOutAt']),
+        checkIn: GeoPoint.parse(j['checkIn']),
+        checkOut: GeoPoint.parse(j['checkOut']),
+        checkOutReason: strOrNull(j['checkOutReason']),
+        workedMin: toInt(j['workedMin']),
+        pointCount: toInt(j['pointCount']),
+      );
 }
 
 class LocationFix {
-  const LocationFix({required this.lat, required this.lng, required this.accuracy, required this.at, this.speed, this.battery});
+  const LocationFix({required this.lat, required this.lng, required this.accuracy, required this.at, this.speed, this.heading, this.battery, this.isMock = false});
   final double lat;
   final double lng;
   final double accuracy;
   final DateTime at;
   final double? speed;
+  final double? heading;
   final int? battery;
+  final bool isMock;
 
+  /// One point of LocationBatchSchema.
   Json toJson() => {
         'lat': lat,
         'lng': lng,
-        'accuracyM': accuracy,
-        'recordedAt': iso(at),
-        if (speed != null) 'speedMps': speed,
-        if (battery != null) 'batteryPct': battery,
+        'accuracy': accuracy,
+        'at': iso(at),
+        'speed': ?speed,
+        'heading': ?heading,
+        'battery': ?battery,
+        if (isMock) 'isMock': true,
       };
 
   static LocationFix parse(Json j) => LocationFix(
         lat: toDoubleOrNull(j['lat']) ?? 0,
         lng: toDoubleOrNull(j['lng']) ?? 0,
-        accuracy: toDoubleOrNull(j['accuracyM'] ?? j['accuracy']) ?? 0,
-        at: date(j['recordedAt'] ?? j['at']) ?? DateTime.now().toUtc(),
-        speed: toDoubleOrNull(j['speedMps']),
-        battery: toIntOrNull(j['batteryPct']),
+        accuracy: toDoubleOrNull(j['accuracy']) ?? 0,
+        at: date(j['at']) ?? DateTime.now().toUtc(),
+        speed: toDoubleOrNull(j['speed']),
+        heading: toDoubleOrNull(j['heading']),
+        battery: toIntOrNull(j['battery']),
+        isMock: toBool(j['isMock']),
       );
 }
 
+/// GET /me/attendance/today (MyAttendanceTodaySchema) plus this phone's own trail of today.
 class AttendanceDay {
-  const AttendanceDay({required this.sessions, required this.fieldStaff, required this.consentGiven, this.trail = const []});
+  const AttendanceDay({
+    required this.sessions,
+    required this.fieldStaff,
+    required this.consentGiven,
+    this.consentVersion,
+    this.currentConsentVersion = '2026-11-v1',
+    this.trackingEnabled = true,
+    this.insideWorkingHours = true,
+    this.trackingActive = false,
+    this.locationIntervalSec = 120,
+    this.workingHours = const [],
+    this.trail = const [],
+  });
+
   final List<AttendanceSession> sessions;
   final bool fieldStaff;
+
+  /// Consent accepted for the current version (TRACKING_CONSENT_VERSION).
   final bool consentGiven;
+  final String? consentVersion;
+  final String currentConsentVersion;
+
+  /// Feature flag `field_tracking` for the company.
+  final bool trackingEnabled;
+  final bool insideWorkingHours;
+
+  /// Server says location updates are accepted right now (checked in, in hours, consent).
+  final bool trackingActive;
+  final int locationIntervalSec;
+  final List<TimeSlot> workingHours;
+
+  /// Points recorded on this phone today (the server keeps the full route).
   final List<LocationFix> trail;
 
   AttendanceSession? get openSession => sessions.where((s) => s.open).firstOrNull;
   bool get checkedIn => openSession != null;
+  int get pointCount => sessions.fold(0, (s, x) => s + x.pointCount);
 
   Duration total(DateTime now) => sessions.fold(Duration.zero, (sum, s) => sum + s.duration(now));
 
-  static AttendanceDay parse(Json j) => AttendanceDay(
-        sessions: listOf(j['sessions'], AttendanceSession.parse),
-        fieldStaff: toBool(j['fieldStaff'], true),
-        consentGiven: toBool(j['consentGiven']) || j['consentAt'] != null,
-        trail: listOf(j['trail'] ?? j['points'], LocationFix.parse),
+  AttendanceDay withTrail(List<LocationFix> t) => AttendanceDay(
+        sessions: sessions,
+        fieldStaff: fieldStaff,
+        consentGiven: consentGiven,
+        consentVersion: consentVersion,
+        currentConsentVersion: currentConsentVersion,
+        trackingEnabled: trackingEnabled,
+        insideWorkingHours: insideWorkingHours,
+        trackingActive: trackingActive,
+        locationIntervalSec: locationIntervalSec,
+        workingHours: workingHours,
+        trail: t,
       );
+
+  static AttendanceDay parse(Json j) {
+    final consent = obj(j['consent']);
+    final current = str(consent['currentVersion'], '2026-11-v1');
+    final sessions = listOf(j['sessions'], AttendanceSession.parse);
+    final session = j['session'] is Map ? AttendanceSession.parse(obj(j['session'])) : null;
+    if (session != null && !sessions.any((s) => s.id == session.id)) sessions.add(session);
+    sessions.sort((a, b) => a.checkInAt.compareTo(b.checkInAt));
+    return AttendanceDay(
+      sessions: sessions,
+      fieldStaff: toBool(j['isFieldStaff']),
+      consentGiven: toBool(consent['accepted']) && str(consent['version']) == current,
+      consentVersion: strOrNull(consent['version']),
+      currentConsentVersion: current,
+      trackingEnabled: toBool(j['trackingEnabled'], true),
+      insideWorkingHours: toBool(j['insideWorkingHours'], true),
+      trackingActive: toBool(j['trackingActive']),
+      locationIntervalSec: toInt(j['locationIntervalSec'], 120),
+      workingHours: listOf(j['workingHours'], (s) => TimeSlot(str(s['start'], '00:00'), str(s['end'], '00:00'))),
+    );
+  }
 }
 
-/// GET /app/config: public app configuration (D-058). Firebase options are public app values.
+/// GET /app/config (AppConfigSchema): public Firebase options (D-058) and the latest APK.
 class AppConfig {
-  const AppConfig({this.firebase, this.latestVersionName, this.latestVersionCode, this.apkUrl, this.releaseNotes, this.minSupportedVersionCode});
+  const AppConfig({this.firebase, this.latestVersionName, this.latestVersionCode, this.apkUrl, this.releaseNotes, this.apkSize, this.apkSha256, this.releasedAt, this.minSupportedVersionCode, this.serverTime});
 
   final Map<String, String>? firebase;
   final String? latestVersionName;
   final int? latestVersionCode;
   final String? apkUrl;
   final String? releaseNotes;
+  final int? apkSize;
+  final String? apkSha256;
+  final DateTime? releasedAt;
+
+  /// Versions below this must update before they can be used.
   final int? minSupportedVersionCode;
+  final DateTime? serverTime;
 
   bool get pushConfigured {
     final f = firebase;
     return f != null && (f['apiKey'] ?? '').isNotEmpty && (f['appId'] ?? '').isNotEmpty && (f['projectId'] ?? '').isNotEmpty && (f['messagingSenderId'] ?? '').isNotEmpty;
   }
 
+  bool updateAvailable(int currentCode) => latestVersionCode != null && latestVersionCode! > currentCode;
+  bool mustUpdate(int currentCode) => minSupportedVersionCode != null && currentCode < minSupportedVersionCode!;
+
   static AppConfig parse(Json j) {
-    final fb = obj(j['firebase'] ?? j['firebaseOptions'] ?? obj(j['push'])['firebase']);
-    final rel = obj(j['android'] ?? j['latestRelease'] ?? j['release']);
-    final latest = obj(rel['latest']).isNotEmpty ? obj(rel['latest']) : rel;
+    final fb = obj(j['firebase']);
+    final android = obj(j['android']);
+    final latest = obj(android['latest']);
     return AppConfig(
-      firebase: fb.isEmpty ? null : fb.map((k, v) => MapEntry(k, '$v')),
+      firebase: fb.isEmpty ? null : {for (final e in fb.entries) if (e.value != null) e.key: '${e.value}'},
       latestVersionName: strOrNull(latest['versionName']),
       latestVersionCode: toIntOrNull(latest['versionCode']),
-      apkUrl: strOrNull(latest['downloadUrl'] ?? latest['url'] ?? latest['apkUrl']),
-      releaseNotes: strOrNull(latest['notes'] ?? latest['releaseNotes']),
-      minSupportedVersionCode: toIntOrNull(rel['minVersionCode'] ?? j['minVersionCode']),
+      apkUrl: strOrNull(latest['downloadUrl']),
+      releaseNotes: strOrNull(latest['notes']),
+      apkSize: toIntOrNull(latest['size']),
+      apkSha256: strOrNull(latest['sha256']),
+      releasedAt: date(latest['createdAt']),
+      minSupportedVersionCode: toIntOrNull(android['minSupportedVersionCode']),
+      serverTime: date(j['serverTime']),
     );
   }
 }
@@ -375,4 +646,14 @@ class DayCalls {
   final int calls;
   final int connected;
   final int talkSec;
+}
+
+/// POST /me/devices result: the id is sent as `deviceId` with calls, attendance and locations.
+class RegisteredDevice {
+  const RegisteredDevice({required this.id, required this.installationId, required this.hasPushToken});
+  final String id;
+  final String installationId;
+  final bool hasPushToken;
+
+  static RegisteredDevice parse(Json j) => RegisteredDevice(id: str(j['id']), installationId: str(j['installationId']), hasPushToken: toBool(j['hasPushToken']));
 }

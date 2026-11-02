@@ -149,7 +149,7 @@ class TaskTile extends ConsumerWidget {
                     VChip(task.typeLabel),
                     if (!done) DueChip(due: task.effectiveDue, now: now, timezone: tz),
                     if (!done && task.isHighPriority) VChip(task.priority == 'urgent' ? 'Urgent' : 'High', tone: task.priority == 'urgent' ? Tone.red : Tone.amber),
-                    if (!done && task.snoozedUntil != null && task.snoozedUntil!.isAfter(now)) VChip('Snoozed', tone: Tone.indigo, icon: LucideIcons.alarmClock),
+                    if (!done && task.snoozedUntil != null && task.snoozedUntil!.isAfter(now)) const VChip('Snoozed', tone: Tone.indigo, icon: LucideIcons.alarmClock),
                   ]),
                 ]),
               ),

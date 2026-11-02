@@ -317,10 +317,10 @@ class _Composer extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     if (optedOut) {
-      return SafeArea(
+      return const SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.all(VSpace.page),
+          padding: EdgeInsets.all(VSpace.page),
           child: InfoBanner(icon: LucideIcons.ban, tone: Tone.grey, text: 'This contact opted out of WhatsApp messages. Call them instead.'),
         ),
       );

@@ -7,6 +7,7 @@ import '../../app/providers.dart';
 import '../../core/format.dart';
 import '../../core/time/zoned.dart';
 import '../../data/models.dart';
+import '../../data/repositories.dart';
 import '../../design/design.dart';
 import '../calls/call_actions.dart';
 import '../common/common.dart';
@@ -292,17 +293,17 @@ class _TodaySkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Shimmer(
+    return const Shimmer(
       label: 'Loading your day',
       child: Column(
         children: [
-          const SkeletonBox(height: 168, radius: 14),
-          const SizedBox(height: VSpace.md),
-          Row(children: const [Expanded(child: SkeletonBox(height: 92, radius: 14)), SizedBox(width: VSpace.md), Expanded(child: SkeletonBox(height: 92, radius: 14))]),
-          const SizedBox(height: VSpace.md),
-          Row(children: const [Expanded(child: SkeletonBox(height: 92, radius: 14)), SizedBox(width: VSpace.md), Expanded(child: SkeletonBox(height: 92, radius: 14))]),
-          const SizedBox(height: VSpace.md),
-          const SkeletonBox(height: 220, radius: 14),
+          SkeletonBox(height: 168, radius: 14),
+          SizedBox(height: VSpace.md),
+          Row(children: [Expanded(child: SkeletonBox(height: 92, radius: 14)), SizedBox(width: VSpace.md), Expanded(child: SkeletonBox(height: 92, radius: 14))]),
+          SizedBox(height: VSpace.md),
+          Row(children: [Expanded(child: SkeletonBox(height: 92, radius: 14)), SizedBox(width: VSpace.md), Expanded(child: SkeletonBox(height: 92, radius: 14))]),
+          SizedBox(height: VSpace.md),
+          SkeletonBox(height: 220, radius: 14),
         ],
       ),
     );

@@ -31,7 +31,17 @@ String? toE164(String? input) {
   return null;
 }
 
-/// Result of a finished SIM call, ready for POST /me/calls/device-log.
+/// Phone for the device endpoints (DevicePhoneSchema): E.164 when possible, digits otherwise,
+/// "" for private or unknown numbers. The server normalises it again.
+String devicePhone(String? number) {
+  if (number == null || number.trim().isEmpty) return '';
+  return toE164(number) ?? number.replaceAll(RegExp(r'[^\d+]'), '');
+}
+
+/// Call results accepted by the server (CallResultSchema).
+const callResults = {'connected', 'missed', 'no_answer', 'busy', 'rejected', 'failed'};
+
+/// One row for POST /me/calls/device-log (DeviceCallLogEntrySchema).
 class DeviceCallRecord {
   const DeviceCallRecord({
     required this.deviceCallId,
@@ -40,67 +50,78 @@ class DeviceCallRecord {
     required this.result,
     required this.startedAt,
     required this.durationSec,
+    this.answeredAt,
+    this.clientCallId,
     this.leadId,
+    this.simSlot,
     this.simAccountId,
-    this.callLogId,
-    this.durationSource = 'call_log',
   });
 
-  /// call_log (exact, from CallLog.Calls) or phone_state (observed span, call log not readable).
-  final String durationSource;
-
-  /// Stable id (install id + call-log row id, or a time-based fallback) so uploads are idempotent.
+  /// Android CallLog._ID (prefixed with the install id so a reinstall never collides).
   final String deviceCallId;
+
+  /// The id sent with POST /me/calls/active for the same call: the server completes that row.
+  final String? clientCallId;
   final String number;
 
   /// inbound | outbound
   final String direction;
 
-  /// connected | missed | rejected | no_answer | unknown
+  /// connected | missed | no_answer | busy | rejected | failed
   final String result;
   final DateTime startedAt;
+  final DateTime? answeredAt;
   final int durationSec;
   final String? leadId;
+  final int? simSlot;
   final String? simAccountId;
-  final String? callLogId;
 
   DateTime get endedAt => startedAt.add(Duration(seconds: durationSec));
 
   Map<String, dynamic> toJson() => {
         'deviceCallId': deviceCallId,
-        'phone': toE164(number) ?? number,
+        'clientCallId': ?clientCallId,
         'direction': direction,
-        'result': result,
+        'phone': devicePhone(number),
         'startedAt': startedAt.toUtc().toIso8601String(),
+        if (answeredAt != null) 'answeredAt': answeredAt!.toUtc().toIso8601String(),
         'endedAt': endedAt.toUtc().toIso8601String(),
-        'durationSec': durationSec,
-        'durationSource': durationSource,
+        'durationSec': durationSec.clamp(0, 86400),
+        'result': callResults.contains(result) ? result : 'failed',
         'leadId': ?leadId,
-        'simAccountId': ?simAccountId,
+        'simSlot': ?simSlot,
       };
 
   static DeviceCallRecord fromJson(Map<String, dynamic> j) => DeviceCallRecord(
         deviceCallId: j['deviceCallId'] as String,
+        clientCallId: j['clientCallId'] as String?,
         number: (j['phone'] ?? '') as String,
         direction: (j['direction'] ?? 'outbound') as String,
         result: (j['result'] ?? 'connected') as String,
         startedAt: DateTime.parse(j['startedAt'] as String).toUtc(),
+        answeredAt: j['answeredAt'] == null ? null : DateTime.parse(j['answeredAt'] as String).toUtc(),
         durationSec: (j['durationSec'] ?? 0) as int,
         leadId: j['leadId'] as String?,
-        simAccountId: j['simAccountId'] as String?,
+        simSlot: j['simSlot'] as int?,
       );
 }
 
 /// One phone-state session as observed by the foreground service.
 class ObservedCall {
-  ObservedCall({required this.startedAt, this.number, this.direction = 'outbound', this.leadId});
+  ObservedCall({required this.startedAt, required this.clientCallId, this.number, this.direction = 'outbound', this.leadId});
 
   final DateTime startedAt;
+
+  /// Sent with POST /me/calls/active and again with the device log entry (8..80 chars).
+  final String clientCallId;
   String? number;
   String direction;
   String? leadId;
   DateTime? answeredAt;
   DateTime? endedAt;
+
+  /// True once POST /me/calls/active { started } was sent (an unanswered ringing call never is).
+  bool reportedStart = false;
 }
 
 class CallLogMatcher {
@@ -128,23 +149,31 @@ class CallLogMatcher {
     return pool.first;
   }
 
-  /// Builds the upload record. Outgoing with 0 s = not answered (Android does not report the
-  /// answer moment for outgoing SIM calls; the call log duration is the talk time). Without a
-  /// call-log row (permission refused) the result is "unknown" and the duration is the observed
-  /// off-hook span, marked as such.
-  DeviceCallRecord toRecord(DeviceCallLogEntry? entry, ObservedCall call, {required String installId}) {
+  /// Builds the upload record from the call-log row. Outgoing with 0 s = not answered (Android
+  /// does not report the answer moment for outgoing SIM calls; the call-log duration is the talk
+  /// time).
+  ///
+  /// Without a call-log row (permission refused or the row not written yet) only what the phone
+  /// state proves is sent: an incoming call that rang and was never picked up is `missed`, an
+  /// incoming call that was picked up is `connected` with the observed span. Outgoing calls are
+  /// not sent (the live row from POST /me/calls/active stays, without a talk time), so the app
+  /// never invents a duration. Returns null in that case.
+  DeviceCallRecord? toRecord(DeviceCallLogEntry? entry, ObservedCall call, {required String installId}) {
     if (entry == null) {
+      if (call.direction == 'outbound') return null;
       final end = call.endedAt ?? call.startedAt;
-      final span = end.difference(call.answeredAt ?? call.startedAt).inSeconds;
+      final answered = call.answeredAt;
+      final span = answered == null ? 0 : end.difference(answered).inSeconds;
       return DeviceCallRecord(
         deviceCallId: '$installId:obs:${call.startedAt.millisecondsSinceEpoch}',
+        clientCallId: call.reportedStart ? call.clientCallId : null,
         number: call.number ?? '',
-        direction: call.direction,
-        result: 'unknown',
+        direction: 'inbound',
+        result: answered == null ? 'missed' : 'connected',
         startedAt: call.startedAt,
+        answeredAt: answered,
         durationSec: span < 0 ? 0 : span,
         leadId: call.leadId,
-        durationSource: 'phone_state',
       );
     }
     final direction = entry.type == 'outgoing' ? 'outbound' : 'inbound';
@@ -158,14 +187,15 @@ class CallLogMatcher {
     };
     return DeviceCallRecord(
       deviceCallId: '$installId:log:${entry.id}',
+      clientCallId: call.reportedStart ? call.clientCallId : null,
       number: entry.number.isNotEmpty ? entry.number : (call.number ?? ''),
       direction: direction,
       result: result,
       startedAt: entry.date,
+      answeredAt: direction == 'inbound' && duration > 0 ? call.answeredAt : null,
       durationSec: duration,
       leadId: call.leadId,
       simAccountId: entry.accountId,
-      callLogId: entry.id,
     );
   }
 }

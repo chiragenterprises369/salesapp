@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import '../core/api/api_error.dart';
-import '../core/calls/call_matching.dart';
 import '../core/offline/write_queue.dart';
 import '../data/api/api_repositories.dart' show buildPerformance, defaultFloorTemplate;
 import '../data/models.dart';
@@ -61,7 +60,7 @@ class FakeLeadsRepository implements LeadsRepository {
   final FakeBackend b;
 
   @override
-  Future<Fetched<Page<Lead>>> list(LeadFilters filters, {String? cursor}) => b.run(() {
+  Future<Fetched<Paged<Lead>>> list(LeadFilters filters, {String? cursor}) => b.run(() {
         final q = filters.q.trim().toLowerCase();
         var items = b.world.leads.map(Lead.parse).where((l) {
           if (q.isNotEmpty && !('${l.name} ${l.companyName} ${l.phone} ${l.city}'.toLowerCase().contains(q))) return false;
@@ -77,7 +76,7 @@ class FakeLeadsRepository implements LeadsRepository {
           'nextFollowUpAt' => items..sort((a, b) => (a.nextFollowUpAt ?? DateTime(2100)).compareTo(b.nextFollowUpAt ?? DateTime(2100))),
           _ => items..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
         };
-        return Fetched(Page(items, total: items.length));
+        return Fetched(Paged(items, total: items.length));
       });
 
   @override
@@ -164,12 +163,11 @@ class FakeCallsRepository implements CallsRepository {
   FakeCallsRepository(this.b);
   final FakeBackend b;
   final reports = <ActiveCallReport>[];
-  final uploads = <DeviceCallRecord>[];
 
   @override
-  Future<Page<Call>> recent({String? cursor}) => b.run(() {
+  Future<Paged<Call>> recent({String? cursor}) => b.run(() {
         final list = b.world.calls.map(Call.parse).toList()..sort((a, b) => b.startedAt.compareTo(a.startedAt));
-        return Page(list.take(60).toList());
+        return Paged(list.take(60).toList());
       });
 
   @override
@@ -182,33 +180,6 @@ class FakeCallsRepository implements CallsRepository {
 
   @override
   Future<void> reportActive(ActiveCallReport report) => b.run(() => reports.add(report));
-
-  @override
-  Future<String?> uploadDeviceLog(DeviceCallRecord record) => b.run(() {
-        uploads.add(record);
-        final id = b.world.nextId();
-        b.world.calls.insert(0, {
-          'id': id,
-          'direction': record.direction,
-          'status': record.result == 'connected' ? 'completed' : 'missed',
-          'outcome': record.result == 'connected' ? 'answered' : 'missed',
-          'leadId': record.leadId,
-          'leadName': record.leadId == null ? null : b.world.lead(record.leadId!)?['name'],
-          'user': b.world.meUserSummary,
-          'from': record.direction == 'inbound' ? record.number : '+919811100001',
-          'to': record.direction == 'inbound' ? '+919811100001' : record.number,
-          'startedAt': record.startedAt.toIso8601String(),
-          'endedAt': record.endedAt.toIso8601String(),
-          'durationSec': record.durationSec,
-          'hasRecording': false,
-          'notes': null,
-          'provider': 'sim',
-        });
-        return id;
-      });
-
-  @override
-  Future<void> uploadRecording({required String deviceCallId, required String filePath, required String mime}) => b.run(() {});
 }
 
 class FakeInboxRepository implements InboxRepository {
@@ -292,31 +263,93 @@ class FakeTeamFloorRepository implements TeamFloorRepository {
   @override
   Future<TeamFloorSnapshot> snapshot() => b.run(() {
         final w = b.world;
-        w.team[0] = {...w.team[0], 'status': w.myStatus.wire, 'user': w.meUserSummary};
+        final mine = obj(w.team[0]['presence']);
+        w.team[0] = {
+          ...w.team[0],
+          'status': w.myStatus == PresenceStatus.onCall ? 'on_call' : (w.myStatus == PresenceStatus.available ? 'idle' : 'away'),
+          'user': w.meUserSummary,
+          'presence': {...mine, 'status': w.myStatus.wire},
+        };
         final people = w.team.map(FloorPerson.parse).toList();
-        int count(PresenceStatus s) => people.where((p) => p.status == s).length;
+        final counts = <String, int>{};
+        for (final p in people) {
+          counts[p.status.wire] = (counts[p.status.wire] ?? 0) + 1;
+        }
         return TeamFloorSnapshot(
           people: people,
           kpis: {
             'active': people.where((p) => p.status != PresenceStatus.offline).length,
-            'onCall': count(PresenceStatus.onCall),
-            'idle': count(PresenceStatus.available),
-            'busy': count(PresenceStatus.busy),
+            'onCall': counts['on_call'] ?? 0,
+            'idle': counts['available'] ?? 0,
+            'busy': 0,
             'callsToday': people.fold(0, (s, p) => s + p.callsToday),
             'leadsWaiting': 3,
           },
+          presenceCounts: counts,
           generatedAt: w.now,
         );
       });
 
   @override
-  Future<FloorPlan> plan() => b.run(() => FloorPlan.parse({...defaultFloorTemplate, 'preparing': true}));
+  Future<FloorPlan> plan() => b.run(() {
+        final t = FloorPlan.fromTemplate(defaultFloorTemplate);
+        return FloorPlan(source: 'template', name: t.name, aspect: t.aspect, zones: t.zones, seats: t.seats, preparing: true, requestStatus: 'in_progress');
+      });
+}
+
+class FakePresenceRepository implements PresenceRepository {
+  FakePresenceRepository(this.b);
+  final FakeBackend b;
+  final heartbeats = <HeartbeatBody>[];
+  final zones = <ZoneSignal>[];
+  int _version = 20;
+
+  MyPresence _now({ZoneLocation? location}) => MyPresence(
+        status: b.world.myStatus,
+        version: _version,
+        source: 'manual',
+        since: b.world.now,
+        location: location ?? ZoneLocation.parse(obj(b.world.team[0]['presence'])['location']),
+        activity: PresenceActivity(client: isDemoAndroid ? 'android' : 'web', clientActivity: 'active', screen: heartbeats.lastOrNull?.screen),
+      );
+
+  static const isDemoAndroid = false;
+
+  @override
+  Future<MyPresence> get() => b.run(_now);
+
+  @override
+  Future<MyPresence> setStatus(PresenceStatus status, {String? note}) => b.run(() {
+        b.world.myStatus = status;
+        _version++;
+        (b.world.me['user'] as Json)['status'] = status.wire;
+        return _now();
+      });
+
+  @override
+  Future<MyPresence> heartbeat(HeartbeatBody body) => b.run(() {
+        heartbeats.add(body);
+        return _now();
+      });
+
+  @override
+  Future<MyPresence> zone(ZoneSignal signal) => b.run(() {
+        zones.add(signal);
+        const names = {'work': 'Work area', 'cabin': 'Manager cabin', 'meeting': 'Meeting room', 'reception': 'Reception', 'pantry': 'Pantry'};
+        final id = signal.zoneId ?? (signal.markerToken != null ? 'meeting' : 'work');
+        final loc = {'zoneId': id, 'zoneName': names[id] ?? id, 'source': signal.source, 'confidence': signal.source == 'qr' || signal.source == 'manual' ? 1.0 : 0.8, 'since': b.world.now.toIso8601String(), 'at': b.world.now.toIso8601String()};
+        b.world.team[0] = {
+          ...b.world.team[0],
+          'presence': {...obj(b.world.team[0]['presence']), 'location': loc},
+        };
+        _version++;
+        return _now(location: ZoneLocation.parse(loc));
+      });
 }
 
 class FakeAttendanceRepository implements AttendanceRepository {
   FakeAttendanceRepository(this.b);
   final FakeBackend b;
-  final uploaded = <LocationFix>[];
 
   Json get _a => b.world.attendance;
 
@@ -324,33 +357,42 @@ class FakeAttendanceRepository implements AttendanceRepository {
   Future<AttendanceDay> today() => b.run(() => AttendanceDay.parse(_a));
 
   @override
-  Future<void> giveConsent() => b.run(() => _a['consentGiven'] = true);
+  Future<void> setConsent({required bool accepted, required String version}) => b.run(() {
+        _a['consent'] = {'accepted': accepted, 'version': version, 'at': b.world.now.toIso8601String(), 'currentVersion': '2026-11-v1'};
+      });
 
   @override
-  Future<AttendanceDay> checkIn(LocationFix? at) => b.run(() {
-        (_a['sessions'] as List).add({
+  Future<AttendanceSession> checkIn(LocationFix at) => b.run(() {
+        if ((_a['sessions'] as List).cast<Json>().any((s) => s['checkOutAt'] == null)) {
+          throw const ApiFailure(code: 'ATTENDANCE_STATE_INVALID', message: 'You are already checked in.', status: 409);
+        }
+        final s = {
           'id': b.world.nextId(),
+          'userId': DemoWorld.userId,
+          'date': b.world.now.toIso8601String().substring(0, 10),
           'checkInAt': DateTime.now().toUtc().toIso8601String(),
+          'checkIn': {'lat': at.lat, 'lng': at.lng, 'accuracy': at.accuracy},
           'checkOutAt': null,
-          'checkInLocation': at == null ? null : {'lat': at.lat, 'lng': at.lng},
-          'address': at == null ? null : 'Near current location',
-        });
-        if (at != null) (_a['trail'] as List).add(at.toJson());
-        return AttendanceDay.parse(_a);
+          'checkOut': null,
+          'checkOutReason': null,
+          'workedMin': 0,
+          'pointCount': 1,
+        };
+        (_a['sessions'] as List).add(s);
+        _a['session'] = s;
+        _a['trackingActive'] = true;
+        return AttendanceSession.parse(s);
       });
 
   @override
-  Future<AttendanceDay> checkOut(LocationFix? at) => b.run(() {
-        final open = (_a['sessions'] as List).cast<Json>().lastWhere((s) => s['checkOutAt'] == null);
+  Future<AttendanceSession> checkOut(LocationFix at) => b.run(() {
+        final open = (_a['sessions'] as List).cast<Json>().where((s) => s['checkOutAt'] == null).lastOrNull;
+        if (open == null) throw const ApiFailure(code: 'ATTENDANCE_STATE_INVALID', message: 'You are not checked in.', status: 409);
         open['checkOutAt'] = DateTime.now().toUtc().toIso8601String();
-        if (at != null) open['checkOutLocation'] = {'lat': at.lat, 'lng': at.lng};
-        return AttendanceDay.parse(_a);
-      });
-
-  @override
-  Future<void> uploadLocations(List<LocationFix> points, {required String batchId}) => b.run(() {
-        uploaded.addAll(points);
-        (_a['trail'] as List).addAll(points.map((p) => p.toJson()));
+        open['checkOut'] = {'lat': at.lat, 'lng': at.lng, 'accuracy': at.accuracy};
+        open['checkOutReason'] = 'manual';
+        _a['trackingActive'] = false;
+        return AttendanceSession.parse(open);
       });
 }
 
@@ -358,13 +400,6 @@ class FakeAccountRepository implements AccountRepository {
   FakeAccountRepository(this.b);
   final FakeBackend b;
   final devices = <String>[];
-
-  @override
-  Future<PresenceStatus> setStatus(PresenceStatus status) => b.run(() {
-        b.world.myStatus = status;
-        (b.world.me['user'] as Json)['status'] = status.wire;
-        return status;
-      });
 
   @override
   Future<Me> updateProfile({String? name, String? phone, String? title}) => b.run(() {
@@ -376,14 +411,19 @@ class FakeAccountRepository implements AccountRepository {
       });
 
   @override
-  Future<UserSettings> updateSettings({ThemePreference? theme, bool? push, bool? inApp, String? emailDigest}) => b.run(() {
+  Future<UserSettings> updateSettings({ThemePreference? theme, String? darkFrom, String? darkTo, bool? push, bool? inApp, String? emailDigest, String? reducedMotion}) => b.run(() {
         final s = b.world.me['settings'] as Json;
-        if (theme != null) s['theme'] = {'mode': theme.name};
-        final n = (s['notifications'] as Map).cast<String, dynamic>();
+        final t = obj(s['theme']);
+        if (theme != null) t['mode'] = theme.name;
+        if (darkFrom != null) t['darkFrom'] = darkFrom;
+        if (darkTo != null) t['darkTo'] = darkTo;
+        s['theme'] = t;
+        final n = obj(s['notifications']);
         if (push != null) n['push'] = push;
         if (inApp != null) n['inApp'] = inApp;
         if (emailDigest != null) n['emailDigest'] = emailDigest;
         s['notifications'] = n;
+        if (reducedMotion != null) s['reducedMotion'] = reducedMotion;
         return UserSettings.parse(s);
       });
 
@@ -402,13 +442,37 @@ class FakeAccountRepository implements AccountRepository {
 
   @override
   Future<AppConfig> appConfig() => b.run(() => AppConfig.parse({
+        'firebase': null,
         'android': {
-          'latest': {'versionName': '1.0.0', 'versionCode': 1, 'downloadUrl': null, 'notes': 'First release of the Vistar employee app.'},
+          'packageName': 'app.vistar.employee',
+          'latest': {
+            'versionName': '1.0.0',
+            'versionCode': 1,
+            'notes': 'First release of the Vistar employee app.',
+            'size': 24117248,
+            'sha256': 'demo',
+            'createdAt': b.world.now.subtract(const Duration(days: 2)).toIso8601String(),
+            'downloadUrl': 'http://localhost:4000/api/v1/app/android/latest',
+          },
+          'minSupportedVersionCode': null,
         },
+        'serverTime': b.world.now.toIso8601String(),
       }));
 
   @override
-  Future<void> registerDevice({required String token, required String platform, String? appVersion, String? model, String? installId}) => b.run(() => devices.add(token));
+  Future<RegisteredDevice> registerDevice({
+    required String installationId,
+    required String platform,
+    String? fcmToken,
+    required String appVersion,
+    int? appBuild,
+    String? model,
+    String? osVersion,
+  }) =>
+      b.run(() {
+        devices.add(installationId);
+        return RegisteredDevice(id: '0190a000-0000-7000-8000-00000000d001', installationId: installationId, hasPushToken: fcmToken != null);
+      });
 
   @override
   Future<Performance> performance() => b.run(() => buildPerformance(

@@ -25,7 +25,7 @@ abstract class TodayRepository {
 }
 
 abstract class LeadsRepository {
-  Future<Fetched<Page<Lead>>> list(LeadFilters filters, {String? cursor});
+  Future<Fetched<Paged<Lead>>> list(LeadFilters filters, {String? cursor});
   Future<Lead> get(String id);
   Future<List<Activity>> timeline(String id);
   Future<Activity> addNote(String id, String body);
@@ -42,39 +42,44 @@ abstract class TasksRepository {
   Future<Task> snooze(Task task, DateTime until);
 }
 
+/// POST /me/calls/active (ActiveCallEventSchema): live "On call" from the phone state.
 class ActiveCallReport {
-  const ActiveCallReport({required this.state, required this.at, this.number, this.direction, this.leadId, this.deviceCallId});
+  const ActiveCallReport.started({required this.clientCallId, required this.at, required this.direction, this.number, this.leadId, this.deviceId}) : state = 'started';
+  const ActiveCallReport.ended({required this.clientCallId, required this.at})
+      : state = 'ended',
+        direction = null,
+        number = null,
+        leadId = null,
+        deviceId = null;
 
   /// started | ended
   final String state;
+  final String clientCallId;
   final DateTime at;
   final String? number;
   final String? direction;
   final String? leadId;
-  final String? deviceCallId;
+  final String? deviceId;
 
-  Map<String, dynamic> toJson() => {
-        'state': state,
-        'at': at.toUtc().toIso8601String(),
-        'phone': ?toE164(number),
-        'direction': ?direction,
-        'leadId': ?leadId,
-        'deviceCallId': ?deviceCallId,
-      };
+  Map<String, dynamic> toJson() => state == 'started'
+      ? {
+          'event': 'started',
+          'clientCallId': clientCallId,
+          'direction': direction ?? 'outbound',
+          'phone': devicePhone(number),
+          'startedAt': at.toUtc().toIso8601String(),
+          'leadId': ?leadId,
+          'deviceId': ?deviceId,
+        }
+      : {'event': 'ended', 'clientCallId': clientCallId, 'endedAt': at.toUtc().toIso8601String()};
 }
 
 abstract class CallsRepository {
-  Future<Page<Call>> recent({String? cursor});
+  Future<Paged<Call>> recent({String? cursor});
   Future<Call> setOutcome(String callId, {String? outcome, String? notes});
 
   /// POST /me/calls/active (live "On call" on the Team Floor).
   Future<void> reportActive(ActiveCallReport report);
-
-  /// POST /me/calls/device-log (queued until accepted). Returns the server call id when known.
-  Future<String?> uploadDeviceLog(DeviceCallRecord record);
-
-  /// Upload of the phone's own recording file for a device call (queued).
-  Future<void> uploadRecording({required String deviceCallId, required String filePath, required String mime});
 }
 
 enum InboxFilter { all, unread, needsReply, closed }
@@ -92,17 +97,104 @@ abstract class InboxRepository {
 
 abstract class TeamFloorRepository {
   Future<TeamFloorSnapshot> snapshot();
+
+  /// GET /team-floor/layout: the published seat map, or the default template.
   Future<FloorPlan> plan();
+}
+
+/// Heartbeat body (PresenceHeartbeatSchema).
+class HeartbeatBody {
+  const HeartbeatBody({required this.client, required this.activity, this.screen, this.appState, this.deviceId, this.currentLeadId, this.zone});
+
+  /// android | web
+  final String client;
+
+  /// active | idle | hidden
+  final String activity;
+  final String? screen;
+
+  /// foreground | background (Android)
+  final String? appState;
+  final String? deviceId;
+  final String? currentLeadId;
+  final ZoneSignal? zone;
+
+  Map<String, dynamic> toJson() => {
+        'client': client,
+        'activity': activity,
+        if (screen != null && appScreens.contains(screen)) 'screen': screen,
+        'appState': ?appState,
+        if (deviceId != null && deviceId!.length <= 64) 'deviceId': deviceId,
+        'currentLeadId': ?currentLeadId,
+        if (zone != null) 'zone': zone!.toJson(),
+      };
+}
+
+/// One office zone observation (ZoneSignalSchema): BLE beacons, Wi-Fi access points, a QR/NFC
+/// marker token, or a zone the employee picked.
+class ZoneSignal {
+  const ZoneSignal({required this.source, required this.at, this.beacons = const [], this.wifi = const [], this.markerToken, this.zoneId});
+
+  /// ble | wifi | qr | nfc | manual
+  final String source;
+  final DateTime at;
+  final List<BeaconReading> beacons;
+  final List<WifiReading> wifi;
+  final String? markerToken;
+  final String? zoneId;
+
+  Map<String, dynamic> toJson() => {
+        'source': source,
+        'at': at.toUtc().toIso8601String(),
+        if (beacons.isNotEmpty) 'beacons': [for (final b in beacons.take(30)) b.toJson()],
+        if (wifi.isNotEmpty) 'wifi': [for (final w in wifi.take(40)) w.toJson()],
+        'markerToken': ?markerToken,
+        'zoneId': ?zoneId,
+      };
+}
+
+class BeaconReading {
+  const BeaconReading({required this.uuid, required this.major, required this.minor, required this.rssi});
+  final String uuid;
+  final int major;
+  final int minor;
+  final int rssi;
+
+  Map<String, dynamic> toJson() => {'uuid': uuid.toLowerCase(), 'major': major.clamp(0, 65535), 'minor': minor.clamp(0, 65535), 'rssi': rssi.clamp(-127, 0)};
+
+  static BeaconReading parse(Map<String, dynamic> j) =>
+      BeaconReading(uuid: '${j['uuid']}', major: toInt(j['major']), minor: toInt(j['minor']), rssi: toInt(j['rssi'], -100));
+}
+
+class WifiReading {
+  const WifiReading({required this.bssid, required this.rssi, this.ssid});
+  final String bssid;
+  final int rssi;
+  final String? ssid;
+
+  Map<String, dynamic> toJson() => {'bssid': bssid.toLowerCase(), 'rssi': rssi.clamp(-127, 0)};
+
+  static WifiReading parse(Map<String, dynamic> j) => WifiReading(bssid: '${j['bssid']}', rssi: toInt(j['rssi'], -100), ssid: strOrNull(j['ssid']));
+}
+
+abstract class PresenceRepository {
+  Future<MyPresence> get();
+
+  /// PUT /me/status: a manual status (ManualPresenceStatus) with an optional note.
+  Future<MyPresence> setStatus(PresenceStatus status, {String? note});
+  Future<MyPresence> heartbeat(HeartbeatBody body);
+  Future<MyPresence> zone(ZoneSignal signal);
 }
 
 abstract class AttendanceRepository {
   Future<AttendanceDay> today();
-  Future<void> giveConsent();
-  Future<AttendanceDay> checkIn(LocationFix? at);
-  Future<AttendanceDay> checkOut(LocationFix? at);
 
-  /// Batched location upload. Throws [OutsideWorkingHours] when the server refuses the batch.
-  Future<void> uploadLocations(List<LocationFix> points, {required String batchId});
+  /// PUT /me/tracking-consent { accepted, version }.
+  Future<void> setConsent({required bool accepted, required String version});
+
+  /// Check-in and check-out need a GPS fix (the server requires lat and lng).
+  Future<AttendanceSession> checkIn(LocationFix at);
+  Future<AttendanceSession> checkOut(LocationFix at);
 }
 
 class OutsideWorkingHours implements Exception {
@@ -110,12 +202,21 @@ class OutsideWorkingHours implements Exception {
 }
 
 abstract class AccountRepository {
-  Future<PresenceStatus> setStatus(PresenceStatus status);
   Future<Me> updateProfile({String? name, String? phone, String? title});
-  Future<UserSettings> updateSettings({ThemePreference? theme, bool? push, bool? inApp, String? emailDigest});
+  Future<UserSettings> updateSettings({ThemePreference? theme, String? darkFrom, String? darkTo, bool? push, bool? inApp, String? emailDigest, String? reducedMotion});
   Future<NotificationPage> notifications();
   Future<void> markNotificationsRead({List<String>? ids});
   Future<AppConfig> appConfig();
-  Future<void> registerDevice({required String token, required String platform, String? appVersion, String? model, String? installId});
+
+  /// POST /me/devices (DeviceRegisterSchema). Called after every sign-in, with or without push.
+  Future<RegisteredDevice> registerDevice({
+    required String installationId,
+    required String platform,
+    String? fcmToken,
+    required String appVersion,
+    int? appBuild,
+    String? model,
+    String? osVersion,
+  });
   Future<Performance> performance();
 }

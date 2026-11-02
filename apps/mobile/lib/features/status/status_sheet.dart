@@ -14,6 +14,7 @@ const statusHints = {
   PresenceStatus.lunch: 'Out for lunch. New leads skip you',
   PresenceStatus.meeting: 'In a meeting. Calls can wait',
   PresenceStatus.fieldVisit: 'Visiting a customer outside the office',
+  PresenceStatus.away: 'Away from work for a while',
   PresenceStatus.offline: 'Done for the day',
 };
 
@@ -23,6 +24,7 @@ const statusIcons = {
   PresenceStatus.lunch: LucideIcons.utensils,
   PresenceStatus.meeting: LucideIcons.users,
   PresenceStatus.fieldVisit: LucideIcons.mapPin,
+  PresenceStatus.away: LucideIcons.clock,
   PresenceStatus.offline: LucideIcons.moon,
 };
 
@@ -64,9 +66,10 @@ class StatusOptions extends ConsumerWidget {
                 selected: s == current,
                 onTap: () async {
                   await Haptics.tap();
+                  if (!context.mounted) return;
                   final nav = Navigator.of(context);
                   try {
-                    await ref.read(myStatusProvider.notifier).set(s);
+                    await ref.read(myPresenceProvider.notifier).set(s);
                     if (closeOnPick && nav.canPop()) nav.pop();
                     if (context.mounted) showToast(context, 'Status set to ${s.label}');
                   } catch (e) {

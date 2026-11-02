@@ -18,6 +18,7 @@ import '../features/notifications/notifications_screen.dart';
 import '../features/performance/performance_screen.dart';
 import '../features/shell/shell.dart';
 import '../features/tasks/tasks_screen.dart';
+import '../features/team_floor/office_zone_screen.dart';
 import '../features/team_floor/team_floor_screen.dart';
 import '../features/today/today_screen.dart';
 import 'providers.dart';
@@ -75,6 +76,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       page('/preferences', (_) => const PreferencesScreen()),
       page('/about', (_) => const AboutScreen()),
       page('/call-setup', (_) => const CallSetupScreen()),
+      page('/office-zone', (_) => const OfficeZoneScreen()),
     ],
   );
 });

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import '../../core/api/api_client.dart';
@@ -13,13 +15,30 @@ import 'endpoints.dart';
 
 /// Shared helpers for API repositories.
 class ApiContext {
-  ApiContext({required this.client, required this.cache, required this.queue, required this.timezone, DateTime Function()? clock})
-      : clock = clock ?? DateTime.now;
+  ApiContext({
+    required this.client,
+    required this.cache,
+    required this.queue,
+    required this.store,
+    required this.timezone,
+    String? Function()? userId,
+    String? Function()? deviceId,
+    DateTime Function()? clock,
+  })  : clock = clock ?? DateTime.now,
+        userId = userId ?? (() => null),
+        deviceId = deviceId ?? (() => null);
 
   final ApiClient client;
   final OfflineCache cache;
   final WriteQueue queue;
+  final LocalStore store;
   final String Function() timezone;
+
+  /// Signed-in user id (for "my calls").
+  final String? Function() userId;
+
+  /// Server id of this device (POST /me/devices), sent as `deviceId` where the contract allows.
+  final String? Function() deviceId;
   final DateTime Function() clock;
 
   Dio get dio => client.dio;
@@ -28,6 +47,15 @@ class ApiContext {
     try {
       final res = await dio.get<dynamic>(path, queryParameters: query);
       return obj(res.data);
+    } catch (e) {
+      throw ApiFailure.from(e);
+    }
+  }
+
+  Future<dynamic> getAny(String path, {Map<String, dynamic>? query}) async {
+    try {
+      final res = await dio.get<dynamic>(path, queryParameters: query);
+      return res.data;
     } catch (e) {
       throw ApiFailure.from(e);
     }
@@ -54,6 +82,39 @@ class ApiContext {
       if (hit == null) rethrow;
       return Fetched(parse(obj(hit.data)), fromCache: true, savedAt: hit.savedAt);
     }
+  }
+}
+
+/// deviceCallId -> server call id, filled from POST /me/calls/device-log results, so a recording
+/// queued before its call log was accepted can find the call to attach to.
+class CallIdMap {
+  CallIdMap(this.store);
+  final LocalStore store;
+  static const _key = 'calls.deviceMap';
+  static const _max = 300;
+
+  Future<Map<String, String>> _read() async {
+    final raw = await store.read(_key);
+    if (raw == null) return {};
+    try {
+      return (jsonDecode(raw) as Map).map((k, v) => MapEntry('$k', '$v'));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<String?> callIdFor(String deviceCallId) async => (await _read())[deviceCallId];
+
+  Future<void> putAll(Map<String, String> entries) async {
+    if (entries.isEmpty) return;
+    final m = await _read()..addAll(entries);
+    final keys = m.keys.toList();
+    if (keys.length > _max) {
+      for (final k in keys.take(keys.length - _max)) {
+        m.remove(k);
+      }
+    }
+    await store.write(_key, jsonEncode(m));
   }
 }
 
@@ -88,7 +149,7 @@ class ApiAuthRepository implements AuthRepository {
         final hit = await ctx.cache.get('me');
         if (hit != null && !ctx.client.tokens.cookieManaged) return Me.parse(obj(hit.data));
       }
-      if (f.isAuth) return null;
+      if (f.isAuth || f.status == 403) return null;
       rethrow;
     }
   }
@@ -131,11 +192,11 @@ class ApiLeadsRepository implements LeadsRepository {
   List<Pipeline>? _pipelines;
 
   @override
-  Future<Fetched<Page<Lead>>> list(LeadFilters filters, {String? cursor}) {
-    final query = {...filters.toQuery(), 'cursor': ?cursor};
+  Future<Fetched<Paged<Lead>>> list(LeadFilters filters, {String? cursor}) {
+    final query = {...filters.toQuery(), 'limit': 50, 'cursor': ?cursor};
     // Only the first unfiltered page is kept offline.
     final key = filters == const LeadFilters() && cursor == null ? 'leads.mine' : 'leads.q.${Uri(queryParameters: query.map((k, v) => MapEntry(k, '$v'))).query}';
-    return ctx.cached(key, () => ctx.getJson(Endpoints.leads, query: query), (j) => Page.parse(j, Lead.parse));
+    return ctx.cached(key, () => ctx.getJson(Endpoints.leads, query: query), (j) => Paged.parse(j, Lead.parse));
   }
 
   @override
@@ -147,7 +208,7 @@ class ApiLeadsRepository implements LeadsRepository {
   @override
   Future<List<Activity>> timeline(String id) async {
     final j = await ctx.getJson(Endpoints.leadTimeline(id), query: {'limit': 50});
-    return Page.parse(j, Activity.parse).items;
+    return Paged.parse(j, Activity.parse).items;
   }
 
   @override
@@ -169,7 +230,7 @@ class ApiLeadsRepository implements LeadsRepository {
   @override
   Future<List<Task>> tasksFor(String leadId) async {
     final j = await ctx.getJson(Endpoints.tasks, query: {'leadId': leadId, 'scope': 'mine', 'limit': 50});
-    return Page.parse(j, Task.parse).items;
+    return Paged.parse(j, Task.parse).items;
   }
 }
 
@@ -179,7 +240,7 @@ class ApiTasksRepository implements TasksRepository {
 
   @override
   Future<Fetched<List<Task>>> myTasks() async {
-    final f = await ctx.cached('tasks.mine', () => ctx.getJson(Endpoints.tasks, query: {'scope': 'mine', 'status': 'open', 'limit': 200}), (j) => Page.parse(j, Task.parse).items);
+    final f = await ctx.cached('tasks.mine', () => ctx.getJson(Endpoints.tasks, query: {'scope': 'mine', 'status': 'open', 'limit': 200}), (j) => Paged.parse(j, Task.parse).items);
     // Apply status changes still waiting in the offline queue.
     final pending = await ctx.queue.pending();
     final local = {for (final w in pending.where((w) => w.kind == WriteKind.taskStatus)) w.path.split('/').last: w.body?['status']};
@@ -209,8 +270,12 @@ class ApiCallsRepository implements CallsRepository {
   final ApiContext ctx;
 
   @override
-  Future<Page<Call>> recent({String? cursor}) async {
-    final f = await ctx.cached('calls.recent', () => ctx.getJson(Endpoints.calls, query: {'limit': 50, 'cursor': ?cursor}), (j) => Page.parse(j, Call.parse));
+  Future<Paged<Call>> recent({String? cursor}) async {
+    final f = await ctx.cached(
+      'calls.recent',
+      () => ctx.getJson(Endpoints.calls, query: {'limit': 50, 'userId': ?ctx.userId(), 'cursor': ?cursor}),
+      (j) => Paged.parse(j, Call.parse),
+    );
     return f.data;
   }
 
@@ -221,22 +286,6 @@ class ApiCallsRepository implements CallsRepository {
   @override
   Future<void> reportActive(ActiveCallReport report) async {
     await ctx.send('POST', Endpoints.callsActive, body: report.toJson());
-  }
-
-  @override
-  Future<String?> uploadDeviceLog(DeviceCallRecord record) async {
-    final j = await ctx.send('POST', Endpoints.callsDeviceLog, body: record.toJson());
-    return strOrNull(obj(j['call'])['id']) ?? strOrNull(j['callId']) ?? strOrNull(j['id']);
-  }
-
-  @override
-  Future<void> uploadRecording({required String deviceCallId, required String filePath, required String mime}) async {
-    try {
-      final form = FormData.fromMap({'file': await MultipartFile.fromFile(filePath, contentType: DioMediaType.parse(mime))});
-      await ctx.dio.post<dynamic>(Endpoints.deviceCallRecording(deviceCallId), data: form);
-    } catch (e) {
-      throw ApiFailure.from(e);
-    }
   }
 }
 
@@ -254,7 +303,7 @@ class ApiInboxRepository implements InboxRepository {
       if (filter == InboxFilter.closed) 'status': 'closed',
       if (filter == InboxFilter.needsReply) 'status': 'open',
     };
-    final items = Page.parse(await ctx.getJson(Endpoints.conversations, query: query), Conversation.parse).items;
+    final items = Paged.parse(await ctx.getJson(Endpoints.conversations, query: query), Conversation.parse).items;
     if (filter == InboxFilter.needsReply) {
       return items.where((c) => c.lastInboundAt != null && (c.lastMessageAt == null || !c.lastMessageAt!.isAfter(c.lastInboundAt!))).toList();
     }
@@ -266,7 +315,7 @@ class ApiInboxRepository implements InboxRepository {
 
   @override
   Future<List<Message>> messages(String conversationId) async {
-    final items = Page.parse(await ctx.getJson(Endpoints.messages(conversationId), query: {'limit': 100}), Message.parse).items;
+    final items = Paged.parse(await ctx.getJson(Endpoints.messages(conversationId), query: {'limit': 100}), Message.parse).items;
     return items..sort((a, b) => a.createdAt.compareTo(b.createdAt));
   }
 
@@ -286,7 +335,7 @@ class ApiInboxRepository implements InboxRepository {
 
   @override
   Future<List<MessageTemplate>> templates() async =>
-      listOf(obj(await ctx.getJson(Endpoints.templates, query: {'channel': 'whatsapp', 'status': 'approved'}))['items'], MessageTemplate.parse);
+      listOf((await ctx.getJson(Endpoints.templates, query: {'channel': 'whatsapp', 'status': 'approved'}))['items'], MessageTemplate.parse);
 
   @override
   Future<List<QuickReply>> quickReplies() async => listOf((await ctx.getJson(Endpoints.quickReplies))['items'], QuickReply.parse);
@@ -302,16 +351,34 @@ class ApiTeamFloorRepository implements TeamFloorRepository {
   @override
   Future<FloorPlan> plan() async {
     try {
-      final j = await ctx.getJson(Endpoints.teamFloorPlan);
-      final floor = j['floor'] is Map ? obj(j['floor']) : j;
-      final seatMap = obj(floor['seatMap']).isNotEmpty ? obj(floor['seatMap']) : floor;
-      if (listOf(seatMap['seats'], FloorSeat.parse).isEmpty) return FloorPlan.parse({...defaultFloorTemplate, 'preparing': j['preparing'] ?? floor['preparing'] ?? false, 'requestStatus': j['requestStatus']});
-      return FloorPlan.parse({...seatMap, 'source': 'published', 'name': floor['name'] ?? seatMap['name']});
+      final f = await ctx.cached('floor.layout', () => ctx.getJson(Endpoints.teamFloorLayout), (j) => j);
+      return FloorPlan.fromLayout(f.data, template: defaultFloorTemplate);
     } on ApiFailure catch (e) {
-      if (e.status == 404) return FloorPlan.parse(defaultFloorTemplate);
+      // Older server (404) or no floor permission (403): the default layout still shows the people.
+      if (e.status == 404 || e.status == 403) return FloorPlan.fromTemplate(defaultFloorTemplate);
       rethrow;
     }
   }
+}
+
+class ApiPresenceRepository implements PresenceRepository {
+  ApiPresenceRepository(this.ctx);
+  final ApiContext ctx;
+
+  @override
+  Future<MyPresence> get() async => MyPresence.parse(await ctx.getJson(Endpoints.myPresence));
+
+  @override
+  Future<MyPresence> setStatus(PresenceStatus status, {String? note}) async {
+    final n = note?.trim();
+    return MyPresence.parse(await ctx.send('PUT', Endpoints.myStatus, body: {'status': status.wire, if (n != null && n.isNotEmpty) 'note': n}));
+  }
+
+  @override
+  Future<MyPresence> heartbeat(HeartbeatBody body) async => MyPresence.parse(await ctx.send('POST', Endpoints.heartbeat, body: body.toJson()));
+
+  @override
+  Future<MyPresence> zone(ZoneSignal signal) async => MyPresence.parse(await ctx.send('POST', Endpoints.zoneSignal, body: signal.toJson()));
 }
 
 class ApiAttendanceRepository implements AttendanceRepository {
@@ -319,65 +386,47 @@ class ApiAttendanceRepository implements AttendanceRepository {
   final ApiContext ctx;
 
   @override
-  Future<AttendanceDay> today() async => AttendanceDay.parse(await ctx.getJson(Endpoints.attendanceToday, query: {'date': dayKey(ctx.clock().toUtc(), ctx.timezone())}));
+  Future<AttendanceDay> today() async => AttendanceDay.parse(await ctx.getJson(Endpoints.attendanceToday));
 
   @override
-  Future<void> giveConsent() async {
-    await ctx.send('POST', Endpoints.attendanceConsent, body: {'granted': true, 'version': 1});
+  Future<void> setConsent({required bool accepted, required String version}) async {
+    await ctx.send('PUT', Endpoints.trackingConsent, body: {'accepted': accepted, 'version': version, 'deviceId': ?ctx.deviceId()});
   }
 
-  Json _loc(LocationFix? at) => at == null ? {} : {'location': at.toJson()};
+  Json _body(LocationFix at) => {'lat': at.lat, 'lng': at.lng, 'accuracy': at.accuracy, 'deviceId': ?ctx.deviceId()};
 
   @override
-  Future<AttendanceDay> checkIn(LocationFix? at) async => _dayFrom(await _attendanceWrite(Endpoints.checkIn, _loc(at)));
+  Future<AttendanceSession> checkIn(LocationFix at) async => AttendanceSession.parse(await _write(Endpoints.checkIn, _body(at)));
 
   @override
-  Future<AttendanceDay> checkOut(LocationFix? at) async => _dayFrom(await _attendanceWrite(Endpoints.checkOut, _loc(at)));
+  Future<AttendanceSession> checkOut(LocationFix at) async => AttendanceSession.parse(await _write(Endpoints.checkOut, _body(at)));
 
-  Future<Json> _attendanceWrite(String path, Json body) async {
+  Future<Json> _write(String path, Json body) async {
     try {
       return await ctx.send('POST', path, body: body);
     } on ApiFailure catch (e) {
-      if (Codes.outsideHours.contains(e.code)) throw const OutsideWorkingHours();
-      rethrow;
-    }
-  }
-
-  Future<AttendanceDay> _dayFrom(Json j) async => j['sessions'] is List ? AttendanceDay.parse(j) : today();
-
-  @override
-  Future<void> uploadLocations(List<LocationFix> points, {required String batchId}) async {
-    try {
-      await ctx.send('POST', Endpoints.locations, body: {'batchId': batchId, 'points': points.map((p) => p.toJson()).toList()});
-    } on ApiFailure catch (e) {
-      if (Codes.outsideHours.contains(e.code)) throw const OutsideWorkingHours();
+      if (e.code == Codes.outsideHours) throw const OutsideWorkingHours();
       rethrow;
     }
   }
 }
 
 class ApiAccountRepository implements AccountRepository {
-  ApiAccountRepository(this.ctx, {required this.me});
+  ApiAccountRepository(this.ctx);
   final ApiContext ctx;
-  final Me? Function() me;
-
-  @override
-  Future<PresenceStatus> setStatus(PresenceStatus status) async {
-    final j = await ctx.send('PUT', Endpoints.myStatus, body: {'status': status.wire});
-    return PresenceStatus.parse(j['status'] ?? status.wire);
-  }
 
   @override
   Future<Me> updateProfile({String? name, String? phone, String? title}) async {
-    await ctx.send('PATCH', Endpoints.myProfile, body: {'name': ?name, 'phone': ?toE164(phone), 'title': ?title});
+    await ctx.send('PATCH', Endpoints.myProfile, body: {'name': ?name, if (phone != null) 'phone': toE164(phone) ?? (phone.trim().isEmpty ? null : phone.trim()), 'title': ?title});
     return Me.parse(await ctx.getJson(Endpoints.me));
   }
 
   @override
-  Future<UserSettings> updateSettings({ThemePreference? theme, bool? push, bool? inApp, String? emailDigest}) async {
+  Future<UserSettings> updateSettings({ThemePreference? theme, String? darkFrom, String? darkTo, bool? push, bool? inApp, String? emailDigest, String? reducedMotion}) async {
     final j = await ctx.send('PATCH', Endpoints.mySettings, body: {
-      if (theme != null) 'theme': {'mode': theme.name},
+      if (theme != null || darkFrom != null || darkTo != null) 'theme': {'mode': ?theme?.name, 'darkFrom': ?darkFrom, 'darkTo': ?darkTo},
       if (push != null || inApp != null || emailDigest != null) 'notifications': {'push': ?push, 'inApp': ?inApp, 'emailDigest': ?emailDigest},
+      'reducedMotion': ?reducedMotion,
     });
     return UserSettings.parse(j);
   }
@@ -400,15 +449,24 @@ class ApiAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> registerDevice({required String token, required String platform, String? appVersion, String? model, String? installId}) async {
-    await ctx.send('POST', Endpoints.devices, body: {
-      'platform': platform,
-      'pushToken': token,
-      'appVersion': ?appVersion,
-      'model': ?model,
-      'installId': ?installId,
-    });
-  }
+  Future<RegisteredDevice> registerDevice({
+    required String installationId,
+    required String platform,
+    String? fcmToken,
+    required String appVersion,
+    int? appBuild,
+    String? model,
+    String? osVersion,
+  }) async =>
+      RegisteredDevice.parse(await ctx.send('POST', Endpoints.devices, body: {
+        'platform': platform,
+        'installationId': installationId,
+        'fcmToken': fcmToken,
+        'appVersion': appVersion,
+        'appBuild': ?appBuild,
+        'model': ?model,
+        'osVersion': ?osVersion,
+      }));
 
   @override
   Future<Performance> performance() async {
@@ -419,8 +477,8 @@ class ApiAccountRepository implements AccountRepository {
     final calls = <Call>[];
     String? cursor;
     for (var i = 0; i < 5; i++) {
-      final page = Page.parse(
-        await ctx.getJson(Endpoints.calls, query: {'from': from.toIso8601String(), 'userId': ?me()?.user.id, 'limit': 200, 'cursor': ?cursor}),
+      final page = Paged.parse(
+        await ctx.getJson(Endpoints.calls, query: {'from': from.toIso8601String(), 'userId': ?ctx.userId(), 'limit': 200, 'cursor': ?cursor}),
         Call.parse,
       );
       calls.addAll(page.items);
@@ -448,40 +506,74 @@ Performance buildPerformance(MyToday today, List<Call> calls, {required DateTime
   return Performance(targets: today.targets, stats: today.stats, callsPerDay: days.values.toList(), rank: today.stats.rank, teamSize: teamSize);
 }
 
-/// Sends queued writes (WriteQueue) to the API. 409 duplicates count as accepted.
+/// Sends queued writes (WriteQueue) to the API:
+/// - device call logs (POST /me/calls/device-log, idempotent by deviceCallId; the returned call ids
+///   are remembered for recordings);
+/// - recordings (POST /calls/{id}/recording, multipart), deferred until the call id is known;
+/// - location batches (POST /me/location); rejected points outside working hours stop tracking;
+/// - task status and other JSON writes.
+/// 409 duplicates count as accepted.
 class ApiWriteSender {
-  ApiWriteSender(this.ctx, {this.onOutsideHours});
+  ApiWriteSender(this.ctx, {this.onOutsideHours}) : calls = CallIdMap(ctx.store);
   final ApiContext ctx;
+  final CallIdMap calls;
   final void Function()? onOutsideHours;
 
   Future<WriteOutcome> call(PendingWrite w) async {
     try {
-      if (w.kind == WriteKind.recordingUpload) {
-        final path = w.filePath;
-        if (path == null) return WriteOutcome.drop;
-        final form = FormData.fromMap({'file': await MultipartFile.fromFile(path, contentType: DioMediaType.parse('${w.body?['mime'] ?? 'audio/mpeg'}'))});
-        await ctx.dio.post<dynamic>(w.path, data: form);
-        return WriteOutcome.done;
+      switch (w.kind) {
+        case WriteKind.recordingUpload:
+          return await _recording(w);
+        case WriteKind.deviceCallLog:
+          final body = {...?w.body};
+          final device = ctx.deviceId();
+          if (device != null && body['deviceId'] == null) body['deviceId'] = device;
+          final res = await ctx.dio.post<dynamic>(w.path, data: body);
+          final items = listOf(obj(res.data)['items'], (i) => i);
+          await calls.putAll({for (final i in items) if (strOrNull(i['deviceCallId']) != null && strOrNull(i['callId']) != null) str(i['deviceCallId']): str(i['callId'])});
+          return WriteOutcome.done;
+        case WriteKind.locationBatch:
+          final body = {...?w.body};
+          final device = ctx.deviceId();
+          if (device != null && body['deviceId'] == null) body['deviceId'] = device;
+          final res = await ctx.dio.post<dynamic>(w.path, data: body);
+          final rejected = listOf(obj(res.data)['rejected'], (r) => str(r['reason']));
+          if (rejected.any(Codes.stopTrackingReasons.contains)) _stopTracking();
+          return WriteOutcome.done;
+        default:
+          await ctx.dio.request<dynamic>(w.path, data: w.body, options: Options(method: w.method));
+          return WriteOutcome.done;
       }
-      await ctx.dio.request<dynamic>(w.path, data: w.body, options: Options(method: w.method));
-      return WriteOutcome.done;
     } on DioException catch (e) {
       final f = ApiFailure.from(e);
-      if (f.network) return WriteOutcome.retry;
+      if (f.network) return WriteOutcome.offline;
       final status = f.status ?? 0;
-      if (Codes.outsideHours.contains(f.code)) {
-        onOutsideHours?.call();
-        outsideHoursSignal.add(null);
+      if (f.code == Codes.outsideHours || f.code == Codes.consentRequired || f.code == Codes.featureDisabled) {
+        if (w.kind == WriteKind.locationBatch) _stopTracking();
         return WriteOutcome.drop;
       }
-      if (status == 409 || f.code == 'WEBHOOK_DUPLICATE') return WriteOutcome.done;
+      if (status == 409) return WriteOutcome.done;
       if (status == 401 || status == 408 || status == 429 || status >= 500) return WriteOutcome.retry;
-      // A recording that arrives before its call log: try again shortly.
-      if (status == 404 && w.kind == WriteKind.recordingUpload) return w.attempts < 20 ? WriteOutcome.retry : WriteOutcome.drop;
       return WriteOutcome.drop;
     } catch (_) {
       return WriteOutcome.retry;
     }
+  }
+
+  void _stopTracking() {
+    onOutsideHours?.call();
+    outsideHoursSignal.add(null);
+  }
+
+  Future<WriteOutcome> _recording(PendingWrite w) async {
+    final path = w.filePath;
+    final deviceCallId = strOrNull(w.body?['deviceCallId']);
+    if (path == null || deviceCallId == null) return WriteOutcome.drop;
+    final callId = strOrNull(w.body?['callId']) ?? await calls.callIdFor(deviceCallId);
+    if (callId == null) return WriteOutcome.defer;
+    final form = FormData.fromMap({'file': await MultipartFile.fromFile(path, filename: strOrNull(w.body?['name']), contentType: DioMediaType.parse('${w.body?['mime'] ?? 'audio/mpeg'}'))});
+    await ctx.dio.post<dynamic>(Endpoints.callRecording(callId), data: form, options: Options(sendTimeout: const Duration(minutes: 5)));
+    return WriteOutcome.done;
   }
 }
 
@@ -492,11 +584,11 @@ const Map<String, dynamic> defaultFloorTemplate = {
   'name': 'Sales floor',
   'aspect': 1.25,
   'zones': [
-    {'id': 'work', 'kind': 'work', 'label': 'Work area', 'x': 0.04, 'y': 0.05, 'w': 0.6, 'h': 0.62},
+    {'id': 'work', 'kind': 'work_area', 'label': 'Work area', 'x': 0.04, 'y': 0.05, 'w': 0.6, 'h': 0.62},
     {'id': 'cabin', 'kind': 'cabin', 'label': 'Manager cabin', 'x': 0.68, 'y': 0.05, 'w': 0.28, 'h': 0.27},
-    {'id': 'meeting', 'kind': 'meeting', 'label': 'Meeting room', 'x': 0.68, 'y': 0.36, 'w': 0.28, 'h': 0.31},
+    {'id': 'meeting', 'kind': 'meeting_room', 'label': 'Meeting room', 'x': 0.68, 'y': 0.36, 'w': 0.28, 'h': 0.31},
     {'id': 'reception', 'kind': 'reception', 'label': 'Reception', 'x': 0.04, 'y': 0.72, 'w': 0.42, 'h': 0.23},
-    {'id': 'pantry', 'kind': 'pantry', 'label': 'Pantry', 'x': 0.5, 'y': 0.72, 'w': 0.46, 'h': 0.23},
+    {'id': 'pantry', 'kind': 'pantry_lounge', 'label': 'Pantry', 'x': 0.5, 'y': 0.72, 'w': 0.46, 'h': 0.23},
   ],
   'seats': [
     {'id': 's0', 'index': 0, 'x': 0.12, 'y': 0.16, 'zoneId': 'work'},
@@ -511,6 +603,6 @@ const Map<String, dynamic> defaultFloorTemplate = {
     {'id': 's9', 'index': 9, 'x': 0.26, 'y': 0.52, 'zoneId': 'work'},
     {'id': 's10', 'index': 10, 'x': 0.40, 'y': 0.52, 'zoneId': 'work'},
     {'id': 's11', 'index': 11, 'x': 0.54, 'y': 0.52, 'zoneId': 'work'},
-    {'id': 's12', 'index': 12, 'x': 0.82, 'y': 0.19, 'zoneId': 'cabin'},
+    {'id': 's12', 'index': 12, 'x': 0.82, 'y': 0.19, 'zoneId': 'cabin', 'kind': 'cabin'},
   ],
 };

@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import app.vistar.employee.telephony.TelephonyChannel
+import app.vistar.employee.zones.ZonesChannel
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
@@ -21,6 +22,7 @@ object EngineHolder {
         // Plugins are registered automatically by the FlutterEngine constructor.
         val engine = FlutterEngine(app)
         TelephonyChannel.register(engine, app)
+        ZonesChannel.register(engine, app)
         engine.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault())
         cache.put(ENGINE_ID, engine)
         return engine

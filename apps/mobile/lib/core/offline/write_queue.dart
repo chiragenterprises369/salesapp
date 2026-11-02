@@ -79,13 +79,16 @@ enum WriteOutcome {
   /// Accepted (2xx, or 409 duplicate of an accepted write).
   done,
 
-  /// Network or server error: keep and retry with backoff.
+  /// Server error or rate limit for this write: keep it, retry with backoff, continue with the next.
   retry,
+
+  /// No connection: keep it and stop this flush (the rest would fail the same way).
+  offline,
 
   /// Permanent rejection (400, 403, 404, 422): drop it so the queue does not jam.
   drop,
 
-  /// Not now (e.g. waiting for another write); retry soon without counting an attempt.
+  /// Not yet possible (a recording waiting for its call id): retry soon, counts an attempt.
   defer,
 }
 
@@ -99,6 +102,9 @@ class WriteQueue {
 
   static const _key = 'queue.v1';
   static const maxItems = 2000;
+
+  /// A deferred write (recording without its call id) is dropped after this many tries (~1 hour).
+  static const maxDeferrals = 180;
 
   final LocalStore store;
   final DateTime Function() _clock;
@@ -167,7 +173,7 @@ class WriteQueue {
       try {
         outcome = await send(w);
       } catch (e) {
-        outcome = WriteOutcome.retry;
+        outcome = WriteOutcome.offline;
         w.lastError = '$e';
       }
       switch (outcome) {
@@ -176,14 +182,20 @@ class WriteQueue {
           items.remove(w);
           if (outcome == WriteOutcome.done) done++;
         case WriteOutcome.retry:
+        case WriteOutcome.offline:
           w.attempts++;
           w.nextAttemptAt = _clock().add(backoff(w.attempts));
         case WriteOutcome.defer:
-          w.nextAttemptAt = _clock().add(const Duration(seconds: 15));
+          w.attempts++;
+          if (w.attempts > maxDeferrals) {
+            items.remove(w);
+          } else {
+            w.nextAttemptAt = _clock().add(const Duration(seconds: 20));
+          }
       }
       await _save();
       // Stop at the first network failure: the rest would fail the same way.
-      if (outcome == WriteOutcome.retry) break;
+      if (outcome == WriteOutcome.offline) break;
     }
     return done;
   }

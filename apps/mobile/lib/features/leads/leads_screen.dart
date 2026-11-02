@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../data/models.dart';
+import '../../data/repositories.dart';
 import '../../design/design.dart';
 import '../calls/call_actions.dart';
 import '../common/common.dart';
@@ -67,7 +68,7 @@ class _LeadsScreenState extends ConsumerState<LeadsScreen> {
         ),
       ),
       slivers: [
-        AsyncSliver<Fetched<Page<Lead>>>(
+        AsyncSliver<Fetched<Paged<Lead>>>(
           value: leads,
           errorTitle: 'Leads did not load',
           onRetry: () => ref.invalidate(leadsProvider),

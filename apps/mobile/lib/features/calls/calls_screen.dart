@@ -80,7 +80,7 @@ class CallsScreen extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: VSpace.page),
           sliver: SliverToBoxAdapter(child: GroupLabel('Recent calls', count: calls.value?.items.length)),
         ),
-        AsyncSliver<Page<Call>>(
+        AsyncSliver<Paged<Call>>(
           value: calls,
           errorTitle: 'Call history did not load',
           onRetry: () => ref.invalidate(callsProvider),

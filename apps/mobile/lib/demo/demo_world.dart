@@ -4,11 +4,22 @@ import '../data/models.dart';
 /// (off by default; normal use reads the real API only). Everything is relative to [now] so the
 /// screens always look current, and deterministic so goldens are stable.
 class DemoWorld {
-  DemoWorld({DateTime? now}) : now = (now ?? DateTime.now()).toUtc() {
+  DemoWorld({DateTime? now, this.brandColor}) : now = (now ?? DateTime.now()).toUtc() {
     _build();
   }
 
   final DateTime now;
+
+  /// Company brand colour (goldens render two brands); null = Vistar indigo.
+  final String? brandColor;
+
+  static String _coarse(String presence) => switch (presence) {
+        'on_call' => 'on_call',
+        'available' => 'idle',
+        'offline' => 'offline',
+        'away' || 'on_break' || 'lunch' => 'away',
+        _ => 'busy',
+      };
 
   static const userId = '0190a000-0000-7000-8000-000000000001';
   static const workspaceId = '0190a000-0000-7000-8000-0000000000aa';
@@ -258,9 +269,9 @@ class DemoWorld {
       ];
     }
 
-    Json teammate(int i, String name, String status, int calls, {String? lead, int callMin = 0}) => {
-          'user': {'id': 'user-$i', 'name': name, 'role': i == 9 ? 'manager' : 'employee', 'status': status, 'avatar': null},
-          'status': status,
+    Json teammate(int i, String name, String status, int calls, {String? lead, int callMin = 0, String? zone, String? zoneName, String zoneSource = 'ble', double conf = 0.92, String? screen, bool field = false}) => {
+          'user': {'id': 'user-$i', 'name': name, 'role': i == 9 ? 'manager' : 'employee', 'status': _coarse(status), 'avatar': null},
+          'status': _coarse(status),
           'deskIndex': i,
           'currentLeadId': null,
           'currentLeadName': lead,
@@ -268,20 +279,43 @@ class DemoWorld {
           'callsToday': calls,
           'avgTalkSec': 120 + i * 13,
           'targetPct': 40.0 + i * 6,
-          'lastSeenAt': status == 'offline' ? _ago(hours: 2) : _ago(minutes: 0),
+          'presence': {
+            'status': status,
+            'version': 10 + i,
+            'employeeStatus': _coarse(status),
+            'source': status == 'on_call' ? 'phone_state' : (status == 'offline' ? 'timeout' : (status == 'available' ? 'heartbeat' : 'manual')),
+            'since': _ago(minutes: status == 'on_call' ? callMin : 20 + i * 3),
+            'manualStatus': null,
+            'lastHeartbeatAt': status == 'offline' ? _ago(hours: 2) : _ago(minutes: 0),
+            'lastSeenAt': status == 'offline' ? _ago(hours: 2) : _ago(minutes: 0),
+            'activity': {
+              'callId': status == 'on_call' ? 'live-$i' : null,
+              'callStartedAt': status == 'on_call' ? _ago(minutes: callMin) : null,
+              'leadId': null,
+              'leadName': lead,
+              'client': status == 'offline' ? null : (i.isEven ? 'android' : 'web'),
+              'clientActivity': status == 'offline' ? null : 'active',
+              'note': status == 'field_visit' ? 'Client visit, Andheri' : null,
+              'screen': screen,
+            },
+            'location': zone == null ? null : {'zoneId': zone, 'zoneName': zoneName, 'source': zoneSource, 'confidence': conf, 'since': _ago(minutes: 12), 'at': _ago(minutes: 1)},
+            'seatId': null,
+            'isFieldStaff': field,
+            'checkedIn': field && status != 'offline',
+          },
         };
     team = [
-      {...teammate(0, 'Anil Kumar', myStatus.wire, 11), 'user': meUserSummary},
-      teammate(1, 'Rohit Verma', 'on_call', 14, lead: 'Sanjay Gupta', callMin: 4),
-      teammate(2, 'Priya Sharma', 'idle', 9),
-      teammate(3, 'Neha Joshi', 'on_call', 12, lead: 'Vikram Singh', callMin: 1),
-      teammate(4, 'Amit Patel', 'break', 7),
-      teammate(5, 'Sneha Rao', 'meeting', 5),
-      teammate(6, 'Karan Mehta', 'field_visit', 3),
-      teammate(7, 'Pooja Iyer', 'busy', 10),
+      {...teammate(0, 'Anil Kumar', myStatus.wire, 11, zone: 'work', zoneName: 'Work area', screen: 'home'), 'user': meUserSummary},
+      teammate(1, 'Rohit Verma', 'on_call', 14, lead: 'Sanjay Gupta', callMin: 4, zone: 'work', zoneName: 'Work area', screen: 'call'),
+      teammate(2, 'Priya Sharma', 'available', 9, zone: 'work', zoneName: 'Work area', zoneSource: 'wifi', conf: 0.6, screen: 'leads'),
+      teammate(3, 'Neha Joshi', 'on_call', 12, lead: 'Vikram Singh', callMin: 1, zone: 'work', zoneName: 'Work area', screen: 'lead_detail'),
+      teammate(4, 'Amit Patel', 'on_break', 7, zone: 'pantry', zoneName: 'Pantry'),
+      teammate(5, 'Sneha Rao', 'in_meeting', 5, zone: 'meeting', zoneName: 'Meeting room', zoneSource: 'qr', conf: 1),
+      teammate(6, 'Karan Mehta', 'field_visit', 3, field: true),
+      teammate(7, 'Pooja Iyer', 'available', 10, zone: 'work', zoneName: 'Work area', screen: 'inbox'),
       teammate(8, 'Rahul Das', 'offline', 0),
-      teammate(9, 'Meera Kulkarni', 'idle', 2),
-      teammate(10, 'Vivek Nair', 'lunch', 6),
+      teammate(9, 'Meera Kulkarni', 'available', 2, zone: 'cabin', zoneName: 'Manager cabin', screen: 'team_floor'),
+      teammate(10, 'Vivek Nair', 'lunch', 6, zone: 'pantry', zoneName: 'Pantry', zoneSource: 'wifi', conf: 0.55),
     ];
 
     templates = [
@@ -307,10 +341,19 @@ class DemoWorld {
 
     timelines = {};
     attendance = {
-      'fieldStaff': true,
-      'consentGiven': false,
+      'date': _ago().substring(0, 10),
+      'timezone': 'Asia/Kolkata',
+      'isFieldStaff': true,
+      'trackingEnabled': true,
+      'consent': {'accepted': false, 'version': null, 'at': null, 'currentVersion': '2026-11-v1'},
+      'workingHours': [
+        {'start': '09:30', 'end': '18:30'},
+      ],
+      'insideWorkingHours': true,
+      'session': null,
       'sessions': <Json>[],
-      'trail': <Json>[],
+      'trackingActive': false,
+      'locationIntervalSec': 120,
     };
 
     me = {
@@ -352,7 +395,19 @@ class DemoWorld {
         'logoUrl': null,
         'accentColor': null,
         'showEmployeeRank': true,
-        'features': {'whatsapp': true, 'team_floor_3d': true, 'telephony': true},
+        'componentStyle': 'premium',
+        'branding': {
+          'displayName': 'Shakti Industries',
+          'logoLight': null,
+          'logoDark': null,
+          'brandColor': brandColor,
+          'chartPalette': null,
+          'loginImage': null,
+          'favicon': null,
+          'colors': {'base': brandColor ?? '#4F46E5', 'light': brandColor ?? '#4F46E5', 'dark': brandColor ?? '#818CF8', 'lightForeground': '#FFFFFF', 'darkForeground': '#0F172A', 'adjusted': false},
+          'chartColors': {'base': <String>[], 'light': <String>[], 'dark': <String>[], 'adjusted': <int>[]},
+        },
+        'features': {'whatsapp': true, 'team_floor_3d': true, 'telephony': true, 'employee_rank': true, 'custom_domain': false, 'field_tracking': true},
       },
       'permissions': ['leads.read', 'leads.update', 'tasks.read', 'tasks.update', 'calls.read', 'calls.make', 'messages.read', 'messages.send', 'templates.read', 'teamfloor.read', 'reports.read'],
       'teamMemberIds': [],

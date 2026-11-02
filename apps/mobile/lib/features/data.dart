@@ -25,7 +25,7 @@ class LeadFiltersController extends Notifier<LeadFilters> {
 
 final leadFiltersProvider = NotifierProvider<LeadFiltersController, LeadFilters>(LeadFiltersController.new);
 
-final leadsProvider = FutureProvider<Fetched<Page<Lead>>>((ref) => ref.watch(leadsRepositoryProvider).list(ref.watch(leadFiltersProvider)));
+final leadsProvider = FutureProvider<Fetched<Paged<Lead>>>((ref) => ref.watch(leadsRepositoryProvider).list(ref.watch(leadFiltersProvider)));
 
 final pipelinesProvider = FutureProvider<List<Pipeline>>((ref) => ref.watch(leadsRepositoryProvider).pipelines());
 
@@ -103,7 +103,7 @@ final tasksProvider = AsyncNotifierProvider<TasksController, TasksState>(TasksCo
 
 // ---------------------------------------------------------------- Calls
 
-final callsProvider = FutureProvider<Page<Call>>((ref) => ref.watch(callsRepositoryProvider).recent());
+final callsProvider = FutureProvider<Paged<Call>>((ref) => ref.watch(callsRepositoryProvider).recent());
 
 // ---------------------------------------------------------------- Inbox
 
@@ -189,39 +189,83 @@ class TeamFloorController extends AsyncNotifier<TeamFloorSnapshot> {
   @override
   Future<TeamFloorSnapshot> build() => ref.watch(teamFloorRepositoryProvider).snapshot();
 
-  void applyStatus(String userId, PresenceStatus status) {
+  void applyStatus(String userId, PresenceStatus status, {int? version, String? leadName, DateTime? at, PresenceActivity? activity}) {
     final cur = state.value;
-    if (cur != null) state = AsyncData(cur.applyStatus(userId, status));
+    if (cur != null) state = AsyncData(cur.applyStatus(userId, status, version: version, leadName: leadName, at: at, activity: activity));
+  }
+
+  void applyZone(String userId, ZoneLocation? zone) {
+    final cur = state.value;
+    if (cur != null) state = AsyncData(cur.applyZone(userId, zone));
   }
 }
 
 final teamFloorProvider = AsyncNotifierProvider<TeamFloorController, TeamFloorSnapshot>(TeamFloorController.new);
 final floorPlanProvider = FutureProvider<FloorPlan>((ref) => ref.watch(teamFloorRepositoryProvider).plan());
 
-// ---------------------------------------------------------------- Status
+// ---------------------------------------------------------------- Status (my presence)
 
-class MyStatusController extends Notifier<PresenceStatus> {
+/// My live presence (status, version, zone, screen). Starts from the coarse status in /auth/me,
+/// then follows the server: PUT /me/status, heartbeat responses and realtime events.
+class MyPresenceController extends Notifier<MyPresence> {
   @override
-  PresenceStatus build() => ref.watch(meProvider.select((m) => m?.user.summary.status)) ?? PresenceStatus.offline;
+  MyPresence build() {
+    final coarse = ref.watch(meProvider.select((m) => m?.user.summary.status)) ?? PresenceStatus.offline;
+    return MyPresence(status: coarse, version: 0, source: 'session');
+  }
 
-  Future<void> set(PresenceStatus s) async {
+  Future<void> set(PresenceStatus s, {String? note}) async {
     final prev = state;
-    state = s;
+    state = prev.copyWith(status: s);
     try {
-      state = await ref.read(accountRepositoryProvider).setStatus(s);
-      final me = ref.read(meProvider);
-      if (me != null) ref.read(teamFloorProvider.notifier).applyStatus(me.user.id, state);
+      final p = await ref.read(presenceRepositoryProvider).setStatus(s, note: note);
+      state = p;
+      _mirror(p);
     } catch (e) {
       state = prev;
       rethrow;
     }
   }
 
-  /// Server-side change (realtime employee.status_changed for me, e.g. On call from the phone).
-  void applyServer(PresenceStatus s) => state = s;
+  /// Heartbeat and zone responses (MyPresence). Older versions are ignored.
+  void applyServer(MyPresence p) {
+    if (p.version < state.version) return;
+    state = p;
+    _mirror(p);
+  }
+
+  /// Realtime employee.status_changed for me (e.g. On call from the phone).
+  void applyEvent(PresenceStatus s, {int? version}) {
+    if (version != null && version <= state.version && state.version > 0) return;
+    state = state.copyWith(status: s, version: version ?? state.version);
+  }
+
+  void applyZone(ZoneLocation? z) => state = MyPresence(
+        status: state.status,
+        version: state.version,
+        source: state.source,
+        since: state.since,
+        manualStatus: state.manualStatus,
+        lastSeenAt: state.lastSeenAt,
+        activity: state.activity,
+        location: z,
+        heartbeatIntervalSec: state.heartbeatIntervalSec,
+        timeoutSec: state.timeoutSec,
+        insideWorkingHours: state.insideWorkingHours,
+      );
+
+  void _mirror(MyPresence p) {
+    final me = ref.read(meProvider);
+    if (me == null) return;
+    ref.read(teamFloorProvider.notifier).applyStatus(me.user.id, p.status, version: p.version);
+    if (p.location != null) ref.read(teamFloorProvider.notifier).applyZone(me.user.id, p.location);
+  }
 }
 
-final myStatusProvider = NotifierProvider<MyStatusController, PresenceStatus>(MyStatusController.new);
+final myPresenceProvider = NotifierProvider<MyPresenceController, MyPresence>(MyPresenceController.new);
+
+/// My status only (app bar pill, status sheet).
+final myStatusProvider = Provider<PresenceStatus>((ref) => ref.watch(myPresenceProvider.select((p) => p.status)));
 
 // ---------------------------------------------------------------- Notifications
 
@@ -263,7 +307,20 @@ final notificationsProvider = AsyncNotifierProvider<NotificationsController, Not
 
 // ---------------------------------------------------------------- Attendance, performance, config
 
-final attendanceProvider = FutureProvider<AttendanceDay>((ref) => ref.watch(attendanceRepositoryProvider).today());
+/// Points this phone recorded today (the server keeps the route; the app shows its own trail).
+class TrailController extends Notifier<List<LocationFix>> {
+  @override
+  List<LocationFix> build() => const [];
+  void add(LocationFix f) => state = [...state.length > 400 ? state.sublist(state.length - 400) : state, f];
+  void clear() => state = const [];
+}
+
+final trailProvider = NotifierProvider<TrailController, List<LocationFix>>(TrailController.new);
+
+final attendanceProvider = FutureProvider<AttendanceDay>((ref) async {
+  final day = await ref.watch(attendanceRepositoryProvider).today();
+  return day.withTrail(ref.watch(trailProvider));
+});
 final performanceProvider = FutureProvider<Performance>((ref) => ref.watch(accountRepositoryProvider).performance());
 final appConfigProvider = FutureProvider<AppConfig>((ref) => ref.watch(accountRepositoryProvider).appConfig());
 

@@ -345,7 +345,7 @@ class _TimelineItem extends StatelessWidget {
       case 'call':
         final dur = (p['durationSec'] ?? 0) as int;
         final outcome = callOutcomeLabels['${p['outcome']}'];
-        return (LucideIcons.phone, Tone.blue, '$who called', [if (outcome != null) outcome, dur > 0 ? formatDuration(dur) : 'No answer', if (p['hasRecording'] == true) 'recording'].join(' · '));
+        return (LucideIcons.phone, Tone.blue, '$who called', [?outcome, dur > 0 ? formatDuration(dur) : 'No answer', if (p['hasRecording'] == true) 'recording'].join(' · '));
       case 'message':
         return (LucideIcons.messageCircle, Tone.green, p['direction'] == 'inbound' ? 'WhatsApp received' : '$who sent a WhatsApp', '${p['preview'] ?? ''}');
       case 'note':

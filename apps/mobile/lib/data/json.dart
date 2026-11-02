@@ -33,15 +33,15 @@ List<T> listOf<T>(Object? v, T Function(Json) f) =>
 List<String> strings(Object? v) => v is List ? v.map((e) => '$e').toList() : const <String>[];
 
 /// `{ items: [...] }` or a cursor page `{ items, nextCursor, total }`.
-class Page<T> {
-  const Page(this.items, {this.nextCursor, this.total});
+class Paged<T> {
+  const Paged(this.items, {this.nextCursor, this.total});
 
   final List<T> items;
   final String? nextCursor;
   final int? total;
 
-  static Page<T> parse<T>(Object? raw, T Function(Json) f) {
+  static Paged<T> parse<T>(Object? raw, T Function(Json) f) {
     final j = obj(raw);
-    return Page<T>(listOf(j['items'], f), nextCursor: strOrNull(j['nextCursor']), total: toIntOrNull(j['total']));
+    return Paged<T>(listOf(j['items'], f), nextCursor: strOrNull(j['nextCursor']), total: toIntOrNull(j['total']));
   }
 }

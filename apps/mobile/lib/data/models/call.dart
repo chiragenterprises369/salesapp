@@ -28,6 +28,10 @@ class Call {
     required this.hasRecording,
     this.notes,
     this.provider = 'sim',
+    this.source = 'sim',
+    this.result,
+    this.phone,
+    this.deviceCallId,
   });
 
   final String id;
@@ -46,9 +50,20 @@ class Call {
   final String? notes;
   final String provider;
 
-  bool get isMissed => status == 'missed' || outcome == 'missed';
+  /// sim | voip | mock
+  final String source;
+
+  /// connected | missed | no_answer | busy | rejected | failed (device call log)
+  final String? result;
+
+  /// The other party, normalised (+91...); from/to may be empty for SIM calls.
+  final String? phone;
+  final String? deviceCallId;
+
+  bool get isMissed => status == 'missed' || outcome == 'missed' || result == 'missed';
+  bool get notConnected => result != null && result != 'connected';
   bool get isInbound => direction == 'inbound';
-  String get otherNumber => isInbound ? from : to;
+  String get otherNumber => phone ?? (isInbound ? from : to);
   String get displayName => leadName ?? otherNumber;
   String? get outcomeLabel => outcome == null ? null : callOutcomeLabels[outcome] ?? outcome;
 
@@ -68,8 +83,21 @@ class Call {
         hasRecording: toBool(j['hasRecording']),
         notes: strOrNull(j['notes']),
         provider: str(j['provider'], 'sim'),
+        source: str(j['source'], 'sim'),
+        result: strOrNull(j['result']),
+        phone: strOrNull(j['phone']),
+        deviceCallId: strOrNull(j['deviceCallId']),
       );
 }
+
+const callResultLabels = {
+  'connected': 'Connected',
+  'missed': 'Missed',
+  'no_answer': 'No answer',
+  'busy': 'Busy',
+  'rejected': 'Rejected',
+  'failed': 'Failed',
+};
 
 /// A row read from the phone's CallLog.Calls (Android only).
 class DeviceCallLogEntry {

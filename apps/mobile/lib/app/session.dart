@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/api/api_error.dart';
 import '../data/models.dart';
 import 'providers.dart';
+import 'runtime.dart';
 
 sealed class Session {
   const Session();
@@ -75,12 +76,15 @@ class SessionController extends Notifier<Session> {
       // Last chance for queued call logs and task updates before the token goes away.
       await queue.flush(ref.read(writeSenderProvider)).timeout(const Duration(seconds: 8));
     } catch (_) {}
+    // The socket disconnect that follows is a deliberate logout of this device.
+    ref.read(runtimeProvider)?.prepareSignOut();
     try {
       await ref.read(authRepositoryProvider).signOut();
     } catch (_) {}
     await queue.clear();
     await ref.read(localStoreProvider).clear();
     await ref.read(prefsProvider.notifier).setDemoMode(false);
+    ref.read(deviceIdProvider.notifier).set(null);
     state = const SignedOut();
   }
 

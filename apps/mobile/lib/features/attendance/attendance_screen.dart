@@ -6,7 +6,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/providers.dart';
-import '../../app/runtime.dart';
 import '../../core/format.dart';
 import '../../core/haptics.dart';
 import '../../core/time/working_hours.dart';
@@ -40,23 +39,23 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
       if (access == LocationAccess.granted) fix = await loc.current();
       if (!mounted) return;
       if (fix == null) {
-        final go = await showDialog<bool>(
+        await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Location not available'),
-            content: Text(access == LocationAccess.serviceOff
-                ? 'Turn on location (GPS) to attach your position.'
-                : 'Allow location for Vistar to attach your position. You can still ${checkIn ? 'check in' : 'check out'} without it.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-              FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(checkIn ? 'Check in anyway' : 'Check out anyway')),
-            ],
+            title: const Text('Location needed'),
+            content: Text(switch (access) {
+              LocationAccess.serviceOff => 'Turn on location (GPS), then try again. ${checkIn ? 'Check-in' : 'Check-out'} records where you are.',
+              LocationAccess.unsupported => 'Android only: check-in uses the phone\'s GPS. Open the Vistar app on your Android phone.',
+              _ => 'Allow location for Vistar, then try again. ${checkIn ? 'Check-in' : 'Check-out'} records where you are.',
+            }),
+            actions: [FilledButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK'))],
           ),
         );
-        if (go != true) return;
+        return;
       }
       final repo = ref.read(attendanceRepositoryProvider);
       await (checkIn ? repo.checkIn(fix) : repo.checkOut(fix));
+      if (checkIn) ref.read(trailProvider.notifier).add(fix);
       await Haptics.success();
       ref.invalidate(attendanceProvider);
       if (mounted) showToast(context, checkIn ? 'Checked in. Have a good day.' : 'Checked out.');
@@ -75,7 +74,6 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
     final me = ref.watch(meProvider);
     final now = ref.watch(clockProvider)().toUtc();
     final tz = timezoneOf(ref);
-    final consentLocal = ref.watch(prefsProvider.select((p) => p.locationConsent));
     final loc = ref.watch(locationProvider);
     final hours = me == null ? null : WorkingHours.forMe(me);
     return VPage(
@@ -88,16 +86,22 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
           errorTitle: 'Attendance did not load',
           onRetry: () => ref.invalidate(attendanceProvider),
           data: (d) {
-            if (!d.fieldStaff && !(me?.user.isFieldStaff ?? false)) {
+            if (!d.fieldStaff) {
               return const SliverToBoxAdapter(
                 child: EmptyState(icon: LucideIcons.mapPinOff, title: 'Attendance is for field staff', message: 'Ask your company admin to mark you as field staff to use check-in and GPS.'),
               );
             }
-            if (!d.consentGiven && !consentLocal) {
-              return SliverPadding(padding: const EdgeInsets.all(VSpace.page), sliver: SliverToBoxAdapter(child: _Consent(hoursLabel: hours?.todayLabel(now))));
+            if (!d.trackingEnabled) {
+              return const SliverToBoxAdapter(
+                child: EmptyState(icon: LucideIcons.mapPinOff, title: 'Field tracking is off', message: 'Your company plan does not include attendance and GPS. Ask your company admin.'),
+              );
             }
-            final within = hours?.isWithin(now) ?? true;
+            if (!d.consentGiven) {
+              return SliverPadding(padding: const EdgeInsets.all(VSpace.page), sliver: SliverToBoxAdapter(child: _Consent(hoursLabel: hours?.todayLabel(now), version: d.currentConsentVersion)));
+            }
+            final within = d.insideWorkingHours;
             final open = d.openSession;
+            final points = d.pointCount > d.trail.length ? d.pointCount : d.trail.length;
             return SliverPadding(
               padding: const EdgeInsets.fromLTRB(VSpace.page, VSpace.sm, VSpace.page, 0),
               sliver: SliverList.list(children: [
@@ -126,7 +130,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                     Row(children: [
                       Expanded(child: _Metric(label: 'Today', value: formatSpan(d.total(now)))),
                       Expanded(child: _Metric(label: 'Sessions', value: '${d.sessions.length}')),
-                      Expanded(child: _Metric(label: 'Points', value: '${d.trail.length}')),
+                      Expanded(child: _Metric(label: 'Points', value: '$points')),
                     ]),
                     const SizedBox(height: VSpace.lg),
                     FilledButton.icon(
@@ -179,7 +183,7 @@ class _AttendanceScreenState extends ConsumerState<AttendanceScreen> {
                             VListTile(
                               leading: Icon(s.open ? LucideIcons.circleDot : LucideIcons.circleCheck, size: 18, color: s.open ? context.colors.successText : context.colors.muted),
                               title: '${formatTime(s.checkInAt, tz)} to ${s.checkOutAt == null ? 'now' : formatTime(s.checkOutAt!, tz)}',
-                              subtitle: s.address,
+                              subtitle: s.closedNote ?? (s.pointCount > 0 ? '${s.pointCount} location points' : null),
                               trailing: Text(formatSpan(s.duration(now)), style: context.text.labelLarge!.copyWith(fontFeatures: tabular)),
                             ),
                         ]),
@@ -207,13 +211,22 @@ class _Metric extends StatelessWidget {
       );
 }
 
-class _Consent extends ConsumerWidget {
-  const _Consent({this.hoursLabel});
+class _Consent extends ConsumerStatefulWidget {
+  const _Consent({this.hoursLabel, required this.version});
   final String? hoursLabel;
+  final String version;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Consent> createState() => _ConsentState();
+}
+
+class _ConsentState extends ConsumerState<_Consent> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
     final c = context.colors;
+    final hoursLabel = widget.hoursLabel;
     Widget point(IconData icon, String text) => Padding(
           padding: const EdgeInsets.only(bottom: VSpace.md),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -242,17 +255,22 @@ class _Consent extends ConsumerWidget {
         point(LucideIcons.lock, 'Your company sees it; nobody else. You can withdraw consent with your admin at any time.'),
         const SizedBox(height: VSpace.sm),
         FilledButton(
-          onPressed: () async {
-            try {
-              await ref.read(attendanceRepositoryProvider).giveConsent();
-            } catch (_) {
-              // Recorded locally; sent again with the first check-in.
-            }
-            await ref.read(prefsProvider.notifier).setLocationConsent(true);
-            ref.invalidate(attendanceProvider);
-            ref.read(runtimeProvider);
-          },
-          child: const Text('I agree, continue'),
+          onPressed: _busy
+              ? null
+              : () async {
+                  setState(() => _busy = true);
+                  try {
+                    // DPDP consent is recorded on the server (who, when, which text version).
+                    await ref.read(attendanceRepositoryProvider).setConsent(accepted: true, version: widget.version);
+                    await ref.read(prefsProvider.notifier).setLocationConsent(true);
+                    ref.invalidate(attendanceProvider);
+                  } catch (e) {
+                    if (context.mounted) showToast(context, friendlyError(e), error: true);
+                  } finally {
+                    if (mounted) setState(() => _busy = false);
+                  }
+                },
+          child: Text(_busy ? 'Saving...' : 'I agree, continue'),
         ),
         const SizedBox(height: VSpace.sm),
         TextButton(onPressed: () => Navigator.of(context).maybePop(), child: const Text('Not now')),

@@ -94,9 +94,12 @@ class _VistarAppState extends ConsumerState<VistarApp> {
       themeAnimationDuration: VMotion.normal,
       builder: (context, child) {
         // Text scaling up to 1.3 (SPEC: no overflow at 130%); larger OS settings are capped.
+        // Reduced motion: the OS setting, or the user's own choice in Preferences.
         final mq = MediaQuery.of(context);
         final scaler = mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.3);
-        return MediaQuery(data: mq.copyWith(textScaler: scaler), child: child!);
+        final motion = me?.settings.reducedMotion ?? 'system';
+        final reduce = motion == 'on' || (motion == 'system' && mq.disableAnimations);
+        return MediaQuery(data: mq.copyWith(textScaler: scaler, disableAnimations: reduce), child: child!);
       },
     );
   }

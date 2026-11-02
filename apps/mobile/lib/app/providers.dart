@@ -12,6 +12,7 @@ import '../demo/fake_repositories.dart';
 import '../platform/location.dart';
 import '../platform/push.dart';
 import '../platform/telephony.dart';
+import '../platform/zones.dart';
 import 'prefs.dart';
 import 'session.dart';
 
@@ -23,11 +24,21 @@ export 'session.dart';
 final localStoreProvider = Provider<LocalStore>((ref) => MemoryStore());
 final clockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 final telephonyProvider = Provider<TelephonyService>((ref) => createTelephony());
-final locationProvider = Provider<LocationService>((ref) => GeoLocationService());
+final locationProvider = Provider<LocationService>((ref) => isAndroidApp ? GeoLocationService() : NoLocationService());
+final zoneScannerProvider = Provider<ZoneScanner>((ref) => createZoneScanner());
 final pushProvider = Provider<PushService>((ref) => isAndroidApp ? FirebasePushService() : NoPushService());
 final tokenStoreProvider = Provider<TokenStore>((ref) => SecureTokenStore());
 final writeQueueProvider = Provider<WriteQueue>((ref) => WriteQueue(ref.watch(localStoreProvider)));
 final offlineCacheProvider = Provider<OfflineCache>((ref) => OfflineCache(ref.watch(localStoreProvider)));
+
+/// Server id of this phone or browser (POST /me/devices), set after sign-in.
+class DeviceIdController extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? id) => state = id;
+}
+
+final deviceIdProvider = NotifierProvider<DeviceIdController, String?>(DeviceIdController.new);
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final url = ref.watch(prefsProvider.select((p) => p.serverUrl));
@@ -43,7 +54,10 @@ final apiContextProvider = Provider<ApiContext>((ref) => ApiContext(
       client: ref.watch(apiClientProvider),
       cache: ref.watch(offlineCacheProvider),
       queue: ref.watch(writeQueueProvider),
+      store: ref.watch(localStoreProvider),
       timezone: () => ref.read(meProvider)?.workspace.timezone ?? 'Asia/Kolkata',
+      userId: () => ref.read(meProvider)?.user.id,
+      deviceId: () => ref.read(deviceIdProvider),
       clock: ref.watch(clockProvider),
     ));
 
@@ -66,9 +80,9 @@ final tasksRepositoryProvider = Provider<TasksRepository>((ref) => _pick<TasksRe
 final callsRepositoryProvider = Provider<CallsRepository>((ref) => _pick<CallsRepository>(ref, FakeCallsRepository.new, ApiCallsRepository.new));
 final inboxRepositoryProvider = Provider<InboxRepository>((ref) => _pick<InboxRepository>(ref, FakeInboxRepository.new, ApiInboxRepository.new));
 final teamFloorRepositoryProvider = Provider<TeamFloorRepository>((ref) => _pick<TeamFloorRepository>(ref, FakeTeamFloorRepository.new, ApiTeamFloorRepository.new));
+final presenceRepositoryProvider = Provider<PresenceRepository>((ref) => _pick<PresenceRepository>(ref, FakePresenceRepository.new, ApiPresenceRepository.new));
 final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) => _pick<AttendanceRepository>(ref, FakeAttendanceRepository.new, ApiAttendanceRepository.new));
-final accountRepositoryProvider = Provider<AccountRepository>((ref) => _pick<AccountRepository>(ref, FakeAccountRepository.new, (c) => ApiAccountRepository(c, me: () => ref.read(meProvider))),
-);
+final accountRepositoryProvider = Provider<AccountRepository>((ref) => _pick<AccountRepository>(ref, FakeAccountRepository.new, ApiAccountRepository.new));
 
 /// Sends queued writes (API mode) or accepts them (Demo mode).
 final writeSenderProvider = Provider<WriteSender>((ref) {
@@ -89,4 +103,5 @@ final meProvider = Provider<Me?>((ref) {
   return s is SignedIn ? s.me : null;
 });
 
-String timezoneOf(Ref ref) => ref.watch(meProvider)?.workspace.timezone ?? 'Asia/Kolkata';
+/// Workspace timezone for widgets (dates and times are always shown in it, SPEC 4.2).
+String timezoneOf(WidgetRef ref) => ref.watch(meProvider)?.workspace.timezone ?? 'Asia/Kolkata';

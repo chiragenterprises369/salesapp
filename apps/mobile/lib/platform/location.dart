@@ -14,7 +14,7 @@ abstract class LocationService {
   bool get canTrack;
   Future<LocationAccess> access({bool request = false});
   Future<LocationFix?> current();
-  Stream<LocationFix> track({required String notificationTitle, required String notificationText});
+  Stream<LocationFix> track({required String notificationTitle, required String notificationText, Duration interval = const Duration(seconds: 120)});
 }
 
 class GeoLocationService implements LocationService {
@@ -55,12 +55,12 @@ class GeoLocationService implements LocationService {
   }
 
   @override
-  Stream<LocationFix> track({required String notificationTitle, required String notificationText}) {
+  Stream<LocationFix> track({required String notificationTitle, required String notificationText, Duration interval = const Duration(seconds: 120)}) {
     if (!canTrack) return const Stream.empty();
     final settings = AndroidSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 40,
-      intervalDuration: const Duration(seconds: 60),
+      distanceFilter: 25,
+      intervalDuration: interval,
       foregroundNotificationConfig: ForegroundNotificationConfig(
         notificationTitle: notificationTitle,
         notificationText: notificationText,
@@ -73,5 +73,28 @@ class GeoLocationService implements LocationService {
     return Geolocator.getPositionStream(locationSettings: settings).map(_fix);
   }
 
-  static LocationFix _fix(Position p) => LocationFix(lat: p.latitude, lng: p.longitude, accuracy: p.accuracy, at: p.timestamp.toUtc(), speed: p.speed >= 0 ? p.speed : null);
+  static LocationFix _fix(Position p) => LocationFix(
+        lat: p.latitude,
+        lng: p.longitude,
+        accuracy: p.accuracy,
+        at: p.timestamp.toUtc(),
+        speed: p.speed >= 0 ? p.speed : null,
+        heading: p.heading >= 0 ? p.heading : null,
+        isMock: p.isMocked,
+      );
+}
+
+/// Web preview and tests: no GPS.
+class NoLocationService implements LocationService {
+  @override
+  bool get canTrack => false;
+
+  @override
+  Future<LocationAccess> access({bool request = false}) async => LocationAccess.unsupported;
+
+  @override
+  Future<LocationFix?> current() async => null;
+
+  @override
+  Stream<LocationFix> track({required String notificationTitle, required String notificationText, Duration interval = const Duration(seconds: 120)}) => const Stream.empty();
 }
