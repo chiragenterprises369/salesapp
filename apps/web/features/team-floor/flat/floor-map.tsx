@@ -18,7 +18,7 @@ import type { FloorEmployee, FloorState } from '../state/types';
  */
 
 /** Plan colours per theme: the 3D art palette (look.ts ART), tinted so text and dots stay legible. */
-const PLAN = {
+export const PLAN = {
   light: {
     oak: '#ecd8bb',
     carpet: '#d5dce5',
@@ -65,7 +65,7 @@ const PLAN = {
   },
 } as const satisfies Record<ResolvedTheme, Record<string, string>>;
 
-type Palette = (typeof PLAN)[ResolvedTheme];
+export type Palette = (typeof PLAN)[ResolvedTheme];
 
 const PAD = 0.5;
 /** Smallest on-screen person dot (px). Below it the plan drops initials and shows plain dots. */
@@ -155,8 +155,8 @@ export function FloorMap({ state, template, theme, attention, selectedId, onOpen
   );
 }
 
-/** Rooms, walls, furniture, chairs and the entrance (only changes with the template or theme). */
-const StaticPlan = memo(function StaticPlan({ template, c, label }: { template: FloorTemplate; c: Palette; label: number }) {
+/** Rooms, walls, furniture, chairs and the entrance (only changes with the template or theme). Also the seat tool background. */
+export const StaticPlan = memo(function StaticPlan({ template, c, label, hideSeats = false }: { template: FloorTemplate; c: Palette; label: number; hideSeats?: boolean }) {
   const floorFill: Record<string, string> = { oak: c.oak, carpet: c.carpet, walnut: c.walnut, stone: c.stone };
   const furniture = useMemo(() => furnitureShapes(template, c), [template, c]);
   const pts = (outline: [number, number][]) => outline.map(([x, z]) => `${x},${z}`).join(' ');
@@ -177,9 +177,8 @@ const StaticPlan = memo(function StaticPlan({ template, c, label }: { template: 
         />
       ))}
       {furniture}
-      {template.seats.map((s) => (
-        <circle key={s.id} cx={s.pos[0]} cy={s.pos[1]} r={0.2} fill={c.chair} opacity={0.75} />
-      ))}
+      {!hideSeats &&
+        template.seats.map((s) => <circle key={s.id} cx={s.pos[0]} cy={s.pos[1]} r={0.2} fill={c.chair} opacity={0.75} />)}
       {template.walls.map((w) => (
         <WallLine key={w.id} wall={w} c={c} />
       ))}
