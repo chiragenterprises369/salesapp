@@ -96,7 +96,9 @@ export const CompanyStatusChangeSchema = z.object({
   reason: z.string().trim().min(5).max(500),
 });
 export const CompanyFlagsUpdateSchema = z.object({
-  overrides: z.record(FeatureFlagSchema, z.boolean().nullable()).describe('null removes the override'),
+  // Partial map: zod 4 makes z.record with an enum key exhaustive, so a single switch like
+  // { custom_domain: true } was rejected (Kiro Crew platform report, wave A step 1).
+  overrides: z.partialRecord(FeatureFlagSchema, z.boolean().nullable()).describe('null removes the override'),
 });
 
 export const ImpersonationStartSchema = z.object({
