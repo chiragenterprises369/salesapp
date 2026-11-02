@@ -18,6 +18,8 @@ $ports = @{
   'frontend-physics-builder' = @{ WEB_PORT = '3004'; API_PORT = '4014'; NEXT_PUBLIC_MOCK_PERSONA = 'manager'; DB = 'vistar_builder' }
   'frontend-3d'              = @{ WEB_PORT = '3005'; API_PORT = '4015'; NEXT_PUBLIC_MOCK_PERSONA = 'manager'; DB = 'vistar_floor' }
   'mobile'                   = @{ WEB_PORT = '3010'; API_PORT = '4020'; DB = 'vistar_mobile' }
+  'crm-api'                  = @{ API_PORT = '4030'; DB = 'vistar_crm' }
+  'integration'              = @{ WEB_PORT = '3020'; API_PORT = '4040'; DB = 'vistar_integration' }
 }
 
 function Test-Db([string]$name) {
