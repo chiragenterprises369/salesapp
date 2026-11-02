@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ComponentStyleSchema, EmployeeStatusSchema, MessageStatusSchema, PresenceSourceSchema, PresenceStatusSchema, WorkflowRunStatusSchema, ZoneSignalSourceSchema } from './enums.js';
+import { AppScreenSchema, ComponentStyleSchema, EmployeeStatusSchema, MessageStatusSchema, PresenceSourceSchema, PresenceStatusSchema, WorkflowRunStatusSchema, ZoneSignalSourceSchema } from './enums.js';
 import { ThemeModeSchema } from './theme.js';
 import { CustomRecordSchema } from './customization/objects.js';
 import { ActivitySchema } from './schemas/activity.js';
@@ -12,7 +12,7 @@ import { AttentionItemSchema, DashboardKpisSchema, FeedItemSchema } from './sche
 import { FloorRequestSchema, TeamFloorRefSchema } from './schemas/floor.js';
 import { LeadListItemSchema } from './schemas/lead.js';
 import { NotificationSchema } from './schemas/notification.js';
-import { PresenceActivitySchema } from './schemas/presence.js';
+import { PresenceActivitySchema, ZoneSignalSchema } from './schemas/presence.js';
 import { TaskSchema } from './schemas/task.js';
 import { WebhookDeliverySchema } from './schemas/integration.js';
 import { UserSummarySchema } from './schemas/workspace.js';
@@ -263,6 +263,10 @@ export const HeartbeatSchema = z.object({
   currentLeadId: IdSchema.nullable().optional(),
   client: z.enum(['web', 'android']).optional(),
   deviceId: z.string().max(64).optional(),
+  /** Screen the user has open (same as PresenceHeartbeatSchema.screen; requests-19 #3). */
+  screen: AppScreenSchema.optional(),
+  /** Latest zone observation (Android app; parity with POST /me/presence/heartbeat). */
+  zone: ZoneSignalSchema.optional(),
 });
 export type Heartbeat = z.infer<typeof HeartbeatSchema>;
 /** Heartbeat every 15 s (socket or POST /me/presence/heartbeat). */
