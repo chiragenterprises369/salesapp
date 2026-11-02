@@ -82,9 +82,16 @@ export function startRealtime(qc: QueryClient, opts: RealtimeOptions): RealtimeH
   let beatTimer = 0;
   let flushTimer = 0;
   const pending = new Set<SyncScope>();
+  const seenIds = new Set<string>();
+  const seenOrder: string[] = [];
 
   const flush = () => {
     flushTimer = 0;
+    // Never refetch under a running mutation (an optimistic board move would jump back and forth).
+    if (qc.isMutating() > 0) {
+      flushTimer = window.setTimeout(flush, 400);
+      return;
+    }
     const scopes = [...pending];
     pending.clear();
     for (const scope of scopes) void qc.invalidateQueries({ queryKey: [scope] });
@@ -111,6 +118,13 @@ export function startRealtime(qc: QueryClient, opts: RealtimeOptions): RealtimeH
 
   const onEvent = (event: DomainEvent) => {
     if (!event || typeof event !== 'object' || !event.type) return;
+    // Dedupe by event id (the last 500), e.g. a redelivery after a reconnect.
+    if (event.id) {
+      if (seenIds.has(event.id)) return;
+      seenIds.add(event.id);
+      seenOrder.push(event.id);
+      if (seenOrder.length > 500) seenIds.delete(seenOrder.shift()!);
+    }
     markStale(scopesForEvent(event.type));
     for (const l of listeners) {
       try {
