@@ -1,40 +1,103 @@
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { FormAlert } from './auth-frame';
+import { useEffect, useRef, useState } from 'react';
+import { authFailureFrom } from '@/lib/auth/actions';
+import { usePublicPlatformInfo } from '@/lib/config/public';
+import { useDocumentTheme } from '@/lib/use-document-theme';
+import { useSessionStore } from '@/lib/session/session';
+import { FormAlert, OrDivider } from './auth-frame';
 
-const isDev = process.env.NODE_ENV !== 'production';
+/** Google Identity Services (loaded on demand from accounts.google.com; the CSP allows it). */
+interface GoogleId {
+  initialize(config: { client_id: string; callback: (r: { credential?: string }) => void; ux_mode?: 'popup'; auto_select?: boolean; cancel_on_tap_outside?: boolean; use_fedcm_for_button?: boolean }): void;
+  renderButton(el: HTMLElement, options: { theme?: 'outline' | 'filled_black'; size?: 'large'; text?: 'continue_with' | 'signup_with' | 'signin_with'; shape?: 'rectangular'; width?: number; logo_alignment?: 'left' | 'center' }): void;
+}
+declare global {
+  interface Window {
+    google?: { accounts?: { id?: GoogleId } };
+  }
+}
 
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden className="size-4">
-      <path
-        fill="currentColor"
-        d="M21.6 12.23c0-.68-.06-1.36-.18-2.02H12v3.83h5.39a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.9-1.75 2.98-4.32 2.98-7.33ZM12 22c2.7 0 4.96-.9 6.62-2.43l-3.23-2.5c-.9.6-2.05.95-3.39.95-2.6 0-4.81-1.76-5.6-4.12H3.07v2.58A10 10 0 0 0 12 22Zm-5.6-8.1a6 6 0 0 1 0-3.8V7.52H3.07a10 10 0 0 0 0 8.96L6.4 13.9ZM12 5.98c1.47 0 2.79.5 3.83 1.5l2.86-2.87A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.93 5.52L6.4 10.1C7.19 7.74 9.4 5.98 12 5.98Z"
-      />
-    </svg>
-  );
+const GIS_SRC = 'https://accounts.google.com/gsi/client';
+let gisPromise: Promise<GoogleId> | null = null;
+
+function loadGis(): Promise<GoogleId> {
+  if (window.google?.accounts?.id) return Promise.resolve(window.google.accounts.id);
+  gisPromise ??= new Promise<GoogleId>((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = GIS_SRC;
+    s.async = true;
+    s.defer = true;
+    s.onload = () => (window.google?.accounts?.id ? resolve(window.google.accounts.id) : reject(new Error('Google sign-in did not start.')));
+    s.onerror = () => {
+      gisPromise = null;
+      reject(new Error('Google sign-in could not load. Check your connection or use your e-mail and password.'));
+    };
+    document.head.appendChild(s);
+  });
+  return gisPromise;
 }
 
 /**
- * Google sign-in entry point. Google Identity Services needs a client ID on the API
- * (GOOGLE_CLIENT_ID); until it is configured the button explains that instead of failing silently.
+ * "Continue with Google" (change #20): shown only when the Super Admin configured the Google OAuth
+ * client (GET /public/platform), with its own "or" divider. The Google credential goes to POST
+ * /auth/google with the sign-up company name or the invite token when the page has one.
  */
-export function GoogleButton({ label = 'Continue with Google' }: { label?: string }) {
-  const [explained, setExplained] = useState(false);
+export function GoogleButton({ label = 'continue_with', workspaceName, inviteToken, onBeforeSignIn }: { label?: 'continue_with' | 'signup_with' | 'signin_with'; workspaceName?: string; inviteToken?: string; onBeforeSignIn?: () => string | null }) {
+  const info = usePublicPlatformInfo();
+  const theme = useDocumentTheme();
+  const ref = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Latest props for the Google callback (registered once per client id).
+  const extra = useRef({ workspaceName, inviteToken, onBeforeSignIn });
+  useEffect(() => {
+    extra.current = { workspaceName, inviteToken, onBeforeSignIn };
+  }, [workspaceName, inviteToken, onBeforeSignIn]);
+  const clientId = info.data?.googleSignIn ? info.data.googleClientId : null;
+
+  useEffect(() => {
+    if (!clientId || !ref.current) return;
+    let cancelled = false;
+    const el = ref.current;
+    loadGis()
+      .then((gis) => {
+        if (cancelled) return;
+        gis.initialize({
+          client_id: clientId,
+          ux_mode: 'popup',
+          cancel_on_tap_outside: true,
+          use_fedcm_for_button: true,
+          callback: (r) => {
+            if (!r.credential) return;
+            const blocked = extra.current.onBeforeSignIn?.() ?? null;
+            if (blocked) {
+              setError(blocked);
+              return;
+            }
+            setError(null);
+            useSessionStore
+              .getState()
+              .signInWithGoogle({ idToken: r.credential, workspaceName: extra.current.workspaceName?.trim() || undefined, inviteToken: extra.current.inviteToken })
+              .catch((e: unknown) => setError(authFailureFrom(e).message));
+          },
+        });
+        el.replaceChildren();
+        gis.renderButton(el, { theme: theme === 'dark' ? 'filled_black' : 'outline', size: 'large', text: label, shape: 'rectangular', width: Math.min(400, Math.max(200, el.clientWidth)), logo_alignment: 'center' });
+      })
+      .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : 'Google sign-in could not load.'));
+    return () => {
+      cancelled = true;
+    };
+  }, [clientId, theme, label]);
+
+  if (!clientId) return null;
   return (
-    <div className="flex flex-col gap-3">
-      <Button size="lg" className="w-full" onClick={() => setExplained(true)} aria-expanded={explained}>
-        <GoogleMark />
-        {label}
-      </Button>
-      {explained && (
-        <FormAlert tone="info">
-          Google sign-in is not set up yet. Use your email and password for now.
-          {isDev && <span className="mt-1 block text-xs">Developers: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in the API environment.</span>}
-        </FormAlert>
-      )}
-    </div>
+    <>
+      <OrDivider />
+      <div className="flex flex-col gap-3">
+        <div ref={ref} className="flex min-h-10 w-full justify-center" />
+        {error && <FormAlert>{error}</FormAlert>}
+      </div>
+    </>
   );
 }

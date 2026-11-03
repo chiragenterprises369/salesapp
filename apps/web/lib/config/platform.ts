@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import {
   configFieldActive,
   emailTemplateDefault,
@@ -143,10 +144,10 @@ function usePutGroup() {
 /** Refresh a card group's status after its own card changed (Firebase, releases, Razorpay, billing profile). */
 export function useRefreshRegistry() {
   const qc = useQueryClient();
-  return () => {
+  return useCallback(() => {
     void qc.invalidateQueries({ queryKey: configKeys.registry });
     void qc.invalidateQueries({ queryKey: configKeys.goLive });
-  };
+  }, [qc]);
 }
 
 export function useSaveConfigGroup(group: RegistryGroupKey) {

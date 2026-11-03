@@ -10,7 +10,7 @@ import { SUPER_LOGIN_PATH } from '@/lib/auth/redirect';
 import { isCustomHost } from '@/lib/branding/boot';
 import { useRedirectWhenSignedIn } from '@/lib/auth/use-auth';
 import { useSessionEndReason } from '@/lib/session/session';
-import { AuthCard, FormAlert, OrDivider } from './auth-frame';
+import { AuthCard, FormAlert } from './auth-frame';
 import { DemoAccounts } from './demo-accounts';
 import { fieldErrors, focusFirstInvalid } from './form-errors';
 import { GoogleButton } from './google-button';
@@ -114,7 +114,6 @@ export function LoginForm({ next }: { next: string | null }) {
             Sign in
           </Button>
         </form>
-        <OrDivider />
         <GoogleButton />
       </AuthCard>
       {!brandedHost && (

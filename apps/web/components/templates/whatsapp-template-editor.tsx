@@ -171,7 +171,7 @@ function EditorForm({
   const { readOnly, reason } = useReadOnly();
   const tz = me?.workspace.timezone ?? 'Asia/Kolkata';
   const isNew = !template;
-  const editable = canManage && !readOnly && (isNew || template.editable);
+  const editable = canManage && !readOnly && (!template || template.editable);
   const [initial] = useState(() => toDraft(template ?? copyOf, !template && !!copyOf));
   const [d, setD] = useState<Draft>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -185,7 +185,10 @@ function EditorForm({
 
   const vars = useMemo(() => whatsappBodyVariables(d.body).sort((a, b) => a - b), [d.body]);
   const body = useMemo(() => toBody(d), [d]);
-  const problems = useMemo(() => whatsappTemplateProblems({ body: body.body, bodyExamples: body.bodyExamples ?? [], header: { format: body.header?.format ?? 'none', text: body.header?.text ?? null, example: body.header?.example ?? null }, buttons: body.buttons ?? [] }), [body]);
+  const problems = useMemo(
+    () => whatsappTemplateProblems({ body: body.body, bodyExamples: body.bodyExamples ?? [], header: { format: d.headerFormat, text: body.header?.text ?? null, example: body.header?.example ?? null }, buttons: d.buttons }),
+    [body, d.headerFormat, d.buttons],
+  );
   const saving = m.create.isPending || m.update.isPending;
 
   function addVariable() {
@@ -230,7 +233,7 @@ function EditorForm({
     }
     try {
       let saved: WhatsAppTemplate;
-      if (isNew) saved = await m.create.mutateAsync(body);
+      if (!template) saved = await m.create.mutateAsync(body);
       else {
         const { name: _name, language: _language, ...patch } = body;
         saved = dirty ? await m.update.mutateAsync({ id: template.id, body: patch }) : template;
@@ -238,8 +241,8 @@ function EditorForm({
       if (submit) {
         saved = await m.submit.mutateAsync(saved.id);
         toast.success(`${saved.name} sent to Meta for review${saved.mode === 'mock' ? ' (development mock)' : ''}`);
-      } else toast.success(isNew ? `${saved.name} saved as a draft` : `${saved.name} saved`);
-      if (isNew) onCreated(saved);
+      } else toast.success(template ? `${saved.name} saved` : `${saved.name} saved as a draft`);
+      if (!template) onCreated(saved);
     } catch (err) {
       setErrors(serverFieldErrors(err));
       setFormError(formErrorMessage(err));
@@ -261,7 +264,7 @@ function EditorForm({
       <div className="flex flex-col gap-1">
         <BackButton onClick={onClose} />
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="font-mono text-lg font-semibold text-fg">{isNew ? 'New WhatsApp template' : template.name}</h2>
+          <h2 className="font-mono text-lg font-semibold text-fg">{template ? template.name : 'New WhatsApp template'}</h2>
           {template && <WhatsAppStatusChip status={template.status} />}
           {template?.mode === 'mock' && <span className="text-xs text-muted-strong">Development mock</span>}
         </div>
