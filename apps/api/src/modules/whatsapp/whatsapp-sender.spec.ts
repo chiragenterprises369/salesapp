@@ -26,6 +26,23 @@ describe('WhatsApp template parameters', () => {
   it('refuses missing values with the variable paths', () => {
     expect(() => whatsappTemplatePayload({ name: 't', language: 'hi', body: '{{1}} {{2}}', header: null, variables: [] }, { '1': 'x' })).toThrow(/Fill in every template variable/);
   });
+
+  it('media headers take a public https link; dynamic URL buttons need their suffix by index', () => {
+    const t = {
+      name: 'document_share',
+      language: 'en',
+      body: 'Dear {{1}}, {{2}}',
+      header: null,
+      headerFormat: 'document',
+      headerExample: null,
+      variables: [],
+      buttons: [{ type: 'quick_reply', text: 'Thanks' }, { type: 'url', text: 'View', url: 'https://app.vistar.in/d/{{1}}', example: 'https://app.vistar.in/d/abc' }],
+    };
+    const p = whatsappTemplatePayload(t, { '1': 'Asha', '2': 'QT/1', 'header.media': 'https://api.vistar.in/api/v1/public/documents/tok/pdf', 'header.filename': 'QT-1.pdf', 'button.1': 'tok' });
+    expect(p.headerMedia).toEqual({ format: 'document', link: 'https://api.vistar.in/api/v1/public/documents/tok/pdf', filename: 'QT-1.pdf' });
+    expect(p.buttonParams).toEqual([{ index: 1, text: 'tok' }]);
+    expect(() => whatsappTemplatePayload(t, { '1': 'Asha', '2': 'QT/1', 'header.media': 'http://insecure/x.pdf' })).toThrow(/Fill in every template variable/);
+  });
 });
 
 describe('media kinds', () => {
