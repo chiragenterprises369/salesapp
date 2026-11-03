@@ -73,6 +73,9 @@ test('integrations: IndiaMART test mode syncs from the mock and shows the push U
   await card.getByRole('button', { name: /^(Connect|Settings of) / }).click();
   const sheet = page.getByRole('dialog', { name: /IndiaMART/ });
   await sheet.getByRole('radio', { name: 'Test mode' }).click();
+  // Push on, so the push URL (with its key) is part of the endpoints.
+  const push = sheet.getByRole('checkbox', { name: /Accept push/ });
+  if ((await push.getAttribute('aria-checked')) !== 'true') await push.click();
   await sheet.getByRole('button', { name: /Save and (connect|test)/ }).click();
   await expect(card).toHaveAttribute('data-status', 'connected');
   const synced = page.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes('/integrations/indiamart/sync'));
