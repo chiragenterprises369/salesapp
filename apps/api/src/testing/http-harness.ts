@@ -44,7 +44,7 @@ export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 export async function createHarness(prefix: string): Promise<Harness> {
   const prisma = newTestPrisma();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = moduleRef.createNestApplication({ logger: ['error'] });
+  const app = moduleRef.createNestApplication({ logger: ['error'], rawBody: true });
   app.use(cookieParser());
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
