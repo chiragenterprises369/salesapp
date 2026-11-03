@@ -28,6 +28,7 @@ import type { TenantPrisma } from '../../../infra/prisma/tenant.js';
 import { loadFieldDefs, referenceErrors, roleKeyOf } from '../../customization/custom-values.js';
 import { NotificationsService } from '../../notifications/notifications.service.js';
 import { RoutingService } from '../../routing/routing.service.js';
+import { PlanLimitsService } from '../../billing/plan-limits.service.js';
 import { ActivityService } from '../activity.service.js';
 import { endOfColumn, firstPosition } from '../lead-position.js';
 import { scoreLead } from '../lead-score.js';
@@ -136,6 +137,8 @@ export class LeadImportService {
     private readonly leads: LeadsService,
     private readonly notifications: NotificationsService,
     private readonly routing: RoutingService,
+    // ---- change #19 wave C: billing
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   // ------------------------------------------------------------------ preview
@@ -244,6 +247,8 @@ export class LeadImportService {
       await this.leads.assertAssignable(db, body.defaultOwnerId);
     }
 
+    // ---- change #19 wave C: billing (lead limit for the whole file before anything is written)
+    await this.planLimits.assertCanAdd(wid, 'leads', Math.max(1, job.rowCount));
     const claimed = await db.importJob.updateMany({ where: { id, status: 'previewed' }, data: { status: 'running', mapping: body.mapping as Prisma.InputJsonObject } });
     if (claimed.count !== 1) throw new AppException('CONFLICT', 'This import has already run');
 

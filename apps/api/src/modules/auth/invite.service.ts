@@ -10,6 +10,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { assertInTenant } from '../../infra/prisma/tenant.js';
 import { AUTH_USER_SELECT, authContextFromClaims, SessionService, type AuthSession } from './session.service.js';
 import { hashPassword } from './password.js';
+import { PlanLimitsService } from '../billing/plan-limits.service.js';
 
 const inviteInvalid = () => new AppException('AUTH_INVITE_INVALID', 'This invite link is invalid or has expired. Ask your admin for a new one');
 
@@ -32,6 +33,8 @@ export class InviteService {
     private readonly prisma: PrismaService,
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
+    // ---- change #19 wave C: billing (seat limit)
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   private toInvite(row: { id: string; email: string | null; roleId: string; expiresAt: Date; acceptedAt: Date | null; createdAt: Date }, roleName: string, url?: string): Invite {
@@ -56,6 +59,9 @@ export class InviteService {
     if (email && (await db.user.count({ where: { email, deletedAt: null } }))) {
       throw conflict('This person is already a member of your workspace');
     }
+    // ---- change #19 wave C: billing. A new invite for an email with a pending one replaces it (no extra seat).
+    const replacing = email ? await db.invite.count({ where: { email, acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } } }) : 0;
+    await this.planLimits.assertCanAdd(wid, 'seats', replacing ? 0 : 1);
 
     const token = randomToken(32);
     const now = new Date();
@@ -150,6 +156,8 @@ export class InviteService {
     if (!role) throw inviteInvalid();
     const teamId = invite.teamId && (await db.team.count({ where: { id: invite.teamId } })) ? invite.teamId : null;
     const passwordHash = identity.password ? await hashPassword(identity.password) : null;
+    // ---- change #19 wave C: billing. The invite's seat was reserved; a lower plan since then can still block it.
+    await this.planLimits.assertCanAdd(wid, 'seats', 1, { countInvites: false });
 
     const now = new Date();
     const userId = await this.prisma
