@@ -75,7 +75,7 @@ export function ConnectSheet({ view, onClose }: { view: IntegrationView; onClose
     const next: Record<string, string> = {};
     if (live)
       for (const f of fields) {
-        const label = f.label.charAt(0).toLowerCase() + f.label.slice(1);
+        const label = /^[A-Z][a-z]/.test(f.label) ? f.label.charAt(0).toLowerCase() + f.label.slice(1) : f.label;
         if (f.secret) {
           if (f.required && !hasStored(f) && !secrets[f.key]?.trim()) next[f.key] = `Enter the ${label}.`;
           continue;
