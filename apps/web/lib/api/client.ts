@@ -1,12 +1,14 @@
 import {
   API_ROUTES,
   AuthTokensSchema,
+  PlanLimitErrorSchema,
   routePath,
   SuperSessionSchema,
   type ApiRouteId,
   type AuthTokens,
   type ErrorCode,
   type FieldError,
+  type PlanLimitError,
   type RouteBody,
   type RouteDef,
   type RouteParams,
@@ -84,6 +86,14 @@ function fallbackFor(status: number): [ErrorCode, string] {
 export const NETWORK_ERROR_MESSAGE = 'Vistar could not reach the server. Check your connection and try again.';
 export const TIMEOUT_ERROR_MESSAGE = 'The server took too long to answer. Try again.';
 
+/** `error.planLimit` of 402 PLAN_LIMIT_REACHED responses (ApiRequestError itself stays as it is). */
+const planLimits = new WeakMap<ApiRequestError, PlanLimitError>();
+
+/** Which limit stopped a create (metric, limit, used, plan, upgrade plan and URL), or null. */
+export function planLimitOf(e: unknown): PlanLimitError | null {
+  return e instanceof ApiRequestError ? (planLimits.get(e) ?? null) : null;
+}
+
 /** Map a non-2xx response to ApiRequestError (tolerates codes this build does not know yet). */
 export async function errorFromResponse(res: Response): Promise<ApiRequestError> {
   const headerId = res.headers.get('x-request-id');
@@ -93,15 +103,20 @@ export async function errorFromResponse(res: Response): Promise<ApiRequestError>
   } catch {
     body = null;
   }
-  const env = (body as { error?: { code?: unknown; message?: unknown; details?: unknown; requestId?: unknown } } | null)?.error;
+  const env = (body as { error?: { code?: unknown; message?: unknown; details?: unknown; requestId?: unknown; planLimit?: unknown } } | null)?.error;
   if (env && typeof env.code === 'string' && typeof env.message === 'string') {
     const details: FieldError[] = Array.isArray(env.details)
       ? env.details.filter((d): d is FieldError => !!d && typeof d.path === 'string' && typeof d.message === 'string')
       : [];
-    return new ApiRequestError(env.code as ErrorCode, env.message, details, {
+    const err = new ApiRequestError(env.code as ErrorCode, env.message, details, {
       status: res.status,
       requestId: typeof env.requestId === 'string' ? env.requestId : headerId,
     });
+    if (env.planLimit !== undefined) {
+      const limit = PlanLimitErrorSchema.safeParse(env.planLimit);
+      if (limit.success) planLimits.set(err, limit.data);
+    }
+    return err;
   }
   const [code, message] = fallbackFor(res.status);
   return new ApiRequestError(code, message, [], { status: res.status, requestId: headerId });

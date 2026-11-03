@@ -350,9 +350,9 @@ const invoiceOf = (s: Store, id: string, workspaceId?: string) => {
   const i = s.invoices.find((x) => x.id === id && (!workspaceId || (x.workspaceId === workspaceId && x.status !== 'draft')));
   return i ?? fail('NOT_FOUND', 'This invoice was not found.', 404);
 };
-const page = <T>(items: T[], q: { cursor?: string | null; limit?: number | null }) => {
-  const start = q.cursor ? Number(q.cursor) : 0;
-  const size = q.limit ?? 50;
+const page = <T>(items: T[], q: { cursor?: unknown; limit?: unknown }) => {
+  const start = q.cursor ? Number(q.cursor) || 0 : 0;
+  const size = Number(q.limit ?? 50) || 50;
   const slice = items.slice(start, start + size);
   return { items: slice, nextCursor: start + size < items.length ? String(start + size) : null, total: items.length };
 };
@@ -568,14 +568,15 @@ export const mockSuperBillingSource: SuperBillingSource = {
         pendingRequest: s.requests.some((r) => r.workspaceId === sub.workspaceId && r.status === 'pending'),
       };
     });
-    const needle = q.q?.trim().toLowerCase();
+    const needle = typeof q.q === 'string' ? q.q.trim().toLowerCase() : '';
     const rows = all.filter(
       (r) =>
         (!needle || r.company.name.toLowerCase().includes(needle) || r.company.slug.includes(needle)) &&
         (!q.status || r.subscription.status === q.status) &&
         (!q.plan || r.subscription.plan === q.plan) &&
         (!q.cycle || r.subscription.cycle === q.cycle) &&
-        (q.overdue === undefined || String(q.overdue) !== 'true' || r.overdueInvoices > 0),
+        (q.overdue === undefined || String(q.overdue) !== 'true' || r.overdueInvoices > 0) &&
+        (!q.trialEndingDays || (r.subscription.status === 'trialing' && (r.subscription.trialDaysLeft ?? 999) <= Number(q.trialEndingDays))),
     );
     const byStatus = { trialing: 0, active: 0, past_due: 0, cancelled: 0 };
     const byPlan = { free: 0, starter: 0, growth: 0, enterprise: 0 };
@@ -663,7 +664,8 @@ export const mockSuperBillingSource: SuperBillingSource = {
     const input = parse(TrialExtendSchema, body);
     const sub = subOf(s, companyId);
     const base = sub.trialEndsAt && Date.parse(sub.trialEndsAt) > Date.now() ? Date.parse(sub.trialEndsAt) : Date.now();
-    sub.trialEndsAt = new Date(base + input.days * 86_400_000).toISOString();
+    // until = end of that day in India time (18:29:59.999 UTC).
+    sub.trialEndsAt = input.until ? `${input.until}T18:29:59.999Z` : new Date(base + (input.days ?? 0) * 86_400_000).toISOString();
     sub.trialDaysLeft = daysLeft(new Date(sub.trialEndsAt));
     sub.status = 'trialing';
     sub.version += 1;

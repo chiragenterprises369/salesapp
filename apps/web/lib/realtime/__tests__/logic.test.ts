@@ -106,6 +106,11 @@ describe('scopesForEvent', () => {
     expect(scopesForEvent('catalog.changed')).toEqual(['products']);
     expect(scopesForEvent('meeting.reminder')[0]).toBe('calendar');
   });
+  it('billing events refresh the billing page', () => {
+    expect(scopesForEvent('billing.subscription_updated')).toEqual(['billing']);
+    expect(scopesForEvent('billing.invoice_updated')).toEqual(['billing']);
+    expect(scopesForEvent('billing.usage_alert')).toEqual(['billing']);
+  });
 });
 
 describe('reported screen (floor workspace panels)', () => {

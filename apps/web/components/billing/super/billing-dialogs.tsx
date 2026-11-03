@@ -16,6 +16,7 @@ import {
 import { Plus, Trash2 } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
 import { NativeSelect } from '@/components/common/native-select';
+import { Segmented } from '@/components/dashboard/segmented';
 import { Switch } from '@/components/common/switch';
 import { InlineAlert } from '@/components/settings/common/states';
 import { Button } from '@/components/ui/button';
@@ -336,24 +337,27 @@ export function CancelInvoiceDialog({ invoice, onClose }: { invoice: PlatformInv
 export function ExtendTrialDialog({ billing, open, onOpenChange }: { billing: CompanyBilling; open: boolean; onOpenChange: (o: boolean) => void }) {
   const f = useDialogForm();
   const m = useSuperBillingMutations(billing.company.id);
+  const [by, setBy] = useState<'days' | 'until'>('days');
   const [days, setDays] = useState('7');
+  const [until, setUntil] = useState('');
   const [reason, setReason] = useState('');
   const submit = async () => {
     const e: Record<string, string> = {};
     const n = Number(days);
-    if (!Number.isInteger(n) || n < 1 || n > 90) e.days = 'Enter 1 to 90 days.';
+    if (by === 'days' && (!Number.isInteger(n) || n < 1 || n > 90)) e.days = 'Enter 1 to 90 days.';
+    if (by === 'until' && (!until || until <= todayIst())) e.until = 'Pick a date after today.';
     if (reason.trim().length < 5) e.reason = 'Explain why (at least 5 characters).';
     if (Object.keys(e).length) return f.invalid(e);
     try {
-      const r = await m.extendTrial.mutateAsync({ days: n, reason: reason.trim() });
-      toast.success(`Trial of ${billing.company.name} extended`, { description: r.subscription.trialEndsAt ? `Ends ${new Date(r.subscription.trialEndsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : undefined });
+      const r = await m.extendTrial.mutateAsync({ ...(by === 'days' ? { days: n } : { until }), reason: reason.trim() });
+      toast.success(`Trial of ${billing.company.name} extended`, { description: r.subscription.trialEndsAt ? `Ends ${new Date(r.subscription.trialEndsAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })}` : undefined });
       onOpenChange(false);
     } catch (err) {
       f.server(err, 'The trial was not extended. Try again.');
     }
   };
   return (
-    <Shell open={open} onOpenChange={onOpenChange} title={`Extend the trial of ${billing.company.name}`} description="Also restarts a trial that has ended. The change is in the platform audit log." formId={f.formId} submitLabel="Extend trial" submitting={m.extendTrial.isPending} error={f.error}>
+    <Shell open={open} onOpenChange={onOpenChange} title={`Extend the trial of ${billing.company.name}`} description="Days are added to the current trial end (or to today when the trial has ended). The change is in the platform audit log." formId={f.formId} submitLabel="Extend trial" submitting={m.extendTrial.isPending} error={f.error}>
       <form
         id={f.formId}
         noValidate
@@ -363,9 +367,24 @@ export function ExtendTrialDialog({ billing, open, onOpenChange }: { billing: Co
           void submit();
         }}
       >
-        <FormField label="Extra days" required error={f.errors.days}>
-          <Input inputMode="numeric" value={days} maxLength={2} onChange={(e) => setDays(e.target.value.replace(/\D/g, ''))} />
-        </FormField>
+        <Segmented
+          label="Extend by"
+          value={by}
+          onChange={setBy}
+          options={[
+            { value: 'days', label: 'Add days' },
+            { value: 'until', label: 'Until a date' },
+          ]}
+        />
+        {by === 'days' ? (
+          <FormField label="Extra days" required error={f.errors.days}>
+            <Input inputMode="numeric" value={days} maxLength={2} onChange={(e) => setDays(e.target.value.replace(/\D/g, ''))} />
+          </FormField>
+        ) : (
+          <FormField label="Trial ends on" required hint="End of that day, India time" error={f.errors.until}>
+            <Input type="date" value={until} min={todayIst()} onChange={(e) => setUntil(e.target.value)} />
+          </FormField>
+        )}
         <FormField label="Reason" required error={f.errors.reason}>
           <Textarea rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
         </FormField>
@@ -373,7 +392,6 @@ export function ExtendTrialDialog({ billing, open, onOpenChange }: { billing: Co
     </Shell>
   );
 }
-
 // ---------------------------------------------------------------- change plan
 
 export function SuperPlanDialog({ billing, open, onOpenChange }: { billing: CompanyBilling; open: boolean; onOpenChange: (o: boolean) => void }) {

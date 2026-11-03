@@ -48,11 +48,12 @@ function Subscriptions() {
   const [plan, setPlan] = useState<Plan | ''>('');
   const [cycle, setCycle] = useState<BillingCycle | ''>('');
   const [overdue, setOverdue] = useState(false);
-  const query: SubscriptionQuery = { q: useDeferredValue(q).trim() || undefined, status: status || undefined, plan: plan || undefined, cycle: cycle || undefined, overdue: overdue ? 'true' : undefined } as SubscriptionQuery;
+  const [trialEnding, setTrialEnding] = useState('');
+  const query: SubscriptionQuery = { q: useDeferredValue(q).trim() || undefined, status: status || undefined, plan: plan || undefined, cycle: cycle || undefined, overdue: overdue ? 'true' : undefined, trialEndingDays: trialEnding ? Number(trialEnding) : undefined };
   const list = useSubscriptions(query);
   const rows = list.data?.pages.flatMap((p) => p.items) ?? [];
   const totals = list.data?.pages[0]?.totals;
-  const filtered = !!(query.q || status || plan || cycle || overdue);
+  const filtered = !!(query.q || status || plan || cycle || overdue || trialEnding);
   const tableStatus = list.isPending ? 'loading' : list.isError ? 'error' : rows.length === 0 ? 'empty' : 'ready';
 
   return (
@@ -88,6 +89,12 @@ function Subscriptions() {
               <option value="">Any cycle</option>
               <option value="monthly">Monthly</option>
               <option value="yearly">Yearly</option>
+            </NativeSelect>
+            <NativeSelect aria-label="Trial ending" wrapperClassName="w-44" size="sm" value={trialEnding} onChange={(e) => setTrialEnding(e.target.value)}>
+              <option value="">Any trial end</option>
+              <option value="3">Trial ends in 3 days</option>
+              <option value="7">Trial ends in 7 days</option>
+              <option value="14">Trial ends in 14 days</option>
             </NativeSelect>
             <label className="flex items-center gap-2 text-sm text-fg-secondary">
               <Switch checked={overdue} onCheckedChange={setOverdue} />

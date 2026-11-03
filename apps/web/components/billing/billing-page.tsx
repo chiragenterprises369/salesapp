@@ -39,14 +39,17 @@ function Billing() {
   const me = useMe();
   const params = useSearchParams();
   const highlight = upgradeParam(params);
+  const invoiceParam = params.get('invoice');
 
   // ?upgrade=<plan> (402 toast, upgradeUrl) or #plans: bring the plan cards into view once they render.
   const ready = !!overview.data && !!plans.data;
   useEffect(() => {
-    if (!ready || (!highlight && window.location.hash !== '#plans')) return;
-    const id = requestAnimationFrame(() => document.getElementById('plans')?.scrollIntoView({ block: 'start' }));
+    if (!ready) return;
+    const target = invoiceParam ? 'invoices' : highlight || window.location.hash === '#plans' ? 'plans' : null;
+    if (!target) return;
+    const id = requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView({ block: 'start' }));
     return () => cancelAnimationFrame(id);
-  }, [ready, highlight]);
+  }, [ready, highlight, invoiceParam]);
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 pb-6">
@@ -75,7 +78,7 @@ function Billing() {
             <Skeleton className="h-72 w-full" />
           )}
           <div className="grid gap-6 2xl:grid-cols-2">
-            <Invoices canManage={canManage} />
+            <Invoices canManage={canManage} highlightId={invoiceParam} />
             <Payments />
           </div>
           <BillingContactCard contact={overview.data.subscription.billingContact} companyName={me?.workspace.name ?? ''} canManage={canManage} />
@@ -211,7 +214,7 @@ function Usage({ overview }: { overview: BillingOverview }) {
   );
 }
 
-function Invoices({ canManage }: { canManage: boolean }) {
+function Invoices({ canManage, highlightId }: { canManage: boolean; highlightId: string | null }) {
   const q = useBillingInvoices();
   const m = useBillingMutations();
   const flow = useCheckoutFlow();
@@ -225,7 +228,7 @@ function Invoices({ canManage }: { canManage: boolean }) {
     }
   };
   return (
-    <section aria-labelledby="invoices-title" className="flex min-w-0 flex-col gap-3">
+    <section id="invoices" aria-labelledby="invoices-title" className="flex min-w-0 scroll-mt-20 flex-col gap-3">
       <h2 id="invoices-title" className="text-base font-semibold text-fg">
         Invoices
       </h2>
@@ -234,6 +237,7 @@ function Invoices({ canManage }: { canManage: boolean }) {
         status={status}
         onRetry={() => void q.refetch()}
         pdf={downloadBillingInvoicePdf}
+        highlightId={highlightId}
         actions={(i) =>
           canManage && isPayable(i) ? (
             <Button size="sm" variant="primary" loading={(m.payInvoice.isPending && m.payInvoice.variables === i.id) || flow.busy} onClick={() => void pay(i.id)}>

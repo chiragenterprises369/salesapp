@@ -70,6 +70,7 @@ export function PlatformInvoicesTable({
   actions,
   showCompany = false,
   footer,
+  highlightId,
   emptyDescription = 'Invoices from Vistar appear here when a paid period starts.',
 }: {
   rows: readonly PlatformInvoiceListItem[];
@@ -79,6 +80,8 @@ export function PlatformInvoicesTable({
   actions?: (i: PlatformInvoiceListItem) => ReactNode;
   showCompany?: boolean;
   footer?: ReactNode;
+  /** Row to mark (notification link /app/billing?invoice=<id>). */
+  highlightId?: string | null;
   emptyDescription?: string;
 }) {
   const columns = showCompany ? [INVOICE_COLUMNS[0]!, { key: 'company', label: 'Company', hideBelow: 'sm' as const }, ...INVOICE_COLUMNS.slice(1)] : INVOICE_COLUMNS;
@@ -88,7 +91,7 @@ export function PlatformInvoicesTable({
         {rows.map((i) => {
           const chip = invoiceChip(i);
           return (
-            <TableRow key={i.id}>
+            <TableRow key={i.id} data-invoice-id={i.id} aria-current={highlightId === i.id ? 'true' : undefined} className={cn(highlightId === i.id && 'bg-accent-soft')}>
               <TableCell className="py-2">
                 <span className="flex min-w-0 flex-col">
                   <span className={cn('font-mono text-xs', i.number ? 'text-fg' : 'text-muted-strong')}>{i.number ?? 'Draft'}</span>

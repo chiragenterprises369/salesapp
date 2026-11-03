@@ -138,7 +138,7 @@ export function activityFor(
 }
 
 /**
- * Change #19 wave B CRM events by prefix. Related lists refresh too (a deal shows on its contact and
+ * Change #19 wave B CRM events (and the wave C billing events) by prefix. Related lists refresh too (a deal shows on its contact and
  * account; a payment changes the invoice, its quotation and the deal). `routing.` and `capture_form.`
  * have no events yet; their scopes are ready for when the API publishes them.
  */
@@ -152,6 +152,8 @@ const CRM_EVENT_SCOPES: Partial<Record<string, readonly SyncScope[]>> = {
   meeting: ['calendar', 'contacts', 'accounts', 'deals'],
   routing: ['routing'],
   capture_form: ['capture-forms'],
+  // change #19 wave C: the company's Vistar subscription, invoices and usage alerts (billing.read users).
+  billing: ['billing'],
 };
 
 /**
