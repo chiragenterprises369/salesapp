@@ -173,6 +173,20 @@ Routes with `phase: 19` after the "change #19 wave B" marker in `API_ROUTES` (ow
 - **Errors**: `DOCUMENT_STATE_INVALID` 409, `SELLER_PROFILE_INCOMPLETE` 422, `PAYMENT_EXCEEDS_BALANCE` 422, `RECORD_MERGE_INVALID` 400, `PRODUCT_SKU_TAKEN` 409, `SHARE_LINK_EXPIRED` 410, `CAPTURE_FORM_CLOSED` 410.
 - **Presence** (D-063 gate): zone signals outside the user's working hours are ignored and the zone is cleared; heartbeats still update online status.
 
+## 14. Change #19 wave C: billing and PDF fonts (SPEC 15.7, 16, D-071, D-072)
+
+Routes in `api/routes-billing.ts` (`BILLING_ROUTES`, spread into `API_ROUTES`; owner backend-core = BILLING-PDF stream). Migration `20261103110000_change19c_billing`. Sources: `schemas/billing.ts`, `billing.ts` (pure helpers), marked blocks in `enums.ts`, `errors.ts`, `events.ts`, `rbac.ts`, `navigation.ts`. Full list: handoff `contracts-19c-billing.md`.
+
+- **Subscription** (one per workspace; `Subscription` mirrors `Workspace.plan`, trial status and `trialEndsAt`): status trialing, active, past_due, cancelled; monthly or yearly; extra seats; current period; scheduled downgrade; billing contact (name, GSTIN, address with state code = place of supply).
+- **Usage and limits**: meters for seats, leads, storage_mb, api_keys (totals) and whatsapp_messages, api_calls, workflow_runs (this IST month), counted from the tables (API calls by an interceptor into `UsageCounter`); 80 % warning, 100 % reached. Creates over the limit answer 402 `PLAN_LIMIT_REACHED` with `error.planLimit` (invites and invite accept and reactivation for seats, lead create and import for leads, API key create for api_keys). `PlanLimitsSchema` + `apiKeys`, `apiCallsPerMonth` (missing = unlimited).
+- **Vistar invoices** (`PlatformInvoice`, kinds subscription, plan_change, manual): GST with `computeDocument` (Vistar profile state vs the company's state), numbers `VST/<FY>/<seq>` across companies (`PlatformInvoiceSeries`), seller and buyer frozen at issue, PDF with the CRM template. Payments (`PlatformPayment`): Razorpay or mock checkout (`/billing/invoices/{id}/pay`, `/billing/checkout/verify`, dev `/billing/checkout/mock-pay`), Razorpay webhook `POST /api/hooks/razorpay` (HMAC of the raw body, idempotent by event id), manual "mark paid" by a Super Admin.
+- **Plan change**: upgrades are paid first (prorated `plan_change` invoice + checkout) or become a `PlanChangeRequest` for the Super Admin when no checkout is available; downgrades wait for the period end (at once during a trial or from a free plan).
+- **Billing cycle** (cron every 15 min, Redis lease): trial reminders, trial end, renewals, overdue -> past_due, reminders on days 0, 3, 7, cancel to the free plan after 14 days past due. Daily usage snapshot 02:30 IST.
+- **Super Admin**: subscriptions list with totals, company billing, manual invoice, issue, mark paid, cancel, extend trial, change plan, plan requests, Vistar billing profile (`billing.vistarProfile`), Razorpay config (`billing.razorpay`, secrets encrypted, write-only) under Config.
+- **Events and notifications**: `billing.subscription_updated`, `billing.invoice_updated`, `billing.usage_alert` (users with `billing.read`), sync scope `billing`; notification types `billing_trial_ending`, `billing_payment_failed`, `billing_invoice_issued`.
+- **Errors**: `PAYMENT_PROVIDER_NOT_CONFIGURED` 422, `PAYMENT_VERIFICATION_FAILED` 400, `PLAN_CHANGE_INVALID` 422.
+- **PDF fonts** (D-071): every PDF embeds subset Noto Sans and Noto Sans Devanagari (Type0, Identity-H, ToUnicode, ActualText), shaped with fontkit: the rupee sign and Hindi or Marathi names print correctly.
+
 ## 11. Flexible data layer and Industry Packs (Part 1, SPEC 22)
 
 Skill: `.claude/skills/vistar-industry-packs/SKILL.md`. All of this is data in the database; no pack-specific code in core modules.
