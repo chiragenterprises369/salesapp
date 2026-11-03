@@ -33,6 +33,7 @@ import {
 import { NeedsAttention } from './needs-attention';
 import { Panel } from './panel';
 import { Segmented } from './segmented';
+import { SetupBanner } from '@/components/setup/setup-banner';
 
 const TICK_MS = 2000;
 const ALL_TEAMS = '__all';
@@ -119,6 +120,8 @@ function Dashboard({ me }: { me: MeResponse }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-4 px-4 pt-4 pb-8 md:px-6 md:pt-5">
+      {/* ---- change #20: config (setup banner until the company setup is complete) */}
+      <SetupBanner />
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold">Dashboard</h1>

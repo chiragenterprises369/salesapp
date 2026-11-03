@@ -1,6 +1,7 @@
 import { API_BASE_PATH, REFRESH_COOKIE, SUPER_REFRESH_COOKIE, SUPER_SESSION } from '@vistar/shared';
 import type { CookieOptions, Request } from 'express';
 import { getEnv } from '../../config/env.js';
+import { securityPolicy } from '../config-registry/snapshot.js';
 
 /** Parse "15m", "30d", "3600" (seconds), "500ms" into whole seconds. */
 export function parseTtlSec(value: string): number {
@@ -13,8 +14,12 @@ export function parseTtlSec(value: string): number {
   return n * mult[unit]!;
 }
 
-export const ACCESS_TTL_SEC = (): number => parseTtlSec(getEnv().JWT_ACCESS_TTL);
-export const REFRESH_TTL_SEC = (): number => parseTtlSec(getEnv().JWT_REFRESH_TTL);
+// ---- change #20: config. Lifetimes from Super Admin > Config > Security policy (env JWT_*_TTL as the fallback).
+export const ACCESS_TTL_SEC = (): number => securityPolicy().accessTokenTtlSec;
+export const REFRESH_TTL_SEC = (): number => securityPolicy().refreshTokenTtlSec;
+/** Super Admin idle and absolute session limits (security policy; defaults SUPER_SESSION). */
+export const SUPER_IDLE_TIMEOUT_SEC = (): number => Math.round(securityPolicy().superIdleTimeoutMs / 1000);
+export const SUPER_ABSOLUTE_TIMEOUT_SEC = (): number => Math.round(securityPolicy().superAbsoluteTimeoutMs / 1000);
 
 /** Audience of the short-lived Super Admin 2FA challenge token (never accepted as an access token). */
 export const CHALLENGE_AUDIENCE = 'vistar:platform:challenge';

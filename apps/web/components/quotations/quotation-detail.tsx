@@ -1,7 +1,7 @@
 'use client';
 
 import { QUOTATION_TRANSITIONS, type DocumentShare, type Quotation, type QuotationStatus } from '@vistar/shared';
-import { Check, Copy, FileDown, Link2, MoreHorizontal, Pencil, ReceiptIndianRupee, RotateCcw, Send, Trash2, X } from 'lucide-react';
+import { Check, Copy, FileDown, Link2, Mail, MoreHorizontal, Pencil, ReceiptIndianRupee, RotateCcw, Send, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -20,6 +20,7 @@ import { formErrorMessage } from '@/lib/crm/ui/errors';
 import { useCan, useMe } from '@/lib/session/session';
 import { DocumentEditor } from './document-editor';
 import { DocumentPreview } from './document-preview';
+import { DeliverDialog } from './deliver-dialog';
 import { ShareDialog } from './share-dialog';
 
 export function QuotationDetailPage({ id }: { id: string }) {
@@ -44,6 +45,7 @@ function QuotationDetail({ id }: { id: string }) {
   const canInvoice = useCan('invoices.create');
   const [editing, setEditing] = useState(false);
   const [share, setShare] = useState<DocumentShare | null>(null);
+  const [delivering, setDelivering] = useState(false);
   const [reasonFor, setReasonFor] = useState<QuotationStatus | null>(null);
   const [reason, setReason] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -121,6 +123,12 @@ function QuotationDetail({ id }: { id: string }) {
               <Button variant="primary" loading={m.send.isPending} onClick={send}>
                 <Send aria-hidden />
                 Send
+              </Button>
+            )}
+            {d.status !== 'rejected' && canSend && (
+              <Button onClick={() => setDelivering(true)}>
+                <Mail aria-hidden />
+                E-mail or WhatsApp
               </Button>
             )}
             {(d.status === 'accepted' || d.status === 'sent') && canInvoice && !d.convertedInvoiceId && (
@@ -245,6 +253,7 @@ function QuotationDetail({ id }: { id: string }) {
       </div>
       <DocumentPreview doc={toPreview(d, me?.workspace.branding?.logoLight?.url ?? null)} />
       {share && <ShareDialog share={share} onClose={() => setShare(null)} buyerPhone={d.buyer.phone} buyerEmail={d.buyer.email} timeZone={tz} title={`Quotation ${d.number}`} />}
+      {delivering && <DeliverDialog kind="quotation" doc={d} onClose={() => setDelivering(false)} />}
       {reasonFor && (
         <ConfirmDialog
           open

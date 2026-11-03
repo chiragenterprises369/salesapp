@@ -80,6 +80,20 @@ export const NAV_SUPER_ADMIN: readonly NavGroup[] = [
       { id: 'support', label: 'Support', href: '/super-admin/support', icon: 'LifeBuoy', anyOf: ['platform.support.impersonate'] },
       { id: 'content', label: 'Content', href: '/super-admin/content', icon: 'Library', anyOf: ['platform.content.manage'] },
       { id: 'audit', label: 'Audit log', href: '/super-admin/audit', icon: 'ScrollText', anyOf: ['platform.audit.read'] },
+      // ---- change #20: config (registry groups, platform e-mail templates, go-live checklist; before System settings, request 3)
+      {
+        id: 'config',
+        label: 'Config',
+        href: '/super-admin/config',
+        icon: 'SlidersHorizontal',
+        anyOf: ['platform.system.manage'],
+        children: [
+          { id: 'config-groups', label: 'Settings and keys', href: '/super-admin/config', icon: 'KeyRound', anyOf: ['platform.system.manage'] },
+          { id: 'config-email-templates', label: 'E-mail templates', href: '/super-admin/config/email-templates', icon: 'Mail', anyOf: ['platform.system.manage'] },
+          { id: 'config-go-live', label: 'Go-live checklist', href: '/super-admin/config/go-live', icon: 'Rocket', anyOf: ['platform.system.manage'] },
+        ],
+      },
+      // ---- end change #20: config
       { id: 'system', label: 'System settings', href: '/super-admin/system', icon: 'Settings', anyOf: ['platform.system.manage', 'platform.admins.manage'] },
     ],
   },
@@ -168,6 +182,11 @@ export const NAV_COMPANY: readonly NavGroup[] = [
           // ---- change #19 wave C: hub
           { id: 'settings-api-keys', label: 'API keys', href: '/app/settings/api-keys', icon: 'KeyRound', anyOf: ['apikeys.manage'], featureFlag: 'api_access' },
           { id: 'settings-api-docs', label: 'API docs', href: '/app/settings/api-docs', icon: 'BookOpen', anyOf: ['apikeys.manage', 'integrations.read', 'webhooks.read'] },
+          // ---- change #20: config (request 3)
+          { id: 'settings-setup', label: 'Setup', href: '/app/settings/setup', icon: 'ListChecks', anyOf: ['settings.manage'] },
+          { id: 'settings-email-templates', label: 'Email templates', href: '/app/settings/email-templates', icon: 'Mail', anyOf: ['templates.manage'] },
+          { id: 'settings-whatsapp-templates', label: 'WhatsApp templates', href: '/app/settings/whatsapp-templates', icon: 'MessageCircle', anyOf: ['templates.manage'], featureFlag: 'whatsapp' },
+          // ---- end change #20: config
         ],
       },
     ],

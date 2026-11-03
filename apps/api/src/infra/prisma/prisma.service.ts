@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { getEnv } from '../../config/env.js';
+import { getProdEnv } from '../prod/prod-env.js';
 import { PrismaClient } from '../../generated/prisma/client.js';
 import { tenantClient, type TenantPrisma } from './tenant.js';
 
@@ -12,7 +13,18 @@ import { tenantClient, type TenantPrisma } from './tenant.js';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
-    super({ adapter: new PrismaPg({ connectionString: getEnv().DATABASE_URL }) });
+    // ---- change #20: prod (pool size and timeouts per API process; see docs/DEPLOY.md "Database")
+    const pool = getProdEnv();
+    super({
+      adapter: new PrismaPg({
+        connectionString: getEnv().DATABASE_URL,
+        max: pool.DB_POOL_MAX,
+        idleTimeoutMillis: pool.DB_POOL_IDLE_MS,
+        connectionTimeoutMillis: pool.DB_CONNECT_TIMEOUT_MS,
+        application_name: 'vistar-api',
+      }),
+    });
+    // ---- end change #20: prod
   }
 
   async onModuleInit(): Promise<void> {

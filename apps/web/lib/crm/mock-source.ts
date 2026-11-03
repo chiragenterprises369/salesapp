@@ -36,6 +36,7 @@ import {
   type CrmTimelineItem,
   type Deal,
   type DocumentShare,
+  type DocumentDeliveryResult,
   type ErrorCode,
   type IndianStateCode,
   type Invoice,
@@ -515,6 +516,13 @@ function share(token: string, days = 30, title = 'document'): DocumentShare {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
   const url = `${origin}${documentHostedPath(token)}`;
   return { url, pdfUrl: `${url}/pdf`, expiresAt: new Date(Date.now() + days * 86_400_000).toISOString(), message: `Please find the ${title} here: ${url}` };
+}
+
+/** Mock data mode: nothing leaves the browser; the result says so (via "mock"). */
+function mockDelivery(body: { channel: 'email'; to: string[]; cc?: string[] } | { channel: 'whatsapp'; to?: string }, sh: DocumentShare, buyer: { phone: string | null }): DocumentDeliveryResult {
+  const to = body.channel === 'email' ? [...body.to, ...(body.cc ?? [])] : [body.to ?? buyer.phone ?? ''];
+  if (body.channel === 'whatsapp' && !to[0]) fail('VALIDATION_FAILED', 'Give the WhatsApp number of the customer', 422);
+  return { channel: body.channel, status: 'sent', via: 'mock', to, messageId: `mock-${uuid4()}`, conversationId: null, error: null, share: sh, sentAt: nowIso() };
 }
 
 function fakePdf(title: string) {
@@ -1108,6 +1116,10 @@ export const mockCrmSource: CrmSource = {
       d.share = { active: true, expiresAt: sh.expiresAt, lastSharedAt: nowIso() };
       return { quotation: bumped(d), share: sh };
     },
+    async deliver(qid, body) {
+      const r = await mockCrmSource.quotations.send(qid, { expiresInDays: body.expiresInDays });
+      return mockDelivery(body, r.share, r.quotation.buyer);
+    },
     async share(qid, body) {
       await delay();
       const d = db().quotations.find((x) => x.id === qid) ?? notFound('quotation');
@@ -1197,6 +1209,10 @@ export const mockCrmSource: CrmSource = {
       const sh = share(uuid4().replace(/-/g, ''), body.expiresInDays, `invoice ${d.number ?? ''}`);
       d.share = { active: true, expiresAt: sh.expiresAt, lastSharedAt: nowIso() };
       return { invoice: bumped(d), share: sh };
+    },
+    async deliver(iid, body) {
+      const r = await mockCrmSource.invoices.send(iid, { expiresInDays: body.expiresInDays });
+      return mockDelivery(body, r.share, r.invoice.buyer);
     },
     async share(iid, body) {
       await delay();

@@ -29,11 +29,16 @@ import {
   type QuotationStatusChange,
   type QuotationUpdate,
   type SellerProfile,
+  // ---- change #20: prod (document delivery)
+  DocumentDeliverSchema,
+  type DocumentDeliver,
+  type DocumentDeliveryResult,
 } from '@vistar/shared';
 import type { Request, Response } from 'express';
 import { type AuthContext, CurrentAuth } from '../../common/auth/auth-context.js';
 import { ApiRoute } from '../../common/http/api-route.decorator.js';
 import { ZodPipe } from '../../common/validation/zod.pipe.js';
+import { DocumentDeliveryService } from './delivery/document-delivery.service.js';
 import { InvoicesService } from './invoices.service.js';
 import { PublicDocumentsService } from './public-documents.service.js';
 import { QuotationsService } from './quotations.service.js';
@@ -59,7 +64,21 @@ export class DocumentsController {
     private readonly invoices: InvoicesService,
     private readonly seller: SellerProfileService,
     private readonly publicDocs: PublicDocumentsService,
+    private readonly delivery: DocumentDeliveryService,
   ) {}
+
+  // ---- change #20: prod (send by e-mail with the PDF attached, or WhatsApp with the share link)
+
+  @ApiRoute(API_ROUTES.quotationDeliver)
+  quotationDeliver(@CurrentAuth() auth: AuthContext, @Req() req: Request, @Param(new ZodPipe(IdParamSchema)) { id }: IdParam, @Body(new ZodPipe(DocumentDeliverSchema)) body: DocumentDeliver): Promise<DocumentDeliveryResult> {
+    return this.delivery.deliver(auth, req, 'quotation', id, body);
+  }
+
+  @ApiRoute(API_ROUTES.invoiceDeliver)
+  invoiceDeliver(@CurrentAuth() auth: AuthContext, @Req() req: Request, @Param(new ZodPipe(IdParamSchema)) { id }: IdParam, @Body(new ZodPipe(DocumentDeliverSchema)) body: DocumentDeliver): Promise<DocumentDeliveryResult> {
+    return this.delivery.deliver(auth, req, 'invoice', id, body);
+  }
+  // ---- end change #20: prod
 
   // ---------------------------------------------------------------- seller profile
 

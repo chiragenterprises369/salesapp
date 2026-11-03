@@ -3,10 +3,10 @@ import { type Message, type MessageStatus } from '@vistar/shared';
 import { timingSafeEqual } from 'node:crypto';
 import { AppException, notFound } from '../../common/errors/app-exception.js';
 import { USER_SUMMARY_SELECT } from '../../common/mappers/user.mapper.js';
-import { getEnv } from '../../config/env.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { whatsappAppConfig } from '../config-registry/snapshot.js';
 import { toConversation } from '../conversations/conversations.service.js';
 import { isUniqueViolation } from '../crm/lib/db.js';
 import { IntegrationStore, type IntegrationRow } from '../integrations/integration-store.js';
@@ -129,7 +129,8 @@ export class WhatsappService {
   }
 
   verifyPlatform(q: { 'hub.mode': string; 'hub.verify_token': string; 'hub.challenge': string }): string {
-    const token = getEnv().WHATSAPP_VERIFY_TOKEN;
+    // ---- change #20: config (Super Admin > Config > WhatsApp platform app, env fallback)
+    const token = whatsappAppConfig().verifyToken;
     if (q['hub.mode'] !== 'subscribe' || !token || !safeEqual(q['hub.verify_token'], token)) throw new AppException('FORBIDDEN', 'Verify token does not match');
     return q['hub.challenge'];
   }
@@ -149,7 +150,7 @@ export class WhatsappService {
   }
 
   async receivePlatform(raw: Buffer | undefined, signature: string | undefined, body: unknown): Promise<void> {
-    const secret = getEnv().WHATSAPP_APP_SECRET;
+    const secret = whatsappAppConfig().appSecret;
     if (!raw || !secret || !verifyHubSignature(secret, raw, signature)) throw new AppException('WEBHOOK_SIGNATURE_INVALID', 'Invalid X-Hub-Signature-256');
     for (const value of valuesOf(body)) {
       const id = value.metadata?.phone_number_id;

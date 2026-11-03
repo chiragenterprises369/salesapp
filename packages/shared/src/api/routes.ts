@@ -2,6 +2,8 @@ import { z } from 'zod';
 import type { Permission, PlatformPermission } from '../rbac.js';
 // ---- change #19 wave C: billing
 import { BILLING_ROUTES } from './routes-billing.js';
+// ---- change #20: config
+import { CONFIG_ROUTES } from './routes-config.js';
 import {
   CompanyCreatedSchema,
   CompanyCreateSchema,
@@ -402,7 +404,7 @@ export const InboundWebhookResponseSchema = z.object({
   captured: z.boolean(),
 });
 
-export const API_ROUTES = {
+const CORE_ROUTES = {
   // ---------------- health ----------------
   health: route({ method: 'get', path: '/api/health', absolute: true, summary: 'Health check', tag: 'system', owner: 'backend-core', phase: 1, auth: 'public', permission: null, response: z.object({ ok: z.boolean(), db: z.boolean(), redis: z.boolean(), version: z.string() }) }),
 
@@ -827,9 +829,19 @@ export const API_ROUTES = {
   publicCaptureFormGet: route({ method: 'get', path: '/public/forms/{key}', summary: 'Form for the hosted page /f/<key> and iframes (410 CAPTURE_FORM_CLOSED when paused)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: CaptureFormKeyParamSchema, response: PublicCaptureFormSchema }),
   publicCaptureFormSubmit: route({ method: 'post', path: '/public/forms/{key}/submit', summary: 'Submit a form: creates a routed lead (rate limited per IP and form, honeypot, consent, idempotent with clientSubmissionId)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: CaptureFormKeyParamSchema, body: PublicCaptureSubmitSchema, response: PublicCaptureSubmitResultSchema }),
 
+} as const satisfies Record<string, RouteDef>;
+
+/**
+ * Every route. Explicit type (change #20): the inferred literal type of one object with all routes exceeded the
+ * size TypeScript serialises into the .d.ts (TS7056), so the blocks are declared separately and merged here.
+ */
+export const API_ROUTES: typeof CORE_ROUTES & typeof BILLING_ROUTES & typeof CONFIG_ROUTES = {
+  ...CORE_ROUTES,
   // ---- change #19 wave C: billing (routes in api/routes-billing.ts)
   ...BILLING_ROUTES,
-} as const satisfies Record<string, RouteDef>;
+  // ---- change #20: config (routes in api/routes-config.ts)
+  ...CONFIG_ROUTES,
+};
 
 export type ApiRouteId = keyof typeof API_ROUTES;
 

@@ -10,7 +10,7 @@ import { FormField, Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
 import { signup, type AuthFailure } from '@/lib/auth/actions';
 import { useRedirectWhenSignedIn } from '@/lib/auth/use-auth';
-import { AuthCard, FormAlert, OrDivider } from './auth-frame';
+import { AuthCard, FormAlert } from './auth-frame';
 import { fieldErrors, focusFirstInvalid } from './form-errors';
 import { GoogleButton } from './google-button';
 import { PasswordInput } from './password-input';
@@ -91,8 +91,12 @@ export function SignupForm() {
             Create workspace
           </Button>
         </form>
-        <OrDivider />
-        <GoogleButton label="Sign up with Google" />
+        {/* ---- change #20: config (Google sign-up once the Super Admin configured the Google OAuth client) */}
+        <GoogleButton
+          label="signup_with"
+          workspaceName={values.workspaceName}
+          onBeforeSignIn={() => (values.workspaceName.trim().length >= 2 ? null : 'Enter your company name first, then continue with Google.')}
+        />
       </AuthCard>
       <p className="text-center text-sm text-muted-strong">
         Already use Vistar?{' '}

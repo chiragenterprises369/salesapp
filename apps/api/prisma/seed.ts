@@ -1,5 +1,6 @@
 /**
- * CLEAN seed (D-064, SPEC 29.8). Run: pnpm db:seed (refuses to run in production). For the local main database:
+ * CLEAN seed (D-064, SPEC 29.8). Run: pnpm db:seed. In production (change #20, P6) it needs SEED_SUPER_ADMIN_EMAIL and
+ * SEED_SUPER_ADMIN_PASSWORD (12+ characters) and never uses the dev fixture account. For the local main database:
  * no companies, no demo data. Companies are created from the Super Admin panel (POST /api/super/companies) or by
  * sign-up. The demo companies are in prisma/seed-demo.ts (pnpm db:seed:demo).
  *
@@ -24,7 +25,21 @@ import { PLAN_CATALOGUE, seedDatabaseUrl, upsertPlans } from './seed/base.js';
 config({ path: path.resolve(process.cwd(), '../../.env'), quiet: true });
 
 async function main() {
-  const url = seedDatabaseUrl();
+  // ---- change #20: config (P6). Production: the first Super Admin comes from the env (no dev fixture, no dev password).
+  const production = process.env.NODE_ENV === 'production';
+  if (production) {
+    const missing = ['SEED_SUPER_ADMIN_EMAIL', 'SEED_SUPER_ADMIN_PASSWORD'].filter((k) => !process.env[k]?.trim());
+    if (missing.length) {
+      console.error(`Refusing to seed production without ${missing.join(' and ')} (the dev fixture account is never created in production).`);
+      process.exit(1);
+    }
+    if (process.env.SEED_SUPER_ADMIN_PASSWORD!.length < 12) {
+      console.error('Refusing to seed production: SEED_SUPER_ADMIN_PASSWORD must be at least 12 characters.');
+      process.exit(1);
+    }
+  }
+  // ---- end change #20: config
+  const url = seedDatabaseUrl({ allowProduction: true });
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   const t0 = Date.now();
   const email = (process.env.SEED_SUPER_ADMIN_EMAIL || SUPER_ADMIN_FIXTURE.email).toLowerCase();

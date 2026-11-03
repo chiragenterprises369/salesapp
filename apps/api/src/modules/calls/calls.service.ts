@@ -5,6 +5,7 @@ import type {
   CallListQuery,
   CallResult,
   CallUpdate,
+  ClickToCall,
   DeviceCallLogBatch,
   DeviceCallLogEntry,
   DeviceCallLogResult,
@@ -13,6 +14,7 @@ import type {
   RecordingUrl,
 } from '@vistar/shared';
 import type { Redis } from 'ioredis';
+import { randomUUID } from 'node:crypto';
 import type { AuthContext } from '../../common/auth/auth-context.js';
 import { ScopeService } from '../../common/auth/scope.service.js';
 import { AppException, notFound } from '../../common/errors/app-exception.js';
@@ -20,7 +22,9 @@ import type { CallStatus, Prisma } from '../../generated/prisma/client.js';
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { REDIS } from '../../infra/redis/redis.module.js';
+import { isUniqueViolation } from '../crm/lib/db.js';
 import { applyPatch, loadFieldDefs, publicValues, roleKeyOf, validateValues } from '../customization/custom-values.js';
+import { TelephonyService } from '../integrations/telephony.service.js';
 import { publishSafe, requestActor, type TenantDb } from '../leads/lib/context.js';
 import { decodeCursor, encodeCursor, isTimeCursor } from '../leads/lib/cursor.js';
 import { zonedMonthKey } from '../leads/lib/tz.js';
@@ -71,6 +75,7 @@ export class CallsService {
     private readonly presence: PresenceService,
     private readonly storage: StorageService,
     @Inject(REDIS) private readonly redis: Redis | null,
+    private readonly telephony: TelephonyService,
   ) {}
 
   // ---------------------------------------------------------------- live phone state
@@ -309,6 +314,75 @@ export class CallsService {
       },
       { actor },
     );
+  }
+
+  // ---------------------------------------------------------------- click-to-call (change #20)
+
+  /**
+   * POST /calls: ring my mobile through the connected telephony provider, then the customer (lead's phone or `to`).
+   * The call row exists before the provider is asked, so a fast status callback updates it instead of creating a
+   * second one. Mock telephony (development) simulates the call. The Android SIM path is unchanged.
+   */
+  async clickToCall(auth: AuthContext, body: ClickToCall): Promise<Call> {
+    const userId = requireUser(auth);
+    const db = this.prisma.forTenant(auth.workspaceId);
+    let lead: LeadMatch | null = null;
+    let to = body.to ? toE164(body.to) : null;
+    if (body.leadId) {
+      const row = await db.lead.findFirst({ where: { id: body.leadId, deletedAt: null }, select: { id: true, name: true, ownerId: true, phone: true } });
+      if (!row || !(await this.scope.canSee(auth, row.ownerId))) throw notFound('Lead');
+      lead = { id: row.id, name: row.name };
+      to ??= toE164(row.phone);
+    }
+    if (!to) {
+      throw new AppException('VALIDATION_FAILED', body.leadId ? 'This lead has no phone number' : 'Give the number to call', { details: [{ path: body.leadId ? 'leadId' : 'to', message: body.leadId ? 'No phone number' : 'Required' }] });
+    }
+    lead ??= await this.resolveLead(db, auth, null, to);
+    const me = await db.user.findFirst({ where: { id: userId }, select: { phone: true } });
+    const agent = toE164(me?.phone ?? null);
+    const { provider } = await this.telephony.connection(auth.workspaceId);
+    const id = randomUUID();
+    const startedAt = new Date();
+    await db.call.create({
+      data: {
+        id,
+        workspaceId: auth.workspaceId,
+        userId,
+        leadId: lead?.id ?? null,
+        direction: 'outbound',
+        status: 'ringing',
+        fromNumber: agent ?? '',
+        toNumber: to,
+        phone: to,
+        startedAt,
+        provider,
+        source: provider === 'mock' ? 'mock' : 'voip',
+      },
+    });
+    let dial;
+    try {
+      dial = await this.telephony.dial(auth.workspaceId, { agent, customer: to, callId: id });
+    } catch (err) {
+      await db.call.updateMany({ where: { id }, data: { status: 'failed', result: 'failed', endedAt: new Date() } });
+      throw err;
+    }
+    try {
+      await db.call.update({ where: { id }, data: { providerCallId: dial.providerCallId, status: dial.status, ...(dial.callerId ? { fromNumber: dial.callerId } : {}) } });
+    } catch (err) {
+      // A status callback was faster and created its own row: keep that one, with our user and lead.
+      if (!isUniqueViolation(err)) throw err;
+      await db.call.updateMany({ where: { provider, providerCallId: dial.providerCallId }, data: { userId, ...(lead ? { leadId: lead.id } : {}) } });
+      await db.call.deleteMany({ where: { id } });
+      const other = await db.call.findFirstOrThrow({ where: { provider, providerCallId: dial.providerCallId }, include: CALL_INCLUDE });
+      return toCall(other);
+    }
+    await this.countUsage(db, auth.workspaceId, startedAt);
+    const row = await this.row(db, id);
+    const actor = await requestActor(db, auth);
+    await publishSafe(this.events, this.logger, 'call.started', auth.workspaceId, { call: await this.broadcast(db, row) }, { actor: actor.event });
+    if (dial.provider === 'mock') this.telephony.simulateMockCall(auth.workspaceId, { providerCallId: dial.providerCallId, from: row.fromNumber, to });
+    const [defs, roleKey] = await Promise.all([loadFieldDefs(db, 'call'), roleKeyOf(db, auth)]);
+    return toCall(row, defs, roleKey);
   }
 
   // ---------------------------------------------------------------- reads and edits

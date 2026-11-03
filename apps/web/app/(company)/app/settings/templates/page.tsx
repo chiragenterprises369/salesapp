@@ -1,12 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { SettingsPage } from '@/components/settings/settings-layout';
-import { TemplatesSettings } from '@/components/settings/settings-placeholders';
-
+/** Change #20: WhatsApp templates (Meta status, create, submit, sync) replaced the read-only Templates page. */
 export default function TemplatesSettingsPage() {
-  return (
-    <SettingsPage id="settings-templates" description="Approved WhatsApp templates for first messages and follow-ups outside the 24-hour window.">
-      <TemplatesSettings />
-    </SettingsPage>
-  );
+  redirect('/app/settings/whatsapp-templates');
 }

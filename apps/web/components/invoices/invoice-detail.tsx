@@ -1,12 +1,13 @@
 'use client';
 
 import { formatPaise, type DocumentShare, type Invoice } from '@vistar/shared';
-import { Ban, FileDown, IndianRupee, Link2, MoreHorizontal, Pencil, Send, Stamp, Trash2 } from 'lucide-react';
+import { Ban, FileDown, IndianRupee, Link2, Mail, MoreHorizontal, Pencil, Send, Stamp, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { RequirePermission } from '@/components/auth/require-permission';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/leads/primitives/menu';
+import { DeliverDialog } from '@/components/quotations/deliver-dialog';
 import { DocumentEditor } from '@/components/quotations/document-editor';
 import { DocumentPreview } from '@/components/quotations/document-preview';
 import { ShareDialog } from '@/components/quotations/share-dialog';
@@ -54,6 +55,7 @@ function InvoiceDetail({ id }: { id: string }) {
   const [paying, setPaying] = useState(false);
   const [voiding, setVoiding] = useState<string | null>(null);
   const [share, setShare] = useState<DocumentShare | null>(null);
+  const [delivering, setDelivering] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
@@ -140,6 +142,12 @@ function InvoiceDetail({ id }: { id: string }) {
               >
                 <Send aria-hidden />
                 Send
+              </Button>
+            )}
+            {d.status !== 'cancelled' && canIssue && (
+              <Button onClick={() => setDelivering(true)}>
+                <Mail aria-hidden />
+                E-mail or WhatsApp
               </Button>
             )}
             <DropdownMenu>
@@ -261,6 +269,7 @@ function InvoiceDetail({ id }: { id: string }) {
       </div>
       {paying && <PaymentDialog invoice={d} onClose={() => setPaying(false)} />}
       {share && <ShareDialog share={share} onClose={() => setShare(null)} buyerPhone={d.buyer.phone} buyerEmail={d.buyer.email} timeZone={tz} title={label} />}
+      {delivering && <DeliverDialog kind="invoice" doc={d} onClose={() => setDelivering(false)} />}
       <ConfirmDialog
         open={issuing}
         onOpenChange={setIssuing}
