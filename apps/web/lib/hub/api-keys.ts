@@ -24,11 +24,13 @@ export function useApiKeyMutations() {
   };
   return {
     create: useMutation({
+      gcTime: 0,
       mutationFn: (body: RouteBody<'apiKeyCreate'>) => api.call('apiKeyCreate', { body }),
       onSuccess: ({ key: _plain, ...k }) => put(k),
     }),
     update: useMutation({ mutationFn: ({ id, patch }: { id: string; patch: RouteBody<'apiKeyUpdate'> }) => api.call('apiKeyUpdate', { params: { id }, body: patch }), onSuccess: put }),
     rotate: useMutation({
+      gcTime: 0,
       mutationFn: ({ id, graceMinutes }: { id: string; graceMinutes: number }) => api.call('apiKeyRotate', { params: { id }, body: { graceMinutes } }),
       onSuccess: ({ key: _plain, ...k }) => put(k),
     }),

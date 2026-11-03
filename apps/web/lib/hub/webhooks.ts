@@ -25,11 +25,12 @@ export function useWebhookMutations() {
     return refresh();
   };
   return {
-    createInbound: useMutation({ mutationFn: (body: RouteBody<'webhookInboundCreate'>) => api.call('webhookInboundCreate', { body }), onSuccess: (e) => put(e) }),
-    createOutbound: useMutation({ mutationFn: (body: RouteBody<'webhookOutboundCreate'>) => api.call('webhookOutboundCreate', { body }), onSuccess: (e) => put(e) }),
+    // The create answers carry the secret once: keep it out of the cache.
+    createInbound: useMutation({ gcTime: 0, mutationFn: (body: RouteBody<'webhookInboundCreate'>) => api.call('webhookInboundCreate', { body }), onSuccess: ({ secret: _secret, ...e }) => put(e) }),
+    createOutbound: useMutation({ gcTime: 0, mutationFn: (body: RouteBody<'webhookOutboundCreate'>) => api.call('webhookOutboundCreate', { body }), onSuccess: ({ secret: _secret, ...e }) => put(e) }),
     update: useMutation({ mutationFn: ({ id, patch }: { id: string; patch: RouteBody<'webhookEndpointUpdate'> }) => api.call('webhookEndpointUpdate', { params: { id }, body: patch }), onSuccess: put }),
     remove: useMutation({ mutationFn: (id: string) => api.call('webhookEndpointDelete', { params: { id } }), onSuccess: refresh }),
-    rotate: useMutation({ mutationFn: ({ id, graceHours }: { id: string; graceHours: number }) => api.call('webhookRotateSecret', { params: { id }, body: { graceHours } }), onSuccess: refresh }),
+    rotate: useMutation({ gcTime: 0, mutationFn: ({ id, graceHours }: { id: string; graceHours: number }) => api.call('webhookRotateSecret', { params: { id }, body: { graceHours } }), onSuccess: refresh }),
     capture: useMutation({ mutationFn: ({ id, enabled, minutes }: { id: string; enabled: boolean; minutes?: number }) => api.call('webhookCapture', { params: { id }, body: { enabled, ...(minutes ? { minutes } : {}) } }), onSuccess: put }),
     testSend: useMutation({
       mutationFn: ({ id, event }: { id: string; event?: string }) => api.call('webhookTestSend', { params: { id }, body: event ? { event: event as never } : {} }),

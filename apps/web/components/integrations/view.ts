@@ -1,4 +1,4 @@
-import type { Integration, IntegrationProviderInfo } from '@vistar/shared';
+import type { Integration, IntegrationEndpoints, IntegrationProviderInfo } from '@vistar/shared';
 
 /** One provider card: the workspace's row (GET /integrations) joined with its catalog entry. */
 export interface IntegrationView {
@@ -13,7 +13,7 @@ export interface IntegrationView {
   copyables: Array<{ key: string; label: string; value: string; hint: string }>;
 }
 
-const COPY_LABELS: Record<string, { label: string; hint: string }> = {
+const COPY_LABELS: Record<keyof IntegrationEndpoints, { label: string; hint: string }> = {
   pushUrl: { label: 'Push URL', hint: 'Paste into IndiaMART Lead Manager > Push API. It contains the push key, so keep it private.' },
   webhookUrl: { label: 'Callback URL', hint: 'Paste into Meta > WhatsApp > Configuration > Webhook.' },
   verifyToken: { label: 'Verify token', hint: 'Paste next to the callback URL in Meta. Vistar answers the verification challenge with it.' },
@@ -22,13 +22,15 @@ const COPY_LABELS: Record<string, { label: string; hint: string }> = {
 };
 
 export function toIntegrationView(row: Integration, info: IntegrationProviderInfo | null): IntegrationView {
-  const endpoints = row.endpoints ?? null;
+  const endpoints = row.endpoints;
   const copyables = endpoints
-    ? (Object.keys(COPY_LABELS) as Array<keyof typeof endpoints>)
-        .filter((k) => typeof endpoints[k] === 'string' && endpoints[k])
-        // The push URL only matters with push on; the redirect URI is for platform admins setting up OAuth.
+    ? (Object.keys(COPY_LABELS) as Array<keyof IntegrationEndpoints>)
+        // The OAuth redirect URI is for platform admins registering the Google client, not for this sheet.
         .filter((k) => k !== 'oauthRedirectUri')
-        .map((k) => ({ key: k, value: endpoints[k] as string, ...COPY_LABELS[k]! }))
+        .flatMap((k) => {
+          const value = endpoints[k];
+          return value ? [{ key: k, value, ...COPY_LABELS[k] }] : [];
+        })
     : [];
   const blockedReason = !row.enabled
     ? 'Your plan does not include this integration. Ask the account owner to upgrade.'

@@ -48,29 +48,12 @@ export function eventLabel(event: string): string {
     'invoice.issued': 'Invoice issued',
     'invoice.paid': 'Invoice paid',
     'meeting.scheduled': 'Meeting scheduled',
+    'webhook.test': 'Test delivery',
   };
   if (known[event]) return known[event]!;
   const words = event.replace(/[._]/g, ' ');
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
-
-/** "Lead", "Call" ... group of an event for the checklist ("lead.created" -> "lead"). */
-export const eventGroup = (event: string) => event.split('.')[0] ?? event;
-
-export const EVENT_GROUP_LABEL: Record<string, string> = {
-  lead: 'Leads',
-  stage: 'Leads',
-  call: 'Calls',
-  message: 'WhatsApp',
-  task: 'Tasks',
-  workflow: 'Workflows',
-  contact: 'Contacts',
-  account: 'Accounts',
-  deal: 'Deals',
-  quotation: 'Quotations',
-  invoice: 'Invoices',
-  meeting: 'Calendar',
-};
 
 /** "120 ms", "2.4 s". */
 export function formatLatency(ms: number | null | undefined): string {
