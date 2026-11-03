@@ -26,7 +26,7 @@ import { useHubRealtime } from '@/lib/hub/realtime';
 import { hubKeys } from '@/lib/hub/keys';
 import { useCan } from '@/lib/session/session';
 import { ConnectSheet } from './connect-sheet';
-import { CATEGORY_LABEL, providerIcon } from './providers';
+import { CATEGORY_LABEL, ProviderIcon } from './providers';
 import { integrationViews, type IntegrationView } from './view';
 
 const NAV_ITEM = NAV_COMPANY.flatMap((g) => g.items).find((i) => i.id === 'integrations');
@@ -138,7 +138,6 @@ function ProviderCard({ view: v, onOpen }: { view: IntegrationView; onOpen: () =
   const [confirm, setConfirm] = useState(false);
   const row = v.row;
   const status = statusOf(INTEGRATION_STATUS, row.status);
-  const Icon = providerIcon(v.provider);
   const titleId = `integration-${v.provider}`;
   const caps = v.info?.capabilities;
   const fail = (e: unknown) => toast.error(formErrorMessage(e, 'That did not work. Try again.'));
@@ -166,7 +165,7 @@ function ProviderCard({ view: v, onOpen }: { view: IntegrationView; onOpen: () =
         <section aria-labelledby={titleId} className="flex flex-1 flex-col gap-3 p-4">
           <div className="flex items-start gap-3">
             <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-3 text-fg-secondary">
-              <Icon className="size-4" />
+              <ProviderIcon provider={v.provider} className="size-4" />
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">

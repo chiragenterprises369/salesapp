@@ -136,10 +136,10 @@ function firstContent(content: Record<string, MediaType> | undefined): { content
 export function listOperations(doc: OpenApiDocument): ApiOperation[] {
   const out: ApiOperation[] = [];
   for (const [path, item] of Object.entries(doc.paths ?? {})) {
-    if (!isObject(item)) continue;
+    if (!item || typeof item !== 'object') continue;
     for (const method of HTTP_METHODS) {
-      const op = item[method];
-      if (!isObject(op)) continue;
+      const op: OpenApiOperation | undefined = item[method];
+      if (!op || typeof op !== 'object' || Array.isArray(op)) continue;
       const body = op.requestBody ? firstContent(op.requestBody.content) : null;
       out.push({
         id: op.operationId ?? `${method}-${path}`,

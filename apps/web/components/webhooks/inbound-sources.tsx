@@ -172,7 +172,7 @@ function SourceCard({ source: s, onEdit, onRotate, onDelete, onShowLog }: { sour
                 aria-label={s.isActive ? `Pause ${s.name}` : `Turn on ${s.name}`}
                 checked={s.isActive}
                 disabled={!!reason}
-                onCheckedChange={(isActive) => m.update.mutate({ id: s.id, patch: { isActive } }, { onSuccess: () => toast.success(isActive ? `${s.name} is on` : `${s.name} is paused; requests get 404 until you turn it on`), onError: fail })}
+                onCheckedChange={(isActive) => m.update.mutate({ id: s.id, patch: { isActive } }, { onSuccess: () => toast.success(isActive ? `${s.name} is on` : `${s.name} is paused; requests are refused (410) until you turn it on`), onError: fail })}
               />
             )}
           </div>

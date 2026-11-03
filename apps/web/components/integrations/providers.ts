@@ -1,5 +1,6 @@
 import type { IntegrationField } from '@vistar/shared';
 import { CalendarDays, Mail, MessageCircle, PhoneCall, Plug, Store, type LucideIcon } from 'lucide-react';
+import { createElement } from 'react';
 
 /**
  * Web-side presentation of the provider catalog (GET /integrations/catalog carries the fields, setup
@@ -12,7 +13,12 @@ export const PROVIDER_ICON: Record<string, LucideIcon> = {
   smtp: Mail,
   google_calendar: CalendarDays,
 };
-export const providerIcon = (provider: string): LucideIcon => PROVIDER_ICON[provider] ?? Plug;
+const providerIcon = (provider: string): LucideIcon => PROVIDER_ICON[provider] ?? Plug;
+
+/** Decorative provider icon (same pattern as NavIcon: a static lookup, not a component made in render). */
+export function ProviderIcon({ provider, className }: { provider: string; className?: string }) {
+  return createElement(providerIcon(provider), { 'aria-hidden': true, className });
+}
 
 export const CATEGORY_LABEL: Record<string, string> = { leads: 'Lead source', messaging: 'Messaging', calls: 'Calling', email: 'Email', calendar: 'Calendar' };
 
