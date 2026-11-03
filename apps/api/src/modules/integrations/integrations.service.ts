@@ -23,7 +23,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { KvStore } from '../auth/state/kv.store.js';
 import { can, requestActor } from '../leads/lib/context.js';
 import { IndiamartService } from './indiamart.service.js';
-import { IntegrationStore, type IntegrationRow, type IntegrationView } from './integration-store.js';
+import { IntegrationStore, providerSyncHooks, type IntegrationRow, type IntegrationView } from './integration-store.js';
 import { GOOGLE_SCOPES, googleCheck, googleClient, googleConfigured, smtpCheck, TELEPHONY_ADAPTERS, whatsappCheck, type ProviderCheck } from './providers/adapters.js';
 
 const OAUTH_STATE_TTL_SEC = 600;
@@ -265,9 +265,13 @@ export class IntegrationsService {
       };
     }
     const { row: tested, check } = await this.runTest(auth, row, {});
+    // ---- change #20: prod (Google Calendar: pull the changes now)
+    const hook = providerSyncHooks[provider];
+    const pulled = hook && check.ok && row.mode === 'live' ? await hook(auth.workspaceId).catch(() => null) : null;
+    // ---- end change #20: prod
     const updated = await this.store.db(auth.workspaceId).integration.update({ where: { id: tested.id }, data: { lastSyncAt: new Date() } });
     await this.store.publish(auth.workspaceId, updated, provider, actor.event);
-    return { ok: check.ok, message: check.message, fetched: 0, created: 0, updated: 0, skipped: 0, windowStart: null, windowEnd: null, integration: await this.dto(auth, provider, updated) };
+    return { ok: check.ok, message: pulled ? `${check.message}; ${pulled.applied} of ${pulled.pulled} changed events applied` : check.message, fetched: pulled?.pulled ?? 0, created: 0, updated: pulled?.applied ?? 0, skipped: 0, windowStart: null, windowEnd: null, integration: await this.dto(auth, provider, updated) };
   }
 
   // ---------------------------------------------------------------- disconnect, tokens

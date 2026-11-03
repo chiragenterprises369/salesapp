@@ -19,6 +19,11 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { assertInTenant } from '../../infra/prisma/tenant.js';
 import { publishSafe, requestActor, type TenantDb } from '../leads/lib/context.js';
 import { decodeCursor, encodeCursor, isTimeCursor, isUuid } from '../leads/lib/cursor.js';
+// ---- change #20: prod
+import { mediaKind, WhatsappSender, whatsappTemplatePayload, type WhatsappPayload } from '../whatsapp/whatsapp-sender.service.js';
+
+const MESSAGE_TYPE_OF_MEDIA = { image: 'image', video: 'video', audio: 'audio', document: 'document' } as const;
+// ---- end change #20: prod
 
 const WINDOW_MS = WHATSAPP_WINDOW_HOURS * 3_600_000;
 const PREVIEW_MAX = 140;
@@ -57,11 +62,12 @@ interface ConvCursor extends Record<string, unknown> {
 const isConvCursor = (v: Record<string, unknown>): v is ConvCursor => (v.t === null || (typeof v.t === 'string' && !Number.isNaN(Date.parse(v.t)))) && isUuid(v.id);
 
 /**
- * WhatsApp inbox read API (SPEC 14) over the stored conversations, with data scope: a conversation is
- * visible when its assignee is in the caller's scope; unassigned ones need scope all or
- * `messages.team_inbox`. Sending stores the message as `queued` and moves it to `sent` at once: no
- * WhatsApp Cloud API provider is connected yet, so nothing leaves Vistar (documented gap). Support
- * sessions without content access see message bodies as null.
+ * WhatsApp inbox (SPEC 14) over the stored conversations, with data scope: a conversation is visible when its
+ * assignee is in the caller's scope; unassigned ones need scope all or `messages.team_inbox`. Sending (change #20)
+ * goes through the workspace's WhatsApp Cloud API connection (WhatsappSender; mock in development): text inside the
+ * 24 h window, approved templates at any time, media by link; opted-out contacts are refused. The message is stored
+ * queued, then sent with the provider message id (or failed with the provider's error); delivered and read come back
+ * through the receiver. Support sessions without content access see message bodies as null.
  */
 @Injectable()
 export class ConversationsService {
@@ -71,6 +77,7 @@ export class ConversationsService {
     private readonly prisma: PrismaService,
     private readonly scope: ScopeService,
     private readonly events: EventBus,
+    private readonly whatsapp: WhatsappSender,
   ) {}
 
   private async scopeWhere(auth: AuthContext): Promise<Prisma.ConversationWhereInput> {
@@ -178,11 +185,17 @@ export class ConversationsService {
       const windowOpen = !!conv.lastInboundAt && now.getTime() - conv.lastInboundAt.getTime() < WINDOW_MS;
       if (body.type !== 'template' && !windowOpen) throw new AppException('WHATSAPP_WINDOW_CLOSED', 'The 24-hour window is closed. Send an approved template instead');
     }
+    // ---- change #20: prod (WhatsApp Cloud API through the connected integration; mock in development)
+    const wa = isNote ? null : await this.whatsapp.connection(auth.workspaceId);
+    if (!isNote && !conv.contact.phone) throw new AppException('VALIDATION_FAILED', 'This contact has no WhatsApp number');
+    let payload: WhatsappPayload | null = null;
+    // ---- end change #20: prod
     let text: string | null = null;
     let templateId: string | null = null;
     let templateName: string | null = null;
     let mediaFileId: string | null = null;
     if (body.type === 'text' || body.type === 'note') text = body.body;
+    if (body.type === 'text') payload = { kind: 'text', body: body.body };
     if (body.type === 'template') {
       const t = await db.template.findFirst({ where: { id: body.templateId } });
       if (!t) throw notFound('Template');
@@ -190,14 +203,17 @@ export class ConversationsService {
       templateId = t.id;
       templateName = t.name;
       text = renderTemplateBody(t.body, t.variables, body.variables ?? {});
+      payload = whatsappTemplatePayload(t, body.variables ?? {});
     }
     if (body.type === 'media') {
       await assertInTenant(db, { file: body.fileId } as never);
       mediaFileId = body.fileId;
       text = body.caption ?? null;
+      const file = await db.file.findFirst({ where: { id: body.fileId, deletedAt: null }, select: { id: true, mime: true, name: true } });
+      if (!file) throw notFound('File');
+      payload = { kind: 'media', fileId: file.id, mime: file.mime, name: file.name, caption: body.caption ?? null };
     }
-    const type = body.type === 'note' ? 'note' : body.type === 'media' ? 'document' : body.type;
-    // Stored as queued, then marked sent: there is no WhatsApp provider yet, nothing leaves Vistar.
+    const type = body.type === 'note' ? 'note' : body.type === 'media' ? (payload?.kind === 'media' ? MESSAGE_TYPE_OF_MEDIA[mediaKind(payload.mime)] : 'document') : body.type;
     const created = await db.message.create({
       data: {
         workspaceId: auth.workspaceId,
@@ -208,12 +224,17 @@ export class ConversationsService {
         templateId,
         templateName,
         mediaFileId,
-        status: 'queued',
+        status: isNote ? 'sent' : 'queued',
         isInternalNote: isNote,
         authorId: auth.userId,
       },
     });
-    const sent = await db.message.update({ where: { id: created.id }, data: { status: 'sent' } });
+    let sent = created;
+    if (wa && payload) {
+      const result = await this.whatsapp.send(auth.workspaceId, wa, conv.contact.phone!, payload);
+      sent = await db.message.update({ where: { id: created.id }, data: { status: result.status, providerMessageId: result.providerMessageId, error: result.error } });
+      if (result.mode === 'mock' && result.status === 'sent') this.whatsapp.simulateMockStatuses(auth.workspaceId, { id: sent.id, conversationId: id });
+    }
     const updatedConv = isNote
       ? conv
       : await db.conversation.update({

@@ -37,6 +37,7 @@ import { WorkflowsModule } from './modules/workflows/workflows.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
 // ---- change #20: prod
 import { ProdModule } from './infra/prod/prod.module.js';
+import { GoogleCalendarSyncModule } from './modules/calendar/google/google-calendar-sync.module.js';
 
 /** Wave 1 only (see common/auth/dev-auth.guard.ts). */
 const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useClass: DevAuthGuard }] : [];
@@ -86,6 +87,8 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     BillingModule,
     // ---- change #20: prod (readiness, draining, per-user rate limit)
     ProdModule,
+    // ---- change #20: prod (hub: Google Calendar sync of meetings)
+    GoogleCalendarSyncModule,
   ],
   controllers: [HealthController],
   providers: devProviders,

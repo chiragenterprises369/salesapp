@@ -36,6 +36,14 @@ const TOKEN_PREFIX: Record<keyof InboundTokens, string> = { pushKey: 'im_', veri
 /** "abcdefgh1234" -> "••••1234" (short values only show the bullets). */
 export const maskHint = (v: string) => (v.length >= 8 ? `••••${v.slice(-4)}` : '••••');
 
+// ---- change #20: prod
+/**
+ * "Sync now" handlers registered by modules that cannot be imported here without a cycle (Google Calendar sync
+ * registers itself on start). Returns what was pulled and applied.
+ */
+export const providerSyncHooks: Partial<Record<IntegrationProvider, (workspaceId: string) => Promise<{ pulled: number; applied: number }>>> = {};
+// ---- end change #20: prod
+
 export interface IntegrationView {
   features: FeatureFlags;
   /** integrations.manage: include endpoints (push URL with key, verify token, callback token). */
