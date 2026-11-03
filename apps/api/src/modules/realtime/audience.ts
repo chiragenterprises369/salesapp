@@ -114,6 +114,10 @@ export const AUDIENCE_RULES: Record<EventName, Rule> = {
   'billing.subscription_updated': () => ({ kind: 'permission', permission: 'billing.read' }),
   'billing.invoice_updated': () => ({ kind: 'permission', permission: 'billing.read' }),
   'billing.usage_alert': () => ({ kind: 'permission', permission: 'billing.read' }),
+  // ---- change #20: config
+  'whatsapp_template.updated': () => ({ kind: 'permission', permission: 'templates.read' }),
+  'whatsapp_template.deleted': () => ({ kind: 'permission', permission: 'templates.read' }),
+  'email_template.updated': () => ({ kind: 'permission', permission: 'templates.read' }),
 };
 
 /** Organizer and attending users; attendees always get their own meetings. */
