@@ -2,11 +2,12 @@
 
 import { LoginRequestSchema } from '@vistar/shared';
 import Link from 'next/link';
-import { useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormField, Input } from '@/components/ui/input';
 import { login, type AuthFailure } from '@/lib/auth/actions';
 import { SUPER_LOGIN_PATH } from '@/lib/auth/redirect';
+import { isCustomHost } from '@/lib/branding/boot';
 import { useRedirectWhenSignedIn } from '@/lib/auth/use-auth';
 import { useSessionEndReason } from '@/lib/session/session';
 import { AuthCard, FormAlert, OrDivider } from './auth-frame';
@@ -22,10 +23,21 @@ const MESSAGES: Record<Field, string> = {
   password: 'Enter your password',
 };
 
+const noSubscribe = () => () => undefined;
+
+/**
+ * A company's custom domain or `<slug>.localhost` (D-060): no "Create a workspace" link there. Hidden
+ * until hydration so a branded sign-in never flashes Vistar's sign-up link.
+ */
+function useBrandedHost(): boolean {
+  return useSyncExternalStore(noSubscribe, () => isCustomHost(window.location.hostname), () => true);
+}
+
 /** Workspace sign-in (Company and Employee panels): POST /auth/login. */
 export function LoginForm({ next }: { next: string | null }) {
   const status = useRedirectWhenSignedIn(next);
   const endReason = useSessionEndReason();
+  const brandedHost = useBrandedHost();
   const formRef = useRef<HTMLFormElement>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -99,12 +111,14 @@ export function LoginForm({ next }: { next: string | null }) {
         <OrDivider />
         <GoogleButton />
       </AuthCard>
-      <p className="text-center text-sm text-muted-strong">
-        New to Vistar?{' '}
-        <Link href="/signup" className="focus-ring rounded-xs font-medium text-accent-text underline-offset-4 hover:underline">
-          Create a workspace
-        </Link>
-      </p>
+      {!brandedHost && (
+        <p className="text-center text-sm text-muted-strong">
+          New to Vistar?{' '}
+          <Link href="/signup" className="focus-ring rounded-xs font-medium text-accent-text underline-offset-4 hover:underline">
+            Create a workspace
+          </Link>
+        </p>
+      )}
       <DemoAccounts
         disabled={submitting}
         onPick={(e, p) => {
