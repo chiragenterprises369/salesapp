@@ -243,8 +243,8 @@ export class WebhooksService {
   }
 
   preview(body: { samplePayload: unknown; mapping: PayloadMapping }): MappingPreviewResponse {
-    const { lead, errors } = applyPayloadMapping(body.samplePayload, body.mapping);
-    return { lead: lead as unknown as Record<string, unknown>, errors, paths: listPayloadPaths(body.samplePayload) };
+    const { lead, errors, rows } = applyPayloadMapping(body.samplePayload, body.mapping);
+    return { lead: lead as unknown as Record<string, unknown>, errors, rows, paths: listPayloadPaths(body.samplePayload) };
   }
 
   // ---------------------------------------------------------------- deliveries

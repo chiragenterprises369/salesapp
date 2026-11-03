@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   API_KEY_DISPLAY_PREFIX_LENGTH,
   API_KEY_PREFIX,
@@ -20,6 +20,7 @@ import { hashToken, randomToken } from '../../infra/crypto/secrets.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { requestActor } from '../leads/lib/context.js';
 import { WorkspaceService } from '../workspace/workspace.service.js';
+import { PLAN_LIMIT_CHECK, type PlanLimitCheck } from './plan-limit.hook.js';
 
 const newKey = () => `${API_KEY_PREFIX}${randomToken(24)}`;
 
@@ -34,6 +35,7 @@ export class ApiKeysService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly workspaces: WorkspaceService,
+    @Optional() @Inject(PLAN_LIMIT_CHECK) private readonly planLimits?: PlanLimitCheck,
   ) {}
 
   private db(auth: AuthContext) {
@@ -85,9 +87,10 @@ export class ApiKeysService {
     return { items: apiKeyScopeOptions(auth.permissions) };
   }
 
-  /** Create path (BILLING-PDF adds its PLAN_LIMIT_REACHED check at the top of this method). */
+  /** Create path: plan limit (402 PLAN_LIMIT_REACHED) through the billing module's PLAN_LIMIT_CHECK when it is present. */
   async create(auth: AuthContext, req: Request, body: ApiKeyCreate): Promise<ApiKeyCreated> {
     await this.requireApiAccess(auth);
+    await this.planLimits?.assertCanAdd(auth.workspaceId, 'api_keys');
     const missing = body.scopes.filter((s) => !auth.permissions.includes(s));
     if (missing.length) {
       throw new AppException('API_KEY_SCOPE_NOT_ALLOWED', 'A key cannot have scopes you do not hold', { details: missing.map((s) => ({ path: 'scopes', message: `You do not have ${s}` })) });
