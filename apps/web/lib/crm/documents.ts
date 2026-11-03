@@ -52,6 +52,10 @@ export function useQuotationMutations() {
     update: useMutation({ mutationFn: ({ id, patch }: { id: string; patch: RouteBody<'quotationUpdate'> }) => src().quotations.update(id, patch), onSuccess: put }),
     setStatus: useMutation({ mutationFn: ({ id, body }: { id: string; body: RouteBody<'quotationStatus'> }) => src().quotations.setStatus(id, body), onSuccess: put }),
     send: useMutation({ mutationFn: ({ id, expiresInDays }: { id: string; expiresInDays?: number }) => src().quotations.send(id, { expiresInDays }), onSuccess: (r) => put(r.quotation) }),
+    deliver: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: RouteBody<'quotationDeliver'> }) => src().quotations.deliver(id, body),
+      onSuccess: (_r, { id }) => Promise.all([qc.invalidateQueries({ queryKey: crmKeys.quotations.detail(id) }), qc.invalidateQueries({ queryKey: ['quotations', 'list'] })]),
+    }),
     share: useMutation({
       mutationFn: ({ id, expiresInDays }: { id: string; expiresInDays?: number }) => src().quotations.share(id, { expiresInDays }),
       onSuccess: (_s, { id }) => qc.invalidateQueries({ queryKey: crmKeys.quotations.detail(id) }),
@@ -81,6 +85,10 @@ export function useInvoiceMutations() {
     issue: useMutation({ mutationFn: ({ id, body }: { id: string; body: RouteBody<'invoiceIssue'> }) => src().invoices.issue(id, body), onSuccess: put }),
     cancel: useMutation({ mutationFn: ({ id, reason }: { id: string; reason: string }) => src().invoices.cancel(id, { reason }), onSuccess: put }),
     send: useMutation({ mutationFn: ({ id, expiresInDays }: { id: string; expiresInDays?: number }) => src().invoices.send(id, { expiresInDays }), onSuccess: (r) => put(r.invoice) }),
+    deliver: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: RouteBody<'invoiceDeliver'> }) => src().invoices.deliver(id, body),
+      onSuccess: (_r, { id }) => Promise.all([qc.invalidateQueries({ queryKey: crmKeys.invoices.detail(id) }), qc.invalidateQueries({ queryKey: ['invoices', 'list'] })]),
+    }),
     share: useMutation({
       mutationFn: ({ id, expiresInDays }: { id: string; expiresInDays?: number }) => src().invoices.share(id, { expiresInDays }),
       onSuccess: (_s, { id }) => qc.invalidateQueries({ queryKey: crmKeys.invoices.detail(id) }),

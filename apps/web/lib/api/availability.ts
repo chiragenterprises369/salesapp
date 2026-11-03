@@ -12,24 +12,16 @@ import { ApiRequestError } from '../api-error';
  * replies, office zone signals and markers. PLATFORM: Super Admin companies, files, branding, domains.
  */
 export const PENDING_ROUTES: ReadonlySet<ApiRouteId> = new Set<ApiRouteId>([
-  // calls: click-to-call through a provider (later waves; SIM calls come from the Android app)
-  'callCreate',
-  // automation and integrations (later waves)
+  // automation (later waves)
   'workflowList',
   'workflowGet',
   'workflowRunList',
   'workflowRunGet',
   'leadRunWorkflow',
-  'integrationList',
-  'webhookEndpointList',
-  'webhookDeliveryList',
-  'apiKeyList',
   'auditList',
   'attentionResolve',
-  // Super Admin console parts not in this wave
+  // Super Admin console parts not in this wave (superAuditList and superPlanList are served since change #20 / #19 wave C)
   'superOverview',
-  'superPlanList',
-  'superAuditList',
   'superImpersonateStart',
   'superImpersonateEnd',
 ]);

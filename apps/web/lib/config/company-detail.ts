@@ -1,7 +1,7 @@
 'use client';
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Company, FeatureFlag, PlatformAuditLog } from '@vistar/shared';
+import type { Company, FeatureFlag, PlatformAuditLog, SetupChecklist, SuperCompanyUser } from '@vistar/shared';
 import { isRouteLive } from '../api/availability';
 import { superApi } from '../api/client';
 import { isMockData, noteMockUse } from '../api/data-source';
@@ -83,5 +83,39 @@ export function useCompanyAudit(id: string) {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: !!id,
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Users of one company (GET /api/super/companies/{id}/users): name, e-mail, role, active, last active and
+ * device count; never phone numbers. Mock data mode has no per-user platform rows, so it returns none.
+ */
+export function useCompanyUsers(id: string) {
+  return useQuery({
+    queryKey: configKeys.companyUsers(id),
+    queryFn: async ({ signal }): Promise<SuperCompanyUser[]> => {
+      if (isMockData()) {
+        await pause();
+        noteMockUse('super.company.users');
+        return [];
+      }
+      const res = await superApi.call('superCompanyUsers', { params: { id }, signal });
+      return res.items;
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
+/** The company's setup checklist as the Super Admin sees it (GET /api/super/companies/{id}/setup). */
+export function useCompanySetup(id: string) {
+  return useQuery({
+    queryKey: configKeys.companySetup(id),
+    queryFn: async ({ signal }): Promise<SetupChecklist | null> => {
+      if (isMockData()) return null;
+      return superApi.call('superCompanySetup', { params: { id }, signal });
+    },
+    enabled: !!id,
+    staleTime: 60_000,
   });
 }
