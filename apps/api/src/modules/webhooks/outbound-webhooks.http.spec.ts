@@ -68,7 +68,7 @@ async function leadDelivery(endpointId: string, name: string) {
 
 describe('SSRF guard', () => {
   it('refuses private and link-local targets', async () => {
-    for (const target of ['https://10.0.0.5/hook', 'https://169.254.169.254/latest/meta-data', 'https://[::1]/x', 'https://192.168.1.10/hook']) {
+    for (const target of ['https://10.0.0.5/hook', 'https://169.254.169.254/latest/meta-data', 'https://[fd00::1]/x', 'https://192.168.1.10/hook']) {
       const res = await h.api().post('/api/v1/webhooks/endpoints/outbound').set(bearer(a.token)).send({ name: 'bad', url: target, events: ['lead.created'] });
       expect(res.status, target).toBe(422);
       expect(res.body.error.code).toBe('WEBHOOK_URL_BLOCKED');

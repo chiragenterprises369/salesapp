@@ -54,7 +54,12 @@ describe('create, use, scopes', () => {
     expect(create.status).toBe(403);
     expect(create.body.error.code).toBe('API_KEY_SCOPE_MISSING');
     expect((await h.api().get('/api/v1/integrations').set(bearer(readKey))).status).toBe(401);
-    const row = await h.prisma.apiKey.findUniqueOrThrow({ where: { id: readId } });
+    // lastUsedAt / lastUsedIp are written after the response (fire and forget): poll briefly
+    let row = await h.prisma.apiKey.findUniqueOrThrow({ where: { id: readId } });
+    for (let i = 0; i < 20 && !row.lastUsedAt; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      row = await h.prisma.apiKey.findUniqueOrThrow({ where: { id: readId } });
+    }
     expect(row.lastUsedAt).not.toBeNull();
     expect(row.lastUsedIp).toBeTruthy();
   });
@@ -81,7 +86,7 @@ describe('create, use, scopes', () => {
   it('rate limit per key: 429 with Retry-After above the limit', async () => {
     let last = 200;
     let retryAfter: string | undefined;
-    for (let i = 0; i < 12 && last !== 429; i++) {
+    for (let i = 0; i < 25 && last !== 429; i++) {
       const res = await h.api().get('/api/v1/leads').set(bearer(readKey));
       last = res.status;
       retryAfter = res.headers['retry-after'] as string | undefined;

@@ -179,7 +179,7 @@ export class WhatsappService {
   }
 
   private async inbound(workspaceId: string, row: IntegrationRow, m: WaMessage, profileName: string): Promise<void> {
-    if (!m.id || !m.from || !/^\d{6,15}$/.test(m.from)) return;
+    if (!m.id || !m.from || !/^[1-9]\d{6,14}$/.test(m.from)) return; // wa_id = E.164 digits
     const db = this.store.db(workspaceId);
     if (await db.message.count({ where: { providerMessageId: m.id } })) return; // Meta retries deliveries
     const phone = `+${m.from}`;
