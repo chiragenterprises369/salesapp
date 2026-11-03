@@ -95,6 +95,12 @@ export const ErrorCode = {
   PAYMENT_PROVIDER_NOT_CONFIGURED: 'PAYMENT_PROVIDER_NOT_CONFIGURED',
   PAYMENT_VERIFICATION_FAILED: 'PAYMENT_VERIFICATION_FAILED',
   PLAN_CHANGE_INVALID: 'PLAN_CHANGE_INVALID',
+  // ---- change #20: config
+  CONFIG_MISSING: 'CONFIG_MISSING',
+  TEMPLATE_INVALID: 'TEMPLATE_INVALID',
+  TEMPLATE_STATE_INVALID: 'TEMPLATE_STATE_INVALID',
+  MAIL_SEND_FAILED: 'MAIL_SEND_FAILED',
+  AUTH_LINK_INVALID: 'AUTH_LINK_INVALID',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -200,6 +206,17 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   PAYMENT_VERIFICATION_FAILED: 400,
   /** Same plan, inactive plan, or a change the subscription state does not allow. */
   PLAN_CHANGE_INVALID: 422,
+  // ---- change #20: config
+  /** A platform setting the action needs is not set (platform mailer, file storage, telephony account); the message names the Config group. */
+  CONFIG_MISSING: 422,
+  /** E-mail template with unknown or missing required variables, or a WhatsApp template Meta would reject (details per field). */
+  TEMPLATE_INVALID: 422,
+  /** Edit or submit of a WhatsApp template in a status that does not allow it (pending, approved, paused). */
+  TEMPLATE_STATE_INVALID: 409,
+  /** The mail server or provider refused the message (test sends; background sends only log). */
+  MAIL_SEND_FAILED: 502,
+  /** Password reset or e-mail verification link unknown, used or expired. */
+  AUTH_LINK_INVALID: 400,
 };
 
 export const FieldErrorSchema = z.object({

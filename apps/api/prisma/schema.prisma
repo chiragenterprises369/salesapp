@@ -570,6 +570,9 @@ model Workspace {
   platformInvoices    PlatformInvoice[]
   platformPayments    PlatformPayment[]
   planChangeRequests  PlanChangeRequest[]
+  // ---- change #20: config
+  userTokens          UserToken[]
+  emailTemplates      EmailTemplate[]
 }
 
 model User {
@@ -595,6 +598,8 @@ model User {
   deskIndex       Int?
   /// Field staff: attendance check-in/out and GPS tracking in working hours (D-063); set by a company admin
   isFieldStaff    Boolean        @default(false)
+  /// change #20: e-mail confirmed through the verification link (null = not verified yet)
+  emailVerifiedAt DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   deletedAt       DateTime?
@@ -625,6 +630,8 @@ model User {
   ownedInvoices     Invoice[]          @relation("InvoiceOwner")
   organizedMeetings Meeting[]          @relation("MeetingOrganizer")
   timeOff           TimeOff[]
+  // ---- change #20: config
+  tokens            UserToken[]
 
   @@index([workspaceId, isActive])
   @@index([workspaceId, status])
@@ -1359,6 +1366,13 @@ model Meeting {
   cancelReason   String?
   createdById    String?       @db.Uuid
   version        Int           @default(1)
+  // ---- change #20: prod (calendar sync for PROD-HUB: the event in the organiser's external calendar)
+  /// google (null = not synced)
+  externalProvider   String?
+  externalCalendarId String?
+  externalEventId    String?
+  externalEtag       String?
+  externalSyncedAt   DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   deletedAt      DateTime?
@@ -1371,6 +1385,7 @@ model Meeting {
   deal      Deal?             @relation(fields: [dealId], references: [id], onDelete: SetNull)
   attendees MeetingAttendee[]
 
+  @@unique([workspaceId, externalProvider, externalEventId])
   @@index([workspaceId, startAt])
   @@index([workspaceId, organizerId, startAt])
   @@index([workspaceId, leadId])
@@ -1899,6 +1914,21 @@ model Template {
   providerTemplateId String?
   /// Pack that suggested the template (null = created by the workspace)
   packKey            String?
+  // ---- change #20: config (WhatsApp templates synced with Meta; `header` = header text)
+  /// none | text | image | video | document
+  headerFormat       String           @default("none")
+  /// Example for {{1}} in a text header, or an https sample file for media headers
+  headerExample      String?
+  /// One example per numbered body variable (Meta review)
+  bodyExamples       String[]         @default([])
+  /// WhatsAppTemplateButton[] (quick_reply, url, phone)
+  buttons            Json?
+  rejectionReason    String?
+  submittedAt        DateTime?
+  lastSyncedAt       DateTime?
+  /// Where it was submitted: live (Meta) or mock (development)
+  mode               IntegrationMode?
+  createdById        String?          @db.Uuid
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -2990,4 +3020,63 @@ model BillingWebhookEvent {
 
   @@unique([provider, eventId])
   @@index([receivedAt])
+}
+
+// ---------------------------------------------------------------- change #20: config (SPEC 30, D-073, D-074)
+// Registry values live in PlatformSetting `config.<group>` (value = non-secret fields, hints, last test;
+// secretEncrypted = AES-256-GCM JSON of the secret fields). E-mail templates store overrides only: the defaults
+// ship in code (@vistar/shared email-templates.ts) and "reset to default" deletes the row.
+
+enum UserTokenKind {
+  password_reset
+  email_verify
+}
+
+/// One-time links (password reset, e-mail verification). Only the SHA-256 of the token is stored.
+/// Looked up by tokenHash with the root client (the workspace is not known before the lookup).
+model UserToken {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  workspaceId String        @db.Uuid
+  userId      String        @db.Uuid
+  kind        UserTokenKind
+  tokenHash   String        @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  /// Requesting IP (shown in the reset e-mail)
+  ip          String?
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
+  @@index([expiresAt])
+}
+
+/// Company e-mail template override (quotation_sent, invoice_sent, payment_reminder, follow_up, meeting_invite, welcome_lead).
+model EmailTemplate {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @db.Uuid
+  key         String
+  subject     String
+  /// Body fragment (sanitised); the layout adds the company branding
+  html        String
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+}
+
+/// Platform e-mail template override (invite, password_reset, email_verify, super_admin_login_alert, billing, webhook and integration alerts).
+model PlatformEmailTemplate {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  key         String   @unique
+  subject     String
+  html        String
+  updatedById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
