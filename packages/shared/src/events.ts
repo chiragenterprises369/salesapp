@@ -182,7 +182,7 @@ export const eventPayloadSchemas = {
   // integrations
   'webhook.delivery_updated': z.object({ delivery: WebhookDeliverySchema }),
   // ---- change #19 wave C: hub (audience: integrations.read / webhooks.read)
-  /** Status, last check, last sync or attention changed (connect, test, sync, disconnect, cron pull, webhook verify). */
+  /** Status, last check, last sync or attention changed (connect, test, sync, disconnect, cron pull, webhook verify). `endpoints` is always null here (read-only users get it too): refetch GET /integrations/{provider}. */
   'integration.updated': z.object({ integration: IntegrationSchema }),
   /** Endpoint changed outside a user edit, e.g. auto-disabled after repeated dead deliveries, or a sample was captured. */
   'webhook.endpoint_updated': z.object({ endpoint: WebhookEndpointSchema, reason: z.enum(['auto_disabled', 'sample_captured', 'updated']) }),
@@ -284,7 +284,7 @@ export function parseDomainEvent(raw: unknown): DomainEvent {
 }
 
 /** Query-cache scopes the client should invalidate after a resync. */
-export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace', 'contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture-forms'] as const;
+export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace', 'contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture-forms', /* change #19 wave C: hub */ 'integrations', 'webhooks', 'api-keys'] as const;
 export type SyncScope = (typeof SYNC_SCOPES)[number];
 
 /**

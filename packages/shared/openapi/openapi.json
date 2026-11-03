@@ -28319,7 +28319,7 @@
     "/api/v1/integrations": {
       "get": {
         "operationId": "integrationList",
-        "summary": "Integration hub: all five providers with status, mode, last check, last sync, attention and masked secret hints (never-connected providers have id null, status not_connected); endpoints only for integrations.manage",
+        "summary": "Integration hub: all five providers with status, mode, last check, last sync, attention and masked secret hints (never-connected providers have id null, status not_connected); endpoints only for integrations.manage (and never in the integration.updated event)",
         "description": "Requires permission `integrations.read`. Owner: realtime-integrations. Phase 5.",
         "tags": [
           "integrations"
@@ -30098,6 +30098,36 @@
                         ]
                       }
                     },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "index": {
+                            "type": "integer"
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "to": {
+                            "type": "string"
+                          },
+                          "value": {},
+                          "error": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "index",
+                          "from",
+                          "to",
+                          "error"
+                        ]
+                      }
+                    },
                     "paths": {
                       "type": "array",
                       "items": {
@@ -30127,6 +30157,7 @@
                   "required": [
                     "lead",
                     "errors",
+                    "rows",
                     "paths"
                   ]
                 }
@@ -32060,7 +32091,7 @@
     "/api/v1/webhooks/endpoints/{id}/capture": {
       "post": {
         "operationId": "webhookCapture",
-        "summary": "Arm (or stop) sample capture on an inbound source: verified requests until captureUntil are stored as the sample and not processed (202 with captured result)",
+        "summary": "Arm (or stop) sample capture on an inbound source: the next verified request before captureUntil is stored as the sample and not processed (202, captured: true); capture then stops",
         "description": "Requires permission `webhooks.manage`. Owner: backend-core. Phase 19.",
         "tags": [
           "webhooks"

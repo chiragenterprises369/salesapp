@@ -103,11 +103,11 @@ export const WEBHOOK_AUTO_DISABLE_AFTER_DEAD = 3;
 /** After a secret rotation the previous secret stays valid (inbound) and is also signed with (outbound) for this long. */
 export const WEBHOOK_SECRET_GRACE_DEFAULT_HOURS = 24;
 export const WEBHOOK_SECRET_GRACE_MAX_HOURS = 72;
-/** Sample capture: the next request(s) to an inbound source are stored as the sample payload for this long. */
+/** Sample capture: the next verified request to an inbound source within this many minutes is stored as the sample (capture then stops). */
 export const WEBHOOK_CAPTURE_DEFAULT_MIN = 15;
 export const WEBHOOK_CAPTURE_MAX_MIN = 60;
-/** Request bodies above this size are rejected (413) on /api/hooks/*. */
-export const WEBHOOK_MAX_INBOUND_BYTES = 256 * 1024;
+/** Request bodies above this size are rejected (413 PAYLOAD_TOO_LARGE) on /api/hooks/*: the API's JSON body limit. */
+export const WEBHOOK_MAX_INBOUND_BYTES = 100 * 1024;
 /** Event type of POST /webhooks/endpoints/{id}/test deliveries (not subscribable). */
 export const WEBHOOK_TEST_EVENT = 'webhook.test';
 /** Path segments taken by provider receivers; custom inbound sources cannot use them as sourceKey. */

@@ -168,6 +168,8 @@ export interface MappedLead {
 export interface MappingResult {
   lead: MappedLead;
   errors: Array<{ path: string; message: string }>;
+  /** One row per mapping field (for the editor's live preview): the value after the transform, or the error. */
+  rows: Array<{ index: number; from: string; to: string; value: unknown; error: string | null }>;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -227,16 +229,19 @@ function assign(lead: MappedLead, errors: MappingResult['errors'], to: string, r
 export function applyPayloadMapping(payload: Json, mapping: PayloadMapping): MappingResult {
   const lead: MappedLead = { customFields: {} };
   const errors: MappingResult['errors'] = [];
+  const rows: MappingResult['rows'] = [];
   mapping.fields.forEach((f, i) => {
     const value = applyTransform(evaluateExpression(payload, f.from), f.transform ?? 'none');
+    const before = errors.length;
     assign(lead, errors, f.to, value, `fields.${i}`);
+    rows.push({ index: i, from: f.from, to: f.to, value: value ?? null, error: errors.length > before ? errors[errors.length - 1]!.message : null });
   });
   for (const [to, constant] of Object.entries(mapping.defaults ?? {})) {
     const current = to.startsWith('custom.') ? lead.customFields[to.slice(7)] : (lead as unknown as Record<string, Json>)[to];
     if (isEmpty(current)) assign(lead, errors, to, constant, `defaults.${to}`);
   }
   if (!lead.name) errors.push({ path: 'name', message: 'No value for the lead name' });
-  return { lead, errors };
+  return { lead, errors, rows };
 }
 
 export interface PayloadPath {

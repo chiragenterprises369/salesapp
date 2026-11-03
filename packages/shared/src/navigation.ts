@@ -142,7 +142,7 @@ export const NAV_COMPANY: readonly NavGroup[] = [
         label: 'Settings',
         href: '/app/settings',
         icon: 'Settings',
-        anyOf: ['settings.manage', 'roles.manage', 'pipeline.manage', 'templates.manage', 'audit.read', 'support_access.manage', 'routing.manage', 'capture_forms.manage', 'apikeys.manage'],
+        anyOf: ['settings.manage', 'roles.manage', 'pipeline.manage', 'templates.manage', 'audit.read', 'support_access.manage', 'routing.manage', 'capture_forms.manage', 'apikeys.manage', 'integrations.read', 'webhooks.read'],
         children: [
           { id: 'settings-workspace', label: 'Workspace', href: '/app/settings', icon: 'Building2', anyOf: ['settings.manage'] },
           { id: 'settings-branding', label: 'Branding', href: '/app/settings/branding', icon: 'Palette', anyOf: ['settings.manage'] },

@@ -443,6 +443,8 @@ export const MappingPreviewRequestSchema = z.object({ samplePayload: z.unknown()
 export const MappingPreviewResponseSchema = z.object({
   lead: z.record(z.string(), z.unknown()),
   errors: z.array(z.object({ path: z.string(), message: z.string() })),
+  /** Per mapping field: the value after the transform, or the error (requests-19c W3). */
+  rows: z.array(z.object({ index: z.number().int(), from: z.string(), to: z.string(), value: z.unknown(), error: z.string().nullable() })),
   /** Every leaf path in the sample (for the path picker tree). */
   paths: z.array(z.object({ path: z.string(), type: z.string(), sample: z.string().nullable() })),
 });
