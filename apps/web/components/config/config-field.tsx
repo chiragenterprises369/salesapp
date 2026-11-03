@@ -209,7 +209,7 @@ function SecretField({ field: f, draft, onChange, error, disabled }: { field: Co
         </p>
       )}
       <p className={cn('text-xs text-muted-strong', !saved && f.source === 'env' && 'hidden')}>Stored encrypted. It is never shown again after saving.</p>
-      {!saved && f.source === 'env' && f.envVar && <p className="text-xs text-warning-text">{`Using env fallback: ${f.envVar}. Save a value here to move it into the panel.`}</p>}
+      {!saved && f.source === 'env' && f.envVar && <p className="text-xs text-warning-text">{`Using env fallback: ${f.envVar}${f.secretHint ? ` (${f.secretHint})` : ''}. Save a value here to move it into the panel.`}</p>}
     </div>
   );
 }

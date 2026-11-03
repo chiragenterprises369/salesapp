@@ -24,7 +24,6 @@ export const PENDING_ROUTES: ReadonlySet<ApiRouteId> = new Set<ApiRouteId>([
   'webhookEndpointList',
   'webhookDeliveryList',
   'apiKeyList',
-  'templateSync',
   'auditList',
   'attentionResolve',
   // Super Admin console parts not in this wave

@@ -1,7 +1,6 @@
 'use client';
 
 import { formatNumber, type AuditLog, type ChipTone } from '@vistar/shared';
-import { WHATSAPP_TEMPLATE_FIXTURES } from '@vistar/shared/fixtures';
 import { Route, ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import { columnClass, DataTable, type DataColumn } from '@/components/common/data-table';
@@ -12,7 +11,6 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { useMe } from '@/lib/session/session';
 import { useAuditLog } from '@/lib/world/hooks';
 import { useTags } from '@/lib/api/directory';
-import { isMockData } from '@/lib/api/data-source';
 import { SettingsCard } from './settings-card';
 
 /**
@@ -43,40 +41,6 @@ export function TagsSettings() {
         </ul>
       )}
     </SettingsCard>
-  );
-}
-
-const TEMPLATE_COLUMNS: DataColumn[] = [
-  { key: 'name', label: 'Template' },
-  { key: 'category', label: 'Category' },
-  { key: 'status', label: 'Status' },
-  { key: 'body', label: 'Message', hideBelow: 'lg' },
-];
-
-export function TemplatesSettings() {
-  // Approved templates come from WhatsApp Business (GET /templates), which is not connected yet.
-  const templates = isMockData() ? WHATSAPP_TEMPLATE_FIXTURES : [];
-  return (
-    <>
-      <div>
-        <ViewOnly />
-      </div>
-      <DataTable label="WhatsApp templates" columns={TEMPLATE_COLUMNS} status={templates.length ? 'ready' : 'empty'} empty={{ title: 'No templates yet' }}>
-        {templates.map((t) => (
-          <TableRow key={t.name}>
-            <TableCell className="font-mono text-xs">{t.name}</TableCell>
-            <TableCell className="text-fg-secondary">{t.category === 'marketing' ? 'Marketing' : 'Utility'}</TableCell>
-            <TableCell>
-              <Chip tone="green" dot>
-                Approved
-              </Chip>
-            </TableCell>
-            <TableCell className={`${columnClass(TEMPLATE_COLUMNS[3]!)} max-w-md truncate text-fg-secondary`}>{t.body}</TableCell>
-          </TableRow>
-        ))}
-      </DataTable>
-      <p className="text-xs text-muted-strong">Submitting new templates to Meta for approval arrives with the WhatsApp integration.</p>
-    </>
   );
 }
 

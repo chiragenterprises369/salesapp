@@ -202,7 +202,7 @@ export function EmailTemplateEditor(props: EmailTemplateEditorProps) {
             <VariablePicker variables={variables} used={used} onInsert={insert} disabled={!!readOnlyReason} />
           </Card>
           <div className="flex flex-wrap items-center justify-end gap-2 rounded-lg border border-border bg-surface-2 px-4 py-3">
-            <Button onClick={() => setTestOpen(true)} disabled={blocking}>
+            <Button onClick={() => setTestOpen(true)} disabled={blocking || !!readOnlyReason}>
               <Send aria-hidden />
               Send a test
             </Button>
