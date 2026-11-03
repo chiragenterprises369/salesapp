@@ -25,19 +25,22 @@ const wsUrl = wsOrigin ? wsOrigin.replace(/^http/, 'ws') : null;
 const tileOrigin = originOf(process.env.NEXT_PUBLIC_MAP_TILE_URL?.replace(/\{[a-z]\}/g, 'a'));
 const extra = (process.env.WEB_CSP_EXTRA_CONNECT ?? '').split(/[\s,]+/).filter(Boolean);
 const razorpay = ['https://checkout.razorpay.com', 'https://api.razorpay.com'];
+// Google Identity Services on /login and /signup (CONFIG-WEB request 5)
+const gsi = 'https://accounts.google.com/gsi/';
 
 const csp = (frameAncestors: string): string =>
   [
     "default-src 'self'",
     // Next inlines its bootstrap and the theme boot script; WebAssembly for the Draco and Basis decoders of the floor.
-    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isProd ? '' : " 'unsafe-eval'"} https://checkout.razorpay.com`,
-    "style-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isProd ? '' : " 'unsafe-eval'"} https://checkout.razorpay.com ${gsi}client`,
+    // inline styles: motion, charts and the e-mail template previews (srcdoc frames inherit this policy)
+    `style-src 'self' 'unsafe-inline' ${gsi}style`,
     `img-src 'self' data: blob: https:${isProd ? '' : ' http:'}`,
     "font-src 'self' data:",
-    `connect-src 'self' ${[apiOrigin, wsOrigin, wsUrl, tileOrigin, ...razorpay, 'https://lumberjack.razorpay.com', ...extra].filter(Boolean).join(' ')}${isProd ? '' : ' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*'}`,
+    `connect-src 'self' ${[apiOrigin, wsOrigin, wsUrl, tileOrigin, ...razorpay, 'https://lumberjack.razorpay.com', gsi, ...extra].filter(Boolean).join(' ')}${isProd ? '' : ' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*'}`,
     `media-src 'self' blob: ${apiOrigin ?? ''}`.trim(),
     "worker-src 'self' blob:",
-    `frame-src 'self' ${razorpay.join(' ')}`,
+    `frame-src 'self' ${razorpay.join(' ')} ${gsi}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
