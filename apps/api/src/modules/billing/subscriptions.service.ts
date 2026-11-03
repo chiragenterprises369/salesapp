@@ -373,6 +373,8 @@ export class SubscriptionsService {
     const periodStart = restart ? now : sub.currentPeriodStart;
     const periodEnd = restart ? addBillingCycle(now, cycle) : sub.currentPeriodEnd;
     const status: SubscriptionStatus = sub.status === 'cancelled' ? 'active' : sub.status === 'trialing' && toPrice === 0 ? 'active' : sub.status;
+    // a trial keeps its window (the period of a trial ends with the trial)
+    const keepTrial = status === 'trialing';
     let invoiceId: string | null = null;
     const next = await this.prisma.$transaction(async (tx) => {
       const applied = await this.core.apply(tx, sub, {
@@ -380,8 +382,7 @@ export class SubscriptionsService {
         cycle,
         extraSeats,
         status,
-        periodStart,
-        periodEnd,
+        ...(keepTrial ? {} : { periodStart, periodEnd }),
         pendingPlan: null,
         pendingCycle: null,
         cancelledAt: null,

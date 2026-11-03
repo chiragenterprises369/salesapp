@@ -9,6 +9,8 @@ export const TENANT_TABLES = [
   'FeatureFlagOverride', 'ImpersonationSession', 'WorkspacePack', 'PackInstallLog',
   // change #19 wave B
   'Product', 'PriceList', 'Quotation', 'Invoice', 'Payment', 'Meeting', 'TimeOff', 'RoutingRule', 'CaptureForm', 'AttendanceSession', 'LocationPing',
+  // change #19 wave C: billing
+  'Subscription', 'PlatformInvoice', 'PlatformPayment', 'PlanChangeRequest',
 ] as const;
 
 export async function countRows(prisma: PrismaClient, companies: Array<{ id: string; label: string }>): Promise<Map<string, Map<string, number>>> {
