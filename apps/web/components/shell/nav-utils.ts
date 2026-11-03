@@ -52,11 +52,33 @@ export function withChange19Nav(groups: readonly NavGroup[]): NavGroup[] {
     items: g.items.map((i) => {
       if (i.id !== 'settings' || !i.children) return i;
       const extra = [SETTINGS_DESIGN_ITEM, SETTINGS_DOMAIN_ITEM].filter((x) => !i.children!.some((c) => c.id === x.id));
-      if (!extra.length) return i;
       const at = i.children.findIndex((c) => c.id === 'settings-branding') + 1 || i.children.length;
-      return { ...i, children: [...i.children.slice(0, at), ...extra, ...i.children.slice(at)] };
+      const children = extra.length ? [...i.children.slice(0, at), ...extra, ...i.children.slice(at)] : [...i.children];
+      return { ...i, children: withChange20Settings(children) };
     }),
   }));
+}
+
+// ---- change #20: config (until the shared navigation has these items; requests-20 #3)
+export const SETTINGS_SETUP_ITEM: NavItem = { id: 'settings-setup', label: 'Setup', href: '/app/settings/setup', icon: 'ListChecks', anyOf: ['settings.manage'] };
+export const SETTINGS_EMAIL_TEMPLATES_ITEM: NavItem = { id: 'settings-email-templates', label: 'E-mail templates', href: '/app/settings/email-templates', icon: 'Mail', anyOf: ['templates.manage'] };
+export const SETTINGS_WHATSAPP_TEMPLATES_ITEM: NavItem = { id: 'settings-whatsapp-templates', label: 'WhatsApp templates', href: '/app/settings/whatsapp-templates', icon: 'MessageCircle', anyOf: ['templates.manage'] };
+
+/** Setup right after Workspace; e-mail and WhatsApp templates where the old read-only "Templates" page was (it redirects now). */
+function withChange20Settings(children: NavItem[]): NavItem[] {
+  const pick = (fallback: NavItem) => children.find((c) => c.id === fallback.id) ?? fallback;
+  const setup = pick(SETTINGS_SETUP_ITEM);
+  const email = pick(SETTINGS_EMAIL_TEMPLATES_ITEM);
+  const whatsapp = pick(SETTINGS_WHATSAPP_TEMPLATES_ITEM);
+  const moved = new Set([setup.id, email.id, whatsapp.id, 'settings-templates']);
+  const old = children.findIndex((c) => c.id === 'settings-templates');
+  const anchor = old > 0 ? children[old - 1]!.id : 'settings-tags';
+  let out = children.filter((c) => !moved.has(c.id));
+  const afterWorkspace = out.findIndex((c) => c.id === 'settings-workspace') + 1;
+  out = [...out.slice(0, afterWorkspace), setup, ...out.slice(afterWorkspace)];
+  const a = out.findIndex((c) => c.id === anchor);
+  const at = a >= 0 ? a + 1 : out.length;
+  return [...out.slice(0, at), email, whatsapp, ...out.slice(at)];
 }
 
 function dropDisabled(groups: NavGroup[], me: MeResponse): NavGroup[] {

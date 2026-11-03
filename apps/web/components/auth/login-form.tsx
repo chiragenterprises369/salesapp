@@ -10,7 +10,7 @@ import { SUPER_LOGIN_PATH } from '@/lib/auth/redirect';
 import { isCustomHost } from '@/lib/branding/boot';
 import { useRedirectWhenSignedIn } from '@/lib/auth/use-auth';
 import { useSessionEndReason } from '@/lib/session/session';
-import { AuthCard, FormAlert, OrDivider } from './auth-frame';
+import { AuthCard, FormAlert } from './auth-frame';
 import { DemoAccounts } from './demo-accounts';
 import { fieldErrors, focusFirstInvalid } from './form-errors';
 import { GoogleButton } from './google-button';
@@ -104,11 +104,16 @@ export function LoginForm({ next }: { next: string | null }) {
           <FormField label="Password" error={errors.password} required>
             <PasswordInput name="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </FormField>
+          {/* ---- change #20: config (password reset by e-mail) */}
+          <p className="-mt-2 text-right text-sm">
+            <Link href="/forgot-password" className="focus-ring rounded-xs text-accent-text underline-offset-4 hover:underline">
+              Forgot password?
+            </Link>
+          </p>
           <Button type="submit" variant="primary" size="lg" className="w-full" loading={submitting}>
             Sign in
           </Button>
         </form>
-        <OrDivider />
         <GoogleButton />
       </AuthCard>
       {!brandedHost && (

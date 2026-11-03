@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
+import Link from 'next/link';
 import { useDeferredValue, useState, type ReactNode } from 'react';
 import { columnClass, DataTable, type DataColumn } from '@/components/common/data-table';
 import { PageHeader } from '@/components/common/page-header';
@@ -76,6 +77,7 @@ export function PlatformSection({
   emptyDescription,
   searchLabel,
   children,
+  rowHref,
 }: {
   section: string;
   title: string;
@@ -90,6 +92,8 @@ export function PlatformSection({
   searchLabel?: string;
   /** Extra blocks above the table (KPI cards, notes). */
   children?: ReactNode;
+  // ---- change #20: config (rows open a detail page, e.g. the company detail)
+  rowHref?: (row: PlatformRow) => string;
 }) {
   const query = usePlatformList(section);
   const [q, setQ] = useState('');
@@ -136,7 +140,13 @@ export function PlatformSection({
             <TableRow key={r.id}>
               {columns.map((c, i) => (
                 <TableCell key={c.key} className={cn(columnClass(c), i === 0 && 'max-w-xs', 'py-2')}>
-                  <Cell value={r.cells[c.key]} primary={i === 0} />
+                  {i === 0 && rowHref ? (
+                    <Link href={rowHref(r)} className="focus-ring block rounded-sm hover:[&_span]:underline">
+                      <Cell value={r.cells[c.key]} primary />
+                    </Link>
+                  ) : (
+                    <Cell value={r.cells[c.key]} primary={i === 0} />
+                  )}
                 </TableCell>
               ))}
               {extraColumns.map((c) => (

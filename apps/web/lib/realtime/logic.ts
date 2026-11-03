@@ -154,6 +154,9 @@ const CRM_EVENT_SCOPES: Partial<Record<string, readonly SyncScope[]>> = {
   capture_form: ['capture-forms'],
   // change #19 wave C: the company's Vistar subscription, invoices and usage alerts (billing.read users).
   billing: ['billing'],
+  // ---- change #20: config (Settings > E-mail and WhatsApp templates; both feed the setup checklist)
+  whatsapp_template: ['templates', 'setup'],
+  email_template: ['templates', 'setup'],
 };
 
 /**

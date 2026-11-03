@@ -6,6 +6,7 @@ import { BrandMark } from '@/components/shell/brand-mark';
 import { Logo } from '@/components/shell/logo';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { usePublicBranding, type PublicBranding } from '@/lib/branding';
+import { usePublicPlatformInfo } from '@/lib/config/public';
 import { cn } from '@/lib/cn';
 
 /** Company name on a branded sign-in page (custom domain or `<slug>.localhost`); null on Vistar's own hosts. */
@@ -50,11 +51,34 @@ export function AuthFrame({ children, badge, brand = true }: { children: ReactNo
             <div className="flex w-full max-w-sm flex-col gap-4">
               {children}
               {b && <p className="text-center text-xs text-muted-strong">Powered by Vistar</p>}
+              {/* ---- change #20: config (platform branding: legal links and support from Super Admin > Config) */}
+              <PlatformLinks />
             </div>
           </main>
         </div>
       </div>
     </AuthBrandContext.Provider>
+  );
+}
+
+/** Terms, privacy and support from the platform branding (GET /public/platform); nothing when unset. */
+function PlatformLinks() {
+  const info = usePublicPlatformInfo().data;
+  if (!info) return null;
+  const links = [
+    info.termsUrl ? { label: 'Terms', href: info.termsUrl } : null,
+    info.privacyUrl ? { label: 'Privacy', href: info.privacyUrl } : null,
+    info.supportEmail ? { label: `Help: ${info.supportEmail}`, href: `mailto:${info.supportEmail}` } : null,
+  ].filter((l): l is { label: string; href: string } => !!l);
+  if (!links.length) return null;
+  return (
+    <nav aria-label={`${info.productName} links`} className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-muted-strong">
+      {links.map((l) => (
+        <a key={l.label} href={l.href} target={l.href.startsWith('mailto:') ? undefined : '_blank'} rel="noopener noreferrer" className="focus-ring rounded-xs underline-offset-4 hover:text-fg hover:underline">
+          {l.label}
+        </a>
+      ))}
+    </nav>
   );
 }
 

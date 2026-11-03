@@ -85,6 +85,8 @@ export interface CrmSource {
     remove(id: string): Promise<void>;
     setStatus(id: string, body: B<'quotationStatus'>): Res<'quotationStatus'>;
     send(id: string, body: B<'quotationSend'>): Res<'quotationSend'>;
+    /** change #20: e-mail with the PDF attached, or WhatsApp with the share link. */
+    deliver(id: string, body: B<'quotationDeliver'>): Res<'quotationDeliver'>;
     share(id: string, body: B<'quotationShare'>): Res<'quotationShare'>;
     revokeShare(id: string): Promise<void>;
     pdf(id: string): Promise<PdfFile>;
@@ -100,6 +102,8 @@ export interface CrmSource {
     issue(id: string, body: B<'invoiceIssue'>): Res<'invoiceIssue'>;
     cancel(id: string, body: B<'invoiceCancel'>): Res<'invoiceCancel'>;
     send(id: string, body: B<'invoiceSend'>): Res<'invoiceSend'>;
+    /** change #20: e-mail with the PDF attached, or WhatsApp with the share link. */
+    deliver(id: string, body: B<'invoiceDeliver'>): Res<'invoiceDeliver'>;
     share(id: string, body: B<'invoiceShare'>): Res<'invoiceShare'>;
     revokeShare(id: string): Promise<void>;
     pdf(id: string): Promise<PdfFile>;
