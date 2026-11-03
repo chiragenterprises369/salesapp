@@ -1,5 +1,6 @@
 import {
   isUpgrade,
+  USAGE_METRIC_LABELS,
   planPricePaise,
   type BillingCycle,
   type ChipTone,
@@ -11,6 +12,7 @@ import {
   type PlatformPaymentStatus,
   type PaymentProvider,
   type PlanChangeStatus,
+  type PlanLimitError,
   type Subscription,
   type SubscriptionStatus,
   type UsageMeter,
@@ -142,4 +144,42 @@ export function formatMeterValue(n: number, unit: UsageMeter['unit']): string {
 export function upgradeParam(search: URLSearchParams | null): Plan | null {
   const v = search?.get('upgrade');
   return v === 'free' || v === 'starter' || v === 'growth' || v === 'enterprise' ? v : null;
+}
+
+// ---------------------------------------------------------------- 402 PLAN_LIMIT_REACHED
+
+export const UPGRADE_HREF = '/app/billing#plans';
+
+/** Upgrade link from the API (`/app/billing?upgrade=growth`), only when it stays on the billing page. */
+export function upgradeHref(limit: PlanLimitError | null): string {
+  const url = limit?.upgradeUrl;
+  if (url && /^\/app\/billing(?:[?#][\w=&#%-]*)?$/.test(url)) return url.includes('#') ? url : `${url}#plans`;
+  return UPGRADE_HREF;
+}
+
+/** One-line description: "Leads: 500 of 500 on the Free plan. Growth allows more." */
+export function planLimitDescription(limit: PlanLimitError | null, admin: boolean): string {
+  const ask = admin ? 'Upgrade the plan, or free up usage, to continue.' : 'Ask your company admin to upgrade the plan.';
+  if (!limit) return ask;
+  const what = `${USAGE_METRIC_LABELS[limit.metric]}: ${limit.used.toLocaleString('en-IN')} of ${limit.limit.toLocaleString('en-IN')} on the ${planName(limit.plan)} plan.`;
+  const next = limit.upgradePlan ? ` ${planName(limit.upgradePlan)} allows more.` : ' Contact Vistar for a higher limit.';
+  return `${what}${next} ${admin ? '' : ask}`.trim();
+}
+
+// ---------------------------------------------------------------- usage meter component
+
+export type MeterState = 'ok' | 'warn' | 'full';
+
+/** 80 percent = warning, 100 percent = at the limit (SPEC 15.7). Unlimited (null) is always ok. */
+export function meterState(used: number, limit: number | null): MeterState {
+  if (limit === null) return 'ok';
+  if (limit <= 0) return used > 0 ? 'full' : 'ok';
+  const pct = (used / limit) * 100;
+  return pct >= 100 ? 'full' : pct >= 80 ? 'warn' : 'ok';
+}
+
+export function meterPct(used: number, limit: number | null): number | null {
+  if (limit === null) return null;
+  if (limit <= 0) return used > 0 ? 100 : 0;
+  return Math.round((used / limit) * 100);
 }

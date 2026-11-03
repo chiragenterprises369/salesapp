@@ -2,6 +2,7 @@
 
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RouteBody, RouteQuery } from '@vistar/shared';
+import { useSessionStore } from '../session/session';
 import { getBillingSource, getSuperBillingSource, type BillingFile } from './source';
 
 /**
@@ -61,12 +62,21 @@ export function useBillingPayments() {
   });
 }
 
+/** The plan, features and limits are part of /auth/me (shell plan label, feature-gated nav): reload it after a plan change. */
+const reloadSession = () => void useSessionStore.getState().reloadMe().catch(() => undefined);
+
 export function useBillingMutations() {
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: billingKeys.all });
   return {
     updateContact: useMutation({ mutationFn: (body: RouteBody<'billingContactUpdate'>) => src().updateContact(body), onSuccess: refresh }),
-    changePlan: useMutation({ mutationFn: (body: RouteBody<'billingPlanChange'>) => src().changePlan(body), onSuccess: refresh }),
+    changePlan: useMutation({
+      mutationFn: (body: RouteBody<'billingPlanChange'>) => src().changePlan(body),
+      onSuccess: (r) => {
+        if (r.outcome === 'applied') reloadSession();
+        return refresh();
+      },
+    }),
     cancelChange: useMutation({
       mutationFn: () => src().cancelChange(),
       onSuccess: (o) => {
@@ -75,7 +85,13 @@ export function useBillingMutations() {
       },
     }),
     payInvoice: useMutation({ mutationFn: (id: string) => src().payInvoice(id) }),
-    verify: useMutation({ mutationFn: (body: RouteBody<'billingCheckoutVerify'>) => src().verify(body), onSuccess: refresh }),
+    verify: useMutation({
+      mutationFn: (body: RouteBody<'billingCheckoutVerify'>) => src().verify(body),
+      onSuccess: () => {
+        reloadSession();
+        return refresh();
+      },
+    }),
     mockPay: useMutation({ mutationFn: (body: RouteBody<'billingCheckoutMockPay'>) => src().mockPay(body), onSettled: refresh }),
   };
 }

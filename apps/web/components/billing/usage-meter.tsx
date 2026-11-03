@@ -2,23 +2,8 @@
 
 import { TriangleAlert } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
+import { meterPct, meterState, type MeterState } from '@/lib/billing/logic';
 import { cn } from '@/lib/cn';
-
-export type MeterState = 'ok' | 'warn' | 'full';
-
-/** 80 percent = warning, 100 percent = at the limit (SPEC 15.7). Unlimited (null) is always ok. */
-export function meterState(used: number, limit: number | null): MeterState {
-  if (limit === null) return 'ok';
-  if (limit <= 0) return used > 0 ? 'full' : 'ok';
-  const pct = (used / limit) * 100;
-  return pct >= 100 ? 'full' : pct >= 80 ? 'warn' : 'ok';
-}
-
-export function meterPct(used: number, limit: number | null): number | null {
-  if (limit === null) return null;
-  if (limit <= 0) return used > 0 ? 100 : 0;
-  return Math.round((used / limit) * 100);
-}
 
 const nf = new Intl.NumberFormat('en-IN');
 
