@@ -104,6 +104,12 @@ export function LoginForm({ next }: { next: string | null }) {
           <FormField label="Password" error={errors.password} required>
             <PasswordInput name="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </FormField>
+          {/* ---- change #20: config (password reset by e-mail) */}
+          <p className="-mt-2 text-right text-sm">
+            <Link href="/forgot-password" className="focus-ring rounded-xs text-accent-text underline-offset-4 hover:underline">
+              Forgot password?
+            </Link>
+          </p>
           <Button type="submit" variant="primary" size="lg" className="w-full" loading={submitting}>
             Sign in
           </Button>

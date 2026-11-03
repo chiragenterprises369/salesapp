@@ -1,6 +1,6 @@
 'use client';
 
-import type { ConfigFieldState, ConfigValue } from '@vistar/shared';
+import type { ConfigFieldState } from '@vistar/shared';
 import { KeyRound, RotateCcw, Trash2, X } from 'lucide-react';
 import { useId } from 'react';
 import { NativeSelect } from '@/components/common/native-select';
@@ -8,31 +8,7 @@ import { Switch } from '@/components/common/switch';
 import { Button } from '@/components/ui/button';
 import { FormField, Input, Textarea } from '@/components/ui/input';
 import { cn } from '@/lib/cn';
-
-/**
- * Draft of one field. Non-secret fields edit the panel value (null = not saved in the panel, so the env
- * fallback or the default applies). Secrets never come back from the API: `secret` holds what the admin
- * types to replace it, `clearSecret` removes the stored one.
- */
-export interface FieldDraft {
-  /** Text as typed (numbers and lists are parsed on save). null = use env fallback / default. */
-  text: string | null;
-  bool: boolean | null;
-  secret: string | null;
-  clearSecret: boolean;
-}
-
-export function initialDraft(f: ConfigFieldState): FieldDraft {
-  if (f.secret) return { text: null, bool: null, secret: null, clearSecret: false };
-  if (f.type === 'boolean') return { text: null, bool: typeof f.panelValue === 'boolean' ? f.panelValue : null, secret: null, clearSecret: false };
-  return { text: f.panelValue === null ? null : valueToText(f.panelValue), bool: null, secret: null, clearSecret: false };
-}
-
-export function valueToText(v: ConfigValue | null): string {
-  if (v === null) return '';
-  if (Array.isArray(v)) return v.join('\n');
-  return String(v);
-}
+import { valueToText, type FieldDraft } from './logic';
 
 /** Effective display of the value that applies when nothing is saved in the panel. */
 function fallbackText(f: ConfigFieldState): string | null {

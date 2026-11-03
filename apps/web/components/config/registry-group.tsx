@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  configFieldDef,
-  configFieldSchema,
-  type ConfigFieldState,
-  type ConfigGroup,
-  type ConfigValue,
-  type RegistryGroupKey,
-} from '@vistar/shared';
+import type { ConfigGroup, RegistryGroupKey } from '@vistar/shared';
 import { CheckCircle2, CircleAlert, FlaskConical, RotateCcw } from 'lucide-react';
 import { useId, useMemo, useState, type FormEvent } from 'react';
 import { formatDateTimeIn } from '@/components/common/time';
@@ -21,80 +14,12 @@ import { toast } from '@/components/ui/toast';
 import { focusFirstInvalid, formErrorMessage, serverFieldErrors } from '@/lib/crm/ui/errors';
 import { useResetConfigGroup, useSaveConfigGroup, useTestConfigGroup } from '@/lib/config/platform';
 import { useSession } from '@/lib/session/session';
-import { ConfigField, initialDraft, valueToText, type FieldDraft } from './config-field';
+import { ConfigField } from './config-field';
 import { GroupAudit } from './group-audit';
+import { buildConfigBody, initialDraft, initialDrafts, isFieldActive, valueToText, type Drafts } from './logic';
 import { GROUP_STATUS, GroupStatusChip } from './status';
 
 const TZ = 'Asia/Kolkata';
-type Drafts = Record<string, FieldDraft>;
-
-const initialDrafts = (g: ConfigGroup): Drafts => Object.fromEntries(g.fields.map((f) => [f.key, initialDraft(f)]));
-
-/** Value of a field as the form currently means it (draft first, else the effective value). */
-function currentValue(f: ConfigFieldState, d: FieldDraft | undefined): unknown {
-  if (!d) return f.value;
-  if (f.type === 'boolean') return d.bool ?? f.value;
-  return d.text ?? f.value;
-}
-
-function isActive(f: ConfigFieldState, fields: readonly ConfigFieldState[], drafts: Drafts): boolean {
-  if (!f.when) return true;
-  const dep = fields.find((x) => x.key === f.when!.field);
-  if (!dep) return f.active;
-  const v = currentValue(dep, drafts[dep.key]);
-  return typeof v === 'string' && f.when.in.includes(v);
-}
-
-function parseText(f: ConfigFieldState, text: string): ConfigValue | { error: string } {
-  if (f.type === 'number') {
-    const n = Number(text.trim().replace(/,/g, ''));
-    return Number.isFinite(n) ? n : { error: 'Enter a number.' };
-  }
-  if (f.type === 'list')
-    return text
-      .split(/\r?\n|,/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-  if (f.type === 'textarea') return text;
-  return text.trim();
-}
-
-/** Changed values only (omitted = unchanged, null = clear), plus field errors. */
-function buildBody(group: ConfigGroup, drafts: Drafts): { values: Record<string, ConfigValue | null>; errors: Record<string, string> } {
-  const values: Record<string, ConfigValue | null> = {};
-  const errors: Record<string, string> = {};
-  for (const f of group.fields) {
-    const d = drafts[f.key];
-    if (!d) continue;
-    const init = initialDraft(f);
-    let next: ConfigValue | null | undefined;
-    if (f.secret) {
-      if (d.clearSecret) next = null;
-      else if (d.secret !== null && d.secret.trim() !== '') next = d.secret.trim();
-      else if (d.secret !== null && f.secretSet) errors[f.key] = 'Enter the new value, or keep the saved one.';
-    } else if (f.type === 'boolean') {
-      if (d.bool !== init.bool) next = d.bool;
-    } else if (d.text !== init.text) {
-      if (d.text === null) next = null;
-      else {
-        const parsed = parseText(f, d.text);
-        if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) && 'error' in parsed) errors[f.key] = parsed.error;
-        else next = f.type === 'list' && Array.isArray(parsed) && parsed.length === 0 && init.text === null ? undefined : parsed;
-      }
-    }
-    if (next === undefined || errors[f.key]) continue;
-    if (next !== null) {
-      const def = configFieldDef(group.key, f.key);
-      const check = def ? configFieldSchema(def).safeParse(next) : { success: true as const };
-      if (!check.success) {
-        errors[f.key] = check.error.issues[0]?.message ?? 'Check this value.';
-        continue;
-      }
-    }
-    values[f.key] = next;
-  }
-  return { values, errors };
-}
 
 /**
  * One registry group (Super Admin > Config): fields rendered from the contract, secrets write-only,
@@ -119,14 +44,14 @@ function RegistryGroupForm({ group }: { group: ConfigGroup }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [to, setTo] = useState(adminEmail ?? '');
-  const pending = useMemo(() => buildBody(group, drafts), [group, drafts]);
+  const pending = useMemo(() => buildConfigBody(group, drafts), [group, drafts]);
   const dirty = Object.keys(pending.values).length > 0 || Object.keys(pending.errors).length > 0;
   const anyPanelValue = group.fields.some((f) => f.panelValue !== null || f.secretSet);
   const status = GROUP_STATUS[group.status];
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    const { values, errors: errs } = buildBody(group, drafts);
+    const { values, errors: errs } = buildConfigBody(group, drafts);
     setErrors(errs);
     if (Object.keys(errs).length) {
       setFormError(Object.keys(errs).length === 1 ? 'Fix the highlighted field to save.' : `Fix the ${Object.keys(errs).length} highlighted fields to save.`);
@@ -164,7 +89,7 @@ function RegistryGroupForm({ group }: { group: ConfigGroup }) {
     }
   }
 
-  const visible = group.fields.filter((f) => isActive(f, group.fields, drafts));
+  const visible = group.fields.filter((f) => isFieldActive(f, group.fields, drafts));
   const last = group.lastTest;
 
   return (
