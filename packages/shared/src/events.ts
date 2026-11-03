@@ -14,7 +14,8 @@ import { LeadListItemSchema } from './schemas/lead.js';
 import { NotificationSchema } from './schemas/notification.js';
 import { PresenceActivitySchema, ZoneSignalSchema } from './schemas/presence.js';
 import { TaskSchema } from './schemas/task.js';
-import { WebhookDeliverySchema } from './schemas/integration.js';
+import { IntegrationSchema, WebhookDeliverySchema, WebhookEndpointSchema } from './schemas/integration.js';
+import { OUTBOUND_WEBHOOK_EVENTS } from './webhooks.js';
 import { UserSummarySchema } from './schemas/workspace.js';
 import { WorkflowRunStepSchema } from './schemas/workflow.js';
 import { AccountListItemSchema, ContactListItemSchema, DealListItemSchema } from './schemas/crm.js';
@@ -180,6 +181,12 @@ export const eventPayloadSchemas = {
 
   // integrations
   'webhook.delivery_updated': z.object({ delivery: WebhookDeliverySchema }),
+  // ---- change #19 wave C: hub (audience: integrations.read / webhooks.read)
+  /** Status, last check, last sync or attention changed (connect, test, sync, disconnect, cron pull, webhook verify). `endpoints` is always null here (read-only users get it too): refetch GET /integrations/{provider}. */
+  'integration.updated': z.object({ integration: IntegrationSchema }),
+  /** Endpoint changed outside a user edit, e.g. auto-disabled after repeated dead deliveries, or a sample was captured. */
+  'webhook.endpoint_updated': z.object({ endpoint: WebhookEndpointSchema, reason: z.enum(['auto_disabled', 'sample_captured', 'updated']) }),
+  // ---- end change #19 wave C: hub
   'import.progress': z.object({ importId: IdSchema, processed: z.number().int(), total: z.number().int(), done: z.boolean() }),
 
   // settings
@@ -244,6 +251,9 @@ export const EVENT_NAMES = Object.keys(eventPayloadSchemas) as EventName[];
 export const EventNameSchema = z.enum(EVENT_NAMES as [EventName, ...EventName[]]);
 export type EventPayload<E extends EventName> = z.infer<(typeof eventPayloadSchemas)[E]>;
 
+/** Compile-time check (change #19 wave C): every outbound webhook event is a domain event (its body is the envelope). */
+export const OUTBOUND_EVENTS_ARE_DOMAIN_EVENTS: readonly EventName[] = OUTBOUND_WEBHOOK_EVENTS;
+
 /** Envelope for every domain event. `id` is a UUIDv7/ULID usable for dedupe. */
 export interface DomainEvent<E extends EventName = EventName> {
   id: string;
@@ -274,7 +284,7 @@ export function parseDomainEvent(raw: unknown): DomainEvent {
 }
 
 /** Query-cache scopes the client should invalidate after a resync. */
-export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace', 'contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture-forms'] as const;
+export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace', 'contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture-forms', /* change #19 wave C: hub */ 'integrations', 'webhooks', 'api-keys'] as const;
 export type SyncScope = (typeof SYNC_SCOPES)[number];
 
 /**

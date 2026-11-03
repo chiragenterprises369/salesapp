@@ -219,10 +219,12 @@ enum IntegrationProvider {
   google_calendar
 }
 
+/// change #19 wave C: disconnected renamed to not_connected; needs_attention added (D-069)
 enum IntegrationStatus {
-  disconnected
+  not_connected
   connected
   error
+  needs_attention
 }
 
 enum WebhookDirection {
@@ -240,7 +242,21 @@ enum WebhookDeliveryStatus {
 enum InboundWebhookAction {
   create_lead
   start_workflow
+  /// change #19 wave C
+  update_lead
 }
+
+// ---- change #19 wave C: hub
+enum IntegrationMode {
+  live
+  mock
+}
+
+enum WebhookVerification {
+  hmac
+  token
+}
+// ---- end change #19 wave C: hub
 
 enum ActivityType {
   lead_created
@@ -2018,7 +2034,7 @@ model Integration {
   id               String              @id @default(uuid(7)) @db.Uuid
   workspaceId      String              @db.Uuid
   provider         IntegrationProvider
-  status           IntegrationStatus   @default(disconnected)
+  status           IntegrationStatus   @default(not_connected)
   displayName      String
   /// Non-secret config
   config           Json                @default("{}")
@@ -2029,10 +2045,31 @@ model Integration {
   connectedAt      DateTime?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
+  // ---- change #19 wave C: hub (D-069)
+  /// live | mock (mock is refused in production)
+  mode                  IntegrationMode @default(live)
+  /// Masked hints of the stored secret fields, e.g. { "crmKey": "••••a9f2" }
+  secretHints           Json            @default("{}")
+  /// AES-256-GCM JSON of tokens Vistar generated for the provider to call us (IndiaMART push key, WhatsApp verify token, telephony callback token)
+  inboundTokensEncrypted String?
+  lastSyncAt            DateTime?
+  /// Next cron pull (IndiaMART); null = not scheduled
+  nextSyncAt            DateTime?
+  /// Provider cursor, e.g. IndiaMART { "lastWindowEnd": iso, "lastPullAt": iso }
+  syncState             Json            @default("{}")
+  /// Card numbers (leadsImported30d, lastPulledCount, messagesReceived30d, ...)
+  stats                 Json            @default("{}")
+  /// Why the status is needs_attention
+  attention             String?
+  /// Sync claim (one instance runs a pull at a time)
+  syncLockedUntil       DateTime?
+  connectedById         String?         @db.Uuid
+  // ---- end change #19 wave C: hub
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, provider])
+  @@index([provider, nextSyncAt])
 }
 
 model WebhookEndpoint {
@@ -2053,6 +2090,30 @@ model WebhookEndpoint {
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
   deletedAt       DateTime?
+  // ---- change #19 wave C: hub (D-069)
+  /// Inbound: hmac (X-Vistar-Signature) or token (X-Vistar-Token / ?token=)
+  verification            WebhookVerification?
+  /// Inbound update_lead / start_workflow: match keys in order (phone, email)
+  matchBy                 String[]  @default([])
+  createIfMissing         Boolean   @default(true)
+  samplePayload           Json?
+  sampleCapturedAt        DateTime?
+  /// Capture mode until this time (requests are stored as the sample, not processed)
+  captureUntil            DateTime?
+  /// Rotation grace: previous secret (AES-256-GCM) accepted inbound / also signed with outbound until previousSecretExpiresAt
+  previousSecretEncrypted String?
+  previousSecretExpiresAt DateTime?
+  secretRotatedAt         DateTime?
+  /// Auto-disable after WEBHOOK_AUTO_DISABLE_AFTER_DEAD dead deliveries in a row
+  disabledAt              DateTime?
+  disabledReason          String?
+  consecutiveFailures     Int       @default(0)
+  deadStreak              Int       @default(0)
+  lastDeliveryAt          DateTime?
+  lastSuccessAt           DateTime?
+  lastFailureAt           DateTime?
+  createdById             String?   @db.Uuid
+  // ---- end change #19 wave C: hub
 
   workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   deliveries WebhookDelivery[]
@@ -2082,13 +2143,29 @@ model WebhookDelivery {
   nextAttemptAt  DateTime?
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
+  // ---- change #19 wave C: hub (D-069)
+  /// Attempt timeline [{ attempt, at, ok, responseStatus, latencyMs, error }]
+  attempts       Json                  @default("[]")
+  /// Outbound originals: `${eventId}` (one delivery per event and endpoint across API instances); null for replays, tests and inbound
+  dedupeKey      String?
+  /// Inbound: signature / token verified (replay is only allowed when true)
+  signatureValid Boolean?
+  /// Inbound: { action, leadId, runId, duplicate, captured }
+  result         Json?
+  /// Inbound: SHA-256 of the raw body (same Idempotency-Key with another body = 409)
+  bodyHash       String?
+  /// Worker claim so one attempt runs at a time (BullMQ job and the sweeper)
+  lockedUntil    DateTime?
+  // ---- end change #19 wave C: hub
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   endpoint  WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
 
+  @@unique([endpointId, dedupeKey])
   @@index([workspaceId, endpointId, createdAt])
   @@index([workspaceId, idempotencyKey])
   @@index([workspaceId, status, nextAttemptAt])
+  @@index([status, nextAttemptAt])
 }
 
 model ApiKey {
@@ -2104,6 +2181,16 @@ model ApiKey {
   revokedAt   DateTime?
   createdById String?   @db.Uuid
   createdAt   DateTime  @default(now())
+  // ---- change #19 wave C: hub (D-070)
+  /// IP of the last request (updated at most once a minute)
+  lastUsedIp           String?
+  /// Requests per minute; null = API_KEY_DEFAULT_RATE_LIMIT_PER_MIN
+  rateLimitPerMinute   Int?
+  /// SHA-256 of the key replaced by the last rotation; accepted until previousKeyExpiresAt
+  previousKeyHash      String?   @unique
+  previousKeyExpiresAt DateTime?
+  rotatedAt            DateTime?
+  // ---- end change #19 wave C: hub
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 

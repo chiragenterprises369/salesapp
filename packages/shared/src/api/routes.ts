@@ -110,19 +110,37 @@ import { DashboardQuerySchema, DashboardSummarySchema, MyTodaySchema, TeamFloorS
 import {
   ApiKeyCreatedSchema,
   ApiKeyCreateSchema,
+  ApiKeyRotateSchema,
   ApiKeySchema,
+  ApiKeyScopeOptionSchema,
+  ApiKeyUpdateSchema,
   InboundEndpointCreateSchema,
+  IndiamartPushResultSchema,
   IntegrationConnectSchema,
+  IntegrationOAuthStartSchema,
+  IntegrationProviderInfoSchema,
+  IntegrationProviderParamSchema,
   IntegrationSchema,
+  IntegrationSyncResultSchema,
+  IntegrationTestRequestSchema,
   IntegrationTestResultSchema,
   MappingPreviewRequestSchema,
   MappingPreviewResponseSchema,
+  OAuthCallbackQuerySchema,
   OutboundEndpointCreateSchema,
+  PublicOpenApiDocumentSchema,
+  TelephonyProviderParamSchema,
+  WebhookCaptureSchema,
   WebhookDeliveryQuerySchema,
   WebhookDeliverySchema,
+  WebhookEndpointListQuerySchema,
   WebhookEndpointSchema,
   WebhookEndpointUpdateSchema,
+  WebhookRotateSecretSchema,
+  WebhookSecretRotatedSchema,
   WebhookSecretSchema,
+  WebhookTestSendSchema,
+  WhatsappVerifyQuerySchema,
 } from '../schemas/integration.js';
 import {
   BulkResultSchema,
@@ -364,7 +382,7 @@ export interface RouteDef {
   bodyFields?: z.ZodObject;
   response: z.ZodType | null;
   /** Non-JSON response, e.g. file download. */
-  responseContentType?: 'text/csv' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' | 'application/octet-stream' | 'application/vnd.android.package-archive' | 'application/pdf';
+  responseContentType?: 'text/csv' | 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' | 'application/octet-stream' | 'application/vnd.android.package-archive' | 'application/pdf' | 'text/plain' | 'text/html';
   status?: number;
 }
 
@@ -377,8 +395,10 @@ export const InboundWebhookResponseSchema = z.object({
   duplicate: z.boolean(),
   leadId: IdSchema.nullable(),
   runId: IdSchema.nullable(),
+  /** change #19 wave C: the delivery id (also in the delivery log) and whether it was stored as the sample (capture mode). */
+  deliveryId: IdSchema,
+  captured: z.boolean(),
 });
-const ProviderParam = z.object({ provider: z.string() });
 
 export const API_ROUTES = {
   // ---------------- health ----------------
@@ -496,27 +516,45 @@ export const API_ROUTES = {
   teamFloorSnapshot: route({ method: 'get', path: '/team-floor/snapshot', summary: 'Live Team Floor initial state (server-authoritative presence, seats, floor ref)', tag: 'team-floor', owner: 'realtime-integrations', phase: 4, auth: 'jwt', permission: 'teamfloor.read', query: z.object({ teamId: IdSchema.optional() }), response: TeamFloorSnapshotSchema }),
 
   // ---------------- integrations & webhooks (phase 5) ----------------
-  integrationList: route({ method: 'get', path: '/integrations', summary: 'Integration hub status', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.manage', response: listOf(IntegrationSchema) }),
-  integrationConnect: route({ method: 'post', path: '/integrations/{provider}/connect', summary: 'Connect or update an integration', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.manage', params: ProviderParam, body: IntegrationConnectSchema, response: IntegrationSchema }),
-  integrationTest: route({ method: 'post', path: '/integrations/{provider}/test', summary: 'Test connection', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.manage', params: ProviderParam, response: IntegrationTestResultSchema }),
-  integrationDisconnect: route({ method: 'delete', path: '/integrations/{provider}', summary: 'Disconnect and wipe secrets', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.manage', params: ProviderParam, response: OkResponseSchema }),
-  webhookEndpointList: route({ method: 'get', path: '/webhooks/endpoints', summary: 'Inbound and outbound endpoints', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', response: listOf(WebhookEndpointSchema) }),
-  webhookInboundCreate: route({ method: 'post', path: '/webhooks/endpoints/inbound', summary: 'Create an inbound source URL (secret returned once)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', body: InboundEndpointCreateSchema, response: WebhookEndpointSchema.extend(WebhookSecretSchema.shape), status: 201 }),
-  webhookOutboundCreate: route({ method: 'post', path: '/webhooks/endpoints/outbound', summary: 'Subscribe a URL to events (secret returned once)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', body: OutboundEndpointCreateSchema, response: WebhookEndpointSchema.extend(WebhookSecretSchema.shape), status: 201 }),
-  webhookEndpointUpdate: route({ method: 'patch', path: '/webhooks/endpoints/{id}', summary: 'Update an endpoint', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, body: WebhookEndpointUpdateSchema, response: WebhookEndpointSchema }),
-  webhookEndpointDelete: route({ method: 'delete', path: '/webhooks/endpoints/{id}', summary: 'Delete an endpoint', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, response: OkResponseSchema }),
-  webhookRotateSecret: route({ method: 'post', path: '/webhooks/endpoints/{id}/rotate-secret', summary: 'Rotate signing secret (returned once)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, response: WebhookSecretSchema }),
-  webhookMappingPreview: route({ method: 'post', path: '/webhooks/mapping/preview', summary: 'Preview mapping on a sample payload', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', body: MappingPreviewRequestSchema, response: MappingPreviewResponseSchema }),
-  webhookDeliveryList: route({ method: 'get', path: '/webhooks/deliveries', summary: 'Delivery log', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', query: WebhookDeliveryQuerySchema, response: pageOf(WebhookDeliverySchema) }),
-  webhookDeliveryGet: route({ method: 'get', path: '/webhooks/deliveries/{id}', summary: 'Delivery detail', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, response: WebhookDeliverySchema }),
-  webhookDeliveryReplay: route({ method: 'post', path: '/webhooks/deliveries/{id}/replay', summary: 'Replay a delivery', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, response: WebhookDeliverySchema, status: 201 }),
-  inboundWebhook: route({ method: 'post', path: '/api/hooks/{workspaceId}/{sourceKey}', absolute: true, summary: 'Inbound webhook (HMAC-SHA256 signed)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'webhook', permission: null, params: z.object({ workspaceId: IdSchema, sourceKey: z.string() }), body: z.unknown(), response: InboundWebhookResponseSchema, status: 202 }),
-  whatsappWebhookVerify: route({ method: 'get', path: '/api/hooks/whatsapp', absolute: true, summary: 'WhatsApp Cloud API verification challenge', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'public', permission: null, query: z.object({ 'hub.mode': z.string(), 'hub.verify_token': z.string(), 'hub.challenge': z.string() }), response: null }),
-  whatsappWebhook: route({ method: 'post', path: '/api/hooks/whatsapp', absolute: true, summary: 'WhatsApp Cloud API events (X-Hub-Signature-256)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'webhook', permission: null, body: z.unknown(), response: null }),
-  apiKeyList: route({ method: 'get', path: '/api-keys', summary: 'API keys', tag: 'api-keys', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'apikeys.manage', response: listOf(ApiKeySchema) }),
-  apiKeyCreate: route({ method: 'post', path: '/api-keys', summary: 'Create an API key (shown once)', tag: 'api-keys', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'apikeys.manage', body: ApiKeyCreateSchema, response: ApiKeyCreatedSchema, status: 201 }),
-  apiKeyRotate: route({ method: 'post', path: '/api-keys/{id}/rotate', summary: 'Rotate an API key (shown once)', tag: 'api-keys', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'apikeys.manage', params: IdParamSchema, response: ApiKeyCreatedSchema }),
-  apiKeyRevoke: route({ method: 'delete', path: '/api-keys/{id}', summary: 'Revoke an API key', tag: 'api-keys', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'apikeys.manage', params: IdParamSchema, response: OkResponseSchema }),
+  integrationList: route({ method: 'get', path: '/integrations', summary: 'Integration hub: all five providers with status, mode, last check, last sync, attention and masked secret hints (never-connected providers have id null, status not_connected); endpoints only for integrations.manage (and never in the integration.updated event)', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.read', response: listOf(IntegrationSchema) }),
+  integrationConnect: route({ method: 'post', path: '/integrations/{provider}/connect', summary: 'Connect or update an integration (config validated per provider; secrets write-only, omitted secrets are kept; mock mode only outside production; runs the test unless test=false); audited', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.manage', params: IntegrationProviderParamSchema, body: IntegrationConnectSchema, response: IntegrationSchema }),
+  integrationTest: route({ method: 'post', path: '/integrations/{provider}/test', summary: 'Test the connection (SMTP sends a test e-mail to `to` or the caller); status follows the result', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.manage', params: IntegrationProviderParamSchema, body: IntegrationTestRequestSchema, response: IntegrationTestResultSchema }),
+  integrationDisconnect: route({ method: 'delete', path: '/integrations/{provider}', summary: 'Disconnect and wipe secrets and generated tokens (status not_connected); audited', tag: 'integrations', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'integrations.manage', params: IntegrationProviderParamSchema, response: IntegrationSchema }),
+  webhookEndpointList: route({ method: 'get', path: '/webhooks/endpoints', summary: 'Inbound and outbound endpoints (filter by direction)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.read', query: WebhookEndpointListQuerySchema, response: listOf(WebhookEndpointSchema) }),
+  webhookInboundCreate: route({ method: 'post', path: '/webhooks/endpoints/inbound', summary: 'Create an inbound source URL (secret returned once); audited', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', body: InboundEndpointCreateSchema, response: WebhookEndpointSchema.extend(WebhookSecretSchema.shape), status: 201 }),
+  webhookOutboundCreate: route({ method: 'post', path: '/webhooks/endpoints/outbound', summary: 'Subscribe a URL to events (secret returned once; private, loopback and link-local targets answer 422 WEBHOOK_URL_BLOCKED); audited', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', body: OutboundEndpointCreateSchema, response: WebhookEndpointSchema.extend(WebhookSecretSchema.shape), status: 201 }),
+  webhookEndpointUpdate: route({ method: 'patch', path: '/webhooks/endpoints/{id}', summary: 'Update an endpoint (isActive true also clears an auto-disable and resets the failure counters)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, body: WebhookEndpointUpdateSchema, response: WebhookEndpointSchema }),
+  webhookEndpointDelete: route({ method: 'delete', path: '/webhooks/endpoints/{id}', summary: 'Delete an endpoint (soft; the inbound URL answers 404, pending outbound deliveries stop); audited', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, response: OkResponseSchema }),
+  webhookRotateSecret: route({ method: 'post', path: '/webhooks/endpoints/{id}/rotate-secret', summary: 'Rotate the signing secret (returned once); the previous one stays valid for graceHours; audited', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, body: WebhookRotateSecretSchema, response: WebhookSecretRotatedSchema }),
+  webhookMappingPreview: route({ method: 'post', path: '/webhooks/mapping/preview', summary: 'Preview a mapping on a sample payload (same engine as ingestion: applyPayloadMapping) and list its paths', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', body: MappingPreviewRequestSchema, response: MappingPreviewResponseSchema }),
+  webhookDeliveryList: route({ method: 'get', path: '/webhooks/deliveries', summary: 'Delivery log, newest first (filters: endpoint, status, direction, event, from, to)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.read', query: WebhookDeliveryQuerySchema, response: pageOf(WebhookDeliverySchema) }),
+  webhookDeliveryGet: route({ method: 'get', path: '/webhooks/deliveries/{id}', summary: 'Delivery detail with request, response, latency and the attempt timeline', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.read', params: IdParamSchema, response: WebhookDeliverySchema }),
+  webhookDeliveryReplay: route({ method: 'post', path: '/webhooks/deliveries/{id}/replay', summary: 'Replay a delivery as a new delivery (replayOfId set): outbound re-sends the same body with a fresh signature, inbound re-processes the stored body (not for unverified requests: 422 WEBHOOK_REPLAY_NOT_ALLOWED)', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, response: WebhookDeliverySchema, status: 201 }),
+  inboundWebhook: route({ method: 'post', path: '/api/hooks/{workspaceId}/{sourceKey}', absolute: true, summary: 'Inbound webhook: X-Vistar-Signature (t=<unix>,v1=<hex HMAC-SHA256 of "t.rawBody">, 300 s tolerance) or X-Vistar-Token for token sources; Idempotency-Key (24 h: same key and body = 200 duplicate, same key and other body = 409); 401 WEBHOOK_SIGNATURE_INVALID / WEBHOOK_TIMESTAMP_EXPIRED, 404 unknown source, 410 paused source', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'webhook', permission: null, params: z.object({ workspaceId: IdSchema, sourceKey: z.string() }), query: z.object({ token: z.string().max(200).optional() }), body: z.unknown(), response: InboundWebhookResponseSchema, status: 202 }),
+  whatsappWebhookVerify: route({ method: 'get', path: '/api/hooks/whatsapp', absolute: true, summary: 'WhatsApp Cloud API verification challenge for the platform Meta app (WHATSAPP_VERIFY_TOKEN); answers hub.challenge as text/plain', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'public', permission: null, query: WhatsappVerifyQuerySchema, response: null, responseContentType: 'text/plain' }),
+  whatsappWebhook: route({ method: 'post', path: '/api/hooks/whatsapp', absolute: true, summary: 'WhatsApp Cloud API events for the platform Meta app (X-Hub-Signature-256 with WHATSAPP_APP_SECRET); routed to the workspace by metadata.phone_number_id', tag: 'webhooks', owner: 'realtime-integrations', phase: 5, auth: 'webhook', permission: null, body: z.unknown(), response: null }),
+  apiKeyList: route({ method: 'get', path: '/api-keys', summary: 'API keys (needs the api_access plan feature for create)', tag: 'api-keys', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'apikeys.manage', response: listOf(ApiKeySchema) }),
+  apiKeyCreate: route({ method: 'post', path: '/api-keys', summary: 'Create an API key (shown once; scopes must be permissions the creator holds: 403 API_KEY_SCOPE_NOT_ALLOWED; FEATURE_DISABLED without api_access); audited', tag: 'api-keys', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'apikeys.manage', body: ApiKeyCreateSchema, response: ApiKeyCreatedSchema, status: 201 }),
+  apiKeyRotate: route({ method: 'post', path: '/api-keys/{id}/rotate', summary: 'Rotate an API key (new key shown once; the old key keeps working for graceMinutes); audited', tag: 'api-keys', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'apikeys.manage', params: IdParamSchema, body: ApiKeyRotateSchema, response: ApiKeyCreatedSchema }),
+  apiKeyRevoke: route({ method: 'delete', path: '/api-keys/{id}', summary: 'Revoke an API key (also ends a rotation grace); audited', tag: 'api-keys', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'apikeys.manage', params: IdParamSchema, response: OkResponseSchema }),
+
+  // ---- change #19 wave C: hub (HUB-API stream, backend-core; D-069, D-070)
+  integrationCatalog: route({ method: 'get', path: '/integrations/catalog', summary: 'Provider catalog: connect fields (secret fields marked), setup steps, capabilities, availability (not_configured when a platform setting is missing) and plan feature', tag: 'integrations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'integrations.read', response: listOf(IntegrationProviderInfoSchema) }),
+  integrationGet: route({ method: 'get', path: '/integrations/{provider}', summary: 'One provider of the hub', tag: 'integrations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'integrations.read', params: IntegrationProviderParamSchema, response: IntegrationSchema }),
+  integrationSync: route({ method: 'post', path: '/integrations/{provider}/sync', summary: 'Sync now: IndiaMART pull (window from the last pull minus 5 min, max 7 days; dedupe by UNIQUE_QUERY_ID; 429 RATE_LIMITED within 5 min of the last pull), WhatsApp phone number profile, Google calendar check', tag: 'integrations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'integrations.manage', params: IntegrationProviderParamSchema, response: IntegrationSyncResultSchema }),
+  integrationRotateToken: route({ method: 'post', path: '/integrations/{provider}/rotate-token', summary: 'New IndiaMART push key, WhatsApp verify token or telephony callback token (the old one stops working); audited', tag: 'integrations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'integrations.manage', params: IntegrationProviderParamSchema, response: IntegrationSchema }),
+  integrationOAuthStart: route({ method: 'post', path: '/integrations/{provider}/oauth/start', summary: 'Start Google sign-in for google_calendar (422 INTEGRATION_NOT_CONFIGURED without GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET); open authUrl in the browser', tag: 'integrations', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'integrations.manage', params: IntegrationProviderParamSchema, response: IntegrationOAuthStartSchema }),
+  integrationOAuthCallback: route({ method: 'get', path: '/api/oauth/google/callback', absolute: true, summary: 'Google OAuth redirect: stores the tokens encrypted and redirects to WEB_ORIGIN/app/integrations?provider=google_calendar&result=connected|error', tag: 'integrations', owner: 'backend-core', phase: 19, auth: 'public', permission: null, query: OAuthCallbackQuerySchema, response: null, responseContentType: 'text/html', status: 302 }),
+  indiamartPush: route({ method: 'post', path: '/api/hooks/{workspaceId}/indiamart', absolute: true, summary: 'IndiaMART Push API receiver (push key in ?key=; body { CODE, STATUS, RESPONSE: {...} }); creates a routed lead with source indiamart, duplicate UNIQUE_QUERY_ID = 200 duplicate', tag: 'webhooks', owner: 'backend-core', phase: 19, auth: 'webhook', permission: null, params: z.object({ workspaceId: IdSchema }), query: z.object({ key: z.string().max(200).optional() }), body: z.unknown(), response: IndiamartPushResultSchema }),
+  whatsappWorkspaceVerify: route({ method: 'get', path: '/api/hooks/{workspaceId}/whatsapp', absolute: true, summary: 'WhatsApp Cloud API verification challenge for a workspace\'s own Meta app (verify token from the integration); 403 on a wrong token', tag: 'webhooks', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: z.object({ workspaceId: IdSchema }), query: WhatsappVerifyQuerySchema, response: null, responseContentType: 'text/plain' }),
+  whatsappWorkspaceWebhook: route({ method: 'post', path: '/api/hooks/{workspaceId}/whatsapp', absolute: true, summary: 'WhatsApp Cloud API events of a workspace\'s own Meta app (X-Hub-Signature-256 with its app secret): messages into the Inbox (24 h window, message.received), statuses onto sent messages', tag: 'webhooks', owner: 'backend-core', phase: 19, auth: 'webhook', permission: null, params: z.object({ workspaceId: IdSchema }), body: z.unknown(), response: OkResponseSchema }),
+  webhookEndpointGet: route({ method: 'get', path: '/webhooks/endpoints/{id}', summary: 'One endpoint with its sample payload and failure counters', tag: 'webhooks', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'webhooks.read', params: IdParamSchema, response: WebhookEndpointSchema }),
+  webhookCapture: route({ method: 'post', path: '/webhooks/endpoints/{id}/capture', summary: 'Arm (or stop) sample capture on an inbound source: the next verified request before captureUntil is stored as the sample and not processed (202, captured: true); capture then stops', tag: 'webhooks', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, body: WebhookCaptureSchema, response: WebhookEndpointSchema }),
+  webhookTestSend: route({ method: 'post', path: '/webhooks/endpoints/{id}/test', summary: 'Send one signed test delivery to an outbound endpoint now (event webhook.test or a sample of `event`; no retries)', tag: 'webhooks', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'webhooks.manage', params: IdParamSchema, body: WebhookTestSendSchema, response: WebhookDeliverySchema, status: 201 }),
+  apiKeyScopes: route({ method: 'get', path: '/api-keys/scopes', summary: 'Scope picker: every API key scope with allowed = the caller holds the permission', tag: 'api-keys', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'apikeys.manage', response: listOf(ApiKeyScopeOptionSchema) }),
+  apiKeyUpdate: route({ method: 'patch', path: '/api-keys/{id}', summary: 'Rename a key or change its rate limit (null = default); audited', tag: 'api-keys', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'apikeys.manage', params: IdParamSchema, body: ApiKeyUpdateSchema, response: ApiKeySchema }),
+  publicOpenApi: route({ method: 'get', path: '/openapi.json', summary: 'Public API reference (OpenAPI 3.1): only the routes that accept API keys plus the inbound webhook, server = API_PUBLIC_URL', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, response: PublicOpenApiDocumentSchema }),
+  // ---- end change #19 wave C: hub
 
   // ---------------- WhatsApp inbox (phase 5) ----------------
   conversationList: route({ method: 'get', path: '/conversations', summary: 'Inbox conversations', tag: 'inbox', owner: 'realtime-integrations', phase: 5, auth: 'jwt', permission: 'messages.read', query: ConversationListQuerySchema, response: pageOf(ConversationSchema) }),
@@ -553,7 +591,7 @@ export const API_ROUTES = {
   callGet: route({ method: 'get', path: '/calls/{id}', summary: 'Call detail', tag: 'calls', owner: 'realtime-integrations', phase: 7, auth: 'jwt', permission: 'calls.read', params: IdParamSchema, response: CallSchema }),
   callUpdate: route({ method: 'patch', path: '/calls/{id}', summary: 'Set outcome, notes, disposition', tag: 'calls', owner: 'realtime-integrations', phase: 7, auth: 'jwt', permission: 'calls.make', params: IdParamSchema, body: CallUpdateSchema, response: CallSchema }),
   callRecording: route({ method: 'get', path: '/calls/{id}/recording', summary: 'Signed recording URL and waveform', tag: 'calls', owner: 'realtime-integrations', phase: 7, auth: 'jwt', permission: 'calls.recordings', params: IdParamSchema, response: RecordingUrlSchema }),
-  telephonyWebhook: route({ method: 'post', path: '/api/hooks/telephony/{provider}', absolute: true, summary: 'Telephony provider callbacks', tag: 'calls', owner: 'realtime-integrations', phase: 7, auth: 'webhook', permission: null, params: ProviderParam, body: z.unknown(), response: null }),
+  telephonyWebhook: route({ method: 'post', path: '/api/hooks/{workspaceId}/telephony/{provider}', absolute: true, summary: 'Telephony provider callbacks (callback token in ?token=; mock and Exotel status callbacks update or create the call by providerCallId)', tag: 'calls', owner: 'realtime-integrations', phase: 7, auth: 'webhook', permission: null, params: TelephonyProviderParamSchema, query: z.object({ token: z.string().max(200).optional() }), body: z.unknown(), response: null }),
 
   // ---------------- audit (phase 9) ----------------
   auditList: route({ method: 'get', path: '/audit-logs', summary: 'Audit log', tag: 'admin', owner: 'backend-core', phase: 9, auth: 'jwt', permission: 'audit.read', query: AuditLogQuerySchema, response: pageOf(AuditLogSchema) }),

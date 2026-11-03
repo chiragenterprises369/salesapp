@@ -63,6 +63,16 @@ const EnvSchema = z.object({
   WHATSAPP_GRAPH_VERSION: z.string().default('v23.0'),
 
   TELEPHONY_PROVIDER: z.string().default('mock'),
+  // ---- change #19 wave C: hub
+  /** Hosts the outbound HTTP client and SMTP may reach although private (dev receivers, Mailpit). Ignored in production. Default localhost,127.0.0.1,::1. */
+  OUTBOUND_ALLOW_PRIVATE_HOSTS: z.string().optional(),
+  /** IndiaMART Lead Manager pull API (CRM Listing v2). */
+  INDIAMART_API_URL: z.string().url().default('https://mapi.indiamart.com/wservce/crm/crmListing/v2/'),
+  /** Meta Graph API base for WhatsApp Cloud API calls. */
+  WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com'),
+  /** Background hub jobs in this process: outbound webhook worker and sweeper, IndiaMART pull cron. "off" for extra API replicas. */
+  HUB_BACKGROUND_JOBS: z.enum(['on', 'off']).default('on'),
+  // ---- end change #19 wave C: hub
   FEATURE_AI_NODE: bool,
   /** Express "trust proxy" (e.g. "loopback", "1", "10.0.0.0/8"). Needed for real client IPs behind a load balancer. */
   TRUST_PROXY: z.string().optional(),

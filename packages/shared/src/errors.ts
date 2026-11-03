@@ -83,6 +83,13 @@ export const ErrorCode = {
   PRODUCT_SKU_TAKEN: 'PRODUCT_SKU_TAKEN',
   SHARE_LINK_EXPIRED: 'SHARE_LINK_EXPIRED',
   CAPTURE_FORM_CLOSED: 'CAPTURE_FORM_CLOSED',
+  // ---- change #19 wave C: hub
+  INTEGRATION_NOT_CONFIGURED: 'INTEGRATION_NOT_CONFIGURED',
+  WEBHOOK_URL_BLOCKED: 'WEBHOOK_URL_BLOCKED',
+  WEBHOOK_REPLAY_NOT_ALLOWED: 'WEBHOOK_REPLAY_NOT_ALLOWED',
+  IDEMPOTENCY_CONFLICT: 'IDEMPOTENCY_CONFLICT',
+  API_KEY_SCOPE_NOT_ALLOWED: 'API_KEY_SCOPE_NOT_ALLOWED',
+  OAUTH_STATE_INVALID: 'OAUTH_STATE_INVALID',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -168,6 +175,19 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   SHARE_LINK_EXPIRED: 410,
   /** Lead capture form paused or deleted. */
   CAPTURE_FORM_CLOSED: 410,
+  // ---- change #19 wave C: hub
+  /** The provider needs a platform setting that is missing (e.g. GOOGLE_CLIENT_ID/SECRET for Google Calendar), or mock mode in production. */
+  INTEGRATION_NOT_CONFIGURED: 422,
+  /** Outbound URL or host resolves to a private, loopback or link-local address (SSRF guard), or uses http outside the dev allowlist. */
+  WEBHOOK_URL_BLOCKED: 422,
+  /** Inbound deliveries that failed signature or token verification cannot be replayed. */
+  WEBHOOK_REPLAY_NOT_ALLOWED: 422,
+  /** The same Idempotency-Key with a different body, or the first request with this key is still running. */
+  IDEMPOTENCY_CONFLICT: 409,
+  /** An API key scope the creator does not hold. */
+  API_KEY_SCOPE_NOT_ALLOWED: 403,
+  /** OAuth callback with an unknown, used or expired state. */
+  OAUTH_STATE_INVALID: 400,
 };
 
 export const FieldErrorSchema = z.object({

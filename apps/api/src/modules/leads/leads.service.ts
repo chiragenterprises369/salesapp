@@ -298,14 +298,15 @@ export class LeadsService {
     return this.present(db, auth, lead, defs);
   }
 
-  async update(auth: AuthContext, id: string, body: LeadUpdate): Promise<LeadDto> {
+  /** opts.actor (change #19 wave C): integrations and webhooks record their own actor instead of the caller. */
+  async update(auth: AuthContext, id: string, body: LeadUpdate, opts: { actor?: RequestActor } = {}): Promise<LeadDto> {
     const wid = auth.workspaceId;
     const db = this.prisma.forTenant(wid);
     const current = await this.loadVisible(db, auth, id);
     if (body.expectedVersion !== undefined && body.expectedVersion !== current.version) {
       throw new AppException('VERSION_CONFLICT', 'Someone else changed this lead. Reload to see the latest version.');
     }
-    const actor = await requestActor(db, auth);
+    const actor = opts.actor ?? (await requestActor(db, auth));
     const now = new Date();
 
     const data: Prisma.LeadUncheckedUpdateManyInput = {};

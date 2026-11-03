@@ -20,8 +20,8 @@ export const PERMISSION_MATRIX = {
   messages: ['read', 'send', 'team_inbox'],
   templates: ['read', 'manage'],
   workflows: ['read', 'edit', 'publish', 'run'],
-  webhooks: ['manage'],
-  integrations: ['manage'],
+  webhooks: ['read', 'manage'],
+  integrations: ['read', 'manage'],
   apikeys: ['manage'],
   reports: ['read'],
   teamfloor: ['read'],
@@ -74,6 +74,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKind, Permission[]> = {
     'teamfloor.read',
     'team.read',
     'targets.read', 'targets.manage',
+    // change #19 wave C: managers can look at the hub and the delivery log (no secrets, no changes)
+    'integrations.read', 'webhooks.read',
     'contacts.read', 'contacts.create', 'contacts.update', 'contacts.merge',
     'accounts.read', 'accounts.create', 'accounts.update', 'accounts.merge',
     'deals.read', 'deals.create', 'deals.update',
@@ -111,6 +113,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKind, Permission[]> = {
 export const CHANGE_19B_PERMISSIONS: readonly Permission[] = (Object.keys(PERMISSION_MATRIX) as PermissionResource[])
   .filter((r) => ['contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture_forms'].includes(r))
   .flatMap((r) => (PERMISSION_MATRIX[r] as readonly string[]).map((a) => `${r}.${a}` as Permission));
+
+// ---- change #19 wave C: hub
+/**
+ * Permissions added by migration 20261103100000_change19c_hub: `integrations.read` and `webhooks.read` go to the
+ * company_admin and manager system roles of existing workspaces and to every role that already holds the matching
+ * `.manage` permission (read routes need `.read`; changes need `.manage`).
+ */
+export const CHANGE_19C_PERMISSIONS: readonly Permission[] = ['integrations.read', 'webhooks.read'];
 
 export const DEFAULT_ROLE_SCOPE: Record<RoleKind, DataScope> = {
   company_admin: 'all',
@@ -155,6 +165,16 @@ export const API_KEY_SCOPES = [
 ] as const satisfies readonly Permission[];
 export const ApiKeyScopeSchema = z.enum(API_KEY_SCOPES);
 export type ApiKeyScope = z.infer<typeof ApiKeyScopeSchema>;
+
+// ---- change #19 wave C: hub (API keys, D-070)
+/** Requests per minute per key when the key has no own limit; 429 RATE_LIMITED with Retry-After above it. */
+export const API_KEY_DEFAULT_RATE_LIMIT_PER_MIN = 120;
+export const API_KEY_MAX_RATE_LIMIT_PER_MIN = 1200;
+/** After a rotation the old key keeps working for this long (default) so callers can switch without downtime. */
+export const API_KEY_ROTATION_GRACE_DEFAULT_MIN = 60;
+export const API_KEY_ROTATION_GRACE_MAX_MIN = 1440;
+/** Characters of the key shown in lists (prefix + 4), e.g. "vst_live_Ab3x". */
+export const API_KEY_DISPLAY_PREFIX_LENGTH = API_KEY_PREFIX.length + 4;
 
 export function hasPermission(granted: readonly string[], required: Permission | readonly Permission[]): boolean {
   const list = (Array.isArray(required) ? required : [required]) as Permission[];

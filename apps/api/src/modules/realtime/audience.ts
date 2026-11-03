@@ -72,7 +72,11 @@ export const AUDIENCE_RULES: Record<EventName, Rule> = {
   'workflow.run_updated': () => ({ kind: 'permission', permission: 'workflows.read' }),
   'workflow.step_updated': () => ({ kind: 'permission', permission: 'workflows.read' }),
   'workflow.failed': () => ({ kind: 'permission', permission: 'workflows.read' }),
-  'webhook.delivery_updated': () => ({ kind: 'permission', permission: 'webhooks.manage' }),
+  'webhook.delivery_updated': () => ({ kind: 'permission', permission: 'webhooks.read' }),
+  // ---- change #19 wave C: hub
+  'integration.updated': () => ({ kind: 'permission', permission: 'integrations.read' }),
+  'webhook.endpoint_updated': () => ({ kind: 'permission', permission: 'webhooks.read' }),
+  // ---- end change #19 wave C: hub
   'import.progress': () => ({ kind: 'permission', permission: 'leads.import' }),
   'theme.changed': () => ({ kind: 'workspace' }),
   'customization.changed': () => ({ kind: 'workspace' }),
