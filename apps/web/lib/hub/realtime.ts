@@ -5,17 +5,7 @@ import type { DomainEvent, WebhookDelivery } from '@vistar/shared';
 import { useEffect } from 'react';
 import { onRealtimeEvent } from '../realtime/client';
 import { hubKeys } from './keys';
-
-/** Event type -> hub cache scopes (first query-key segment). */
-export function scopesForHubEvent(type: string): readonly string[] {
-  const [head] = type.split('.');
-  if (head === 'webhook') return ['webhooks'];
-  if (head === 'integration') return ['integrations'];
-  if (head === 'api_key' || head === 'apikey' || head === 'api-key') return ['api-keys'];
-  // Inbound sources create leads: the delivery log shows the result.
-  if (type === 'lead.created') return ['webhooks'];
-  return [];
-}
+import { scopesForHubEvent } from './rules';
 
 /**
  * Live refresh while a hub page is open. A delivery update replaces the cached delivery at once

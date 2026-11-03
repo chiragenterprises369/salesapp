@@ -7,7 +7,7 @@
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
-const SIMPLE_KEY = /^[A-Za-z_$][\w$-]*$/;
+const SIMPLE_KEY = /^[A-Za-z_][\w-]*$/;
 
 /** Join path segments: keys with dots, spaces or brackets go in `["..."]`. */
 export function formatPath(segments: ReadonlyArray<string | number>): string {

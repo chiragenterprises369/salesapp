@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { flattenLeaves, formatPath, getAtPath, parsePath, parseSample, suggestMapping } from '../json-paths';
 import { curlFor, deref, exampleFor, groupByTag, listOperations, permissionFrom, searchOperations, shellQuote, tagLabel, typeLabel, type OpenApiDocument } from '../openapi';
+import { scopesForHubEvent, sourceKeyFrom, upcomingRetryDelays, urlProblem } from '../rules';
 import { inboundCurl, inboundNode } from '../snippets';
 
 const INDIAMART = {
@@ -122,5 +123,39 @@ describe('signing snippets', () => {
     const node = inboundNode(url);
     expect(node).toContain('process.env.VISTAR_WEBHOOK_SECRET');
     expect(node).toContain("createHmac('sha256', secret)");
+  });
+});
+
+describe('hub rules', () => {
+  it('maps hub events to cache scopes', () => {
+    expect(scopesForHubEvent('webhook.delivery_updated')).toEqual(['webhooks']);
+    expect(scopesForHubEvent('webhook.endpoint_updated')).toEqual(['webhooks']);
+    expect(scopesForHubEvent('integration.updated')).toEqual(['integrations']);
+    expect(scopesForHubEvent('lead.created')).toEqual(['webhooks']);
+    expect(scopesForHubEvent('deal.moved')).toEqual([]);
+  });
+
+  it('accepts https and localhost http only', () => {
+    expect(urlProblem('https://erp.example.in/hooks')).toBeNull();
+    expect(urlProblem('http://localhost:8080/hook')).toBeNull();
+    expect(urlProblem('http://127.0.0.1:9000/x')).toBeNull();
+    expect(urlProblem('http://10.0.0.5/hook')).toMatch(/https/);
+    expect(urlProblem('ftp://example.in')).toMatch(/https/);
+    expect(urlProblem('example.in/hook')).toMatch(/full URL/);
+    expect(urlProblem('  ')).toMatch(/Enter the URL/);
+  });
+
+  it('makes URL keys from names', () => {
+    expect(sourceKeyFrom('Website form (Pune)')).toBe('website-form-pune');
+    expect(sourceKeyFrom('  Facebook Lead Ads!! ')).toBe('facebook-lead-ads');
+    expect(sourceKeyFrom('x'.repeat(60))).toHaveLength(40);
+  });
+
+  it('lists the retries still to come', () => {
+    const delays = [60, 300, 1800, 7200, 21_600, 86_400];
+    expect(upcomingRetryDelays(delays, 1, 7, true)).toEqual([60, 300, 1800, 7200, 21_600, 86_400]);
+    expect(upcomingRetryDelays(delays, 3, 7, true)).toEqual([1800, 7200, 21_600, 86_400]);
+    expect(upcomingRetryDelays(delays, 7, 7, true)).toEqual([]);
+    expect(upcomingRetryDelays(delays, 2, 7, false)).toEqual([]);
   });
 });

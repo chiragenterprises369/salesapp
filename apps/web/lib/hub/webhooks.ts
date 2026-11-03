@@ -48,11 +48,6 @@ export function useWebhookMutations() {
   };
 }
 
-/** Server-side preview of a mapping on a sample payload (the lead it would create, row errors and every path). */
-export function useMappingPreview() {
-  return useMutation({ mutationFn: (body: RouteBody<'webhookMappingPreview'>) => api.call('webhookMappingPreview', { body }) });
-}
-
 export interface DeliveryFilters {
   direction?: 'inbound' | 'outbound';
   status?: WebhookDelivery['status'];

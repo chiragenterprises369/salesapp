@@ -14,23 +14,9 @@ import { FormSection } from '@/lib/crm/ui/fields';
 import { formErrorMessage, serverFieldErrors } from '@/lib/crm/ui/errors';
 import { formatDelay } from '@/lib/hub/format';
 import { useWebhookMutations } from '@/lib/hub/webhooks';
+import { urlProblem } from '@/lib/hub/rules';
 
 const GROUP_LABEL: Record<string, string> = { leads: 'Leads', activity: 'Calls, messages, tasks and workflows', crm: 'Contacts, accounts and deals', documents: 'Quotations and invoices', calendar: 'Calendar' };
-
-/** https, or plain http only for localhost (the API also blocks private and link-local addresses). */
-export function urlProblem(raw: string): string | null {
-  const v = raw.trim();
-  if (!v) return 'Enter the URL that should receive the events.';
-  let u: URL;
-  try {
-    u = new URL(v);
-  } catch {
-    return 'Enter a full URL, for example https://example.in/hooks/vistar.';
-  }
-  if (u.protocol === 'https:') return null;
-  if (u.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)) return null;
-  return 'Use an https URL. Plain http works only for localhost while testing.';
-}
 
 export const RETRY_SCHEDULE = WEBHOOK_RETRY_DELAYS_SEC.map(formatDelay).join(', ');
 

@@ -47,6 +47,8 @@ export function InboundSources({
 }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [secret, setSecret] = useState<ShownOnceSecret | null>(null);
+  /** Source to open for mapping once the shown-once dialog is closed (never two modals at once). */
+  const [afterSecret, setAfterSecret] = useState<string | null>(null);
   const [rotating, setRotating] = useState<WebhookEndpoint | null>(null);
   const [deleting, setDeleting] = useState<WebhookEndpoint | null>(null);
   const m = useWebhookMutations();
@@ -90,7 +92,7 @@ export function InboundSources({
           }}
           onCreated={(created, secretValue) => {
             onCreated();
-            setEditing(created.id);
+            setAfterSecret(created.id);
             setSecret({
               title: 'Inbound source created',
               label: created.verification === 'token' ? 'Token' : 'Signing secret',
@@ -119,7 +121,14 @@ export function InboundSources({
           })
         }
       />
-      <SecretOnceDialog secret={secret} onClose={() => setSecret(null)} />
+      <SecretOnceDialog
+        secret={secret}
+        onClose={() => {
+          setSecret(null);
+          if (afterSecret) setEditing(afterSecret);
+          setAfterSecret(null);
+        }}
+      />
     </>
   );
 }

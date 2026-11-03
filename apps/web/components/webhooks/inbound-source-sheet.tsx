@@ -22,17 +22,10 @@ import { FormGrid, FormSection } from '@/lib/crm/ui/fields';
 import { formErrorMessage, serverFieldErrors } from '@/lib/crm/ui/errors';
 import { parseSample } from '@/lib/hub/json-paths';
 import { mappingTargets } from '@/lib/hub/mapping-labels';
+import { sourceKeyFrom } from '@/lib/hub/rules';
 import { useWebhookMutations } from '@/lib/hub/webhooks';
 import { useMe } from '@/lib/session/session';
 import { MappingEditor, MappingPreview, newConstant, newRow, toPayloadMapping, type ConstantRow, type MappingRow } from './mapping-editor';
-
-const slug = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40);
 
 const pretty = (v: unknown) => {
   try {
@@ -166,7 +159,7 @@ export function InboundSourceSheet({ source, onClose, onCreated }: { source?: We
                     disabled={disabled}
                     onChange={(e) => {
                       setName(e.target.value);
-                      if (!keyTouched) setKey(slug(e.target.value));
+                      if (!keyTouched) setKey(sourceKeyFrom(e.target.value));
                     }}
                     placeholder="Website enquiry form"
                   />
@@ -259,6 +252,8 @@ export function InboundSourceSheet({ source, onClose, onCreated }: { source?: We
                       onClick={() => {
                         loadSample(newCapture.samplePayload);
                         setSeenCapture(newCapture.sampleCapturedAt);
+                        // Got the sample: stop capturing so the next requests are processed again.
+                        if (capturing) m.capture.mutate({ id: newCapture.id, enabled: false }, { onError: (err) => toast.error(formErrorMessage(err)) });
                       }}
                     >
                       Use it as the sample

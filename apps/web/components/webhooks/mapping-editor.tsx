@@ -1,17 +1,14 @@
 'use client';
 
-import { MAPPING_TRANSFORMS, type MappingTransform } from '@vistar/shared';
+import { applyPayloadMapping, evaluateExpression, MAPPING_TRANSFORMS, type MappingTransform } from '@vistar/shared';
 import { AlertCircle, Plus, Sparkles, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { NativeSelect } from '@/components/common/native-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { uuid4 } from '@/lib/crm/ids';
-import { formErrorMessage } from '@/lib/crm/ui/errors';
-import { flattenLeaves, getAtPath, previewValue, suggestMapping } from '@/lib/hub/json-paths';
+import { flattenLeaves, previewValue, suggestMapping } from '@/lib/hub/json-paths';
 import { targetLabel, TRANSFORM_LABEL, type TargetOption } from '@/lib/hub/mapping-labels';
-import { useMappingPreview } from '@/lib/hub/webhooks';
 import { JsonTree } from './json-tree';
 
 export interface MappingRow {
@@ -145,7 +142,7 @@ export function MappingEditor({
         ) : (
           <ul className="flex flex-col gap-2" aria-label="Mapped fields">
             {rows.map((r, i) => {
-              const value = hasSample && r.from ? getAtPath(sample, r.from.replace(/^\$\.?/, '')) : undefined;
+              const value = hasSample && r.from.trim() ? evaluateExpression(sample, r.from) : undefined;
               const n = i + 1;
               return (
                 <li key={r.id} className="grid grid-cols-1 gap-2 rounded-md border border-border bg-surface p-2.5 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-start">
@@ -169,7 +166,7 @@ export function MappingEditor({
                       aria-describedby={`val-${r.id}`}
                     />
                     <p id={`val-${r.id}`} className="mt-0.5 truncate font-mono text-2xs text-muted-strong">
-                      {hasSample && r.from && !/\|\||\+|"/.test(r.from) ? previewValue(value) : r.from ? 'expression' : ''}
+                      {hasSample && r.from.trim() ? previewValue(value) : ''}
                     </p>
                   </div>
                   <div className="min-w-0">
@@ -266,39 +263,28 @@ export function MappingEditor({
 }
 
 /**
- * The lead the mapping would produce from the sample (server preview, so the API's own path and
- * transform rules apply). Re-runs 500 ms after the last change.
+ * The lead the mapping would produce from the sample. Uses the shared mapping engine
+ * (`applyPayloadMapping`, the same code the API runs on every request), so the preview is instant
+ * and matches what ingestion does.
  */
 export function MappingPreview({ sample, mapping, targets }: { sample: unknown; mapping: ReturnType<typeof toPayloadMapping>; targets: TargetOption[] }) {
-  const preview = useMappingPreview();
-  const { mutate } = preview;
-  const key = JSON.stringify({ sample, mapping });
-  const [ran, setRan] = useState(false);
-  useEffect(() => {
-    if (sample === undefined || sample === null) return;
-    const t = setTimeout(() => {
-      setRan(true);
-      mutate({ samplePayload: sample, mapping });
-    }, 500);
-    return () => clearTimeout(t);
-    // `key` captures sample and mapping by value; the objects change identity on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, mutate]);
-
-  if (sample === undefined || sample === null) return <p className="text-sm text-muted-strong">Add a sample payload to see the lead this mapping creates.</p>;
-  if (!ran || (preview.isPending && !preview.data))
-    return (
-      <div role="status" aria-label="Building the preview" className="flex flex-col gap-1.5">
-        {Array.from({ length: 4 }, (_, i) => (
-          <Skeleton key={i} className="h-5 w-full" />
-        ))}
-      </div>
-    );
-  if (preview.isError) return <p className="text-sm text-danger-text">{formErrorMessage(preview.error, 'The preview did not run. Check the sample and try again.')}</p>;
-  const data = preview.data;
-  if (!data) return null;
-  const entries = Object.entries(data.lead).filter(([, v]) => v !== null && v !== undefined && v !== '');
+  const result = useMemo(() => (sample === undefined || sample === null ? null : applyPayloadMapping(sample, mapping)), [sample, mapping]);
+  if (!result) return <p className="text-sm text-muted-strong">Add a sample payload to see the lead this mapping creates.</p>;
+  const { customFields, ...core } = result.lead;
+  const entries: Array<[string, unknown]> = [
+    ...Object.entries(core).filter(([, v]) => v !== null && v !== undefined && v !== ''),
+    ...Object.entries(customFields).map(([k, v]) => [`custom.${k}`, v] as [string, unknown]),
+  ];
   const missingContact = !entries.some(([k]) => k === 'phone' || k === 'email');
+  const rowLabel = (path: string) => {
+    const m = /^fields\.(\d+)$/.exec(path);
+    if (m) {
+      const f = mapping.fields[Number(m[1])];
+      return f ? `${targetLabel(targets, f.to)} (${f.from})` : path;
+    }
+    if (path.startsWith('defaults.')) return `${targetLabel(targets, path.slice(9))} (fixed value)`;
+    return targetLabel(targets, path);
+  };
   return (
     <div className="flex flex-col gap-3" aria-live="polite" data-testid="mapping-preview">
       {entries.length === 0 ? (
@@ -307,7 +293,7 @@ export function MappingPreview({ sample, mapping, targets }: { sample: unknown; 
         <dl className="grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-4 gap-y-1 text-sm">
           {entries.map(([k, v]) => (
             <div key={k} className="contents">
-              <dt className="text-muted-strong">{targetLabel(targets, k.startsWith('customFields.') ? `custom.${k.slice(13)}` : k)}</dt>
+              <dt className="text-muted-strong">{targetLabel(targets, k)}</dt>
               <dd className="min-w-0 break-words text-fg" data-field={k}>
                 {Array.isArray(v) ? v.join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v)}
               </dd>
@@ -315,14 +301,14 @@ export function MappingPreview({ sample, mapping, targets }: { sample: unknown; 
           ))}
         </dl>
       )}
-      {missingContact && entries.length > 0 && <p className="text-xs text-warning-text">No phone or email: the API rejects a lead without one of them.</p>}
-      {data.errors.length > 0 && (
+      {missingContact && entries.length > 0 && <p className="text-xs text-warning-text">No phone or email: Vistar needs one of them to create or find a lead.</p>}
+      {result.errors.length > 0 && (
         <ul className="flex flex-col gap-1" aria-label="Mapping problems">
-          {data.errors.map((e) => (
+          {result.errors.map((e) => (
             <li key={`${e.path}-${e.message}`} className="flex items-start gap-1.5 text-xs text-danger-text">
               <AlertCircle aria-hidden className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                <code className="font-mono">{e.path}</code>: {e.message}
+                {rowLabel(e.path)}: {e.message}
               </span>
             </li>
           ))}

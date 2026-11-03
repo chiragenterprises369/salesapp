@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/lib/crm/ui/confirm-dialog';
 import { formErrorMessage } from '@/lib/crm/ui/errors';
 import { DELIVERY_STATUS, eventLabel, formatDelay, formatInstant, formatLatency, httpTone, inFuture, prettyBody, statusOf } from '@/lib/hub/format';
 import { useDelivery, useWebhookMutations } from '@/lib/hub/webhooks';
+import { upcomingRetryDelays } from '@/lib/hub/rules';
 import { CodeBlock } from '@/lib/hub/ui/copy';
 import { useCan, useMe } from '@/lib/session/session';
 
@@ -80,7 +81,7 @@ function DeliveryBody({ delivery: d, tz, onOpen }: { delivery: WebhookDelivery; 
   const request = prettyBody(d.requestBody);
   const response = prettyBody(d.responseBody);
   // Attempts still to come: attempt n+1 runs WEBHOOK_RETRY_DELAYS_SEC[n - 1] after attempt n.
-  const upcoming = d.status === 'pending' && d.direction === 'outbound' && d.attempt > 0 ? WEBHOOK_RETRY_DELAYS_SEC.slice(d.attempt - 1, Math.max(0, d.maxAttempts - 1)) : [];
+  const upcoming = d.direction === 'outbound' ? upcomingRetryDelays(WEBHOOK_RETRY_DELAYS_SEC, d.attempt, d.maxAttempts, d.status === 'pending') : [];
 
   const replay = () =>
     m.replay.mutate(d.id, {
