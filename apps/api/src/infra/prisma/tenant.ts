@@ -44,6 +44,9 @@ const PLATFORM_MODELS = new Set([
   'PlatformFile',
   'PlatformSetting',
   'AndroidRelease',
+  // ---- change #19 wave C: billing
+  'PlatformInvoiceSeries',
+  'BillingWebhookEvent',
 ]);
 
 type AnyArgs = Record<string, unknown> & {

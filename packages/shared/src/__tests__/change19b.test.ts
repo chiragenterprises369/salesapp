@@ -154,7 +154,7 @@ describe('GSTIN, lines, routing, capture, calendar', () => {
 describe('route contract (change #19 wave B)', () => {
   const routes = Object.entries(API_ROUTES) as Array<[string, RouteDef]>;
   const ids = Object.keys(API_ROUTES);
-  const wave = routes.slice(ids.indexOf('contactList'));
+  const wave = routes.slice(ids.indexOf('contactList'), ids.indexOf('billingOverview'));
 
   it('98 routes owned by backend-core in phase 19, every permission exists', () => {
     expect(wave).toHaveLength(98);

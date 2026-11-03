@@ -12,6 +12,7 @@ import { assertInTenant } from '../../infra/prisma/tenant.js';
 import { AccountStatusService } from '../auth/state/account-status.service.js';
 import { toUser, USER_SELECT } from './mappers.js';
 import { countActiveAdmins, isAdminCapable } from './roles.service.js';
+import { PlanLimitsService } from '../billing/plan-limits.service.js';
 
 type ProfileUpdate = Pick<UserUpdate, 'name' | 'phone' | 'title' | 'avatar'>;
 
@@ -33,6 +34,8 @@ export class UsersService {
     private readonly scope: ScopeService,
     private readonly audit: AuditService,
     private readonly status: AccountStatusService,
+    // ---- change #19 wave C: billing (seat limit on reactivation)
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   async get(workspaceId: string, userId: string): Promise<User> {
@@ -88,6 +91,7 @@ export class UsersService {
     const nextRole = roleChanged ? await db.role.findFirst({ where: { id: body.roleId }, select: { kind: true, permissions: true } }) : target.role;
     if (!nextRole) throw notFound('Role');
     const nextActive = body.isActive ?? target.isActive;
+    if (nextActive && !target.isActive) await this.planLimits.assertCanAdd(auth.workspaceId, 'seats');
     if (target.isActive && isAdminCapable(target.role) && !(nextActive && isAdminCapable(nextRole))) {
       if ((await countActiveAdmins(db, { userId: id })) === 0) {
         throw conflict('Keep at least one active company admin. Make someone else an admin first');

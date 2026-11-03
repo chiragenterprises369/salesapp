@@ -40,6 +40,13 @@ export * from './schemas/calendar.js';
 export * from './schemas/crm-related.js';
 export * from './schemas/routing.js';
 export * from './schemas/capture.js';
+// ---- change #19 wave C: hub
+export * from './integrations.js';
+export * from './mapping.js';
+// ---- end change #19 wave C: hub
+// ---- change #19 wave C: billing
+export * from './schemas/billing.js';
+export * from './billing.js';
 export * from './branding.js';
 export * from './gst.js';
 

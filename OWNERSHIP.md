@@ -131,6 +131,12 @@ Wave A is merged into `integration/19a` (`.worktrees/integration`, web 3020, API
 | floor-workspace (frontend-physics) | `.worktrees/frontend-physics` / `agent/frontend-physics` | `features/team-floor/workspace/**` (new), `app/(company)/app/team-floor/**`, `app/(employee)/me/team-floor/**`: live floor from the snapshot and events (zone, status, activity, screen), person panel with actions, module panels over the floor, full-screen mode; web attendance pages (register, live field map, routes) | web 3003 / `vistar_physics` |
 | crm-web (frontend-app) | `.worktrees/frontend-physics-builder` / `agent/frontend-physics-builder` | web pages and components for contacts, accounts, deals, products, quotations and invoices, calendar, routing rules, lead capture form builder; nav entries for them | web 3004 / `vistar_builder` |
 
+## Change #19 wave C: BILLING-PDF stream
+
+| Stream | Worktree / branch | Owns for this wave | Ports / DB |
+| --- | --- | --- | --- |
+| billing-pdf (backend-core) | `.worktrees/crm-api` / `agent/crm-api` | billing contracts (`packages/shared/src/schemas/billing.ts`, `billing.ts`, `api/routes-billing.ts`, marked blocks), migration `20261103110000_change19c_billing`, `apps/api/src/modules/billing/**`, plan-limit calls in invites, users, leads and import, PDF fonts in `apps/api/src/modules/documents/pdf/**` and `apps/api/assets/fonts/**`, `prisma/seed/billing.ts` | API 4030 / `vistar_crm` |
+
 ## Wave 1 streams (parallel worktrees)
 
 Large agents run as two streams with disjoint files. Same agent rules; each stream commits only its paths.

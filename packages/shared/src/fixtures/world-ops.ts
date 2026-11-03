@@ -704,66 +704,92 @@ export function worldAuditLog(ctx: WorldContext): AuditLog[] {
 
 export function worldIntegrations(ctx: WorldContext): Integration[] {
   const { now } = ctx;
+  const base = (i: Partial<Integration> & Pick<Integration, 'id' | 'provider' | 'status' | 'displayName'>): Integration => ({
+    mode: 'mock',
+    config: {},
+    hasSecrets: false,
+    secretHints: {},
+    lastCheckedAt: null,
+    lastError: null,
+    lastSyncAt: null,
+    nextSyncAt: null,
+    attention: null,
+    connectedAt: null,
+    connectedBy: null,
+    endpoints: null,
+    stats: {},
+    availability: 'ready',
+    availabilityNote: null,
+    enabled: true,
+    updatedAt: null,
+    ...i,
+  });
   return [
-    {
+    base({
       id: fixtureId('d1', 1),
       provider: 'indiamart',
       status: 'connected',
       displayName: 'IndiaMART Lead Manager',
-      config: { pullIntervalMin: 5, mobileLast4: '0001', leadsLast24h: 74 },
+      config: { pullEnabled: true, pullIntervalMin: 15, pushEnabled: true, tags: ['indiamart'] },
       hasSecrets: true,
+      secretHints: { crmKey: '••••x7Qa' },
       lastCheckedAt: isoT(now - 4 * MINUTE_MS),
-      lastError: null,
+      lastSyncAt: isoT(now - 4 * MINUTE_MS),
+      nextSyncAt: isoT(now + 11 * MINUTE_MS),
       connectedAt: isoT(now - 14 * DAY_MS),
-    },
-    {
+      endpoints: { pushUrl: `${HOOK_BASE}/indiamart?key=im_push_mock`, webhookUrl: null, verifyToken: null, callbackUrl: null, oauthRedirectUri: null },
+      stats: { leadsImported30d: 74, lastPulledCount: 2 },
+      updatedAt: isoT(now - 4 * MINUTE_MS),
+    }),
+    base({
       id: fixtureId('d1', 2),
       provider: 'whatsapp_cloud',
       status: 'connected',
       displayName: 'WhatsApp Business: Shakti Industries',
-      config: {
-        phoneNumber: '+91 98100 00000',
-        qualityRating: 'GREEN',
-        messagingLimit: 'TIER_10K',
-      },
+      config: { phoneNumberId: '109876543210987', wabaId: '1029384756', displayPhoneNumber: '+91 98100 00000' },
       hasSecrets: true,
+      secretHints: { accessToken: '••••Zx9k', appSecret: '••••41ab' },
       lastCheckedAt: isoT(now - 9 * MINUTE_MS),
-      lastError: null,
+      lastSyncAt: isoT(now - 9 * MINUTE_MS),
       connectedAt: isoT(now - 7 * DAY_MS),
-    },
-    {
+      endpoints: { pushUrl: null, webhookUrl: `${HOOK_BASE}/whatsapp`, verifyToken: 'wa_verify_mock', callbackUrl: null, oauthRedirectUri: null },
+      stats: { qualityRating: 'GREEN', messagingLimit: 'TIER_10K', messagesReceived30d: 312 },
+      updatedAt: isoT(now - 9 * MINUTE_MS),
+    }),
+    base({
       id: fixtureId('d1', 3),
       provider: 'telephony',
       status: 'connected',
       displayName: 'Telephony (mock adapter)',
-      config: { provider: 'mock', virtualNumber: '+91 80 4718 2200', recording: true },
-      hasSecrets: false,
+      config: { provider: 'mock', recordCalls: true },
       lastCheckedAt: isoT(now - 2 * MINUTE_MS),
-      lastError: null,
       connectedAt: isoT(now - 30 * DAY_MS),
-    },
-    {
+      endpoints: { pushUrl: null, webhookUrl: null, verifyToken: null, callbackUrl: `${HOOK_BASE}/telephony/mock?token=tel_mock`, oauthRedirectUri: null },
+      updatedAt: isoT(now - 2 * MINUTE_MS),
+    }),
+    base({
       id: fixtureId('d1', 4),
       provider: 'smtp',
       status: 'error',
+      mode: 'live',
       displayName: 'Email (SMTP)',
-      config: { host: 'smtp.zoho.in', port: 587, from: 'sales@shakti.example' },
+      config: { host: 'smtp.zoho.in', port: 587, secure: false, username: 'sales@shakti.example', fromEmail: 'sales@shakti.example' },
       hasSecrets: true,
+      secretHints: { password: '••••w0rd' },
       lastCheckedAt: isoT(now - 3 * HOUR_MS),
       lastError: 'Authentication failed. Check the SMTP password, then test again.',
       connectedAt: isoT(now - 20 * DAY_MS),
-    },
-    {
-      id: fixtureId('d1', 5),
+      updatedAt: isoT(now - 3 * HOUR_MS),
+    }),
+    base({
+      id: null,
       provider: 'google_calendar',
-      status: 'disconnected',
+      status: 'not_connected',
+      mode: 'live',
       displayName: 'Google Calendar',
-      config: {},
-      hasSecrets: false,
-      lastCheckedAt: null,
-      lastError: null,
-      connectedAt: null,
-    },
+      availability: 'not_configured',
+      availabilityNote: 'Google sign-in is not set up on this Vistar server (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET).',
+    }),
   ];
 }
 
@@ -772,6 +798,21 @@ type OutboundEvent = OutboundWebhookEvent;
 
 export function worldWebhookEndpoints(ctx: WorldContext): WebhookEndpoint[] {
   const { now } = ctx;
+  const common = (n: number, days: number) => ({
+    id: fixtureId('e1', n),
+    secretRotatedAt: null,
+    previousSecretExpiresAt: null,
+    disabledAt: null,
+    disabledReason: null,
+    consecutiveFailures: 0,
+    deadStreak: 0,
+    lastDeliveryAt: isoT(now - (n * 7 + 3) * MINUTE_MS),
+    lastSuccessAt: isoT(now - (n * 7 + 3) * MINUTE_MS),
+    lastFailureAt: null,
+    stats: { deliveries24h: 10 + n * 3, failures24h: n === 3 ? 2 : 0 },
+    createdAt: isoT(now - days * DAY_MS),
+    updatedAt: isoT(now - days * DAY_MS),
+  });
   const inbound = (
     n: number,
     name: string,
@@ -779,7 +820,7 @@ export function worldWebhookEndpoints(ctx: WorldContext): WebhookEndpoint[] {
     action: WebhookEndpoint['action'],
     days: number,
   ): WebhookEndpoint => ({
-    id: fixtureId('e1', n),
+    ...common(n, days),
     direction: 'inbound',
     name,
     isActive: true,
@@ -797,10 +838,15 @@ export function worldWebhookEndpoints(ctx: WorldContext): WebhookEndpoint[] {
       ],
       defaults: { source: 'webhook' },
     },
+    verification: 'hmac',
+    matchBy: ['phone', 'email'],
+    createIfMissing: true,
+    samplePayload: { name: 'Ramesh Patil', mobile: '98220 12345', email: 'ramesh@patil.example', city: 'Pune', message: 'Need 200 kg of MS angles' },
+    sampleCapturedAt: isoT(now - (days - 1) * DAY_MS),
+    captureUntil: null,
     url: null,
     events: [],
     secretPreview: `…${sourceKey.slice(0, 2)}9f`,
-    createdAt: isoT(now - days * DAY_MS),
   });
   const outbound = (
     n: number,
@@ -810,7 +856,7 @@ export function worldWebhookEndpoints(ctx: WorldContext): WebhookEndpoint[] {
     days: number,
     active = true,
   ): WebhookEndpoint => ({
-    id: fixtureId('e1', n),
+    ...common(n, days),
     direction: 'outbound',
     name,
     isActive: active,
@@ -819,10 +865,16 @@ export function worldWebhookEndpoints(ctx: WorldContext): WebhookEndpoint[] {
     action: null,
     workflowId: null,
     mapping: null,
+    verification: null,
+    matchBy: [],
+    createIfMissing: false,
+    samplePayload: null,
+    sampleCapturedAt: null,
+    captureUntil: null,
     url,
     events,
     secretPreview: `…a${n}c4`,
-    createdAt: isoT(now - days * DAY_MS),
+    ...(active ? {} : { disabledAt: isoT(now - 5 * DAY_MS), disabledReason: '3 deliveries in a row were dead-lettered', deadStreak: 3, consecutiveFailures: 21, lastFailureAt: isoT(now - 5 * DAY_MS) }),
   });
   return [
     inbound(1, 'Website contact form', 'website-form', 'create_lead', 25),
@@ -860,13 +912,32 @@ export function worldWebhookDeliveries(ctx: WorldContext): WebhookDelivery[] {
       const dead = fail && rng() < 0.15;
       const event = ep.direction === 'outbound' ? pick(rng, ep.events) : null;
       const status = dead ? 'dead' : fail ? 'failed' : 'success';
+      const attempt = fail ? int(rng, 2, 6) : 1;
+      const responseStatus = fail ? pick(rng, [500, 502, 503, 504]) : ep.direction === 'inbound' ? 202 : 200;
+      const error = fail ? pick(rng, ['Upstream returned 502', 'Timed out after 10 s', 'Connection reset']) : null;
+      const latencyMs = fail ? int(rng, 5000, 10000) : int(rng, 80, 900);
+      const attempts = Array.from({ length: attempt }, (_, k) => {
+        const last = k === attempt - 1;
+        const ok = last && !fail;
+        return {
+          attempt: k + 1,
+          at: isoT(at + [0, 60, 360, 2160, 9360, 30960][k]! * 1000),
+          ok,
+          responseStatus: ok ? responseStatus : pick(rng, [500, 502, 503, 504]),
+          latencyMs: ok ? latencyMs : int(rng, 3000, 10000),
+          error: ok ? null : (error ?? 'Upstream returned 502'),
+        };
+      });
       out.push({
         id: worldUuid(rng),
         endpointId: ep.id,
+        endpointName: ep.name,
         direction: ep.direction,
         event,
         status,
-        attempt: fail ? int(rng, 2, 6) : 1,
+        attempt,
+        maxAttempts: ep.direction === 'outbound' ? 7 : 1,
+        attempts,
         requestHeaders: {
           'content-type': 'application/json',
           'x-vistar-signature': 't=…,v1=[redacted]',
@@ -880,20 +951,18 @@ export function worldWebhookDeliveries(ctx: WorldContext): WebhookDelivery[] {
                 mobile: lead.phone ? maskPhone(lead.phone) : null,
                 city: lead.city,
               },
-        responseStatus: fail
-          ? pick(rng, [500, 502, 503, 504])
-          : ep.direction === 'inbound'
-            ? 201
-            : 200,
-        responseBody: fail ? 'Bad gateway' : '{"ok":true}',
-        latencyMs: fail ? int(rng, 5000, 10000) : int(rng, 80, 900),
-        error: fail
-          ? pick(rng, ['Upstream returned 502', 'Timed out after 10 s', 'Connection reset'])
-          : null,
+        responseStatus,
+        responseBody: fail ? 'Bad gateway' : ep.direction === 'inbound' ? JSON.stringify({ ok: true, duplicate: false, leadId: lead.id, runId: null }) : '{"ok":true}',
+        latencyMs,
+        error,
         idempotencyKey: worldUuid(rng),
         replayOfId: null,
         nextAttemptAt: status === 'failed' ? isoT(at + int(rng, 5, 120) * MINUTE_MS) : null,
+        signatureValid: ep.direction === 'inbound' ? true : null,
+        result: ep.direction === 'inbound' ? { action: ep.action, leadId: fail ? null : lead.id, runId: null, duplicate: false, captured: false } : null,
+        canReplay: true,
         createdAt: isoT(at),
+        updatedAt: isoT(at + (attempt > 1 ? 60_000 : 500)),
       });
     }
     return out.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));

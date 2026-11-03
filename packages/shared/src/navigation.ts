@@ -69,7 +69,9 @@ export const NAV_SUPER_ADMIN: readonly NavGroup[] = [
       { id: 'overview', label: 'Overview', href: '/super-admin', icon: 'LayoutDashboard', anyOf: ['platform.overview.read'] },
       { id: 'companies', label: 'Companies', href: '/super-admin/companies', icon: 'Building2', anyOf: ['platform.companies.read'] },
       { id: 'floors', label: 'Floors', href: '/super-admin/floors', icon: 'Building', anyOf: ['platform.companies.read'] },
-      { id: 'plans', label: 'Plans and billing', href: '/super-admin/plans', icon: 'CreditCard', anyOf: ['platform.plans.manage', 'platform.billing.manage'] },
+      { id: 'plans', label: 'Plans', href: '/super-admin/plans', icon: 'CreditCard', anyOf: ['platform.plans.manage', 'platform.billing.manage'] },
+      // ---- change #19 wave C: billing
+      { id: 'billing', label: 'Billing', href: '/super-admin/billing', icon: 'ReceiptIndianRupee', anyOf: ['platform.billing.manage'] },
       { id: 'usage', label: 'Usage', href: '/super-admin/usage', icon: 'Gauge', anyOf: ['platform.usage.read'] },
       { id: 'flags', label: 'Feature flags', href: '/super-admin/flags', icon: 'ToggleRight', anyOf: ['platform.flags.manage'] },
       { id: 'packs', label: 'Industry packs', href: '/super-admin/packs', icon: 'Package', anyOf: ['platform.packs.manage'] },
@@ -113,7 +115,7 @@ export const NAV_COMPANY: readonly NavGroup[] = [
     label: 'Automate',
     items: [
       { id: 'workflows', label: 'Workflows', href: '/app/workflows', icon: 'Workflow', anyOf: ['workflows.read'], hideFor: ['viewer'] },
-      { id: 'webhooks', label: 'Webhooks and logs', href: '/app/webhooks', icon: 'Webhook', anyOf: ['webhooks.manage'] },
+      { id: 'webhooks', label: 'Webhooks and logs', href: '/app/webhooks', icon: 'Webhook', anyOf: ['webhooks.read', 'webhooks.manage'] },
     ],
   },
   {
@@ -135,14 +137,14 @@ export const NAV_COMPANY: readonly NavGroup[] = [
     id: 'admin',
     label: 'Admin',
     items: [
-      { id: 'integrations', label: 'Integrations', href: '/app/integrations', icon: 'Plug', anyOf: ['integrations.manage'] },
+      { id: 'integrations', label: 'Integrations', href: '/app/integrations', icon: 'Plug', anyOf: ['integrations.read', 'integrations.manage'] },
       { id: 'billing', label: 'Billing and usage', href: '/app/billing', icon: 'CreditCard', anyOf: ['billing.read', 'billing.manage'] },
       {
         id: 'settings',
         label: 'Settings',
         href: '/app/settings',
         icon: 'Settings',
-        anyOf: ['settings.manage', 'roles.manage', 'pipeline.manage', 'templates.manage', 'audit.read', 'support_access.manage', 'routing.manage', 'capture_forms.manage'],
+        anyOf: ['settings.manage', 'roles.manage', 'pipeline.manage', 'templates.manage', 'audit.read', 'support_access.manage', 'routing.manage', 'capture_forms.manage', 'apikeys.manage', 'integrations.read', 'webhooks.read'],
         children: [
           { id: 'settings-workspace', label: 'Workspace', href: '/app/settings', icon: 'Building2', anyOf: ['settings.manage'] },
           { id: 'settings-branding', label: 'Branding', href: '/app/settings/branding', icon: 'Palette', anyOf: ['settings.manage'] },
@@ -163,6 +165,9 @@ export const NAV_COMPANY: readonly NavGroup[] = [
           { id: 'settings-support', label: 'Support access', href: '/app/settings/support', icon: 'LifeBuoy', anyOf: ['support_access.manage'] },
           { id: 'settings-theme', label: 'Theme default', href: '/app/settings/theme', icon: 'SunMoon', anyOf: ['settings.manage'] },
           { id: 'settings-audit', label: 'Audit log', href: '/app/settings/audit', icon: 'ScrollText', anyOf: ['audit.read'] },
+          // ---- change #19 wave C: hub
+          { id: 'settings-api-keys', label: 'API keys', href: '/app/settings/api-keys', icon: 'KeyRound', anyOf: ['apikeys.manage'], featureFlag: 'api_access' },
+          { id: 'settings-api-docs', label: 'API docs', href: '/app/settings/api-docs', icon: 'BookOpen', anyOf: ['apikeys.manage', 'integrations.read', 'webhooks.read'] },
         ],
       },
     ],

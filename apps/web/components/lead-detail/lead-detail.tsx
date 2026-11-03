@@ -1,12 +1,16 @@
 'use client';
 
 import type { Lead, LeadListItem, LeadUpdate, Stage, Task } from '@vistar/shared';
+import { PANEL_ACCESS } from '@vistar/shared';
 import {
   AlarmClock,
+  CalendarPlus,
   ChevronDown,
   Copy,
   ExternalLink,
+  FilePlus2,
   GitMerge,
+  Handshake,
   Mail,
   MapPin,
   MoreHorizontal,
@@ -50,6 +54,7 @@ import {
 } from '@/components/leads/primitives/menu';
 import { EmptyState, ErrorState } from '@/components/leads/states';
 import { actorFrom, useLocalActivity } from './activity-store';
+import { ConvertLeadDialog, useCanConvertLead } from './convert-dialog';
 import { DealValue } from './deal-value';
 import { LeadCustomFields } from './lead-custom-fields';
 import { MergeDialog, RunWorkflowDialog } from './lead-dialogs';
@@ -65,6 +70,17 @@ import { useDrawerIntent } from './use-lead-drawer';
 export type LeadPanel = 'company' | 'employee';
 export const leadsBasePath = (panel: LeadPanel) =>
   panel === 'employee' ? '/me/leads' : '/app/leads';
+
+/** "Schedule meeting" target: the company calendar opens the meeting form linked to the lead. */
+export const scheduleMeetingHref = (leadId: string) => `/app/calendar?new=1&leadId=${leadId}`;
+
+/** "New quotation" target: linked to the lead; the lead's account and contact prefill the buyer. */
+export function newQuotationHref(lead: Pick<Lead, 'id' | 'companyId' | 'contactId'>): string {
+  const q = new URLSearchParams({ leadId: lead.id });
+  if (lead.companyId) q.set('accountId', lead.companyId);
+  if (lead.contactId) q.set('contactId', lead.contactId);
+  return `/app/quotations/new?${q}`;
+}
 
 function Section({
   title,
@@ -159,6 +175,16 @@ function LeadDetailBody({
   const canUpdate = useCan('leads.update');
   const canAssign = useCan('leads.assign');
   const canMerge = useCan('leads.merge');
+  const canConvert = useCanConvertLead(lead);
+  // Calendar and quotations live in the company panel (no /me equivalent): offered when this user can
+  // open the company panel (company panel itself, or a manager in the employee panel); hidden otherwise.
+  const companyReachable = panel === 'company' || (!!me && PANEL_ACCESS.company.includes(me.role.kind));
+  const canCreateMeeting = useCan('calendar.create');
+  const canReadCalendar = useCan('calendar.read');
+  const canCreateQuote = useCan('quotations.create');
+  const canMeet = canCreateMeeting && canReadCalendar && companyReachable;
+  const canQuote = canCreateQuote && companyReachable;
+  const salesActions = canConvert || canMeet || canQuote;
   // Workflows run in the API once the workflow engine ships; until then only the mock mode offers it.
   const mock = isMockData();
   const canRun = useCan('workflows.run') && mock;
@@ -171,6 +197,7 @@ function LeadDetailBody({
   const [showScore, setShowScore] = useState(false);
   const [runOpen, setRunOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
   const [base, setBase] = useState<{ id: string; lead: Lead } | null>(null);
   const [now] = useState(() => Date.now());
 
@@ -302,6 +329,29 @@ function LeadDetailBody({
               <Copy aria-hidden />
               Copy link
             </DropdownMenuItem>
+            {salesActions && <DropdownMenuSeparator />}
+            {canConvert && (
+              <DropdownMenuItem onSelect={() => setConvertOpen(true)}>
+                <Handshake aria-hidden />
+                Convert to deal…
+              </DropdownMenuItem>
+            )}
+            {canMeet && (
+              <DropdownMenuItem asChild>
+                <Link href={scheduleMeetingHref(lead.id)}>
+                  <CalendarPlus aria-hidden />
+                  Schedule meeting
+                </Link>
+              </DropdownMenuItem>
+            )}
+            {canQuote && (
+              <DropdownMenuItem asChild>
+                <Link href={newQuotationHref(lead)}>
+                  <FilePlus2 aria-hidden />
+                  New quotation
+                </Link>
+              </DropdownMenuItem>
+            )}
             {(canRun || canMerge) && <DropdownMenuSeparator />}
             {canRun && (
               <DropdownMenuItem onSelect={() => setRunOpen(true)}>
@@ -621,6 +671,9 @@ function LeadDetailBody({
             addLocal(lead.id, { type: 'merged', actor, payload: { mergedLeadIds: ids } })
           }
         />
+      )}
+      {canConvert && (
+        <ConvertLeadDialog lead={lead} open={convertOpen} onOpenChange={setConvertOpen} linkable={companyReachable} />
       )}
     </>
   );

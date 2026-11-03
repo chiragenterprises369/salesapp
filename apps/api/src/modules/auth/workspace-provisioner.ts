@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  addBillingCycle,
   DEFAULT_BUSINESS_HOURS,
   DEFAULT_PIPELINE_KEY,
   DEFAULT_ROLE_PERMISSIONS,
@@ -142,6 +143,19 @@ export class WorkspaceProvisioner {
         },
       });
       const workspaceId = ws.id;
+      // ---- change #19 wave C: billing. The subscription mirrors plan, trial and status (D-072).
+      const periodStart = ws.createdAt;
+      await tx.subscription.create({
+        data: {
+          workspaceId,
+          plan: input.plan,
+          status: ws.trialEndsAt ? 'trialing' : 'active',
+          cycle: 'monthly',
+          currentPeriodStart: periodStart,
+          currentPeriodEnd: ws.trialEndsAt ?? addBillingCycle(periodStart, 'monthly'),
+          trialEndsAt: ws.trialEndsAt,
+        },
+      });
       const roles = await tx.role.createManyAndReturn({
         data: ROLE_KINDS.map((kind) => ({
           workspaceId,

@@ -2,10 +2,15 @@ import { APP_SCREENS, EVENT_NAMES, SYNC_SCOPES } from '@vistar/shared';
 import { describe, expect, it } from 'vitest';
 import {
   activityFor,
+  currentScreen,
   IDLE_AFTER_MS,
   knownScopes,
   leadIdForPath,
+  onScreenChanged,
+  registerScreenSource,
   scopesForEvent,
+  screenChanged,
+  screenForFloorModule,
   screenForPath,
 } from '../logic';
 
@@ -27,6 +32,8 @@ describe('screenForPath', () => {
     ['/app/tasks', '', 'tasks'],
     ['/app/team-floor', '', 'team_floor'],
     ['/me/team-floor', '', 'team_floor'],
+    ['/app/attendance', '', 'attendance'],
+    ['/app/attendance/field', '', 'attendance'],
     ['/app/reports', '', 'reports'],
     ['/me/performance', '', 'reports'],
     ['/app/settings/roles', '', 'settings'],
@@ -89,6 +96,62 @@ describe('scopesForEvent', () => {
   it('covers every event name (no silent gaps)', () => {
     const uncovered = EVENT_NAMES.filter((n) => scopesForEvent(n).length === 0);
     expect(uncovered).toEqual([]);
+  });
+  it('CRM events refresh their module and the related lists', () => {
+    expect(scopesForEvent('contact.updated')).toEqual(['contacts', 'accounts', 'deals']);
+    expect(scopesForEvent('account.merged')[0]).toBe('accounts');
+    expect(scopesForEvent('deal.moved')).toContain('deals');
+    expect(scopesForEvent('quotation.created')[0]).toBe('quotations');
+    expect(scopesForEvent('invoice.payment_recorded')).toEqual(['invoices', 'quotations', 'deals', 'contacts', 'accounts']);
+    expect(scopesForEvent('catalog.changed')).toEqual(['products']);
+    expect(scopesForEvent('meeting.reminder')[0]).toBe('calendar');
+  });
+  it('billing events refresh the billing page', () => {
+    expect(scopesForEvent('billing.subscription_updated')).toEqual(['billing']);
+    expect(scopesForEvent('billing.invoice_updated')).toEqual(['billing']);
+    expect(scopesForEvent('billing.usage_alert')).toEqual(['billing']);
+  });
+});
+
+describe('reported screen (floor workspace panels)', () => {
+  it('maps floor panels to the module screens', () => {
+    expect(screenForFloorModule(null)).toBe('team_floor');
+    expect(screenForFloorModule('leads')).toBe('board');
+    expect(screenForFloorModule('leads', '?view=table')).toBe('leads');
+    expect(screenForFloorModule('leads', `?lead=${LEAD}`)).toBe('lead_detail');
+    expect(screenForFloorModule('inbox', '?c=abc')).toBe('conversation');
+    expect(screenForFloorModule('tasks')).toBe('tasks');
+    expect(screenForFloorModule('calls')).toBe('calls');
+    expect(screenForFloorModule('dashboard')).toBe('home');
+    expect(screenForFloorModule('today')).toBe('home');
+  });
+  it('uses the registered source only on its own route, and falls back when it returns null', () => {
+    let open: 'inbox' | null = 'inbox';
+    const off = registerScreenSource('/app/team-floor', () => (open ? screenForFloorModule(open) : null));
+    expect(currentScreen('/app/team-floor')).toBe('inbox');
+    expect(currentScreen('/app/tasks')).toBe('tasks');
+    open = null;
+    expect(currentScreen('/app/team-floor')).toBe('team_floor');
+    off();
+    open = 'inbox';
+    expect(currentScreen('/app/team-floor')).toBe('team_floor');
+  });
+  it('notifies listeners on change and on unregister', () => {
+    let calls = 0;
+    const unsubscribe = onScreenChanged(() => calls++);
+    const off = registerScreenSource('/me/team-floor', () => 'calls');
+    screenChanged();
+    off();
+    unsubscribe();
+    screenChanged();
+    expect(calls).toBe(2);
+  });
+  it('a throwing source never breaks the heartbeat', () => {
+    const off = registerScreenSource('/app/team-floor', () => {
+      throw new Error('boom');
+    });
+    expect(currentScreen('/app/team-floor')).toBe('team_floor');
+    off();
   });
 });
 

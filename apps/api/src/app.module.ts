@@ -20,6 +20,7 @@ import { PipelineModule } from './modules/pipeline/pipeline.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { StorageModule } from './modules/storage/storage.module.js';
 import { SuperadminModule } from './modules/superadmin/superadmin.module.js';
+import { BillingModule } from './modules/billing/billing.module.js';
 import { PlatformConfigModule } from './modules/platform-config/platform-config.module.js';
 import { FloorsModule } from './modules/floors/floors.module.js';
 import { CalendarModule } from './modules/calendar/calendar.module.js';
@@ -79,6 +80,8 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     WorkflowsModule,
     // superadmin-panel (Phase 9)
     SuperadminModule,
+    // ---- change #19 wave C: billing (global: plan limits for invites, leads and API keys)
+    BillingModule,
   ],
   controllers: [HealthController],
   providers: devProviders,

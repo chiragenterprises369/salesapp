@@ -129,7 +129,12 @@ export const INTEGRATION_PROVIDERS = ['indiamart', 'whatsapp_cloud', 'telephony'
 export const IntegrationProviderSchema = z.enum(INTEGRATION_PROVIDERS);
 export type IntegrationProvider = z.infer<typeof IntegrationProviderSchema>;
 
-export const INTEGRATION_STATUSES = ['disconnected', 'connected', 'error'] as const;
+/**
+ * Change #19 wave C (D-069): not_connected (never connected or disconnected), connected (last check ok), error
+ * (last test or sync failed), needs_attention (connected, but the admin must act: e.g. WhatsApp webhook not
+ * verified yet, Google access revoked, IndiaMART rate limit). The reason is in Integration.attention / lastError.
+ */
+export const INTEGRATION_STATUSES = ['not_connected', 'connected', 'error', 'needs_attention'] as const;
 export const IntegrationStatusSchema = z.enum(INTEGRATION_STATUSES);
 export type IntegrationStatus = z.infer<typeof IntegrationStatusSchema>;
 
@@ -141,7 +146,8 @@ export const WEBHOOK_DELIVERY_STATUSES = ['pending', 'success', 'failed', 'dead'
 export const WebhookDeliveryStatusSchema = z.enum(WEBHOOK_DELIVERY_STATUSES);
 export type WebhookDeliveryStatus = z.infer<typeof WebhookDeliveryStatusSchema>;
 
-export const INBOUND_WEBHOOK_ACTIONS = ['create_lead', 'start_workflow'] as const;
+/** update_lead (wave C): update the lead matched by phone or email (WebhookEndpoint.matchBy); create one when none matches and createIfMissing. */
+export const INBOUND_WEBHOOK_ACTIONS = ['create_lead', 'update_lead', 'start_workflow'] as const;
 export const InboundWebhookActionSchema = z.enum(INBOUND_WEBHOOK_ACTIONS);
 export type InboundWebhookAction = z.infer<typeof InboundWebhookActionSchema>;
 
@@ -178,6 +184,13 @@ export const NOTIFICATION_TYPES = [
   'system',
   /** Change #19 wave B: calendar reminder (Meeting.reminders minutes before the start). */
   'meeting_reminder',
+  // ---- change #19 wave C: billing (company admins; Vistar subscription)
+  /** The trial ends in BILLING_TRIAL_REMINDER_DAYS days. */
+  'billing_trial_ending',
+  /** A checkout payment failed, or a Vistar invoice is overdue (dunning reminders). */
+  'billing_payment_failed',
+  /** Vistar issued an invoice to the company. */
+  'billing_invoice_issued',
 ] as const;
 export const NotificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
@@ -436,3 +449,77 @@ export type CaptureFormStatus = z.infer<typeof CaptureFormStatusSchema>;
 export const CRM_NOTE_ENTITIES = ['contact', 'account', 'deal'] as const;
 export const CrmNoteEntitySchema = z.enum(CRM_NOTE_ENTITIES);
 export type CrmNoteEntity = z.infer<typeof CrmNoteEntitySchema>;
+
+// ---- change #19 wave C: hub (integrations, webhooks, API keys; D-069, D-070)
+
+/** live = real provider API; mock = in-process dev provider (development and test only, refused in production). */
+export const INTEGRATION_MODES = ['live', 'mock'] as const;
+export const IntegrationModeSchema = z.enum(INTEGRATION_MODES);
+export type IntegrationMode = z.infer<typeof IntegrationModeSchema>;
+
+/** Server-side availability of a provider: not_configured = a platform env setting is missing (e.g. Google OAuth client). */
+export const INTEGRATION_AVAILABILITIES = ['ready', 'not_configured'] as const;
+export const IntegrationAvailabilitySchema = z.enum(INTEGRATION_AVAILABILITIES);
+export type IntegrationAvailability = z.infer<typeof IntegrationAvailabilitySchema>;
+
+/** Telephony adapters: mock (dev) and exotel (stub behind config). */
+export const TELEPHONY_PROVIDERS = ['mock', 'exotel'] as const;
+export const TelephonyProviderSchema = z.enum(TELEPHONY_PROVIDERS);
+export type TelephonyProvider = z.infer<typeof TelephonyProviderSchema>;
+
+/** How an inbound source proves the sender: hmac = X-Vistar-Signature (default); token = X-Vistar-Token header or ?token= (for tools that cannot sign). */
+export const WEBHOOK_VERIFICATIONS = ['hmac', 'token'] as const;
+export const WebhookVerificationSchema = z.enum(WEBHOOK_VERIFICATIONS);
+export type WebhookVerification = z.infer<typeof WebhookVerificationSchema>;
+
+/** Inbound match keys for update_lead / start_workflow. */
+export const WEBHOOK_MATCH_KEYS = ['phone', 'email'] as const;
+export const WebhookMatchKeySchema = z.enum(WEBHOOK_MATCH_KEYS);
+export type WebhookMatchKey = z.infer<typeof WebhookMatchKeySchema>;
+
+/** API key state derived from revokedAt / expiresAt. */
+export const API_KEY_STATUSES = ['active', 'expired', 'revoked'] as const;
+export const ApiKeyStatusSchema = z.enum(API_KEY_STATUSES);
+export type ApiKeyStatus = z.infer<typeof ApiKeyStatusSchema>;
+// ---- change #19 wave C: billing (Vistar subscription of a company; Prisma enums use the same literals)
+
+/** trialing -> active (paid or free plan) -> past_due (an invoice is overdue) -> cancelled (dropped to free after the grace period). */
+export const SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due', 'cancelled'] as const;
+export const SubscriptionStatusSchema = z.enum(SUBSCRIPTION_STATUSES);
+export type SubscriptionStatus = z.infer<typeof SubscriptionStatusSchema>;
+
+export const BILLING_CYCLES = ['monthly', 'yearly'] as const;
+export const BillingCycleSchema = z.enum(BILLING_CYCLES);
+export type BillingCycle = z.infer<typeof BillingCycleSchema>;
+
+/** Invoices from Vistar to a company (not the company's own CRM invoices). */
+export const PLATFORM_INVOICE_STATUSES = ['draft', 'issued', 'paid', 'cancelled'] as const;
+export const PlatformInvoiceStatusSchema = z.enum(PLATFORM_INVOICE_STATUSES);
+export type PlatformInvoiceStatus = z.infer<typeof PlatformInvoiceStatusSchema>;
+
+/** subscription = renewal or first period after the trial; plan_change = upgrade (prorated); manual = created by a Super Admin. */
+export const PLATFORM_INVOICE_KINDS = ['subscription', 'plan_change', 'manual'] as const;
+export const PlatformInvoiceKindSchema = z.enum(PLATFORM_INVOICE_KINDS);
+export type PlatformInvoiceKind = z.infer<typeof PlatformInvoiceKindSchema>;
+
+export const PLATFORM_PAYMENT_STATUSES = ['created', 'captured', 'failed', 'refunded'] as const;
+export const PlatformPaymentStatusSchema = z.enum(PLATFORM_PAYMENT_STATUSES);
+export type PlatformPaymentStatus = z.infer<typeof PlatformPaymentStatusSchema>;
+
+/** razorpay = Razorpay checkout; mock = local dev provider (no network); manual = marked paid by a Super Admin. */
+export const PAYMENT_PROVIDERS = ['razorpay', 'mock', 'manual'] as const;
+export const PaymentProviderSchema = z.enum(PAYMENT_PROVIDERS);
+export type PaymentProvider = z.infer<typeof PaymentProviderSchema>;
+
+/** Upgrade requests made while no checkout is configured; the Super Admin approves or rejects. */
+export const PLAN_CHANGE_STATUSES = ['pending', 'approved', 'rejected', 'cancelled'] as const;
+export const PlanChangeStatusSchema = z.enum(PLAN_CHANGE_STATUSES);
+export type PlanChangeStatus = z.infer<typeof PlanChangeStatusSchema>;
+
+/**
+ * Metered usage against plan limits. seats, leads, storage_mb and api_keys are current totals; whatsapp_messages,
+ * api_calls and workflow_runs count the current calendar month (IST, UsageCounter.period YYYY-MM).
+ */
+export const USAGE_METRICS = ['seats', 'leads', 'storage_mb', 'whatsapp_messages', 'api_calls', 'workflow_runs', 'api_keys'] as const;
+export const UsageMetricSchema = z.enum(USAGE_METRICS);
+export type UsageMetric = z.infer<typeof UsageMetricSchema>;

@@ -72,7 +72,11 @@ export const AUDIENCE_RULES: Record<EventName, Rule> = {
   'workflow.run_updated': () => ({ kind: 'permission', permission: 'workflows.read' }),
   'workflow.step_updated': () => ({ kind: 'permission', permission: 'workflows.read' }),
   'workflow.failed': () => ({ kind: 'permission', permission: 'workflows.read' }),
-  'webhook.delivery_updated': () => ({ kind: 'permission', permission: 'webhooks.manage' }),
+  'webhook.delivery_updated': () => ({ kind: 'permission', permission: 'webhooks.read' }),
+  // ---- change #19 wave C: hub
+  'integration.updated': () => ({ kind: 'permission', permission: 'integrations.read' }),
+  'webhook.endpoint_updated': () => ({ kind: 'permission', permission: 'webhooks.read' }),
+  // ---- end change #19 wave C: hub
   'import.progress': () => ({ kind: 'permission', permission: 'leads.import' }),
   'theme.changed': () => ({ kind: 'workspace' }),
   'customization.changed': () => ({ kind: 'workspace' }),
@@ -106,6 +110,10 @@ export const AUDIENCE_RULES: Record<EventName, Rule> = {
   'meeting.updated': ev<'meeting.updated'>((e) => meetingAudience(e.payload.meeting.organizer?.id ?? null, e.payload.meeting.attendees.map((a) => a.userId))),
   'meeting.deleted': ev<'meeting.deleted'>((e) => meetingAudience(e.payload.organizerId, e.payload.attendeeUserIds)),
   'meeting.reminder': () => ({ kind: 'workspace' }), // always addressed to one user room (envelope userId)
+  // ---- change #19 wave C: billing (company admins by default)
+  'billing.subscription_updated': () => ({ kind: 'permission', permission: 'billing.read' }),
+  'billing.invoice_updated': () => ({ kind: 'permission', permission: 'billing.read' }),
+  'billing.usage_alert': () => ({ kind: 'permission', permission: 'billing.read' }),
 };
 
 /** Organizer and attending users; attendees always get their own meetings. */
