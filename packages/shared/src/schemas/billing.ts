@@ -291,6 +291,7 @@ export const SubscriptionListQuerySchema = CursorPaginationQuerySchema.extend({
   plan: PlanSchema.optional(),
   cycle: BillingCycleSchema.optional(),
   overdue: z.stringbool().optional().describe('Only companies with an overdue invoice'),
+  trialEndingDays: z.coerce.number().int().min(1).max(60).optional().describe('Only trials ending within n days'),
 });
 
 export const SubscriptionListItemSchema = z.object({
@@ -353,10 +354,14 @@ export type PlatformInvoiceMarkPaid = z.infer<typeof PlatformInvoiceMarkPaidSche
 export const PlatformInvoiceIssueSchema = z.object({ dueDate: IsoDateSchema.nullable().optional() });
 export const PlatformInvoiceCancelSchema = z.object({ reason: z.string().trim().min(5).max(500) });
 
-export const TrialExtendSchema = z.object({
-  days: z.number().int().min(1).max(90),
-  reason: z.string().trim().min(5).max(500),
-});
+/** Give `days` (added to the current trial end, or to today when the trial has lapsed) or an `until` date (IST end of day). */
+export const TrialExtendSchema = z
+  .object({
+    days: z.number().int().min(1).max(90).optional(),
+    until: IsoDateSchema.optional(),
+    reason: z.string().trim().min(5).max(500),
+  })
+  .refine((v) => (v.days === undefined) !== (v.until === undefined), { error: 'Give either days or an end date', path: ['days'] });
 export type TrialExtend = z.infer<typeof TrialExtendSchema>;
 
 export const SuperPlanChangeSchema = z.object({
