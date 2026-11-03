@@ -243,13 +243,19 @@ export class PlatformInvoicesService {
     const name = await this.core.companyName(row.workspaceId);
     await this.core.publish('billing.invoice_updated', row.workspaceId, { invoice: toInvoiceListItem(row, name) });
     const due = row.dueDate ? row.dueDate.toISOString().slice(0, 10) : null;
-    await this.core.notifyAdmins(row.workspaceId, {
-      type: 'billing_invoice_issued',
-      title: `New Vistar invoice ${row.number ?? ''}`.trim(),
-      body: `${formatPaise(n(row.totalPaise))}${due ? `, due ${due.split('-').reverse().join('-')}` : ''}`,
-      path: `/billing?invoice=${row.id}`,
-      data: { invoiceId: row.id, number: row.number },
-    });
+    const dueText = due ? due.split('-').reverse().join('-') : '';
+    await this.core.notifyAdmins(
+      row.workspaceId,
+      {
+        type: 'billing_invoice_issued',
+        title: `New Vistar invoice ${row.number ?? ''}`.trim(),
+        body: `${formatPaise(n(row.totalPaise))}${due ? `, due ${dueText}` : ''}`,
+        path: `/billing?invoice=${row.id}`,
+        data: { invoiceId: row.id, number: row.number },
+      },
+      // ---- change #20: config (e-mail)
+      { key: 'invoice_issued', values: { invoiceNumber: row.number ?? '', amount: formatPaise(n(row.totalPaise)), dueDate: dueText || 'on receipt' } },
+    );
   }
 
   // ---------------------------------------------------------------- payments
@@ -329,6 +335,15 @@ export class PlatformInvoicesService {
     const name = await this.core.companyName(invoice.workspaceId);
     await this.core.publish('billing.invoice_updated', invoice.workspaceId, { invoice: toInvoiceListItem(invoice, name) });
     await this.core.publish('billing.subscription_updated', invoice.workspaceId, { subscription: toSubscription(subscription, await this.core.plan(subscription.plan)) });
+    // ---- change #20: config. Receipt e-mail once, right after the invoice turned paid.
+    if (invoice.status === 'paid' && invoice.paidAt && Date.now() - invoice.paidAt.getTime() < 10 * 60_000) {
+      await this.core.mailer.sendToCompanyUsers(invoice.workspaceId, { kind: 'permission', permission: 'billing.manage' }, 'payment_received', {
+        invoiceNumber: invoice.number ?? '',
+        amount: formatPaise(n(invoice.totalPaise)),
+        paidAt: invoice.paidAt.toISOString().slice(0, 10).split('-').reverse().join('-'),
+        link: this.core.mailer.webUrl(`/app/billing?invoice=${invoice.id}`),
+      });
+    }
   }
 
   async cancel(invoiceId: string, reason: string): Promise<InvoiceRow> {

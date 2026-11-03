@@ -71,7 +71,10 @@ const sessionEnded = () => new AppException('AUTH_TOKEN_INVALID', 'Your session 
 @Injectable()
 export class SessionService {
   private readonly logger = new Logger(SessionService.name);
-  readonly refreshTtlSec = REFRESH_TTL_SEC();
+  /** Read per session start (security policy can change at runtime). */
+  get refreshTtlSec(): number {
+    return REFRESH_TTL_SEC();
+  }
 
   constructor(
     private readonly prisma: PrismaService,

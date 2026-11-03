@@ -1,0 +1,92 @@
+# Vistar reverse proxy (change #20): automatic TLS for the web and API hosts, on-demand certificates for
+# verified custom domains (the API decides through /api/tls/ask), HTTP/3, compression, sane limits.
+# Hosts come from deploy/.env.production: VISTAR_WEB_HOST (e.g. app.vistar.in), VISTAR_API_HOST (api.vistar.in).
+{
+	email {$ACME_EMAIL}
+	# A certificate for any other host is requested only when the API answers 200 for it:
+	# a verified CustomDomain of a live company whose custom_domain switch is on.
+	on_demand_tls {
+		ask http://api:4000/api/tls/ask
+	}
+	servers {
+		# Caddy is the edge, so client IPs come from the TCP connection and incoming X-Forwarded-For is
+		# replaced. If a CDN (Cloudflare) sits in front, add: trusted_proxies static <its ranges>
+		timeouts {
+			read_body 30s
+			read_header 10s
+			idle 2m
+		}
+	}
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		-Server
+		-X-Powered-By
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+# ---------------------------------------------------------------- web app (company, employee and Super Admin panels)
+{$VISTAR_WEB_HOST} {
+	import common
+	request_body {
+		max_size 2MB
+	}
+	reverse_proxy web:3000 {
+		health_uri /healthz
+		health_interval 15s
+		lb_try_duration 5s
+	}
+}
+
+# ---------------------------------------------------------------- API, realtime socket, webhooks, files
+{$VISTAR_API_HOST} {
+	import common
+
+	# Internal only: the on-demand TLS check and nothing else.
+	@internal path /api/tls/ask
+	respond @internal 404
+
+	# Uploads: APK 150 MB, floor models 40 MB, recordings 50 MB; everything else is limited by the API (100 KB JSON).
+	request_body {
+		max_size 160MB
+	}
+	reverse_proxy api:4000 {
+		# /api/ready answers 503 while an instance drains (SIGTERM), so traffic moves away before it stops.
+		health_uri /api/ready
+		health_interval 10s
+		health_timeout 3s
+		lb_try_duration 10s
+		# Socket.IO (websocket upgrade is automatic) and long downloads
+		flush_interval -1
+		transport http {
+			read_timeout 5m
+			write_timeout 5m
+		}
+	}
+}
+
+# ---------------------------------------------------------------- verified custom domains of companies (D-060)
+https:// {
+	import common
+	tls {
+		on_demand
+	}
+	request_body {
+		max_size 2MB
+	}
+	reverse_proxy web:3000 {
+		health_uri /healthz
+		health_interval 15s
+	}
+}
+
+# Plain http: redirect everything (ACME http-01 challenges are answered by Caddy before this).
+http:// {
+	redir https://{host}{uri} permanent
+}

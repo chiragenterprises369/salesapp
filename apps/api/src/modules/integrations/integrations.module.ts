@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthStateModule } from '../auth/state/auth-state.module.js';
 import { LeadsModule } from '../leads/leads.module.js';
+import { PresenceModule } from '../presence/presence.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { IndiamartService } from './indiamart.service.js';
 import { IntegrationStore } from './integration-store.js';
@@ -17,7 +18,7 @@ import { TelephonyService } from './telephony.service.js';
  * modules need; the /api/hooks/* receivers live in WebhooksModule (one controller, literal paths first).
  */
 @Module({
-  imports: [LeadsModule, WorkspaceModule, AuthStateModule],
+  imports: [LeadsModule, WorkspaceModule, AuthStateModule, PresenceModule],
   controllers: [IntegrationsController],
   providers: [IntegrationStore, LeadIntakeService, IndiamartService, TelephonyService, IntegrationsService],
   exports: [IntegrationStore, LeadIntakeService, IndiamartService, TelephonyService],

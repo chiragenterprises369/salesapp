@@ -12,6 +12,7 @@ const bool = z
   .transform((v) => v === 'true' || v === '1');
 
 const EnvSchema = z.object({
+  // ---------------- bootstrap (required to start; never in the panel)
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_PORT: z.coerce.number().int().default(4000),
   WEB_ORIGIN: z.string().default('http://localhost:3000'),
@@ -22,28 +23,13 @@ const EnvSchema = z.object({
 
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 chars (run: pnpm setup:env)'),
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 chars (run: pnpm setup:env)'),
-  JWT_ACCESS_TTL: z.string().default('15m'),
-  JWT_REFRESH_TTL: z.string().default('30d'),
   SUPER_JWT_SECRET: z.string().min(32, 'SUPER_JWT_SECRET must be at least 32 chars (run: pnpm setup:env)'),
-  GOOGLE_CLIENT_ID: z.string().optional(),
-  GOOGLE_CLIENT_SECRET: z.string().optional(),
 
   ENCRYPTION_KEY: z
     .string()
     .refine((v) => Buffer.from(v, 'base64').length === 32, 'ENCRYPTION_KEY must be 32 bytes, base64 (run: pnpm setup:env)'),
 
-  S3_ENDPOINT: z.string().optional(),
-  S3_REGION: z.string().default('ap-south-1'),
-  S3_BUCKET: z.string().default('vistar'),
-  S3_ACCESS_KEY: z.string().optional(),
-  S3_SECRET_KEY: z.string().optional(),
-  S3_FORCE_PATH_STYLE: bool,
-  /** Public CDN base (e.g. Bunny pull zone) for public files only; private files use signed URLs. */
-  S3_PUBLIC_BASE_URL: z.string().optional(),
-
-  /** Upload storage (D-065): `local` disk driver in development, `s3` for S3 / MinIO / Bunny (S3_* vars). */
-  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
-  /** Root of the local driver; default `<repo root>/.data/uploads` (gitignored). */
+  /** Root of the local storage driver; default `<repo root>/.data/uploads` (gitignored). */
   STORAGE_LOCAL_ROOT: z.string().optional(),
   /** Lifetime of signed download URLs (GET /files/{id}/url), seconds. */
   FILE_URL_TTL_SEC: z.coerce.number().int().min(60).max(86_400).default(900),
@@ -52,17 +38,41 @@ const EnvSchema = z.object({
   /** Extra dev CORS origins: http://localhost:<port> and http://127.0.0.1:<port> for this port range (not in production). */
   DEV_CORS_PORTS: z.string().regex(/^\d{2,5}-\d{2,5}$/).default('3000-3010'),
 
+  // ---------------- change #20: optional fallbacks. Super Admin > Config wins; these only fill fields the panel
+  // leaves empty (existing deployments keep working). Resolution in modules/config-registry/snapshot.ts.
+  JWT_ACCESS_TTL: z.string().default('15m'),
+  JWT_REFRESH_TTL: z.string().default('30d'),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+
+  S3_ENDPOINT: z.string().optional(),
+  S3_REGION: z.string().optional(),
+  S3_BUCKET: z.string().optional(),
+  S3_ACCESS_KEY: z.string().optional(),
+  S3_SECRET_KEY: z.string().optional(),
+  S3_FORCE_PATH_STYLE: bool,
+  /** Public CDN base (e.g. Bunny pull zone) for public files only; private files use signed URLs. */
+  S3_PUBLIC_BASE_URL: z.string().optional(),
+  /** Upload storage driver fallback (D-065): panel > this > `local` in development only. */
+  STORAGE_DRIVER: z.enum(['local', 's3', 'bunny']).optional(),
+
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
+  WHATSAPP_APP_ID: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
   WHATSAPP_VERIFY_TOKEN: z.string().optional(),
-  WHATSAPP_GRAPH_VERSION: z.string().default('v23.0'),
+  WHATSAPP_GRAPH_VERSION: z.string().optional(),
 
-  TELEPHONY_PROVIDER: z.string().default('mock'),
+  TELEPHONY_PROVIDER: z.string().optional(),
+  SENTRY_DSN: z.string().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional(),
+  /** Set by the production compose when the scheduled pg_dump service runs (go-live checklist). */
+  BACKUP_ENABLED: bool,
+  // ---- end change #20: config
   // ---- change #19 wave C: hub
   /** Hosts the outbound HTTP client and SMTP may reach although private (dev receivers, Mailpit). Ignored in production. Default localhost,127.0.0.1,::1. */
   OUTBOUND_ALLOW_PRIVATE_HOSTS: z.string().optional(),

@@ -49,6 +49,11 @@ export * from './schemas/billing.js';
 export * from './billing.js';
 export * from './branding.js';
 export * from './gst.js';
+// ---- change #20: config
+export * from './config-registry.js';
+export * from './email-templates.js';
+export * from './schemas/config.js';
+export * from './api/routes-config.js';
 
 export * from './workflow/nodes.js';
 export * from './workflow/graph.js';

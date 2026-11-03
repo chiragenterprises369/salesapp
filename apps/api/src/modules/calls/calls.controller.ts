@@ -4,6 +4,7 @@ import {
   API_ROUTES,
   CallListQuerySchema,
   CallUpdateSchema,
+  ClickToCallSchema,
   DeviceCallLogBatchSchema,
   IdParamSchema,
   UPLOAD_LIMITS,
@@ -37,6 +38,13 @@ export class CallsController {
   deviceLog(@CurrentAuth() auth: AuthContext, @Body(new ZodPipe(DeviceCallLogBatchSchema)) body: z.output<typeof DeviceCallLogBatchSchema>): Promise<DeviceCallLogResult> {
     return this.calls.deviceLog(auth, body);
   }
+
+  // ---- change #20: prod (click-to-call through the telephony integration)
+  @ApiRoute(API_ROUTES.callCreate)
+  clickToCall(@CurrentAuth() auth: AuthContext, @Body(new ZodPipe(ClickToCallSchema)) body: z.output<typeof ClickToCallSchema>): Promise<Call> {
+    return this.calls.clickToCall(auth, body);
+  }
+  // ---- end change #20: prod
 
   @ApiRoute(API_ROUTES.callList)
   list(@CurrentAuth() auth: AuthContext, @Query(new ZodPipe(CallListQuerySchema)) query: z.output<typeof CallListQuerySchema>): Promise<Page<Call>> {

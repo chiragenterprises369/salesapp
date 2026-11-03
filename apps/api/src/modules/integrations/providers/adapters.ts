@@ -6,6 +6,7 @@ import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { getEnv } from '../../../config/env.js';
 import { assertPublicHost, BlockedUrlError, describeHttpError, devAllowlist, isBlockedAddress, safeFetch } from '../../../infra/http/safe-http.js';
+import { googleOAuthConfig, whatsappAppConfig } from '../../config-registry/snapshot.js';
 
 /** Result of a provider check (connect test, sync probe). `attention` = connected but the admin must act. */
 export interface ProviderCheck {
@@ -50,7 +51,8 @@ export async function whatsappCheck(config: Record<string, unknown>, secrets: Re
   }
   const env = getEnv();
   const id = String(config.phoneNumberId ?? '');
-  const url = `${env.WHATSAPP_GRAPH_URL.replace(/\/$/, '')}/${env.WHATSAPP_GRAPH_VERSION}/${encodeURIComponent(id)}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier`;
+  // ---- change #20: config (Graph version from Super Admin > Config > WhatsApp platform app, env fallback)
+  const url = `${env.WHATSAPP_GRAPH_URL.replace(/\/$/, '')}/${whatsappAppConfig().graphVersion}/${encodeURIComponent(id)}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier`;
   try {
     const res = await safeFetch({ url, headers: { authorization: `Bearer ${secrets.accessToken ?? ''}`, accept: 'application/json' }, timeoutMs: 10_000, maxResponseBytes: 64 * 1024 });
     const json = jsonOf(res.body);
@@ -88,11 +90,42 @@ export interface TelephonyCallEvent {
   recordingUrl: string | null;
 }
 
-/** Telephony adapter interface: credential check and callback parsing (click-to-call is a follow-up). */
+/** Click-to-call request: the provider rings the agent first, then bridges to the customer (change #20). */
+export interface TelephonyConnectRequest {
+  /** Agent mobile, E.164 (rings first). */
+  agent: string;
+  /** Customer, E.164. */
+  customer: string;
+  /** Status callback URL with the token (terminal and answered events). */
+  statusCallbackUrl: string;
+  /** Vistar call id, echoed back by providers that support a custom field. */
+  callId: string;
+}
+
+export interface TelephonyConnectResult {
+  providerCallId: string;
+  status: CallStatus;
+  /** Number the customer sees (ExoPhone), when known. */
+  callerId: string | null;
+}
+
+/** Telephony adapter interface: credential check, click-to-call (connect) and callback parsing. */
 export interface TelephonyAdapter {
   readonly key: TelephonyProvider;
   check(config: Record<string, unknown>, secrets: Record<string, string>): Promise<ProviderCheck>;
   parseCallback(body: unknown): TelephonyCallEvent | null;
+  connect(config: Record<string, unknown>, secrets: Record<string, string>, req: TelephonyConnectRequest): Promise<TelephonyConnectResult>;
+}
+
+/** Provider refused or failed a click-to-call (message is safe to show). */
+export class TelephonyConnectError extends Error {
+  constructor(
+    message: string,
+    readonly kind: 'config' | 'provider' = 'provider',
+  ) {
+    super(message);
+    this.name = 'TelephonyConnectError';
+  }
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
@@ -117,6 +150,10 @@ export const mockTelephony: TelephonyAdapter = {
     const startedAt = date(b.startedAt, new Date(Date.now() - durationSec * 1000));
     const final = status === 'completed' || status === 'missed' || status === 'failed';
     return { providerCallId: id.slice(0, 120), direction: str(b.direction) === 'inbound' ? 'inbound' : 'outbound', status, from: str(b.from).slice(0, 30), to: str(b.to).slice(0, 30), startedAt, endedAt: final ? new Date(startedAt.getTime() + durationSec * 1000) : null, durationSec, recordingUrl: null };
+  },
+  /** No network: a mock call id; TelephonyService simulates ringing, answer and hang-up in development. */
+  async connect(_config, _secrets, req) {
+    return { providerCallId: `mock-${req.callId}`, status: 'ringing', callerId: '+910000000000' };
   },
 };
 
@@ -154,14 +191,63 @@ export const exotelTelephony: TelephonyAdapter = {
     const endedAt = status === 'completed' || status === 'missed' || status === 'failed' ? date(b.EndTime, new Date(startedAt.getTime() + durationSec * 1000)) : null;
     return { providerCallId: id.slice(0, 120), direction: str(b.Direction).startsWith('inbound') ? 'inbound' : 'outbound', status, from: str(b.From).slice(0, 30), to: str(b.To).slice(0, 30), startedAt, endedAt, durationSec, recordingUrl: str(b.RecordingUrl) || null };
   },
+  /**
+   * Exotel Connect API (change #20): POST /v1/Accounts/<sid>/Calls/connect.json, form fields From (agent, rung
+   * first), To (customer), CallerId (ExoPhone), Record, StatusCallback with terminal and answered events (JSON),
+   * CustomField (Vistar call id). Basic auth with the API key and token. Fixed Exotel host, no redirects.
+   */
+  async connect(config, secrets, req) {
+    const sid = str(config.accountSid);
+    const callerId = str(config.callerId);
+    if (!sid || !secrets.apiKey || !secrets.apiToken) throw new TelephonyConnectError('Exotel account SID, API key and API token are not set', 'config');
+    if (!callerId) throw new TelephonyConnectError('Set the ExoPhone (caller ID) in Integrations > Telephony', 'config');
+    const host = config.subdomain === 'api.exotel.com' ? 'api.exotel.com' : 'api.in.exotel.com';
+    const form = new URLSearchParams({
+      From: req.agent,
+      To: req.customer,
+      CallerId: callerId,
+      CallType: 'trans',
+      Record: config.recordCalls === false ? 'false' : 'true',
+      StatusCallback: req.statusCallbackUrl,
+      'StatusCallbackEvents[0]': 'terminal',
+      'StatusCallbackEvents[1]': 'answered',
+      StatusCallbackContentType: 'application/json',
+      CustomField: req.callId,
+      TimeLimit: '3600',
+    });
+    let res;
+    try {
+      res = await safeFetch({
+        url: `https://${host}/v1/Accounts/${encodeURIComponent(sid)}/Calls/connect.json`,
+        method: 'POST',
+        headers: { authorization: `Basic ${Buffer.from(`${secrets.apiKey}:${secrets.apiToken}`).toString('base64')}`, 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+        body: form.toString(),
+        timeoutMs: 15_000,
+        maxResponseBytes: 64 * 1024,
+      });
+    } catch (err) {
+      throw new TelephonyConnectError(`Could not reach Exotel: ${describeHttpError(err)}`);
+    }
+    const json = jsonOf(res.body);
+    if (res.status === 401 || res.status === 403) throw new TelephonyConnectError('Exotel rejected the API key or token', 'config');
+    if (res.status < 200 || res.status >= 300) {
+      const message = (json.RestException as { Message?: string } | undefined)?.Message;
+      throw new TelephonyConnectError(message ? `Exotel: ${String(message).slice(0, 200)}` : `Exotel answered HTTP ${res.status}`);
+    }
+    const call = (json.Call ?? {}) as Record<string, unknown>;
+    const providerCallId = str(call.Sid);
+    if (!providerCallId) throw new TelephonyConnectError('Exotel did not return a call id');
+    const s = str(call.Status).toLowerCase();
+    return { providerCallId: providerCallId.slice(0, 120), status: s === 'in-progress' ? 'in_progress' : 'ringing', callerId };
+  },
 };
 
 export const TELEPHONY_ADAPTERS: Record<TelephonyProvider, TelephonyAdapter> = { mock: mockTelephony, exotel: exotelTelephony };
 
 // ---------------------------------------------------------------- SMTP
 
-/** A vetted address to connect to (DNS checked once, so a rebinding resolver cannot redirect the SMTP socket). */
-async function smtpTarget(host: string): Promise<{ host: string; servername: string | undefined }> {
+/** A vetted address to connect to (DNS checked once, so a rebinding resolver cannot redirect the SMTP socket). Also used by the company mailer (change #20). */
+export async function smtpTarget(host: string): Promise<{ host: string; servername: string | undefined }> {
   const h = host.trim().toLowerCase();
   if (devAllowlist().has(h)) return { host: h, servername: undefined };
   if (isIP(h)) {
@@ -219,18 +305,81 @@ export async function smtpCheck(config: Record<string, unknown>, secrets: Record
   }
 }
 
+// ---- change #20: prod (company SMTP for document e-mails)
+export interface OutgoingMail {
+  to: string[];
+  cc?: string[];
+  replyTo?: string;
+  subject: string;
+  html: string;
+  text: string;
+  attachments?: Array<{ filename: string; content: Buffer; contentType: string }>;
+}
+
+/** Thrown with a message that is safe to show (no credentials, no server banners). */
+export class MailSendError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MailSendError';
+  }
+}
+
+/**
+ * Send one e-mail through the company's SMTP integration (same SSRF-safe connection rules as the test e-mail).
+ * Mock mode builds the message without sending it. Returns the message id.
+ */
+export async function sendSmtpMail(config: Record<string, unknown>, secrets: Record<string, string>, mock: boolean, mail: OutgoingMail): Promise<{ messageId: string | null }> {
+  const fromEmail = str(config.fromEmail);
+  if (!fromEmail) throw new MailSendError('Set the from address in Integrations > E-mail (SMTP)');
+  const from = config.fromName ? `"${str(config.fromName).replace(/"/g, '')}" <${fromEmail}>` : fromEmail;
+  const message = { from, to: mail.to, cc: mail.cc?.length ? mail.cc : undefined, replyTo: mail.replyTo, subject: mail.subject, html: mail.html, text: mail.text, attachments: mail.attachments };
+  try {
+    if (mock) {
+      const info = await nodemailer.createTransport({ jsonTransport: true }).sendMail(message);
+      return { messageId: info.messageId ?? null };
+    }
+    const target = await smtpTarget(str(config.host));
+    const transport = nodemailer.createTransport({
+      host: target.host,
+      port: Number(config.port ?? 587),
+      secure: config.secure === true,
+      auth: config.username ? { user: str(config.username), pass: secrets.password ?? '' } : undefined,
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 30_000,
+      tls: target.servername ? { servername: target.servername } : undefined,
+    });
+    try {
+      const info = await transport.sendMail(message);
+      return { messageId: info.messageId ?? null };
+    } finally {
+      transport.close();
+    }
+  } catch (err) {
+    if (err instanceof BlockedUrlError) throw new MailSendError(err.message);
+    const e = err as { code?: string; responseCode?: number };
+    if (e.code === 'EAUTH') throw new MailSendError('The mail server refused the user name or password');
+    if (e.code === 'ESOCKET' || e.code === 'ECONNECTION' || e.code === 'ETIMEDOUT' || e.code === 'EDNS') throw new MailSendError(`Could not connect to ${str(config.host)}:${String(config.port ?? 587)}`);
+    if (e.code === 'EENVELOPE') throw new MailSendError('The mail server refused the from or to address');
+    if (e.code === 'EMESSAGE' && e.responseCode === 552) throw new MailSendError('The mail server refused the message size (attachment too large)');
+    throw new MailSendError(e.code ? `SMTP error (${e.code})` : 'SMTP error');
+  }
+}
+// ---- end change #20: prod
+
 // ---------------------------------------------------------------- Google Calendar
 
 export const GOOGLE_SCOPES = ['openid', 'email', 'https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/calendar.readonly'];
 
+// ---- change #20: config (Google OAuth client from Super Admin > Config, env fallback)
 export function googleConfigured(): boolean {
-  const env = getEnv();
-  return !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET;
+  return googleOAuthConfig() !== null;
 }
 
 export function googleClient(): OAuth2Client {
   const env = getEnv();
-  return new OAuth2Client({ clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, redirectUri: `${env.API_PUBLIC_URL.replace(/\/$/, '')}${GOOGLE_OAUTH_CALLBACK_PATH}` });
+  const g = googleOAuthConfig();
+  return new OAuth2Client({ clientId: g?.clientId, clientSecret: g?.clientSecret, redirectUri: `${env.API_PUBLIC_URL.replace(/\/$/, '')}${GOOGLE_OAUTH_CALLBACK_PATH}` });
 }
 
 export async function googleCheck(secrets: Record<string, string>, mock: boolean): Promise<ProviderCheck> {

@@ -53,6 +53,18 @@ bakes keep contact shadows and light pools correct where modules meet.
 | Noto Sans Bold | `NotoSans-Bold.ttf` | same package (`700Bold/NotoSans_700Bold.ttf`) | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSans.txt`) | https://github.com/notofonts/latin-greek-cyrillic | 616 KB |
 | Noto Sans Devanagari Regular | `NotoSansDevanagari-Regular.ttf` | npm `@expo-google-fonts/noto-sans-devanagari@0.4.2` (`400Regular/...`) | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansDevanagari.txt`) | https://github.com/notofonts/devanagari | 212 KB |
 | Noto Sans Devanagari Bold | `NotoSansDevanagari-Bold.ttf` | same package (`700Bold/...`) | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansDevanagari.txt`) | https://github.com/notofonts/devanagari | 213 KB |
+| Noto Sans Bengali Regular, Bold | `NotoSansBengali-Regular.ttf`, `NotoSansBengali-Bold.ttf` | npm `@expo-google-fonts/noto-sans-bengali@0.4.4` | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansBengali.txt`) | https://github.com/notofonts/bengali | 138 KB each |
+| Noto Sans Gurmukhi Regular, Bold | `NotoSansGurmukhi-Regular.ttf`, `NotoSansGurmukhi-Bold.ttf` | npm `@expo-google-fonts/noto-sans-gurmukhi@0.4.1` | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansGurmukhi.txt`) | https://github.com/notofonts/gurmukhi | 57 KB each |
+| Noto Sans Gujarati Regular, Bold | `NotoSansGujarati-Regular.ttf`, `NotoSansGujarati-Bold.ttf` | npm `@expo-google-fonts/noto-sans-gujarati@0.4.2` | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansGujarati.txt`) | https://github.com/notofonts/gujarati | 171 KB each |
+| Noto Sans Tamil Regular, Bold | `NotoSansTamil-Regular.ttf`, `NotoSansTamil-Bold.ttf` | npm `@expo-google-fonts/noto-sans-tamil@0.4.3` | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansTamil.txt`) | https://github.com/notofonts/tamil | 77 KB each |
+| Noto Sans Telugu Regular, Bold | `NotoSansTelugu-Regular.ttf`, `NotoSansTelugu-Bold.ttf` | npm `@expo-google-fonts/noto-sans-telugu@0.4.2` | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansTelugu.txt`) | https://github.com/notofonts/telugu | 176 KB each |
+| Noto Sans Kannada Regular, Bold | `NotoSansKannada-Regular.ttf`, `NotoSansKannada-Bold.ttf` | npm `@expo-google-fonts/noto-sans-kannada@0.4.3` | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansKannada.txt`) | https://github.com/notofonts/kannada | 146 KB each |
+| Noto Sans Malayalam Regular, Bold | `NotoSansMalayalam-Regular.ttf`, `NotoSansMalayalam-Bold.ttf` | npm `@expo-google-fonts/noto-sans-malayalam@0.4.2` | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansMalayalam.txt`) | https://github.com/notofonts/malayalam | 104 KB each |
+
+<!-- ---- change #20: prod: the Bengali to Malayalam rows above (files from `400Regular/` and `700Bold/` of each npm package, licence from its LICENSE_FONT) -->
+Since change #20 the Indic faces load on first use (a Latin-only invoice reads only Noto Sans). Odia, Urdu
+(right to left, needs bidi) and other scripts still print `?`.
+<!-- ---- end change #20: prod -->
 
 The API reads them once per process (`apps/api/src/modules/documents/pdf/fonts.ts`; override the folder with
 `PDF_FONT_DIR`) and embeds only the glyphs a document uses (subset TrueType, Type0 / Identity-H with a ToUnicode

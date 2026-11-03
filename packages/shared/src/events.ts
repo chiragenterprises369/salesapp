@@ -23,6 +23,8 @@ import { InvoiceListItemSchema, PaymentSchema, QuotationListItemSchema } from '.
 import { MeetingSchema } from './schemas/calendar.js';
 // ---- change #19 wave C: billing
 import { PlatformInvoiceListItemSchema, SubscriptionSchema, UsageMeterSchema } from './schemas/billing.js';
+// ---- change #20: config
+import { WhatsAppTemplateSchema } from './schemas/config.js';
 
 /**
  * REALTIME EVENT CONTRACT
@@ -253,6 +255,12 @@ export const eventPayloadSchemas = {
   'billing.invoice_updated': z.object({ invoice: PlatformInvoiceListItemSchema }),
   /** A usage meter reached 80 % (warning) or 100 % (reached) of the plan limit, or a create was blocked. */
   'billing.usage_alert': z.object({ meter: UsageMeterSchema, blocked: z.boolean() }),
+  // ---- change #20: config (users with templates.read)
+  /** A WhatsApp template was created, edited, submitted or changed status at Meta (sync, review result). */
+  'whatsapp_template.updated': z.object({ template: WhatsAppTemplateSchema }),
+  'whatsapp_template.deleted': z.object({ templateId: IdSchema }),
+  /** A company e-mail template was saved or reset to the default. */
+  'email_template.updated': z.object({ key: z.string(), isCustom: z.boolean() }),
 } as const;
 
 export type EventName = keyof typeof eventPayloadSchemas;
@@ -293,7 +301,7 @@ export function parseDomainEvent(raw: unknown): DomainEvent {
 }
 
 /** Query-cache scopes the client should invalidate after a resync. */
-export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace', 'contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture-forms', /* change #19 wave C: hub */ 'integrations', 'webhooks', 'api-keys', /* ---- change #19 wave C: billing */ 'billing'] as const;
+export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace', 'contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture-forms', /* change #19 wave C: hub */ 'integrations', 'webhooks', 'api-keys', /* ---- change #19 wave C: billing */ 'billing', /* ---- change #20: config */ 'templates', 'setup'] as const;
 export type SyncScope = (typeof SYNC_SCOPES)[number];
 
 /**

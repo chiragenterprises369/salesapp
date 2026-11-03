@@ -1,0 +1,305 @@
+# Vistar production stack (change #20). One server, Docker Compose v2. See docs/DEPLOY.md.
+#
+#   cp .env.production.example deploy/.env.production   # fill it in (never commit it)
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production build
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production --profile tools run --rm migrate
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production --profile tools run --rm seed
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.production up -d
+#
+# Profiles: `worker` (hub background jobs in their own container; set API_HUB_BACKGROUND_JOBS=off), `tools`
+# (migrate, seed), `backup` (scheduled pg_dump with retention and upload).
+name: vistar
+
+x-api-env: &api-env
+  NODE_ENV: production
+  API_PORT: '4000'
+  WEB_ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN}
+  API_PUBLIC_URL: ${API_PUBLIC_URL:?set API_PUBLIC_URL}
+  DATABASE_URL: postgresql://vistar:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/vistar?schema=public
+  REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+  SUPER_JWT_SECRET: ${SUPER_JWT_SECRET:?set SUPER_JWT_SECRET}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY}
+  # Caddy is the only hop in front of the API (docker network).
+  TRUST_PROXY: ${TRUST_PROXY:-1}
+  CUSTOM_DOMAIN_CNAME_TARGET: ${CUSTOM_DOMAIN_CNAME_TARGET:?set CUSTOM_DOMAIN_CNAME_TARGET}
+  # true when the `backup` profile runs (Go-live check; the job also writes a heartbeat row)
+  BACKUP_ENABLED: ${BACKUP_ENABLED:-false}
+  DB_POOL_MAX: ${DB_POOL_MAX:-10}
+  LOG_LEVEL: ${LOG_LEVEL:-log}
+  APP_VERSION: ${APP_VERSION:-unknown}
+  # Optional env fallbacks; Super Admin > Config wins (CONFIG-API registry).
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+  STORAGE_DRIVER: ${STORAGE_DRIVER:-}
+  S3_ENDPOINT: ${S3_ENDPOINT:-}
+  S3_REGION: ${S3_REGION:-ap-south-1}
+  S3_BUCKET: ${S3_BUCKET:-}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+  S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '20m'
+    max-file: '5'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+      VISTAR_WEB_HOST: ${VISTAR_WEB_HOST:?set VISTAR_WEB_HOST}
+      VISTAR_API_HOST: ${VISTAR_API_HOST:?set VISTAR_API_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    deploy:
+      resources:
+        limits: { cpus: '0.50', memory: 256M }
+    logging: *logging
+    networks: [edge, internal]
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+      target: runtime
+      args:
+        APP_VERSION: ${APP_VERSION:-unknown}
+    image: vistar-api:${APP_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *api-env
+      HUB_BACKGROUND_JOBS: ${API_HUB_BACKGROUND_JOBS:-on}
+    stop_grace_period: 35s
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: { cpus: '1.50', memory: 1G }
+    logging: *logging
+    networks: [internal]
+
+  # Hub background jobs (outbound webhook worker and sweeper, IndiaMART pull) in their own process.
+  worker:
+    profiles: [worker]
+    image: vistar-api:${APP_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *api-env
+      HUB_BACKGROUND_JOBS: 'on'
+    stop_grace_period: 35s
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: { cpus: '1.00', memory: 768M }
+    logging: *logging
+    networks: [internal]
+
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${API_PUBLIC_URL:?set API_PUBLIC_URL}/api/v1
+        NEXT_PUBLIC_WS_URL: ${API_PUBLIC_URL}
+        NEXT_PUBLIC_MAP_TILE_URL: ${NEXT_PUBLIC_MAP_TILE_URL:-}
+        NEXT_PUBLIC_MAP_TILE_ATTRIBUTION: ${NEXT_PUBLIC_MAP_TILE_ATTRIBUTION:-}
+        APP_VERSION: ${APP_VERSION:-unknown}
+    image: vistar-web:${APP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      HOSTNAME: 0.0.0.0
+    stop_grace_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+      - /app/apps/web/.next/cache:size=256m,uid=1000,gid=1000
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        limits: { cpus: '1.00', memory: 768M }
+    logging: *logging
+    networks: [internal]
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vistar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: vistar
+      POSTGRES_INITDB_ARGS: --data-checksums
+      TZ: Asia/Kolkata
+    command:
+      - postgres
+      - -c
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-100}
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-512MB}
+      - -c
+      - effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-1536MB}
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - wal_compression=on
+      - -c
+      - log_min_duration_statement=1000
+      - -c
+      - idle_in_transaction_session_timeout=60000
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vistar -d vistar']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    shm_size: 256m
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits: { cpus: '1.50', memory: 2G }
+    logging: *logging
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # BullMQ needs noeviction; AOF keeps queued jobs over a restart.
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory', '${REDIS_MAXMEMORY:-256mb}', '--maxmemory-policy', 'noeviction', '--requirepass', '${REDIS_PASSWORD:?set REDIS_PASSWORD}']
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    deploy:
+      resources:
+        limits: { cpus: '0.50', memory: 384M }
+    logging: *logging
+    networks: [internal]
+
+  # ---------------------------------------------------------------- one-off jobs (profile tools)
+  migrate:
+    profiles: [tools]
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+      target: tools
+    image: vistar-api-tools:${APP_VERSION:-latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://vistar:${POSTGRES_PASSWORD}@postgres:5432/vistar?schema=public
+    command: ['pnpm', 'exec', 'prisma', 'migrate', 'deploy']
+    networks: [internal]
+
+  # Clean seed: plans, the Pack registry and the first Super Admin (2FA is enrolled on first login).
+  seed:
+    profiles: [tools]
+    image: vistar-api-tools:${APP_VERSION:-latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *api-env
+      SEED_SUPER_ADMIN_EMAIL: ${SEED_SUPER_ADMIN_EMAIL:?set SEED_SUPER_ADMIN_EMAIL for the first Super Admin}
+      SEED_SUPER_ADMIN_PASSWORD: ${SEED_SUPER_ADMIN_PASSWORD:?set SEED_SUPER_ADMIN_PASSWORD (at least 12 characters)}
+    command: ['pnpm', 'run', 'seed']
+    networks: [internal]
+
+  # ---------------------------------------------------------------- backups (profile backup)
+  backup:
+    profiles: [backup]
+    build:
+      context: ./backup
+    image: vistar-backup:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Kolkata
+      PGHOST: postgres
+      PGUSER: vistar
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: vistar
+      BACKUP_TIME: ${BACKUP_TIME:-02:30}
+      BACKUP_EVERY_HOURS: ${BACKUP_EVERY_HOURS:-}
+      BACKUP_KEEP_LOCAL_DAYS: ${BACKUP_KEEP_LOCAL_DAYS:-7}
+      BACKUP_KEEP_REMOTE_DAYS: ${BACKUP_KEEP_REMOTE_DAYS:-30}
+      BACKUP_ENCRYPTION_PASSPHRASE: ${BACKUP_ENCRYPTION_PASSPHRASE:-}
+      BACKUP_TARGET: ${BACKUP_TARGET:-none}
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-ap-south-1}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-vistar/db}
+      BACKUP_S3_ACCESS_KEY: ${BACKUP_S3_ACCESS_KEY:-}
+      BACKUP_S3_SECRET_KEY: ${BACKUP_S3_SECRET_KEY:-}
+      BACKUP_BUNNY_STORAGE_ZONE: ${BACKUP_BUNNY_STORAGE_ZONE:-}
+      BACKUP_BUNNY_PASSWORD: ${BACKUP_BUNNY_PASSWORD:-}
+      BACKUP_BUNNY_REGION_HOST: ${BACKUP_BUNNY_REGION_HOST:-storage.bunnycdn.com}
+      BACKUP_BUNNY_PREFIX: ${BACKUP_BUNNY_PREFIX:-vistar/db}
+      BACKUP_HEALTHCHECK_URL: ${BACKUP_HEALTHCHECK_URL:-}
+    volumes:
+      - pgbackups:/backups
+    deploy:
+      resources:
+        limits: { cpus: '0.50', memory: 512M }
+    logging: *logging
+    networks: [internal, edge]
+
+volumes:
+  pgdata:
+  redisdata:
+  pgbackups:
+  caddy_data:
+  caddy_config:
+
+networks:
+  # Only Caddy publishes ports. Every service can still make outbound calls (Meta, Google, Exotel, SMTP, S3).
+  edge:
+  internal:
