@@ -73,6 +73,11 @@ const EnvSchema = z.object({
   /** Background hub jobs in this process: outbound webhook worker and sweeper, IndiaMART pull cron. "off" for extra API replicas. */
   HUB_BACKGROUND_JOBS: z.enum(['on', 'off']).default('on'),
   // ---- end change #19 wave C: hub
+  // ---- change #19 wave C: billing
+  /** Checkout provider: auto = Razorpay when configured in Super Admin > Config, else the mock outside production; none = "Request change" only. */
+  BILLING_PROVIDER: z.enum(['auto', 'razorpay', 'mock', 'none']).default('auto'),
+  /** Mock checkout key secret and webhook secret (development and tests only; refused in production). */
+  BILLING_MOCK_SECRET: z.string().min(16).default('vistar-dev-mock-razorpay-secret'),
   FEATURE_AI_NODE: bool,
   /** Express "trust proxy" (e.g. "loopback", "1", "10.0.0.0/8"). Needed for real client IPs behind a load balancer. */
   TRUST_PROXY: z.string().optional(),

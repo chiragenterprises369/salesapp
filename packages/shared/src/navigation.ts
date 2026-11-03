@@ -69,7 +69,9 @@ export const NAV_SUPER_ADMIN: readonly NavGroup[] = [
       { id: 'overview', label: 'Overview', href: '/super-admin', icon: 'LayoutDashboard', anyOf: ['platform.overview.read'] },
       { id: 'companies', label: 'Companies', href: '/super-admin/companies', icon: 'Building2', anyOf: ['platform.companies.read'] },
       { id: 'floors', label: 'Floors', href: '/super-admin/floors', icon: 'Building', anyOf: ['platform.companies.read'] },
-      { id: 'plans', label: 'Plans and billing', href: '/super-admin/plans', icon: 'CreditCard', anyOf: ['platform.plans.manage', 'platform.billing.manage'] },
+      { id: 'plans', label: 'Plans', href: '/super-admin/plans', icon: 'CreditCard', anyOf: ['platform.plans.manage', 'platform.billing.manage'] },
+      // ---- change #19 wave C: billing
+      { id: 'billing', label: 'Billing', href: '/super-admin/billing', icon: 'ReceiptIndianRupee', anyOf: ['platform.billing.manage'] },
       { id: 'usage', label: 'Usage', href: '/super-admin/usage', icon: 'Gauge', anyOf: ['platform.usage.read'] },
       { id: 'flags', label: 'Feature flags', href: '/super-admin/flags', icon: 'ToggleRight', anyOf: ['platform.flags.manage'] },
       { id: 'packs', label: 'Industry packs', href: '/super-admin/packs', icon: 'Package', anyOf: ['platform.packs.manage'] },

@@ -225,5 +225,8 @@ export const PlanLimitsSchema = z.object({
   whatsappMessagesPerMonth: z.number().int().nullable(),
   workflowRunsPerMonth: z.number().int().nullable(),
   storageMb: z.number().int().nullable(),
+  // ---- change #19 wave C: billing (missing = unlimited, so older PlanDefinition rows stay valid)
+  apiKeys: z.number().int().nullable().optional(),
+  apiCallsPerMonth: z.number().int().nullable().optional(),
 });
 export type PlanLimits = z.infer<typeof PlanLimitsSchema>;

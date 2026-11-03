@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PlanSchema, UsageMetricSchema } from './enums.js';
 
 /**
  * Stable, machine-readable error codes. Every non-2xx API response uses ApiErrorSchema.
@@ -90,6 +91,10 @@ export const ErrorCode = {
   IDEMPOTENCY_CONFLICT: 'IDEMPOTENCY_CONFLICT',
   API_KEY_SCOPE_NOT_ALLOWED: 'API_KEY_SCOPE_NOT_ALLOWED',
   OAUTH_STATE_INVALID: 'OAUTH_STATE_INVALID',
+  // ---- change #19 wave C: billing
+  PAYMENT_PROVIDER_NOT_CONFIGURED: 'PAYMENT_PROVIDER_NOT_CONFIGURED',
+  PAYMENT_VERIFICATION_FAILED: 'PAYMENT_VERIFICATION_FAILED',
+  PLAN_CHANGE_INVALID: 'PLAN_CHANGE_INVALID',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -188,6 +193,13 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   API_KEY_SCOPE_NOT_ALLOWED: 403,
   /** OAuth callback with an unknown, used or expired state. */
   OAUTH_STATE_INVALID: 400,
+  // ---- change #19 wave C: billing
+  /** Online payment asked for while neither Razorpay nor the dev mock provider is active (use "Request change"). */
+  PAYMENT_PROVIDER_NOT_CONFIGURED: 422,
+  /** Checkout signature or order does not match (tampered or stale payment). */
+  PAYMENT_VERIFICATION_FAILED: 400,
+  /** Same plan, inactive plan, or a change the subscription state does not allow. */
+  PLAN_CHANGE_INVALID: 422,
 };
 
 export const FieldErrorSchema = z.object({
@@ -196,6 +208,21 @@ export const FieldErrorSchema = z.object({
 });
 export type FieldError = z.infer<typeof FieldErrorSchema>;
 
+// ---- change #19 wave C: billing
+/**
+ * Body extra of PLAN_LIMIT_REACHED (402): which limit stopped the create, the numbers, and where to upgrade.
+ * `upgradePlan` is the cheapest active plan whose limit is higher (null on the top plan: contact Vistar).
+ */
+export const PlanLimitErrorSchema = z.object({
+  metric: UsageMetricSchema,
+  limit: z.number().int(),
+  used: z.number().int(),
+  plan: PlanSchema,
+  upgradePlan: PlanSchema.nullable(),
+  upgradeUrl: z.string().describe('Web path, e.g. /app/billing?upgrade=growth'),
+});
+export type PlanLimitError = z.infer<typeof PlanLimitErrorSchema>;
+
 /** Error envelope for every non-2xx response. */
 export const ApiErrorSchema = z.object({
   error: z.object({
@@ -203,6 +230,8 @@ export const ApiErrorSchema = z.object({
     message: z.string().describe('Human-readable, safe to show to the user. Never contains PII or secrets.'),
     details: z.array(FieldErrorSchema).optional(),
     requestId: z.string().optional(),
+    // ---- change #19 wave C: billing
+    planLimit: PlanLimitErrorSchema.optional().describe('Only on PLAN_LIMIT_REACHED (402)'),
   }),
 });
 export type ApiError = z.infer<typeof ApiErrorSchema>;

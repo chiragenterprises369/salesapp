@@ -358,6 +358,8 @@ export class CaptureService {
         leadId = created.id;
       } catch (err) {
         if (err instanceof AppException && (err.code === 'VALIDATION_FAILED' || err.code === 'FIELD_VALUE_NOT_UNIQUE')) throw invalid(err.details ?? [{ path: 'values', message: err.message }]);
+        // change #19 wave C: billing. Never show plan numbers to the public; the company sees billing.usage_alert.
+        if (err instanceof AppException && err.code === 'PLAN_LIMIT_REACHED') throw closed();
         throw err;
       }
       if (body.consent === true) {

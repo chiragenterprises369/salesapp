@@ -25,6 +25,7 @@ import { syncRegistry } from '../src/modules/packs/pack-registry.js';
 import { seedDatabaseUrl, upsertPlans } from './seed/base.js';
 import { createCompanyBase, type CompanyCtx } from './seed/company.js';
 import { seedCrm } from './seed/crm.js';
+import { seedBilling, seedVistarProfile } from './seed/billing.js';
 import { buildExtras, type Extras } from './seed/extras.js';
 import { buildHistory, type History } from './seed/history.js';
 import { buildPlatform, buildPlatformGlobal, type PlatformRows } from './seed/platform.js';
@@ -116,6 +117,7 @@ async function main() {
     const companies: Array<{ id: string; label: string }> = [];
     // Industry Packs: register packs/*/manifest.json, then install generic-sales (adopts the pipeline and templates seeded below).
     await syncRegistry(prisma);
+    await seedVistarProfile(prisma);
     for (const [index, fx] of COMPANY_FIXTURES.entries()) {
       const ctx = await createCompanyBase(prisma, fx, passwordHash, rng, now, delta);
       const history = buildHistory(ctx);
@@ -124,9 +126,12 @@ async function main() {
       await insertCompany(prisma, ctx, history, extras, platform, delta);
       const pack = await installPack(prisma, ctx.workspaceId, GENERIC_SALES_PACK_KEY, { action: 'sync', actor: SYSTEM_PACK_ACTOR });
       const crm = await seedCrm(prisma, ctx, index);
+      // change #19 wave C: billing (subscription, Vistar invoices, payments)
+      const billing = await seedBilling(prisma, ctx, index);
       companies.push({ id: ctx.workspaceId, label: fx.slug });
       summary.push(`  ${fx.name} (${fx.plan}): ${fx.employees.length} users, ${ctx.drafts.length} leads, ${history.calls.length} calls, ${history.conversations.length} conversations, ${history.runs.length} workflow runs, ${GENERIC_SALES_PACK_KEY} ${pack.status}`);
       summary.push(`    CRM: ${crm.accounts} accounts, ${crm.contactsLinked} contacts linked, ${crm.deals} deals on the board, ${crm.products} products, ${crm.quotations} quotations, ${crm.invoices} invoices, ${crm.meetings} meetings, capture form /f/${crm.captureFormKey}`);
+      summary.push(`    Billing: ${billing.plan} ${billing.status}, ${billing.invoices} Vistar invoices (${billing.paid} paid)`);
     }
     const globalRows = buildPlatformGlobal(adminRef, now);
     shiftDates(globalRows, delta);

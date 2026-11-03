@@ -425,6 +425,9 @@ export function buildExtras(ctx: CompanyCtx, h: History): Extras {
     whatsapp_messages: h.messages.filter((m) => m.direction === 'outbound' && !m.isInternalNote && (m.createdAt as Date).getTime() >= monthStartMs).length,
     workflow_runs: h.runs.filter((r) => !r.isTest && (r.startedAt as Date).getTime() >= monthStartMs).length,
     storage_mb: Math.round(recorded * 0.45 + 12),
+    // change #19 wave C: billing
+    api_keys: x.apiKeys.filter((k) => k.workspaceId === workspaceId && !k.revokedAt && (!k.expiresAt || (k.expiresAt as Date).getTime() > now)).length,
+    api_calls: x.apiKeys.some((k) => k.workspaceId === workspaceId) ? 400 + Math.round(h.states.length * 0.6) : 0,
   };
   for (const [metric, value] of Object.entries(usage)) x.usage.push({ id: randomUUID(), workspaceId, period: cur, metric, value, updatedAt: d(now - between(rng, MIN, 20 * MIN)) });
 

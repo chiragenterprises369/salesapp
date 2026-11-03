@@ -96,6 +96,14 @@ export function buildOpenApiDocument(opts: OpenApiOptions = {}): OpenApiDocument
     IntegrationProviderInfo: S.IntegrationProviderInfoSchema,
     WebhookAttempt: S.WebhookAttemptSchema,
     PayloadMapping: S.PayloadMappingSchema,
+    // ---- change #19 wave C: billing
+    Subscription: S.SubscriptionSchema,
+    UsageMeter: S.UsageMeterSchema,
+    PlatformInvoiceListItem: S.PlatformInvoiceListItemSchema,
+    PlatformInvoice: S.PlatformInvoiceSchema,
+    PlatformPayment: S.PlatformPaymentSchema,
+    PlanChangeRequest: S.PlanChangeRequestSchema,
+    Checkout: S.CheckoutSchema,
   };
   const componentJson = Object.fromEntries(Object.entries(components).map(([name, schema]) => [name, inlineJsonOf(schema)]));
 

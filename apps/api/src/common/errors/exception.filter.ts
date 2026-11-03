@@ -32,7 +32,7 @@ export class AppExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof AppException) {
       status = exception.getStatus();
-      body = { code: exception.code, message: exception.message, details: exception.details, requestId };
+      body = { code: exception.code, message: exception.message, details: exception.details, requestId, ...(exception.planLimit ? { planLimit: exception.planLimit } : {}) };
     } else if (exception instanceof ZodError) {
       status = 400;
       body = {

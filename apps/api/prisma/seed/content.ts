@@ -230,6 +230,10 @@ export const NOTIFICATION_TEXT: Record<NotificationType, { title: string; body?:
   import_completed: { title: 'Import finished: {file}', body: '{created} leads created, {skipped} skipped' },
   system: { title: '{title}', body: '{body}' },
   meeting_reminder: { title: 'Meeting in {minutes} min: {title}', body: '{time}' },
+  // ---- change #19 wave C: billing
+  billing_trial_ending: { title: 'Your trial ends in {days} days', body: 'Choose a plan to keep your data and limits' },
+  billing_payment_failed: { title: 'Payment due: invoice {number}', body: '{amount} was due on {due}' },
+  billing_invoice_issued: { title: 'New Vistar invoice {number}', body: '{amount}, due {due}' },
 };
 
 export const MENTION_NOTES = [

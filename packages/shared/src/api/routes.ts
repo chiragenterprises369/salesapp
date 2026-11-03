@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import type { Permission, PlatformPermission } from '../rbac.js';
+// ---- change #19 wave C: billing
+import { BILLING_ROUTES } from './routes-billing.js';
 import {
   CompanyCreatedSchema,
   CompanyCreateSchema,
@@ -824,6 +826,9 @@ export const API_ROUTES = {
   captureSubmissionList: route({ method: 'get', path: '/capture-forms/{id}/submissions', summary: 'Submissions of a form, newest first', tag: 'capture', owner: 'backend-core', phase: 19, auth: 'jwt', permission: 'capture_forms.manage', params: IdParamSchema, query: CaptureSubmissionListQuerySchema, response: pageOf(CaptureSubmissionSchema) }),
   publicCaptureFormGet: route({ method: 'get', path: '/public/forms/{key}', summary: 'Form for the hosted page /f/<key> and iframes (410 CAPTURE_FORM_CLOSED when paused)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: CaptureFormKeyParamSchema, response: PublicCaptureFormSchema }),
   publicCaptureFormSubmit: route({ method: 'post', path: '/public/forms/{key}/submit', summary: 'Submit a form: creates a routed lead (rate limited per IP and form, honeypot, consent, idempotent with clientSubmissionId)', tag: 'public', owner: 'backend-core', phase: 19, auth: 'public', permission: null, params: CaptureFormKeyParamSchema, body: PublicCaptureSubmitSchema, response: PublicCaptureSubmitResultSchema }),
+
+  // ---- change #19 wave C: billing (routes in api/routes-billing.ts)
+  ...BILLING_ROUTES,
 } as const satisfies Record<string, RouteDef>;
 
 export type ApiRouteId = keyof typeof API_ROUTES;

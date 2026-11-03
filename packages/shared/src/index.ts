@@ -44,6 +44,9 @@ export * from './schemas/capture.js';
 export * from './integrations.js';
 export * from './mapping.js';
 // ---- end change #19 wave C: hub
+// ---- change #19 wave C: billing
+export * from './schemas/billing.js';
+export * from './billing.js';
 export * from './branding.js';
 export * from './gst.js';
 

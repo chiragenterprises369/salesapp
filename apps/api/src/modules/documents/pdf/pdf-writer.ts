@@ -1,58 +1,30 @@
+import { createHash } from 'node:crypto';
 import { deflateSync, inflateSync } from 'node:zlib';
+import { type Subset } from 'fontkit';
+import { clusters, measure, shapeText, type FontFace, type FontName, type ShapedRun } from './fonts.js';
 
 /**
- * Minimal PDF 1.4 writer (D-068: no new dependency, no headless browser). Enough for A4 business
- * documents: the two standard fonts Helvetica and Helvetica-Bold (WinAnsiEncoding, no embedding),
- * text with measured widths, lines, rectangles, and JPEG or PNG images (8-bit, non-interlaced; PNG
- * alpha becomes a soft mask). Coordinates are in points with the origin at the TOP-left of the page.
+ * Minimal PDF 1.4 writer (D-068: no headless browser). Enough for A4 business documents: embedded, subset TrueType
+ * fonts (D-071: Noto Sans and Noto Sans Devanagari as Type0 / CIDFontType2 with Identity-H, glyph ids from fontkit
+ * shaping, a ToUnicode CMap and ActualText spans so text copies out correctly), text with measured widths, lines,
+ * rectangles, and JPEG or PNG images (8-bit, non-interlaced; PNG alpha becomes a soft mask). Coordinates are in
+ * points with the origin at the TOP-left of the page.
  */
 
 export const A4 = { width: 595.28, height: 841.89 } as const;
 export type Rgb = readonly [number, number, number];
-export type FontName = 'regular' | 'bold';
+export type { FontName } from './fonts.js';
+export { pdfSafe } from './fonts.js';
 
-// Helvetica and Helvetica-Bold advance widths (1/1000 em) for ASCII 32..126 (Adobe AFM).
-const HELVETICA = [
-  278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778,
-  722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556,
-  556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
-];
-const HELVETICA_BOLD = [
-  278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778,
-  722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611,
-  611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584,
-];
-
-const REPLACE: Record<string, string> = { '₹': 'Rs.', '–': '-', '—': '-', '‘': "'", '’': "'", '“': '"', '”': '"', '…': '...', '•': '-', '×': 'x', '\u00a0': ' ' };
-
-/** Text the standard fonts can show: common punctuation mapped, other non-Latin-1 characters become "?". */
-export function pdfSafe(s: string): string {
-  let out = '';
-  for (const ch of s.normalize('NFC')) {
-    const r = REPLACE[ch];
-    if (r !== undefined) out += r;
-    else {
-      const c = ch.codePointAt(0)!;
-      out += c === 9 ? ' ' : c >= 32 && c <= 126 ? ch : c >= 160 && c <= 255 ? ch : '?';
-    }
-  }
-  return out;
-}
-
+/** Width in points of the text at the given size (shaped, with kerning). */
 export function textWidth(s: string, size: number, font: FontName = 'regular'): number {
-  const table = font === 'bold' ? HELVETICA_BOLD : HELVETICA;
-  let w = 0;
-  for (const ch of pdfSafe(s)) {
-    const c = ch.charCodeAt(0);
-    w += c >= 32 && c <= 126 ? table[c - 32]! : 556;
-  }
-  return (w * size) / 1000;
+  return measure(s, size, font);
 }
 
-/** Greedy word wrap; words longer than the width are split. */
+/** Greedy word wrap; words longer than the width are split between grapheme clusters (never inside a conjunct). */
 export function wrapText(s: string, maxWidth: number, size: number, font: FontName = 'regular'): string[] {
   const lines: string[] = [];
-  for (const para of pdfSafe(s).split(/\r?\n/)) {
+  for (const para of s.normalize('NFC').split(/\r?\n/)) {
     let line = '';
     for (const word of para.split(/\s+/).filter(Boolean)) {
       const candidate = line ? `${line} ${word}` : word;
@@ -61,23 +33,36 @@ export function wrapText(s: string, maxWidth: number, size: number, font: FontNa
         continue;
       }
       if (line) lines.push(line);
-      let rest = word;
-      while (textWidth(rest, size, font) > maxWidth && rest.length > 1) {
+      let rest = clusters(word);
+      while (rest.length > 1 && textWidth(rest.join(''), size, font) > maxWidth) {
         let n = rest.length - 1;
-        while (n > 1 && textWidth(rest.slice(0, n), size, font) > maxWidth) n--;
-        lines.push(rest.slice(0, n));
+        while (n > 1 && textWidth(rest.slice(0, n).join(''), size, font) > maxWidth) n--;
+        lines.push(rest.slice(0, n).join(''));
         rest = rest.slice(n);
       }
-      line = rest;
+      line = rest.join('');
     }
     lines.push(line);
   }
   return lines;
 }
 
-const escapePdf = (s: string) => pdfSafe(s).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 const f = (n: number) => (Math.round(n * 100) / 100).toString();
 const rgb = (c: Rgb) => c.map((v) => f(v / 255)).join(' ');
+const hex4 = (n: number) => n.toString(16).toUpperCase().padStart(4, '0');
+
+/** UTF-16BE hex of a string (surrogate pairs for code points above U+FFFF). */
+const utf16Hex = (s: string) => {
+  let out = '';
+  for (let i = 0; i < s.length; i++) out += hex4(s.charCodeAt(i));
+  return out;
+};
+
+/** A PDF text string: a literal for printable ASCII, else UTF-16BE with a byte order mark. */
+export function pdfTextString(s: string): string {
+  if (/^[\x20-\x7e]*$/.test(s)) return `(${s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')})`;
+  return `<FEFF${utf16Hex(s)}>`;
+}
 
 export function hexToRgb(hex: string | null | undefined, fallback: Rgb = [79, 70, 229]): Rgb {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? '');
@@ -207,11 +192,81 @@ export function loadImage(buf: Buffer): PdfImage | null {
   return null;
 }
 
+// ---------------------------------------------------------------- embedded fonts
+
+/**
+ * One face used in one document: the fontkit subset (glyph ids are renumbered densely from 0 = .notdef), the
+ * widths in 1/1000 em per subset id and the text each subset glyph stands for (ToUnicode).
+ */
+export class EmbeddedFont {
+  readonly subset: Subset;
+  /** subset glyph id -> original glyph id */
+  readonly glyphIds: number[] = [];
+  readonly toUnicode = new Map<number, string>();
+
+  constructor(
+    readonly face: FontFace,
+    readonly resourceName: string,
+  ) {
+    this.subset = face.font.createSubset();
+    this.glyphIds.push(0);
+  }
+
+  /** Subset id of an original glyph id (added on first use; the mapping text is kept from the first use). */
+  cid(glyphId: number, codePoints: number[]): number {
+    // fontkit's TTFSubset.includeGlyph returns the new id (the typings say boolean)
+    const id = this.subset.includeGlyph(glyphId as never) as unknown as number;
+    this.glyphIds[id] = glyphId;
+    if (codePoints.length && !this.toUnicode.has(id)) this.toUnicode.set(id, String.fromCodePoint(...codePoints));
+    return id;
+  }
+
+  /** Advance width in 1/1000 em, rounded like the /W array. */
+  width(glyphId: number): number {
+    return Math.round((this.face.font.getGlyph(glyphId).advanceWidth * 1000) / this.face.unitsPerEm);
+  }
+}
+
+function toUnicodeCMap(map: Map<number, string>): string {
+  const entries = [...map.entries()].sort((a, b) => a[0] - b[0]);
+  const blocks: string[] = [];
+  for (let i = 0; i < entries.length; i += 100) {
+    const chunk = entries.slice(i, i + 100);
+    blocks.push(`${chunk.length} beginbfchar\n${chunk.map(([cid, text]) => `<${hex4(cid)}> <${utf16Hex(text)}>`).join('\n')}\nendbfchar`);
+  }
+  return [
+    '/CIDInit /ProcSet findresource begin',
+    '12 dict begin',
+    'begincmap',
+    '/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def',
+    '/CMapName /Adobe-Identity-UCS def',
+    '/CMapType 2 def',
+    '1 begincodespacerange',
+    '<0000> <FFFF>',
+    'endcodespacerange',
+    ...blocks,
+    'endcmap',
+    'CMapName currentdict /CMap defineresource pop',
+    'end',
+    'end',
+  ].join('\n');
+}
+
+/** The text the glyphs stand for, in drawing order (what a reader gets from the ToUnicode map alone). */
+export const visualText = (run: ShapedRun): string => run.glyphs.map((g) => String.fromCodePoint(...g.codePoints)).join('');
+
+/** Six capital letters from the face and its glyph set (deterministic output for the same document). */
+function subsetTag(name: string, glyphIds: number[]): string {
+  const digest = createHash('sha1').update(`${name}:${glyphIds.join(',')}`).digest();
+  return Array.from(digest.subarray(0, 6), (b) => String.fromCharCode(65 + (b % 26))).join('');
+}
+
 // ---------------------------------------------------------------- document
 
 export class PdfDocument {
   private readonly pages: string[][] = [];
   private readonly images: PdfImage[] = [];
+  private readonly fonts = new Map<string, EmbeddedFont>();
   readonly width = A4.width;
   readonly height = A4.height;
 
@@ -238,12 +293,79 @@ export class PdfDocument {
     this.pages.push(...keep);
   }
 
+  private embedded(face: FontFace): EmbeddedFont {
+    let font = this.fonts.get(face.key);
+    if (!font) {
+      font = new EmbeddedFont(face, `F${this.fonts.size + 1}`);
+      this.fonts.set(face.key, font);
+    }
+    return font;
+  }
+
+  /**
+   * Content stream operators for one shaped run starting at (x, baseline) in PDF coordinates. Glyphs are written
+   * as 2-byte subset ids in TJ arrays; a kerning or shaping advance that differs from the glyph width becomes a TJ
+   * adjustment, and a glyph with a GPOS offset (marks) gets its own text matrix.
+   */
+  private runOps(run: ShapedRun, x: number, baseline: number, size: number, color: Rgb): string {
+    const font = this.embedded(run.face);
+    const scale = size / run.face.unitsPerEm;
+    const per1000 = 1000 / run.face.unitsPerEm;
+    const out: string[] = [];
+    let pen = x;
+    let items: string[] = [];
+    let hexRun = '';
+    const flushHex = () => {
+      if (hexRun) items.push(`<${hexRun}>`);
+      hexRun = '';
+    };
+    const flush = () => {
+      flushHex();
+      if (items.length) out.push(`[${items.join(' ')}] TJ`);
+      items = [];
+    };
+    let open = false;
+    for (const g of run.glyphs) {
+      const cid = font.cid(g.id, g.codePoints);
+      if (g.xOffset || g.yOffset) {
+        flush();
+        out.push(`1 0 0 1 ${f(pen + g.xOffset * scale)} ${f(baseline + g.yOffset * scale)} Tm <${hex4(cid)}> Tj`);
+        pen += g.xAdvance * scale;
+        open = false;
+        continue;
+      }
+      if (!open) {
+        flush();
+        out.push(`1 0 0 1 ${f(pen)} ${f(baseline)} Tm`);
+        open = true;
+      }
+      hexRun += hex4(cid);
+      const adjust = font.width(g.id) - g.xAdvance * per1000;
+      if (Math.abs(adjust) >= 0.01) {
+        flushHex();
+        items.push(f(adjust));
+      }
+      pen += g.xAdvance * scale;
+    }
+    flush();
+    const body = `BT /${font.resourceName} ${f(size)} Tf ${rgb(color)} rg ${out.join(' ')} ET`;
+    // ActualText gives the logical text back when shaping reordered glyphs (the Devanagari i-matra is drawn before
+    // its consonant, the reph after the cluster) or inserted one (dotted circle); ligatures alone need no span
+    return visualText(run) === run.text ? body : `/Span << /ActualText <FEFF${utf16Hex(run.text)}> >> BDC ${body} EMC`;
+  }
+
   text(x: number, y: number, s: string, o: { size?: number; font?: FontName; color?: Rgb; align?: 'left' | 'right' | 'center' } = {}): void {
     const size = o.size ?? 9;
-    const font = o.font ?? 'regular';
-    const w = textWidth(s, size, font);
-    const dx = o.align === 'right' ? x - w : o.align === 'center' ? x - w / 2 : x;
-    this.ops.push(`BT /${font === 'bold' ? 'F2' : 'F1'} ${f(size)} Tf ${rgb(o.color ?? [17, 24, 39])} rg ${f(dx)} ${f(this.height - y)} Td (${escapePdf(s)}) Tj ET`);
+    const style = o.font ?? 'regular';
+    const runs = shapeText(s, style);
+    if (!runs.length) return;
+    const w = runs.reduce((sum, r) => sum + (r.advance * size) / r.face.unitsPerEm, 0);
+    let pen = o.align === 'right' ? x - w : o.align === 'center' ? x - w / 2 : x;
+    const baseline = this.height - y;
+    for (const run of runs) {
+      this.ops.push(this.runOps(run, pen, baseline, size, o.color ?? [17, 24, 39]));
+      pen += (run.advance * size) / run.face.unitsPerEm;
+    }
   }
 
   line(x1: number, y1: number, x2: number, y2: number, o: { width?: number; color?: Rgb } = {}): void {
@@ -269,13 +391,34 @@ export class PdfDocument {
     return { width: w, height: h };
   }
 
+  /** Fonts used so far (face key -> embedded font), for tests. */
+  get embeddedFonts(): ReadonlyMap<string, EmbeddedFont> {
+    return this.fonts;
+  }
+
   toBuffer(meta: { title?: string; author?: string } = {}): Buffer {
     const objects: Array<string | Buffer> = [];
     const add = (body: string | Buffer): number => objects.push(body);
     const catalog = add('');
     const pagesObj = add('');
-    const font1 = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
-    const font2 = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+    const fontRefs = [...this.fonts.values()].map((font) => {
+      const raw = Buffer.from(font.subset.encode());
+      // encode() may append glyphs (components of composite glyphs); widths cover every subset id
+      const ids = (font.subset as unknown as { glyphs: number[] }).glyphs ?? font.glyphIds;
+      const name = `${subsetTag(font.face.font.postscriptName, ids)}+${font.face.font.postscriptName}`;
+      const k = 1000 / font.face.unitsPerEm;
+      const { bbox, ascent, descent, capHeight, italicAngle } = font.face.font;
+      const file = add(stream(`/Length1 ${raw.length}`, deflateSync(raw), true));
+      const descriptor = add(
+        `<< /Type /FontDescriptor /FontName /${name} /Flags 4 /FontBBox [${[bbox.minX, bbox.minY, bbox.maxX, bbox.maxY].map((v) => Math.round(v * k)).join(' ')}] /ItalicAngle ${f(italicAngle)} /Ascent ${Math.round(ascent * k)} /Descent ${Math.round(descent * k)} /CapHeight ${Math.round((capHeight || ascent) * k)} /StemV 80 /FontFile2 ${file} 0 R >>`,
+      );
+      const widths = ids.map((gid) => font.width(gid)).join(' ');
+      const cidFont = add(
+        `<< /Type /Font /Subtype /CIDFontType2 /BaseFont /${name} /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ${descriptor} 0 R /W [0 [${widths}]] /CIDToGIDMap /Identity >>`,
+      );
+      const cmap = add(stream('', deflateSync(Buffer.from(toUnicodeCMap(font.toUnicode), 'latin1')), true));
+      return { resourceName: font.resourceName, ref: add(`<< /Type /Font /Subtype /Type0 /BaseFont /${name} /Encoding /Identity-H /DescendantFonts [${cidFont} 0 R] /ToUnicode ${cmap} 0 R >>`) };
+    });
     const imageRefs = this.images.map((img) => {
       let smaskRef = '';
       if (img.smask) {
@@ -285,14 +428,14 @@ export class PdfDocument {
       return add(stream(img.dict + smaskRef, img.data));
     });
     const xobjects = imageRefs.length ? `/XObject << ${imageRefs.map((r, i) => `/Im${i} ${r} 0 R`).join(' ')} >>` : '';
-    const resources = `<< /Font << /F1 ${font1} 0 R /F2 ${font2} 0 R >> ${xobjects} >>`;
+    const resources = `<< /Font << ${fontRefs.map((r) => `/${r.resourceName} ${r.ref} 0 R`).join(' ')} >> ${xobjects} >>`;
     const pageRefs = this.pages.map((ops) => {
       const content = add(stream('', deflateSync(Buffer.from(ops.join('\n'), 'latin1')), true));
       return add(`<< /Type /Page /Parent ${pagesObj} 0 R /MediaBox [0 0 ${f(this.width)} ${f(this.height)}] /Resources ${resources} /Contents ${content} 0 R >>`);
     });
     objects[catalog - 1] = `<< /Type /Catalog /Pages ${pagesObj} 0 R >>`;
     objects[pagesObj - 1] = `<< /Type /Pages /Kids [${pageRefs.map((r) => `${r} 0 R`).join(' ')}] /Count ${pageRefs.length} >>`;
-    const info = add(`<< /Producer (Vistar) /Title (${escapePdf(meta.title ?? '')}) /Author (${escapePdf(meta.author ?? '')}) >>`);
+    const info = add(`<< /Producer (Vistar) /Title ${pdfTextString(meta.title ?? '')} /Author ${pdfTextString(meta.author ?? '')} >>`);
 
     const chunks: Buffer[] = [Buffer.from('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n', 'latin1')];
     let offset = chunks[0]!.length;

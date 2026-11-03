@@ -28,6 +28,7 @@ import { applyPatch, changedKeys, loadFieldDefs, roleKeyOf, validateValues, visi
 import { entityUniqueErrors, lockUnique, uniqueDefsIn } from '../customization/unique.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { RoutingService, type RoutedOwner } from '../routing/routing.service.js';
+import { PlanLimitsService } from '../billing/plan-limits.service.js';
 import { ActivityService } from './activity.service.js';
 import { LEAD_DETAIL_INCLUDE, LEAD_LIST_INCLUDE, parseCustomFields, toLead, toLeadListItem, type LeadDetailRow } from './lead.mapper.js';
 import { endOfColumn, topOfColumn } from './lead-position.js';
@@ -67,6 +68,8 @@ export class LeadsService {
     private readonly activities: ActivityService,
     private readonly notifications: NotificationsService,
     private readonly routing: RoutingService,
+    // ---- change #19 wave C: billing
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   /** Tell the new owner about leads assigned to them by someone else (one notification per call). */
@@ -212,6 +215,8 @@ export class LeadsService {
   async create(auth: AuthContext, body: LeadCreate, opts: LeadCreateOptions = {}): Promise<LeadDto> {
     const wid = auth.workspaceId;
     const db = this.prisma.forTenant(wid);
+    // ---- change #19 wave C: billing (lead limit; API, capture forms and webhooks all come through here)
+    await this.planLimits.assertCanAdd(wid, 'leads');
     const actor = opts.actor ?? (await requestActor(db, auth));
 
     let ownerId = body.ownerId ?? (auth.dataScope !== 'all' ? auth.userId : null);
