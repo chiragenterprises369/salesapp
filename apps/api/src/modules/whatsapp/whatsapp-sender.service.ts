@@ -5,6 +5,8 @@ import { AppException } from '../../common/errors/app-exception.js';
 import { getEnv } from '../../config/env.js';
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { describeHttpError, safeFetch } from '../../infra/http/safe-http.js';
+// ---- change #20: prod (Graph API version from Super Admin > Config > WhatsApp platform app)
+import { whatsappAppConfig } from '../config-registry/snapshot.js';
 import { IntegrationStore, type IntegrationRow } from '../integrations/integration-store.js';
 import { publishSafe } from '../leads/lib/context.js';
 import { StorageService } from '../storage/storage.service.js';
@@ -160,7 +162,7 @@ export class WhatsappSender implements OnModuleDestroy {
       if (kind === 'document') media.filename = payload.name.slice(0, 240);
       Object.assign(body, { type: kind, [kind]: media });
     }
-    const url = `${env.WHATSAPP_GRAPH_URL.replace(/\/$/, '')}/${env.WHATSAPP_GRAPH_VERSION}/${encodeURIComponent(config.phoneNumberId)}/messages`;
+    const url = `${env.WHATSAPP_GRAPH_URL.replace(/\/$/, '')}/${whatsappAppConfig().graphVersion}/${encodeURIComponent(config.phoneNumberId)}/messages`;
     try {
       const res = await safeFetch({ url, method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify(body), timeoutMs: 15_000, maxResponseBytes: 16 * 1024 });
       let json: { messages?: Array<{ id?: string }>; error?: { message?: string; code?: number; error_data?: { details?: string } } } = {};

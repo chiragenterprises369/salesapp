@@ -3,7 +3,7 @@ import { IntegrationsModule } from '../integrations/integrations.module.js';
 import { WhatsappModule } from '../whatsapp/whatsapp.module.js';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
 import { DocumentDeliveryService } from './delivery/document-delivery.service.js';
-import { DocumentMailer, EnvPlatformMailer, PLATFORM_MAILER } from './delivery/mailers.js';
+import { DocumentMailer } from './delivery/mailers.js';
 import { DocumentCoreService } from './document-core.service.js';
 import { DocumentsController } from './documents.controller.js';
 import { InvoicesService } from './invoices.service.js';
@@ -27,8 +27,7 @@ import { SellerProfileService } from './seller-profile.service.js';
     QuotationsService,
     InvoicesService,
     PublicDocumentsService,
-    // ---- change #20: prod
-    { provide: PLATFORM_MAILER, useClass: EnvPlatformMailer },
+    // ---- change #20: prod (CompanyEmailService comes from the global MailModule)
     DocumentMailer,
     DocumentDeliveryService,
     // ---- end change #20: prod

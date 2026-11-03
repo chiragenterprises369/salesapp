@@ -11,6 +11,7 @@ import { toE164 } from '../../calls/phone.js';
 import { toConversation } from '../../conversations/conversations.service.js';
 import { publishSafe, requestActor, type TenantDb } from '../../leads/lib/context.js';
 import { WhatsappSender, whatsappTemplatePayload } from '../../whatsapp/whatsapp-sender.service.js';
+import { CompanyEmailService } from '../../mail/company-email.service.js';
 import { BrandingService } from '../../workspace/branding.service.js';
 import { InvoicesService } from '../invoices.service.js';
 import { QuotationsService } from '../quotations.service.js';
@@ -36,8 +37,12 @@ export interface DocumentDeliveryOutcome {
   sentAt: string;
 }
 
-/** Optional company template renderer (CONFIG-API template engine); null = use the built-in e-mail. */
-export type CompanyEmailRenderer = (workspaceId: string, key: 'quotation_sent' | 'invoice_sent', vars: Record<string, string>) => Promise<{ subject: string; html: string; text: string } | null>;
+/** Values of the company templates quotation_sent / invoice_sent (CONFIG-API engine, contracts-20 section 11). */
+function companyTemplateValues(v: DocumentEmailVars): Record<string, string> {
+  const t = documentTemplateVars(v);
+  const common = { customerName: v.buyerName, amount: t.total!, link: v.link, senderName: v.senderName ?? v.sellerName, message: v.message ?? '' };
+  return v.kind === 'quotation' ? { ...common, quotationNumber: v.number, validUntil: v.due ?? '' } : { ...common, invoiceNumber: v.number, dueDate: v.due ?? '' };
+}
 
 const DOCUMENT_TEMPLATE_NAMES = (kind: DocumentKind) => ['document_share', `${kind}_share`, `${kind}_sent`];
 const CONVERSATION_INCLUDE = {
@@ -94,27 +99,25 @@ function viewOf(kind: DocumentKind, d: Quotation | Invoice): DocView {
 @Injectable()
 export class DocumentDeliveryService {
   private readonly logger = new Logger(DocumentDeliveryService.name);
-  private renderer: CompanyEmailRenderer | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly quotations: QuotationsService,
     private readonly invoices: InvoicesService,
     private readonly mailer: DocumentMailer,
+    private readonly companyEmail: CompanyEmailService,
     private readonly whatsapp: WhatsappSender,
     private readonly branding: BrandingService,
     private readonly audit: AuditService,
     private readonly events: EventBus,
   ) {}
 
-  /** The template engine registers its renderer (company templates with branding). */
-  useRenderer(renderer: CompanyEmailRenderer | null): void {
-    this.renderer = renderer;
-  }
-
   async deliver(auth: AuthContext, req: Request, kind: DocumentKind, id: string, body: DocumentDeliverInput): Promise<DocumentDeliveryOutcome> {
     const expiresInDays = body.expiresInDays ?? 30;
-    // WhatsApp needs a connection before anything changes (no sent quotation without a message)
+    // Nothing changes (no sent quotation, no issued invoice) when the channel cannot deliver
+    if (body.channel === 'email' && !(await this.companyEmail.isConfigured(auth.workspaceId))) {
+      throw new AppException('EMAIL_NOT_CONFIGURED', 'E-mail is not set up: connect your mailbox in Integrations > E-mail (SMTP), or ask the platform admin to set up Platform email');
+    }
     const wa = body.channel === 'whatsapp' ? await this.whatsapp.connection(auth.workspaceId) : null;
     const sent = kind === 'quotation' ? await this.quotations.send(auth, id, { expiresInDays }) : await this.invoices.send(auth, req, id, { expiresInDays });
     const doc = kind === 'quotation' ? (sent as { quotation: Quotation }).quotation : (sent as { invoice: Invoice }).invoice;
@@ -147,7 +150,11 @@ export class DocumentDeliveryService {
       brandColor: brand.colors?.light ?? brand.brandColor ?? null,
     };
     const key = kind === 'quotation' ? 'quotation_sent' : 'invoice_sent';
-    const custom = this.renderer ? await this.renderer(auth.workspaceId, key, documentTemplateVars(vars)).catch(() => null) : null;
+    // The company template (saved or default) in the company layout; the built-in e-mail only if rendering fails
+    const custom = await this.companyEmail.render(auth.workspaceId, key, companyTemplateValues(vars)).catch((err: Error) => {
+      this.logger.warn(`Company template ${key} could not be rendered (${err.name}); using the built-in e-mail`);
+      return null;
+    });
     const rendered = custom ?? defaultDocumentEmail(vars);
     const subject = (body.subject?.trim() || rendered.subject).slice(0, 200);
     const attachments = [];
@@ -159,15 +166,8 @@ export class DocumentDeliveryService {
     const cc = [...new Set((body.cc ?? []).map((e) => e.trim().toLowerCase()))].filter((e) => !to.includes(e));
     const replyTo = me?.email ?? d.sellerEmail ?? undefined;
     const sentAt = new Date().toISOString();
-    try {
-      const res = await this.mailer.send(auth.workspaceId, { to, cc, replyTo, subject, html: rendered.html, text: rendered.text, attachments });
-      return { channel: 'email', status: 'sent', via: res.mock ? 'mock' : res.via, to: [...to, ...cc], messageId: res.messageId, conversationId: null, error: null, share, sentAt };
-    } catch (err) {
-      if (err instanceof AppException && err.code === 'INTEGRATION_PROVIDER_ERROR') {
-        return { channel: 'email', status: 'failed', via: 'company_smtp', to: [...to, ...cc], messageId: null, conversationId: null, error: err.message, share, sentAt };
-      }
-      throw err;
-    }
+    const res = await this.mailer.send(auth.workspaceId, { to, cc, replyTo, subject, html: rendered.html, text: rendered.text, attachments }, vars.sellerName);
+    return { channel: 'email', status: res.ok ? 'sent' : 'failed', via: res.mock ? 'mock' : res.via, to: [...to, ...cc], messageId: res.messageId, conversationId: null, error: res.error, share, sentAt };
   }
 
   // ---------------------------------------------------------------- WhatsApp

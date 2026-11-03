@@ -1,15 +1,17 @@
 import { Module } from '@nestjs/common';
 import { AuthStateModule } from '../../auth/state/auth-state.module.js';
 import { IntegrationsModule } from '../../integrations/integrations.module.js';
+import { GoogleCalendarHookController } from './google-calendar-hook.controller.js';
 import { GoogleCalendarSyncService } from './google-calendar-sync.service.js';
 
 /**
  * OWNER: PROD-HUB (change #20). Google Calendar sync of meetings. A module of its own because CalendarModule is
  * imported by the routing module that IntegrationsModule depends on (importing the hub there would be a cycle):
- * it listens to meeting events instead of being called by MeetingsService.
+ * it listens to meeting events instead of being called by MeetingsService. Push receiver: POST /api/hooks/google-calendar.
  */
 @Module({
   imports: [IntegrationsModule, AuthStateModule],
+  controllers: [GoogleCalendarHookController],
   providers: [GoogleCalendarSyncService],
   exports: [GoogleCalendarSyncService],
 })
