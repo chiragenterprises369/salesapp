@@ -16,7 +16,7 @@ import {
 import { io, type Socket } from 'socket.io-client';
 import { api, getFreshAccessToken, refreshAccessToken } from '../api/client';
 import { WS_URL } from '../api/config';
-import { activityFor, knownScopes, leadIdForPath, scopesForEvent, screenForPath } from './logic';
+import { activityFor, currentScreen, knownScopes, leadIdForPath, onScreenChanged, scopesForEvent } from './logic';
 
 /**
  * Minimal realtime client (web, workspace sessions in API mode). One Socket.IO connection per tab to
@@ -178,7 +178,7 @@ export function startRealtime(qc: QueryClient, opts: RealtimeOptions): RealtimeH
     return {
       client: 'web',
       activity: activityFor(document.visibilityState === 'hidden', lastInputAt, now),
-      screen: screenForPath(window.location.pathname, window.location.search),
+      screen: currentScreen(window.location.pathname, window.location.search),
       currentLeadId: leadIdForPath(window.location.pathname, window.location.search),
     };
   }
@@ -214,6 +214,8 @@ export function startRealtime(qc: QueryClient, opts: RealtimeOptions): RealtimeH
   for (const e of inputEvents) window.addEventListener(e, onInput, { passive: true });
   document.addEventListener('visibilitychange', onVisibility);
   window.addEventListener('popstate', onNavigate);
+  // A page with several modules on one route (Team Floor panels) reports the screen in use.
+  const offScreen = onScreenChanged(onNavigate);
   // Next.js client navigation uses history.pushState; wrap it while running to notice route changes.
   const nativePush = history.pushState;
   const nativeReplace = history.replaceState;
@@ -238,6 +240,7 @@ export function startRealtime(qc: QueryClient, opts: RealtimeOptions): RealtimeH
       for (const e of inputEvents) window.removeEventListener(e, onInput);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('popstate', onNavigate);
+      offScreen();
       history.pushState = nativePush;
       history.replaceState = nativeReplace;
       socket.removeAllListeners();
