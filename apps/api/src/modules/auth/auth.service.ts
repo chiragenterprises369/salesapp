@@ -5,9 +5,10 @@ import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import type { AuthContext } from '../../common/auth/auth-context.js';
 import { AuditService } from '../../common/audit/audit.service.js';
 import { AppException } from '../../common/errors/app-exception.js';
-import { getEnv } from '../../config/env.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { googleClientId } from '../config-registry/snapshot.js';
 import { assertTimeZone } from '../workspace/util.js';
+import { AccountLinksService, assertPasswordPolicy } from './account-links.service.js';
 import { InviteService } from './invite.service.js';
 import { hashPassword, verifyPassword } from './password.js';
 import { AUTH_USER_SELECT, authContextFromClaims, SessionService, type AuthSession, type AuthUser } from './session.service.js';
@@ -20,6 +21,7 @@ const emailTaken = () => new AppException('AUTH_EMAIL_TAKEN', 'An account with t
 @Injectable()
 export class AuthService {
   private google: OAuth2Client | null = null;
+  private googleClientId: string | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -27,10 +29,14 @@ export class AuthService {
     private readonly invites: InviteService,
     private readonly provisioner: WorkspaceProvisioner,
     private readonly audit: AuditService,
+    // ---- change #20: config (verification e-mail after sign-up)
+    private readonly links: AccountLinksService,
   ) {}
 
   async signup(body: SignupRequest, req: Request, res: Response): Promise<AuthSession> {
     assertTimeZone(body.timezone);
+    // ---- change #20: config (security policy password length)
+    assertPasswordPolicy(body.password);
     if (await this.prisma.user.count({ where: { email: body.email } })) throw emailTaken();
     const passwordHash = await hashPassword(body.password);
     return this.provisionAndStart(
@@ -89,16 +95,24 @@ export class AuthService {
 
   private async provisionAndStart(input: Parameters<WorkspaceProvisioner['provision']>[0], req: Request, res: Response): Promise<AuthSession> {
     const { workspaceId, userId } = await this.provisioner.provision(input);
+    // ---- change #20: config. A verified Google e-mail counts as verified; password sign-ups get a link.
+    if (input.googleSub) await this.prisma.forTenant(workspaceId).user.updateMany({ where: { id: userId }, data: { emailVerifiedAt: new Date() } });
     const user: AuthUser = await this.prisma.forTenant(workspaceId).user.findFirstOrThrow({ where: { id: userId }, select: AUTH_USER_SELECT });
     const session = await this.sessions.start(user, req, res);
     const auth = authContextFromClaims(this.sessions.claimsFor(user, 'signup'));
     await this.audit.record(auth, req, { action: 'workspace.create', entityType: 'workspace', entityId: workspaceId, diff: { plan: 'free', status: 'trial' } }, user.name);
+    if (!input.googleSub) void this.links.sendVerification(userId, workspaceId, req);
     return session;
   }
 
   private async verifyGoogle(idToken: string): Promise<TokenPayload> {
-    const clientId = getEnv().GOOGLE_CLIENT_ID;
+    // ---- change #20: config (Super Admin > Config > Google OAuth client, env fallback)
+    const clientId = googleClientId();
     if (!clientId) throw new AppException('INTEGRATION_NOT_CONNECTED', 'Google sign-in is not set up on this server. Use email and password');
+    if (this.googleClientId !== clientId) {
+      this.google = new OAuth2Client({ clientId });
+      this.googleClientId = clientId;
+    }
     this.google ??= new OAuth2Client({ clientId });
     let payload: TokenPayload | undefined;
     try {

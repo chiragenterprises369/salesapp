@@ -101,6 +101,8 @@ export const ErrorCode = {
   TEMPLATE_STATE_INVALID: 'TEMPLATE_STATE_INVALID',
   MAIL_SEND_FAILED: 'MAIL_SEND_FAILED',
   AUTH_LINK_INVALID: 'AUTH_LINK_INVALID',
+  // change #20b (PROD-HUB request P1)
+  EMAIL_NOT_CONFIGURED: 'EMAIL_NOT_CONFIGURED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -217,6 +219,9 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   MAIL_SEND_FAILED: 502,
   /** Password reset or e-mail verification link unknown, used or expired. */
   AUTH_LINK_INVALID: 400,
+  // change #20b (PROD-HUB request P1)
+  /** Sending a document by e-mail needs the company SMTP integration or the platform mailer; neither is configured. */
+  EMAIL_NOT_CONFIGURED: 422,
 };
 
 export const FieldErrorSchema = z.object({

@@ -147,13 +147,20 @@ export class CheckoutService {
     const { count } = await this.prisma.platformPayment.updateMany({ where: { id: payment.id, status: 'created' }, data: { status: 'failed', failureReason: reason.slice(0, 300) } });
     if (!count) return;
     const invoice = await this.prisma.platformInvoice.findUnique({ where: { id: payment.invoiceId }, select: { id: true, number: true, totalPaise: true } });
-    await this.core.notifyAdmins(payment.workspaceId, {
-      type: 'billing_payment_failed',
-      title: `Payment failed: invoice ${invoice?.number ?? ''}`.trim(),
-      body: `${formatPaise(n(payment.amountPaise))}: ${reason}. Try again from Billing`,
-      path: `/billing?invoice=${payment.invoiceId}`,
-      data: { invoiceId: payment.invoiceId, paymentId: payment.id },
-    });
+    const title = `Payment failed: invoice ${invoice?.number ?? ''}`.trim();
+    const body = `${formatPaise(n(payment.amountPaise))}: ${reason}. Try again from Billing`;
+    await this.core.notifyAdmins(
+      payment.workspaceId,
+      {
+        type: 'billing_payment_failed',
+        title,
+        body,
+        path: `/billing?invoice=${payment.invoiceId}`,
+        data: { invoiceId: payment.invoiceId, paymentId: payment.id },
+      },
+      // ---- change #20: config (e-mail)
+      { key: 'payment_failed', values: { title, message: `${body}.`, invoiceNumber: invoice?.number ?? '', amount: formatPaise(n(payment.amountPaise)) } },
+    );
   }
 
   /**

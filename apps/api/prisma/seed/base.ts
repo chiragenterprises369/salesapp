@@ -21,9 +21,12 @@ export async function upsertPlans(prisma: PrismaClient): Promise<void> {
   }
 }
 
-/** Refuse to seed production and require DATABASE_URL. */
-export function seedDatabaseUrl(): string {
-  if (process.env.NODE_ENV === 'production') throw new Error('Refusing to seed in production');
+/**
+ * Require DATABASE_URL and refuse to seed production. Change #20 (P6): the CLEAN seed passes
+ * `{ allowProduction: true }` (plans, the first Super Admin from SEED_SUPER_ADMIN_*, the pack registry; no demo data).
+ */
+export function seedDatabaseUrl(opts: { allowProduction?: boolean } = {}): string {
+  if (process.env.NODE_ENV === 'production' && !opts.allowProduction) throw new Error('Refusing to seed in production');
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set (run pnpm setup:env)');
   return url;

@@ -9,13 +9,22 @@ import {
   type EventPayload,
   type Plan,
   type PlanDefinition,
+  type PlatformEmailTemplateKey,
   type SubscriptionStatus,
+  type TemplateValues,
 } from '@vistar/shared';
 import type { Prisma, Subscription as SubscriptionRow } from '../../generated/prisma/client.js';
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { publishSafe, SYSTEM_ACTOR } from '../leads/lib/context.js';
+import { PlatformMailerService } from '../mail/platform-mailer.service.js';
 import { NotificationsService, type NotifyInput } from '../notifications/notifications.service.js';
+
+/** change #20: platform e-mail sent with a billing notification (template key and its values). */
+export interface BillingEmail {
+  key: PlatformEmailTemplateKey;
+  values: TemplateValues;
+}
 
 const PLAN_CACHE_MS = 60_000;
 
@@ -37,6 +46,8 @@ export class BillingCoreService {
     readonly prisma: PrismaService,
     private readonly events: EventBus,
     private readonly notifications: NotificationsService,
+    // ---- change #20: config (billing e-mails through the platform mailer)
+    readonly mailer: PlatformMailerService,
   ) {}
 
   /** Every plan definition (active or not), parsed; plans missing in the database get an unlimited free placeholder. */
@@ -150,13 +161,17 @@ export class BillingCoreService {
     return rows.map((r) => r.id);
   }
 
-  async notifyAdmins(workspaceId: string, input: NotifyInput): Promise<void> {
+  async notifyAdmins(workspaceId: string, input: NotifyInput, email?: BillingEmail): Promise<void> {
     for (const userId of await this.billingAdmins(workspaceId)) {
       try {
         await this.notifications.notify(workspaceId, userId, input, SYSTEM_ACTOR);
       } catch (err) {
         this.logger.error(`Billing notification ${input.type} failed: ${(err as Error).name}`);
       }
+    }
+    // ---- change #20: config. The same message by e-mail to the billing admins (never throws).
+    if (email) {
+      await this.mailer.sendToCompanyUsers(workspaceId, { kind: 'permission', permission: 'billing.manage' }, email.key, { link: this.mailer.webUrl(`/app${input.path ?? '/billing'}`), ...email.values });
     }
   }
 

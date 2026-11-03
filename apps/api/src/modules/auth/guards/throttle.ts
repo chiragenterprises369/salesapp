@@ -3,25 +3,36 @@ import { Reflector } from '@nestjs/core';
 import { ThrottlerGuard, type ThrottlerModuleOptions } from '@nestjs/throttler';
 import { API_ROUTES, type RouteDef } from '@vistar/shared';
 import { ROUTE_DEF_KEY } from '../../../common/auth/auth-context.js';
+import { securityPolicy } from '../../config-registry/snapshot.js';
 
 const reflector = new Reflector();
 
+// ---- change #20: config. Login limits come from Super Admin > Config > Security policy (read per request).
+const login = () => securityPolicy().loginRateLimitPerMinute;
+const superLogin = () => securityPolicy().superLoginRateLimitPerMinute;
+const fixed = (n: number) => () => n;
+
 /** Per-IP limits per minute for credential and token endpoints. Everything else gets the default. */
-const STRICT_LIMITS = new Map<RouteDef, number>([
-  [API_ROUTES.authLogin, 10],
-  [API_ROUTES.authSignup, 10],
-  [API_ROUTES.authGoogle, 10],
-  [API_ROUTES.inviteAccept, 10],
-  [API_ROUTES.superLogin, 10],
-  [API_ROUTES.superVerify, 10],
-  [API_ROUTES.authRefresh, 30],
-  [API_ROUTES.superRefresh, 30],
-  [API_ROUTES.inviteLookup, 30],
+const STRICT_LIMITS = new Map<RouteDef, () => number>([
+  [API_ROUTES.authLogin, login],
+  [API_ROUTES.authSignup, login],
+  [API_ROUTES.authGoogle, login],
+  [API_ROUTES.inviteAccept, login],
+  [API_ROUTES.authPasswordReset, login],
+  [API_ROUTES.authEmailVerify, login],
+  [API_ROUTES.authPasswordForgot, fixed(5)],
+  [API_ROUTES.myEmailVerificationSend, fixed(3)],
+  [API_ROUTES.superLogin, superLogin],
+  [API_ROUTES.superVerify, superLogin],
+  [API_ROUTES.authRefresh, fixed(30)],
+  [API_ROUTES.superRefresh, fixed(30)],
+  [API_ROUTES.inviteLookup, fixed(30)],
+  [API_ROUTES.authPasswordResetLookup, fixed(30)],
 ]);
 
 function strictLimit(ctx: ExecutionContext): number | undefined {
   const def = reflector.get<RouteDef | undefined>(ROUTE_DEF_KEY, ctx.getHandler());
-  return def ? STRICT_LIMITS.get(def) : undefined;
+  return def ? STRICT_LIMITS.get(def)?.() : undefined;
 }
 
 /**
