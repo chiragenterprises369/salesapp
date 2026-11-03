@@ -125,7 +125,7 @@ export function RazorpayCard() {
                   { value: 'live', label: 'Live' },
                 ]}
               />
-              {edit.mode === 'live' && <span className="text-xs text-status-amber-fg">Live mode takes real money.</span>}
+              {edit.mode === 'live' && <Chip tone="amber">Live mode takes real money</Chip>}
             </div>
             <FormField label="Key id" required error={errors.keyId} hint={`Starts with rzp_${edit.mode}_ (Razorpay dashboard > Settings > API keys).`}>
               <Input value={edit.keyId} autoComplete="off" spellCheck={false} className="font-mono" onChange={(e) => setEdit({ ...edit, keyId: e.target.value })} />

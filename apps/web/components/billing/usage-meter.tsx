@@ -2,6 +2,7 @@
 
 import { TriangleAlert } from 'lucide-react';
 import { useId, type ReactNode } from 'react';
+import { Chip } from '@/components/ui/chip';
 import { meterPct, meterState, type MeterState } from '@/lib/billing/logic';
 import { cn } from '@/lib/cn';
 
@@ -46,11 +47,7 @@ export function UsageMeter({
         <span id={`${id}-label`} className="text-sm font-medium text-fg">
           {label}
         </span>
-        {pct !== null && (
-          <span className={cn('text-xs font-medium tabular-nums', state === 'full' ? 'text-danger-text' : state === 'warn' ? 'text-status-amber-fg' : 'text-muted-strong')}>
-            {pct}%
-          </span>
-        )}
+        {pct !== null && <span className="text-xs font-medium text-muted-strong tabular-nums">{pct}%</span>}
       </div>
       <div
         role="meter"
@@ -66,10 +63,10 @@ export function UsageMeter({
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg-secondary tabular-nums">
         <span>{text}</span>
         {stateText && (
-          <span className={cn('inline-flex items-center gap-1 text-xs font-medium', state === 'full' ? 'text-danger-text' : 'text-status-amber-fg')}>
-            <TriangleAlert aria-hidden className="size-3.5" />
+          <Chip tone={state === 'full' ? 'red' : 'amber'} size="sm">
+            <TriangleAlert aria-hidden className="size-3" />
             {stateText}
-          </span>
+          </Chip>
         )}
       </p>
       {hint && <p className="text-xs text-muted-strong">{hint}</p>}
