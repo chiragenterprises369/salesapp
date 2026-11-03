@@ -17,6 +17,7 @@ import { decryptSecret, encryptSecret, randomToken } from '../../infra/crypto/se
 import { EventBus } from '../../infra/events/event-bus.service.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { publishSafe, SYSTEM_ACTOR, type TenantDb } from '../leads/lib/context.js';
+import { PlatformMailerService } from '../mail/platform-mailer.service.js';
 import { WorkspaceService } from '../workspace/workspace.service.js';
 import type { ProviderCheck } from './providers/adapters.js';
 import { googleConfigured } from './providers/adapters.js';
@@ -63,6 +64,8 @@ export class IntegrationStore {
     private readonly prisma: PrismaService,
     private readonly events: EventBus,
     private readonly workspaces: WorkspaceService,
+    // ---- change #20: config (integration_error e-mail)
+    private readonly mailer: PlatformMailerService,
   ) {}
 
   db(workspaceId: string) {
@@ -167,7 +170,7 @@ export class IntegrationStore {
       endpoints,
       stats: (row?.stats ?? {}) as Record<string, number | string | null>,
       availability: notConfigured ? 'not_configured' : 'ready',
-      availabilityNote: notConfigured ? 'Google sign-in is not set up on this Vistar server (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET). Mock mode works in development.' : null,
+      availabilityNote: notConfigured ? 'Google sign-in is not set up on this Vistar server (Super Admin > Config > Google OAuth client). Mock mode works in development.' : null,
       enabled: entry.featureFlag ? view.features[entry.featureFlag] : true,
       updatedAt: row?.updatedAt.toISOString() ?? null,
     };
@@ -181,10 +184,11 @@ export class IntegrationStore {
 
   async applyCheck(db: TenantDb, row: IntegrationRow, check: ProviderCheck, extra: Prisma.IntegrationUncheckedUpdateInput = {}): Promise<IntegrationRow> {
     const stats = { ...((row.stats ?? {}) as Record<string, unknown>), ...(check.stats ?? {}) };
-    return db.integration.update({
+    const status = IntegrationStore.statusFor(check);
+    const updated = await db.integration.update({
       where: { id: row.id },
       data: {
-        status: IntegrationStore.statusFor(check),
+        status,
         lastCheckedAt: new Date(),
         lastError: check.ok ? null : check.message.slice(0, 500),
         attention: check.attention ?? null,
@@ -193,6 +197,15 @@ export class IntegrationStore {
         ...extra,
       },
     });
+    // ---- change #20: config. A working live integration that stops working e-mails the company admins once.
+    if (row.status === 'connected' && row.mode === 'live' && (status === 'error' || status === 'needs_attention')) {
+      await this.mailer.sendToCompanyUsers(row.workspaceId, { kind: 'company_admins' }, 'integration_error', {
+        integration: INTEGRATION_CATALOG[row.provider].label,
+        error: (check.attention ?? check.message).slice(0, 300),
+        link: this.mailer.webUrl(`/app/integrations?provider=${row.provider}`),
+      });
+    }
+    return updated;
   }
 
   /** integration.updated for everyone with integrations.read (no endpoints in the event). */

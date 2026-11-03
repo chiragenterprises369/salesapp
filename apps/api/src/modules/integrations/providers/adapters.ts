@@ -6,6 +6,7 @@ import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { getEnv } from '../../../config/env.js';
 import { assertPublicHost, BlockedUrlError, describeHttpError, devAllowlist, isBlockedAddress, safeFetch } from '../../../infra/http/safe-http.js';
+import { googleOAuthConfig, whatsappAppConfig } from '../../config-registry/snapshot.js';
 
 /** Result of a provider check (connect test, sync probe). `attention` = connected but the admin must act. */
 export interface ProviderCheck {
@@ -50,7 +51,8 @@ export async function whatsappCheck(config: Record<string, unknown>, secrets: Re
   }
   const env = getEnv();
   const id = String(config.phoneNumberId ?? '');
-  const url = `${env.WHATSAPP_GRAPH_URL.replace(/\/$/, '')}/${env.WHATSAPP_GRAPH_VERSION}/${encodeURIComponent(id)}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier`;
+  // ---- change #20: config (Graph version from Super Admin > Config > WhatsApp platform app, env fallback)
+  const url = `${env.WHATSAPP_GRAPH_URL.replace(/\/$/, '')}/${whatsappAppConfig().graphVersion}/${encodeURIComponent(id)}?fields=display_phone_number,verified_name,quality_rating,messaging_limit_tier`;
   try {
     const res = await safeFetch({ url, headers: { authorization: `Bearer ${secrets.accessToken ?? ''}`, accept: 'application/json' }, timeoutMs: 10_000, maxResponseBytes: 64 * 1024 });
     const json = jsonOf(res.body);
@@ -244,8 +246,8 @@ export const TELEPHONY_ADAPTERS: Record<TelephonyProvider, TelephonyAdapter> = {
 
 // ---------------------------------------------------------------- SMTP
 
-/** A vetted address to connect to (DNS checked once, so a rebinding resolver cannot redirect the SMTP socket). */
-async function smtpTarget(host: string): Promise<{ host: string; servername: string | undefined }> {
+/** A vetted address to connect to (DNS checked once, so a rebinding resolver cannot redirect the SMTP socket). Also used by the company mailer (change #20). */
+export async function smtpTarget(host: string): Promise<{ host: string; servername: string | undefined }> {
   const h = host.trim().toLowerCase();
   if (devAllowlist().has(h)) return { host: h, servername: undefined };
   if (isIP(h)) {
@@ -369,14 +371,15 @@ export async function sendSmtpMail(config: Record<string, unknown>, secrets: Rec
 
 export const GOOGLE_SCOPES = ['openid', 'email', 'https://www.googleapis.com/auth/calendar.events', 'https://www.googleapis.com/auth/calendar.readonly'];
 
+// ---- change #20: config (Google OAuth client from Super Admin > Config, env fallback)
 export function googleConfigured(): boolean {
-  const env = getEnv();
-  return !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET;
+  return googleOAuthConfig() !== null;
 }
 
 export function googleClient(): OAuth2Client {
   const env = getEnv();
-  return new OAuth2Client({ clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, redirectUri: `${env.API_PUBLIC_URL.replace(/\/$/, '')}${GOOGLE_OAUTH_CALLBACK_PATH}` });
+  const g = googleOAuthConfig();
+  return new OAuth2Client({ clientId: g?.clientId, clientSecret: g?.clientSecret, redirectUri: `${env.API_PUBLIC_URL.replace(/\/$/, '')}${GOOGLE_OAUTH_CALLBACK_PATH}` });
 }
 
 export async function googleCheck(secrets: Record<string, string>, mock: boolean): Promise<ProviderCheck> {

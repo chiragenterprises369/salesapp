@@ -113,6 +113,10 @@ export function buildOpenApiDocument(opts: OpenApiOptions = {}): OpenApiDocument
     WhatsAppTemplate: S.WhatsAppTemplateSchema,
     SetupChecklist: S.SetupChecklistSchema,
     GoLiveChecklist: S.GoLiveChecklistSchema,
+    // ---- change #20b
+    DocumentDeliveryResult: S.DocumentDeliveryResultSchema,
+    ReadyResponse: S.ReadyResponseSchema,
+    SuperCompanyUser: S.SuperCompanyUserSchema,
   };
   const componentJson = Object.fromEntries(Object.entries(components).map(([name, schema]) => [name, inlineJsonOf(schema)]));
 

@@ -13,9 +13,11 @@ import {
   EmailTemplateVariableSchema,
   PlatformEmailTemplateKeySchema,
 } from '../email-templates.js';
-import { TemplateCategorySchema, TemplateStatusSchema } from '../enums.js';
+import { RoleKindSchema, TemplateCategorySchema, TemplateStatusSchema } from '../enums.js';
 import { PasswordSchema } from './auth.js';
 import { IdSchema, IsoDateTimeSchema, PhoneSchema } from './common.js';
+// ---- change #20b
+import { DocumentShareSchema } from './documents.js';
 
 /**
  * Change #20 (SPEC 30, D-073, D-074): platform config registry, platform and company e-mail templates, WhatsApp
@@ -219,7 +221,7 @@ export const WhatsAppTemplateHeaderSchema = z.object({
   format: WhatsAppHeaderFormatSchema.default('none'),
   /** format text: up to 60 characters, at most one variable {{1}} */
   text: z.string().max(60).nullable().default(null),
-  /** format text with {{1}}: example value; media formats: an https example URL Meta can download */
+  /** format text with {{1}}: example value; media formats: a Meta upload handle (Resumable Upload API; required for live submit) or an https sample URL (preview and mock only) */
   example: z.string().max(2000).nullable().default(null),
 });
 export type WhatsAppTemplateHeader = z.infer<typeof WhatsAppTemplateHeaderSchema>;
@@ -317,7 +319,7 @@ export function whatsappTemplateProblems(t: Pick<WhatsAppTemplateCreate, 'body' 
     if (hv.length > 1 || (hv.length === 1 && hv[0] !== 1)) problems.push({ path: 'header.text', message: 'A text header can use only {{1}}' });
     if (hv.length === 1 && !h.example) problems.push({ path: 'header.example', message: 'Add an example for {{1}}' });
   }
-  if ((h.format === 'image' || h.format === 'video' || h.format === 'document') && h.example && !/^https:\/\//.test(h.example)) problems.push({ path: 'header.example', message: 'Use an https link to a sample file' });
+  if ((h.format === 'image' || h.format === 'video' || h.format === 'document') && !h.example) problems.push({ path: 'header.example', message: 'Add a sample file: the Meta upload handle of an example (Meta reviews it)' });
   if (t.buttons.filter((b) => b.type === 'phone').length > 1) problems.push({ path: 'buttons', message: 'Use at most one phone button' });
   if (t.buttons.filter((b) => b.type === 'url').length > 2) problems.push({ path: 'buttons', message: 'Use at most two URL buttons' });
   t.buttons.forEach((b, i) => {
@@ -486,3 +488,95 @@ export const PublicPlatformInfoSchema = z.object({
   googleClientId: z.string().nullable(),
 });
 export type PublicPlatformInfo = z.infer<typeof PublicPlatformInfoSchema>;
+
+// ================================================================ change #20b: contract addendum (requests-20)
+
+// ---------------------------------------------------------------- P1: send quotations and invoices (PROD-HUB handlers)
+
+const DeliverEmailSchema = z.email().max(254).transform((v) => v.toLowerCase());
+
+/**
+ * POST /quotations/{id}/deliver and /invoices/{id}/deliver. A draft quotation is marked sent first and a draft
+ * invoice issued first (same rules and errors as quotationSend / invoiceSend); a share link is created either way.
+ * - email: company template `quotation_sent` / `invoice_sent` (`{{message}}` = `message`), PDF attached unless
+ *   `attachPdf` is false; company SMTP when connected, else the platform mailer; 422 EMAIL_NOT_CONFIGURED when neither.
+ * - whatsapp: an approved WhatsApp template (default: the company template named `document_share`) with the
+ *   share link; `to` defaults to the contact phone, else the lead phone.
+ */
+export const DocumentDeliverSchema = z.discriminatedUnion('channel', [
+  z.object({
+    channel: z.literal('email'),
+    to: z.array(DeliverEmailSchema).min(1).max(10),
+    cc: z.array(DeliverEmailSchema).max(10).default([]),
+    /** Default: the subject of the company template. */
+    subject: z.string().trim().min(1).max(200).optional(),
+    /** Inserted into the template as {{message}}. */
+    message: z.string().max(5000).optional(),
+    attachPdf: z.boolean().default(true),
+    expiresInDays: z.number().int().min(1).max(90).default(30),
+  }),
+  z.object({
+    channel: z.literal('whatsapp'),
+    /** Default: the contact phone, else the lead phone. */
+    to: PhoneSchema.optional(),
+    /** An approved WhatsApp template; default the company template named `document_share` when it exists. */
+    templateId: IdSchema.optional(),
+    variables: z.record(z.string(), z.string().max(1000)).optional(),
+    expiresInDays: z.number().int().min(1).max(90).default(30),
+  }),
+]);
+export type DocumentDeliver = z.infer<typeof DocumentDeliverSchema>;
+
+export const DOCUMENT_DELIVERY_STATUSES = ['sent', 'queued', 'failed'] as const;
+export const DOCUMENT_DELIVERY_VIAS = ['company_smtp', 'platform_mailer', 'whatsapp_cloud', 'mock'] as const;
+
+export const DocumentDeliveryResultSchema = z.object({
+  channel: z.enum(['email', 'whatsapp']),
+  status: z.enum(DOCUMENT_DELIVERY_STATUSES),
+  via: z.enum(DOCUMENT_DELIVERY_VIAS),
+  /** Recipients (e-mail addresses or the E.164 phone). */
+  to: z.array(z.string()),
+  messageId: z.string().nullable(),
+  /** WhatsApp: the Inbox conversation the message was recorded in. */
+  conversationId: IdSchema.nullable(),
+  /** User-safe failure reason (status failed). */
+  error: z.string().nullable(),
+  share: DocumentShareSchema,
+  sentAt: IsoDateTimeSchema,
+});
+export type DocumentDeliveryResult = z.infer<typeof DocumentDeliveryResultSchema>;
+
+// ---------------------------------------------------------------- P2, P3: readiness and Caddy on-demand TLS (PROD-HUB handlers)
+
+/** GET /api/ready: 200 when ok, 503 with the same body when a dependency is down or the process is draining. */
+export const ReadyResponseSchema = z.object({
+  ok: z.boolean(),
+  db: z.boolean(),
+  redis: z.boolean(),
+  storage: z.boolean(),
+  draining: z.boolean(),
+  version: z.string(),
+  uptimeSec: z.number().int().nonnegative(),
+});
+export type ReadyResponse = z.infer<typeof ReadyResponseSchema>;
+
+/** GET /api/tls/ask?domain=: Caddy on-demand TLS permission (200 = issue a certificate, 404 = refuse). */
+export const TlsAskQuerySchema = z.object({ domain: z.string().trim().toLowerCase().min(1).max(253) });
+
+// ---------------------------------------------------------------- requests 1 and 4: Super Admin company detail
+
+/** One user of a company for the Super Admin (no phone numbers, no PII beyond name and e-mail). */
+export const SuperCompanyUserSchema = z.object({
+  id: IdSchema,
+  name: z.string(),
+  email: z.string(),
+  roleName: z.string().nullable(),
+  roleKind: RoleKindSchema.nullable(),
+  isActive: z.boolean(),
+  lastActiveAt: IsoDateTimeSchema.nullable(),
+  createdAt: IsoDateTimeSchema,
+  /** Registered devices (Android app installs). */
+  devices: z.number().int().nonnegative(),
+});
+export type SuperCompanyUser = z.infer<typeof SuperCompanyUserSchema>;
+// ================================================================ end change #20b

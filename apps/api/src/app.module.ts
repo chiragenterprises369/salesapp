@@ -35,6 +35,11 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module.js';
 import { WorkflowsModule } from './modules/workflows/workflows.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
+// ---- change #20: config
+import { ConfigRegistryModule } from './modules/config-registry/config-registry.module.js';
+import { MailModule } from './modules/mail/mail.module.js';
+import { SetupModule } from './modules/setup/setup.module.js';
+import { WhatsappTemplatesModule } from './modules/whatsapp-templates/whatsapp-templates.module.js';
 // ---- change #20: prod
 import { ProdModule } from './infra/prod/prod.module.js';
 import { GoogleCalendarSyncModule } from './modules/calendar/google/google-calendar-sync.module.js';
@@ -52,6 +57,11 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     CommonModule,
     ScheduleModule.forRoot(),
     StorageModule,
+    // ---- change #20: config (global: platform config snapshot, platform and company mailer)
+    ConfigRegistryModule,
+    MailModule,
+    WhatsappTemplatesModule,
+    SetupModule,
     // backend-core
     AuthModule,
     WorkspaceModule,

@@ -21,6 +21,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import { randomToken } from '../../infra/crypto/secrets.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { KvStore } from '../auth/state/kv.store.js';
+import { googleClientId } from '../config-registry/snapshot.js';
 import { can, requestActor } from '../leads/lib/context.js';
 import { IndiamartService } from './indiamart.service.js';
 import { IntegrationStore, providerSyncHooks, type IntegrationRow, type IntegrationView } from './integration-store.js';
@@ -69,7 +70,7 @@ export class IntegrationsService {
         return {
           ...entry,
           availability: notConfigured ? 'not_configured' : 'ready',
-          availabilityNote: notConfigured ? 'Google sign-in is not set up on this Vistar server (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET). Mock mode works in development.' : null,
+          availabilityNote: notConfigured ? 'Google sign-in is not set up on this Vistar server (Super Admin > Config > Google OAuth client). Mock mode works in development.' : null,
           enabled: entry.featureFlag ? features[entry.featureFlag] : true,
         };
       }),
@@ -101,7 +102,7 @@ export class IntegrationsService {
     if (entry.featureFlag && !features[entry.featureFlag]) throw new AppException('FEATURE_DISABLED', `${entry.label} is not part of your plan`);
     if (body.mode === 'mock' && env.NODE_ENV === 'production') throw new AppException('INTEGRATION_NOT_CONFIGURED', 'Mock mode is only available in development');
     if (provider === 'google_calendar' && body.mode === 'live' && !googleConfigured()) {
-      throw new AppException('INTEGRATION_NOT_CONFIGURED', 'Google sign-in is not set up on this server (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)');
+      throw new AppException('INTEGRATION_NOT_CONFIGURED', 'Google sign-in is not set up on this server (Super Admin > Config > Google OAuth client)');
     }
     // One provider's schemas; the union of the five object types is widened so .partial() / .shape type-check.
     const schemas = INTEGRATION_CONFIG_SCHEMAS[provider] as unknown as { config: z.ZodObject; secrets: z.ZodObject };
@@ -308,7 +309,7 @@ export class IntegrationsService {
 
   async oauthStart(auth: AuthContext, provider: IntegrationProvider): Promise<IntegrationOAuthStart> {
     if (provider !== 'google_calendar') throw new AppException('VALIDATION_FAILED', 'Only Google Calendar connects with a sign-in');
-    if (!googleConfigured()) throw new AppException('INTEGRATION_NOT_CONFIGURED', 'Google sign-in is not set up on this server (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)');
+    if (!googleConfigured()) throw new AppException('INTEGRATION_NOT_CONFIGURED', 'Google sign-in is not set up on this server (Super Admin > Config > Google OAuth client)');
     if (!auth.userId) throw new AppException('FORBIDDEN', 'Sign in as a user to connect Google');
     const db = this.store.db(auth.workspaceId);
     const row = await this.store.row(auth.workspaceId, provider);
@@ -338,7 +339,7 @@ export class IntegrationsService {
       const { tokens } = await client.getToken(q.code);
       let email: string | null = null;
       if (tokens.id_token) {
-        const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: getEnv().GOOGLE_CLIENT_ID });
+        const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: googleClientId() ?? undefined });
         email = ticket.getPayload()?.email ?? null;
       }
       const previous = this.store.secretsOf(row);

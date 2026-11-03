@@ -121,7 +121,13 @@
                   "OAUTH_STATE_INVALID",
                   "PAYMENT_PROVIDER_NOT_CONFIGURED",
                   "PAYMENT_VERIFICATION_FAILED",
-                  "PLAN_CHANGE_INVALID"
+                  "PLAN_CHANGE_INVALID",
+                  "CONFIG_MISSING",
+                  "TEMPLATE_INVALID",
+                  "TEMPLATE_STATE_INVALID",
+                  "MAIL_SEND_FAILED",
+                  "AUTH_LINK_INVALID",
+                  "EMAIL_NOT_CONFIGURED"
                 ]
               },
               "message": {
@@ -10994,6 +11000,1252 @@
           "description",
           "prefill",
           "notes"
+        ]
+      },
+      "ConfigGroup": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "email",
+              "storage",
+              "google_oauth",
+              "whatsapp_app",
+              "telephony",
+              "monitoring",
+              "security",
+              "branding",
+              "billing_profile",
+              "razorpay",
+              "firebase",
+              "android_releases"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "registry",
+              "card"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "configured",
+              "missing",
+              "env_fallback",
+              "dev_default"
+            ]
+          },
+          "statusNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requiredInProduction": {
+            "type": "boolean"
+          },
+          "testable": {
+            "type": "boolean"
+          },
+          "testLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "testNeedsRecipient": {
+            "type": "boolean"
+          },
+          "cardAnchor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfigFieldState"
+            }
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Required active field keys without a value"
+          },
+          "lastTest": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "ok": {
+                "type": "boolean"
+              },
+              "message": {
+                "type": "string"
+              },
+              "latencyMs": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "details": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "ok",
+              "message",
+              "latencyMs",
+              "at",
+              "details"
+            ]
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "description",
+          "icon",
+          "kind",
+          "status",
+          "statusNote",
+          "requiredInProduction",
+          "testable",
+          "testLabel",
+          "testNeedsRecipient",
+          "cardAnchor",
+          "fields",
+          "missing",
+          "lastTest",
+          "updatedAt",
+          "updatedBy"
+        ]
+      },
+      "ConfigFieldState": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "textarea",
+              "secret",
+              "number",
+              "boolean",
+              "select",
+              "email",
+              "url",
+              "list"
+            ]
+          },
+          "secret": {
+            "type": "boolean"
+          },
+          "help": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "placeholder": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Required for the group to work (when `active`)"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "when": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "in": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "field",
+              "in"
+            ]
+          },
+          "options": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "value",
+                "label"
+              ]
+            }
+          },
+          "min": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "max": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "panelValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "panel",
+              "env",
+              "default",
+              "dev_default",
+              "none"
+            ]
+          },
+          "envVar": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "defaultValue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "secretSet": {
+            "type": "boolean"
+          },
+          "secretHint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "\"••••abcd\"; never the secret"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "type",
+          "secret",
+          "help",
+          "placeholder",
+          "required",
+          "active",
+          "when",
+          "options",
+          "min",
+          "max",
+          "value",
+          "panelValue",
+          "source",
+          "envVar",
+          "defaultValue",
+          "secretSet",
+          "secretHint"
+        ]
+      },
+      "ConfigTestResult": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "latencyMs": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "message",
+          "latencyMs",
+          "at",
+          "details"
+        ]
+      },
+      "EmailTemplate": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "company"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "html": {
+            "type": "string",
+            "description": "Body fragment (the layout adds header, footer and branding)"
+          },
+          "text": {
+            "type": "string"
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "url",
+                    "date",
+                    "money"
+                  ]
+                },
+                "sample": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "label",
+                "kind",
+                "sample",
+                "required"
+              ]
+            }
+          },
+          "isCustom": {
+            "type": "boolean"
+          },
+          "defaultSubject": {
+            "type": "string"
+          },
+          "defaultHtml": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedBy": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "scope",
+          "label",
+          "description",
+          "subject",
+          "html",
+          "text",
+          "variables",
+          "isCustom",
+          "defaultSubject",
+          "defaultHtml",
+          "updatedAt",
+          "updatedBy"
+        ]
+      },
+      "EmailPreview": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "html": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "unknownVariables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "missingRequired": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unsafeMarkupRemoved": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "subject",
+          "html",
+          "text",
+          "unknownVariables",
+          "missingRequired",
+          "unsafeMarkupRemoved"
+        ]
+      },
+      "WhatsAppTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "marketing",
+              "utility",
+              "authentication"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "pending",
+              "approved",
+              "rejected",
+              "paused"
+            ],
+            "description": "draft (not submitted), pending (Meta review), approved, rejected, paused"
+          },
+          "header": {
+            "type": "object",
+            "properties": {
+              "format": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "text",
+                  "image",
+                  "video",
+                  "document"
+                ],
+                "default": "none"
+              },
+              "text": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 60,
+                "default": null
+              },
+              "example": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 2000,
+                "default": null
+              }
+            }
+          },
+          "body": {
+            "type": "string"
+          },
+          "bodyExamples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "footer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "buttons": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "quick_reply"
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 25
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "text"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "url"
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 25
+                    },
+                    "url": {
+                      "type": "string",
+                      "maxLength": 2000,
+                      "format": "uri",
+                      "description": "May end with {{1}} for a dynamic suffix"
+                    },
+                    "example": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "maxLength": 2000,
+                      "default": null,
+                      "description": "Full example URL when the URL has {{1}}"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "text",
+                    "url"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "phone"
+                      ]
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 25
+                    },
+                    "phone": {
+                      "type": "string",
+                      "pattern": "^\\+[1-9]\\d{6,14}$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "text",
+                    "phone"
+                  ]
+                }
+              ]
+            }
+          },
+          "providerTemplateId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rejectionReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "submittedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "lastSyncedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "editable": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "live",
+              "mock",
+              null
+            ]
+          },
+          "packKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "language",
+          "category",
+          "status",
+          "header",
+          "body",
+          "bodyExamples",
+          "variables",
+          "footer",
+          "buttons",
+          "providerTemplateId",
+          "rejectionReason",
+          "submittedAt",
+          "lastSyncedAt",
+          "editable",
+          "mode",
+          "packKey",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "SetupChecklist": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "branding",
+                    "billing_profile",
+                    "business_hours",
+                    "team_invited",
+                    "roles_reviewed",
+                    "integrations",
+                    "whatsapp_templates",
+                    "email_templates",
+                    "lead_routing",
+                    "capture_forms",
+                    "api_webhooks",
+                    "office_floor",
+                    "android_app"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "done",
+                    "in_progress",
+                    "todo",
+                    "not_applicable"
+                  ]
+                },
+                "optional": {
+                  "type": "boolean"
+                },
+                "href": {
+                  "type": "string"
+                },
+                "actionLabel": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "acknowledgeable": {
+                  "type": "boolean"
+                },
+                "acknowledged": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "description",
+                "status",
+                "optional",
+                "href",
+                "actionLabel",
+                "detail",
+                "acknowledgeable",
+                "acknowledged"
+              ]
+            }
+          },
+          "done": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "bannerDismissed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "done",
+          "total",
+          "percent",
+          "complete",
+          "bannerDismissed"
+        ]
+      },
+      "GoLiveChecklist": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "enum": [
+                    "node_env",
+                    "secrets_strong",
+                    "public_urls_https",
+                    "storage_cloud",
+                    "email_configured",
+                    "email_tested",
+                    "razorpay_live",
+                    "firebase",
+                    "sentry",
+                    "backups",
+                    "no_mock_providers",
+                    "demo_companies_absent",
+                    "super_admin_2fa",
+                    "android_release",
+                    "billing_profile"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "warn"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "fixHref": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "blocking": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "status",
+                "detail",
+                "fixHref",
+                "blocking"
+              ]
+            }
+          },
+          "passed": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "development",
+              "test",
+              "production"
+            ]
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "items",
+          "passed",
+          "total",
+          "ready",
+          "environment",
+          "checkedAt"
+        ]
+      },
+      "DocumentDeliveryResult": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "whatsapp"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "sent",
+              "queued",
+              "failed"
+            ]
+          },
+          "via": {
+            "type": "string",
+            "enum": [
+              "company_smtp",
+              "platform_mailer",
+              "whatsapp_cloud",
+              "mock"
+            ]
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "messageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "conversationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "share": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "description": "Hosted page on the web: <WEB_ORIGIN>/d/<token>"
+              },
+              "pdfUrl": {
+                "type": "string",
+                "description": "<API_PUBLIC_URL>/api/v1/public/documents/<token>/pdf"
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "message": {
+                "type": "string",
+                "description": "Ready text for WhatsApp or email with the link"
+              }
+            },
+            "required": [
+              "url",
+              "pdfUrl",
+              "expiresAt",
+              "message"
+            ]
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "channel",
+          "status",
+          "via",
+          "to",
+          "messageId",
+          "conversationId",
+          "error",
+          "share",
+          "sentAt"
+        ]
+      },
+      "ReadyResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "db": {
+            "type": "boolean"
+          },
+          "redis": {
+            "type": "boolean"
+          },
+          "storage": {
+            "type": "boolean"
+          },
+          "draining": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          },
+          "uptimeSec": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "ok",
+          "db",
+          "redis",
+          "storage",
+          "draining",
+          "version",
+          "uptimeSec"
+        ]
+      },
+      "SuperCompanyUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "roleKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "company_admin",
+              "manager",
+              "employee",
+              "viewer",
+              null
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "lastActiveAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "devices": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "email",
+          "roleName",
+          "roleKind",
+          "isActive",
+          "lastActiveAt",
+          "createdAt",
+          "devices"
         ]
       }
     },
@@ -110482,6 +111734,3840 @@
                     "updatedAt",
                     "lastWebhookAt"
                   ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/config/registry": {
+      "get": {
+        "operationId": "superConfigRegistry",
+        "summary": "Every config group with its fields (secrets masked), status (configured, missing, env fallback, dev default) and last test",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "environment": {
+                      "type": "string",
+                      "enum": [
+                        "development",
+                        "test",
+                        "production"
+                      ]
+                    },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConfigGroup"
+                      }
+                    }
+                  },
+                  "required": [
+                    "environment",
+                    "groups"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/config/groups/{group}": {
+      "get": {
+        "operationId": "superConfigGroupGet",
+        "summary": "One config group (registry or card status)",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "email",
+                "storage",
+                "google_oauth",
+                "whatsapp_app",
+                "telephony",
+                "monitoring",
+                "security",
+                "branding",
+                "billing_profile",
+                "razorpay",
+                "firebase",
+                "android_releases"
+              ]
+            },
+            "required": true,
+            "name": "group",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigGroup"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "superConfigGroupUpdate",
+        "summary": "Save fields of a registry group (omitted = unchanged, null = clear; secrets write-only, encrypted); audited",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "email",
+                "storage",
+                "google_oauth",
+                "whatsapp_app",
+                "telephony",
+                "monitoring",
+                "security",
+                "branding"
+              ]
+            },
+            "required": true,
+            "name": "group",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "values"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigGroup"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "superConfigGroupReset",
+        "summary": "Clear every panel value of a registry group (env fallback and defaults apply again); audited",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "email",
+                "storage",
+                "google_oauth",
+                "whatsapp_app",
+                "telephony",
+                "monitoring",
+                "security",
+                "branding"
+              ]
+            },
+            "required": true,
+            "name": "group",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigGroup"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/config/groups/{group}/test": {
+      "post": {
+        "operationId": "superConfigGroupTest",
+        "summary": "Test a group with its saved values (send an e-mail, write a file, check credentials, send a Sentry event); audited",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "email",
+                "storage",
+                "google_oauth",
+                "whatsapp_app",
+                "telephony",
+                "monitoring",
+                "security",
+                "branding"
+              ]
+            },
+            "required": true,
+            "name": "group",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigTestResult"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/config/groups/{group}/audit": {
+      "get": {
+        "operationId": "superConfigGroupAudit",
+        "summary": "Audit trail of a group (who changed which fields and when; never values), newest first, 50",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "email",
+                "storage",
+                "google_oauth",
+                "whatsapp_app",
+                "telephony",
+                "monitoring",
+                "security",
+                "branding",
+                "billing_profile",
+                "razorpay",
+                "firebase",
+                "android_releases"
+              ]
+            },
+            "required": true,
+            "name": "group",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "action": {
+                            "type": "string",
+                            "description": "config.<group>.update | .reset | .test, or the card actions (config.firebase_client, config.razorpay, billing.profile_update, android_release.*)"
+                          },
+                          "adminName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "changed": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "cleared": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "ok": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ],
+                            "description": "Test result for .test entries"
+                          },
+                          "ip": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "action",
+                          "adminName",
+                          "changed",
+                          "cleared",
+                          "ok",
+                          "ip",
+                          "at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/config/go-live": {
+      "get": {
+        "operationId": "superGoLive",
+        "summary": "Go-live checklist: production checks with pass, warn or fail and a link to fix each",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoLiveChecklist"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/email-templates": {
+      "get": {
+        "operationId": "superEmailTemplateList",
+        "summary": "Platform e-mail templates (default or saved)",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "platform",
+                              "company"
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
+                          "isCustom": {
+                            "type": "boolean"
+                          },
+                          "updatedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "scope",
+                          "label",
+                          "description",
+                          "subject",
+                          "isCustom",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/email-templates/{key}": {
+      "get": {
+        "operationId": "superEmailTemplateGet",
+        "summary": "One platform template with variables and the shipped default",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "invite",
+                "password_reset",
+                "email_verify",
+                "super_admin_login_alert",
+                "trial_ending",
+                "invoice_issued",
+                "payment_received",
+                "payment_failed",
+                "plan_change_approved",
+                "webhook_disabled",
+                "integration_error"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "superEmailTemplateUpdate",
+        "summary": "Save subject and HTML body (unknown variables or a missing required one: 422 TEMPLATE_INVALID; markup sanitised); audited",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "invite",
+                "password_reset",
+                "email_verify",
+                "super_admin_login_alert",
+                "trial_ending",
+                "invoice_issued",
+                "payment_received",
+                "payment_failed",
+                "plan_change_approved",
+                "webhook_disabled",
+                "integration_error"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subject": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 250
+                  },
+                  "html": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50000
+                  }
+                },
+                "required": [
+                  "subject",
+                  "html"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "superEmailTemplateReset",
+        "summary": "Reset to the default shipped in code; audited",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "invite",
+                "password_reset",
+                "email_verify",
+                "super_admin_login_alert",
+                "trial_ending",
+                "invoice_issued",
+                "payment_received",
+                "payment_failed",
+                "plan_change_approved",
+                "webhook_disabled",
+                "integration_error"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/email-templates/{key}/preview": {
+      "post": {
+        "operationId": "superEmailTemplatePreview",
+        "summary": "Render a draft or the saved template with sample data in the platform layout (light or dark)",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "invite",
+                "password_reset",
+                "email_verify",
+                "super_admin_login_alert",
+                "trial_ending",
+                "invoice_issued",
+                "payment_received",
+                "payment_failed",
+                "plan_change_approved",
+                "webhook_disabled",
+                "integration_error"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subject": {
+                    "type": "string",
+                    "maxLength": 250
+                  },
+                  "html": {
+                    "type": "string",
+                    "maxLength": 50000
+                  },
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "description": "Overrides of the sample values"
+                  },
+                  "theme": {
+                    "type": "string",
+                    "enum": [
+                      "light",
+                      "dark"
+                    ],
+                    "default": "light"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailPreview"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/email-templates/{key}/test": {
+      "post": {
+        "operationId": "superEmailTemplateTest",
+        "summary": "Send the template with sample data through the platform mailer (default: to the caller)",
+        "description": "Requires permission `platform.system.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super-config"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "invite",
+                "password_reset",
+                "email_verify",
+                "super_admin_login_alert",
+                "trial_ending",
+                "invoice_issued",
+                "payment_received",
+                "payment_failed",
+                "plan_change_approved",
+                "webhook_disabled",
+                "integration_error"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Default: the caller's own e-mail"
+                  },
+                  "subject": {
+                    "type": "string",
+                    "maxLength": 250
+                  },
+                  "html": {
+                    "type": "string",
+                    "maxLength": 50000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "messageId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "via": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "message",
+                    "messageId",
+                    "via"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/email-templates": {
+      "get": {
+        "operationId": "emailTemplateList",
+        "summary": "Company e-mail templates (default or saved)",
+        "description": "Requires permission `templates.read`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "platform",
+                              "company"
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "subject": {
+                            "type": "string"
+                          },
+                          "isCustom": {
+                            "type": "boolean"
+                          },
+                          "updatedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "scope",
+                          "label",
+                          "description",
+                          "subject",
+                          "isCustom",
+                          "updatedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/email-templates/{key}": {
+      "get": {
+        "operationId": "emailTemplateGet",
+        "summary": "One company e-mail template with variables and the default",
+        "description": "Requires permission `templates.read`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "quotation_sent",
+                "invoice_sent",
+                "payment_reminder",
+                "follow_up",
+                "meeting_invite",
+                "welcome_lead"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "emailTemplateUpdate",
+        "summary": "Save subject and HTML body (422 TEMPLATE_INVALID on unknown variables); audited; event email_template.updated",
+        "description": "Requires permission `templates.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "quotation_sent",
+                "invoice_sent",
+                "payment_reminder",
+                "follow_up",
+                "meeting_invite",
+                "welcome_lead"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subject": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 250
+                  },
+                  "html": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50000
+                  }
+                },
+                "required": [
+                  "subject",
+                  "html"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "emailTemplateReset",
+        "summary": "Reset to the default; audited",
+        "description": "Requires permission `templates.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "quotation_sent",
+                "invoice_sent",
+                "payment_reminder",
+                "follow_up",
+                "meeting_invite",
+                "welcome_lead"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/email-templates/{key}/preview": {
+      "post": {
+        "operationId": "emailTemplatePreview",
+        "summary": "Render with sample data and the company branding (logo, brand colour, address)",
+        "description": "Requires permission `templates.read`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "quotation_sent",
+                "invoice_sent",
+                "payment_reminder",
+                "follow_up",
+                "meeting_invite",
+                "welcome_lead"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subject": {
+                    "type": "string",
+                    "maxLength": 250
+                  },
+                  "html": {
+                    "type": "string",
+                    "maxLength": 50000
+                  },
+                  "values": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "description": "Overrides of the sample values"
+                  },
+                  "theme": {
+                    "type": "string",
+                    "enum": [
+                      "light",
+                      "dark"
+                    ],
+                    "default": "light"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailPreview"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/email-templates/{key}/test": {
+      "post": {
+        "operationId": "emailTemplateTest",
+        "summary": "Send with sample data to the caller (company SMTP when connected, else the platform mailer)",
+        "description": "Requires permission `templates.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "quotation_sent",
+                "invoice_sent",
+                "payment_reminder",
+                "follow_up",
+                "meeting_invite",
+                "welcome_lead"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Default: the caller's own e-mail"
+                  },
+                  "subject": {
+                    "type": "string",
+                    "maxLength": 250
+                  },
+                  "html": {
+                    "type": "string",
+                    "maxLength": 50000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "messageId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "via": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "message",
+                    "messageId",
+                    "via"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/whatsapp-templates": {
+      "get": {
+        "operationId": "whatsappTemplateList",
+        "summary": "WhatsApp message templates with Meta status",
+        "description": "Requires permission `templates.read`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "pending",
+                "approved",
+                "rejected",
+                "paused"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "required": false,
+            "name": "q",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WhatsAppTemplate"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "whatsappTemplateCreate",
+        "summary": "Create a draft (numbered variables with examples, header, footer, buttons); audited",
+        "description": "Requires permission `templates.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9_]{1,512}$"
+                  },
+                  "language": {
+                    "type": "string",
+                    "pattern": "^[a-z]{2,3}(_[A-Z]{2})?$",
+                    "default": "en"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "marketing",
+                      "utility",
+                      "authentication"
+                    ]
+                  },
+                  "header": {
+                    "type": "object",
+                    "properties": {
+                      "format": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "text",
+                          "image",
+                          "video",
+                          "document"
+                        ],
+                        "default": "none"
+                      },
+                      "text": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 60,
+                        "default": null
+                      },
+                      "example": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 2000,
+                        "default": null
+                      }
+                    },
+                    "default": {
+                      "format": "none",
+                      "text": null,
+                      "example": null
+                    }
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "bodyExamples": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "maxItems": 20,
+                    "default": []
+                  },
+                  "variables": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 80
+                    },
+                    "maxItems": 20,
+                    "default": []
+                  },
+                  "footer": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 60,
+                    "default": null
+                  },
+                  "buttons": {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "quick_reply"
+                              ]
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 25
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "text"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "url"
+                              ]
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 25
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 2000,
+                              "format": "uri",
+                              "description": "May end with {{1}} for a dynamic suffix"
+                            },
+                            "example": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "maxLength": 2000,
+                              "default": null,
+                              "description": "Full example URL when the URL has {{1}}"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "text",
+                            "url"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "phone"
+                              ]
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 25
+                            },
+                            "phone": {
+                              "type": "string",
+                              "pattern": "^\\+[1-9]\\d{6,14}$"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "text",
+                            "phone"
+                          ]
+                        }
+                      ]
+                    },
+                    "maxItems": 10,
+                    "default": []
+                  }
+                },
+                "required": [
+                  "name",
+                  "category",
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/whatsapp-templates/{id}": {
+      "get": {
+        "operationId": "whatsappTemplateGet",
+        "summary": "One WhatsApp template",
+        "description": "Requires permission `templates.read`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "whatsappTemplateUpdate",
+        "summary": "Edit a draft or rejected template (409 TEMPLATE_STATE_INVALID otherwise)",
+        "description": "Requires permission `templates.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "marketing",
+                      "utility",
+                      "authentication"
+                    ]
+                  },
+                  "header": {
+                    "type": "object",
+                    "properties": {
+                      "format": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "text",
+                          "image",
+                          "video",
+                          "document"
+                        ],
+                        "default": "none"
+                      },
+                      "text": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 60,
+                        "default": null
+                      },
+                      "example": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 2000,
+                        "default": null
+                      }
+                    }
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "bodyExamples": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "maxItems": 20
+                  },
+                  "variables": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 80
+                    },
+                    "maxItems": 20
+                  },
+                  "footer": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 60
+                  },
+                  "buttons": {
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "quick_reply"
+                              ]
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 25
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "text"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "url"
+                              ]
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 25
+                            },
+                            "url": {
+                              "type": "string",
+                              "maxLength": 2000,
+                              "format": "uri",
+                              "description": "May end with {{1}} for a dynamic suffix"
+                            },
+                            "example": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "maxLength": 2000,
+                              "default": null,
+                              "description": "Full example URL when the URL has {{1}}"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "text",
+                            "url"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "phone"
+                              ]
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 25
+                            },
+                            "phone": {
+                              "type": "string",
+                              "pattern": "^\\+[1-9]\\d{6,14}$"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "text",
+                            "phone"
+                          ]
+                        }
+                      ]
+                    },
+                    "maxItems": 10
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "whatsappTemplateDelete",
+        "summary": "Delete locally and at Meta (submitted templates); audited",
+        "description": "Requires permission `templates.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/whatsapp-templates/{id}/submit": {
+      "post": {
+        "operationId": "whatsappTemplateSubmit",
+        "summary": "Submit to Meta for review through the connected WhatsApp integration (mock in development) -> pending",
+        "description": "Requires permission `templates.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsAppTemplate"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/whatsapp-templates/sync": {
+      "post": {
+        "operationId": "whatsappTemplateSync",
+        "summary": "Pull statuses and templates from Meta (approved, rejected with reason, paused); templates made in Meta are added",
+        "description": "Requires permission `templates.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "templates"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WhatsAppTemplate"
+                      }
+                    },
+                    "created": {
+                      "type": "integer"
+                    },
+                    "updated": {
+                      "type": "integer"
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "mock"
+                      ]
+                    },
+                    "syncedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "created",
+                    "updated",
+                    "mode",
+                    "syncedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/setup": {
+      "get": {
+        "operationId": "setupChecklist",
+        "summary": "Setup checklist computed from the workspace (status, link, detail) and the completion percentage",
+        "description": "Requires permission `settings.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupChecklist"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/setup/items/{key}": {
+      "put": {
+        "operationId": "setupItemAcknowledge",
+        "summary": "Tick or untick an item that cannot be detected (roles reviewed, hours, e-mail templates, Android app)",
+        "description": "Requires permission `settings.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "branding",
+                "billing_profile",
+                "business_hours",
+                "team_invited",
+                "roles_reviewed",
+                "integrations",
+                "whatsapp_templates",
+                "email_templates",
+                "lead_routing",
+                "capture_forms",
+                "api_webhooks",
+                "office_floor",
+                "android_app"
+              ]
+            },
+            "required": true,
+            "name": "key",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "acknowledged": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "acknowledged"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupChecklist"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/setup/banner": {
+      "put": {
+        "operationId": "setupBanner",
+        "summary": "Dismiss or restore the dashboard setup banner for the caller",
+        "description": "Requires permission `settings.manage`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "settings"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dismissed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "dismissed"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupChecklist"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password/forgot": {
+      "post": {
+        "operationId": "authPasswordForgot",
+        "summary": "Send a password reset link (always 200, no account enumeration; rate limited)",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254,
+                    "format": "email"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password/reset": {
+      "get": {
+        "operationId": "authPasswordResetLookup",
+        "summary": "Check a reset link before showing the form",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 20,
+              "maxLength": 200
+            },
+            "required": true,
+            "name": "token",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "valid": {
+                      "type": "boolean"
+                    },
+                    "email": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "passwordMinLength": {
+                      "type": "integer"
+                    },
+                    "expiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "valid",
+                    "email",
+                    "passwordMinLength",
+                    "expiresAt"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "authPasswordReset",
+        "summary": "Set a new password with a reset link (one use; signs out every session); 400 AUTH_LINK_INVALID",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 200
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/email/verify": {
+      "post": {
+        "operationId": "authEmailVerify",
+        "summary": "Confirm an e-mail address with the link from the verification e-mail; 400 AUTH_LINK_INVALID",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/email/verification": {
+      "get": {
+        "operationId": "myEmailVerification",
+        "summary": "Whether the caller's e-mail is verified",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "verifiedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "sentAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "verified",
+                    "verifiedAt",
+                    "sentAt"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "myEmailVerificationSend",
+        "summary": "Send a new verification link to the caller (rate limited)",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verified": {
+                      "type": "boolean"
+                    },
+                    "verifiedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "sentAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "verified",
+                    "verifiedAt",
+                    "sentAt"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/platform": {
+      "get": {
+        "operationId": "publicPlatformInfo",
+        "summary": "Vistar product name, support contacts, legal links, password rule, web monitoring DSN, Google sign-in availability (no secrets)",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "public"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "productName": {
+                      "type": "string"
+                    },
+                    "supportEmail": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "supportPhone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "websiteUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "termsUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "privacyUrl": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "passwordMinLength": {
+                      "type": "integer"
+                    },
+                    "monitoring": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "dsn": {
+                          "type": "string"
+                        },
+                        "environment": {
+                          "type": "string"
+                        },
+                        "tracesSampleRate": {
+                          "type": "number"
+                        },
+                        "errorSampleRate": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "dsn",
+                        "environment",
+                        "tracesSampleRate",
+                        "errorSampleRate"
+                      ]
+                    },
+                    "googleSignIn": {
+                      "type": "boolean"
+                    },
+                    "googleClientId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "productName",
+                    "supportEmail",
+                    "supportPhone",
+                    "websiteUrl",
+                    "termsUrl",
+                    "privacyUrl",
+                    "passwordMinLength",
+                    "monitoring",
+                    "googleSignIn",
+                    "googleClientId"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/quotations/{id}/deliver": {
+      "post": {
+        "operationId": "quotationDeliver",
+        "summary": "Send a quotation by e-mail (company template quotation_sent, PDF attached, company SMTP or the platform mailer) or WhatsApp (approved template with the share link); a draft is marked sent first (same rules as quotationSend); recorded on the timeline; 422 EMAIL_NOT_CONFIGURED",
+        "description": "Requires permission `quotations.send`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "quotations"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "channel": {
+                        "type": "string",
+                        "enum": [
+                          "email"
+                        ]
+                      },
+                      "to": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 254,
+                          "format": "email"
+                        },
+                        "minItems": 1,
+                        "maxItems": 10
+                      },
+                      "cc": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 254,
+                          "format": "email"
+                        },
+                        "maxItems": 10,
+                        "default": []
+                      },
+                      "subject": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "message": {
+                        "type": "string",
+                        "maxLength": 5000
+                      },
+                      "attachPdf": {
+                        "type": "boolean",
+                        "default": true
+                      },
+                      "expiresInDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 90,
+                        "default": 30
+                      }
+                    },
+                    "required": [
+                      "channel",
+                      "to"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "channel": {
+                        "type": "string",
+                        "enum": [
+                          "whatsapp"
+                        ]
+                      },
+                      "to": {
+                        "type": "string",
+                        "pattern": "^\\+[1-9]\\d{6,14}$"
+                      },
+                      "templateId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "variables": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string",
+                          "maxLength": 1000
+                        }
+                      },
+                      "expiresInDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 90,
+                        "default": 30
+                      }
+                    },
+                    "required": [
+                      "channel"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDeliveryResult"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/deliver": {
+      "post": {
+        "operationId": "invoiceDeliver",
+        "summary": "Send an invoice by e-mail (company template invoice_sent, PDF attached) or WhatsApp (approved template with the share link); a draft is issued first (same rules as invoiceSend); recorded on the timeline; 422 EMAIL_NOT_CONFIGURED",
+        "description": "Requires permission `invoices.issue`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "invoices"
+        ],
+        "security": [
+          {
+            "bearerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "channel": {
+                        "type": "string",
+                        "enum": [
+                          "email"
+                        ]
+                      },
+                      "to": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 254,
+                          "format": "email"
+                        },
+                        "minItems": 1,
+                        "maxItems": 10
+                      },
+                      "cc": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 254,
+                          "format": "email"
+                        },
+                        "maxItems": 10,
+                        "default": []
+                      },
+                      "subject": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "message": {
+                        "type": "string",
+                        "maxLength": 5000
+                      },
+                      "attachPdf": {
+                        "type": "boolean",
+                        "default": true
+                      },
+                      "expiresInDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 90,
+                        "default": 30
+                      }
+                    },
+                    "required": [
+                      "channel",
+                      "to"
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "channel": {
+                        "type": "string",
+                        "enum": [
+                          "whatsapp"
+                        ]
+                      },
+                      "to": {
+                        "type": "string",
+                        "pattern": "^\\+[1-9]\\d{6,14}$"
+                      },
+                      "templateId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "variables": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string",
+                          "maxLength": 1000
+                        }
+                      },
+                      "expiresInDays": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 90,
+                        "default": 30
+                      }
+                    },
+                    "required": [
+                      "channel"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDeliveryResult"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "operationId": "ready",
+        "summary": "Readiness: database, Redis and storage reachable and not draining; 200 when ok, 503 with the same body otherwise (health stays the liveness check)",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "system"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tls/ask": {
+      "get": {
+        "operationId": "tlsAsk",
+        "summary": "Caddy on-demand TLS ask: 200 when the host may get a certificate (verified custom domain of a company with the custom_domain switch on, or the WEB_ORIGIN / API_PUBLIC_URL host), 404 otherwise; internal network only (the Caddyfile blocks it from outside)",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "system"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253
+            },
+            "required": true,
+            "name": "domain",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hooks/google-calendar": {
+      "post": {
+        "operationId": "googleCalendarWebhook",
+        "summary": "Google Calendar push notifications of watch channels (X-Goog-Channel-ID, X-Goog-Channel-Token = per-workspace HMAC, X-Goog-Resource-State); triggers an incremental sync",
+        "description": "Owner: backend-core. Phase 20.",
+        "tags": [
+          "webhooks"
+        ],
+        "security": [
+          {
+            "webhookSignature": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/companies/{id}/users": {
+      "get": {
+        "operationId": "superCompanyUsers",
+        "summary": "Users of a company: name, e-mail, role, active, last active, devices (no phone numbers)",
+        "description": "Requires permission `platform.companies.read`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SuperCompanyUser"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/super/companies/{id}/setup": {
+      "get": {
+        "operationId": "superCompanySetup",
+        "summary": "Setup checklist of a company (same schema as GET /setup; bannerDismissed is always false)",
+        "description": "Requires permission `platform.companies.read`. Owner: backend-core. Phase 20.",
+        "tags": [
+          "super"
+        ],
+        "security": [
+          {
+            "bearerPlatform": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupChecklist"
                 }
               }
             }

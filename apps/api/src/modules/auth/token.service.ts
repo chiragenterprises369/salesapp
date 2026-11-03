@@ -32,7 +32,10 @@ const invalid = () => new AppException('AUTH_TOKEN_INVALID', 'Invalid or malform
  */
 @Injectable()
 export class TokenService {
-  readonly accessTtlSec = ACCESS_TTL_SEC();
+  /** change #20: from the security policy at sign time (Super Admin can change it at runtime). */
+  get accessTtlSec(): number {
+    return ACCESS_TTL_SEC();
+  }
 
   constructor(private readonly jwt: JwtService) {}
 

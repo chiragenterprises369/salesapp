@@ -435,13 +435,19 @@ export class SubscriptionsService {
       invoiceId = res.invoiceId;
       await this.core.publish('billing.subscription_updated', request.workspaceId, { subscription: toSubscription(res.next, await this.core.plan(res.next.plan)) });
     }
-    await this.core.notifyAdmins(request.workspaceId, {
-      type: 'system',
-      title: body.decision === 'approve' ? 'Your plan change was approved' : 'Your plan change request was declined',
-      body: body.note ?? (body.decision === 'approve' ? `You are on the ${(await this.core.plan(request.toPlan)).name} plan${body.effective === 'period_end' ? ' from the next period' : ''}` : null),
-      path: '/billing',
-      data: { requestId: id },
-    });
+    const toPlanName = (await this.core.plan(request.toPlan)).name;
+    await this.core.notifyAdmins(
+      request.workspaceId,
+      {
+        type: 'system',
+        title: body.decision === 'approve' ? 'Your plan change was approved' : 'Your plan change request was declined',
+        body: body.note ?? (body.decision === 'approve' ? `You are on the ${toPlanName} plan${body.effective === 'period_end' ? ' from the next period' : ''}` : null),
+        path: '/billing',
+        data: { requestId: id },
+      },
+      // ---- change #20: config (e-mail on approval)
+      body.decision === 'approve' ? { key: 'plan_change_approved', values: { plan: toPlanName, effective: body.effective === 'period_end' ? 'from the next billing period' : 'now' } } : undefined,
+    );
     await this.audit.platform(admin, req, { action: `billing.request_${body.decision}`, entityType: 'plan_change_request', entityId: id, workspaceId: request.workspaceId, reason: body.note ?? null, diff: { fromPlan: request.fromPlan, toPlan: request.toPlan, cycle: request.cycle, effective: body.effective, invoiceId } }, await this.adminName(admin.adminId));
     const fresh = await this.prisma.planChangeRequest.findUniqueOrThrow({ where: { id } });
     const requestedBy = fresh.requestedById ? await this.userSummary(fresh.workspaceId, fresh.requestedById) : null;
