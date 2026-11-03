@@ -10,7 +10,25 @@ import { API_BASE_PATH, API_ROUTES, type RouteDef } from './routes.js';
  */
 export type OpenApiDocument = ReturnType<OpenApiGeneratorV31['generateDocument']>;
 
-export function buildOpenApiDocument(opts: { serverUrl?: string; version?: string } = {}): OpenApiDocument {
+export interface OpenApiOptions {
+  serverUrl?: string;
+  version?: string;
+  /** Keep only these routes (change #19 wave C: the public API document). */
+  include?: (id: string, def: RouteDef) => boolean;
+  /** Public API document: API key security only, scope wording, no owner/phase notes, unused components pruned. */
+  publicApi?: boolean;
+}
+
+/** Routes of the public API reference: everything that accepts an API key, plus the inbound webhook for senders. */
+export const isPublicApiRoute = (id: string, def: RouteDef): boolean =>
+  def.auth === 'api_key' || def.auth === 'jwt_or_api_key' || id === 'inboundWebhook';
+
+/** OpenAPI 3.1 document served at GET /api/v1/openapi.json (change #19 wave C). */
+export function buildPublicOpenApiDocument(opts: { serverUrl?: string; version?: string } = {}): OpenApiDocument {
+  return buildOpenApiDocument({ ...opts, include: isPublicApiRoute, publicApi: true });
+}
+
+export function buildOpenApiDocument(opts: OpenApiOptions = {}): OpenApiDocument {
   const registry = new OpenAPIRegistry();
 
   registry.registerComponent('securitySchemes', 'bearerJwt', { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' });
@@ -74,13 +92,20 @@ export function buildOpenApiDocument(opts: { serverUrl?: string; version?: strin
     SeatMap: S.SeatMapSchema,
     FloorAsset: S.FloorAssetSchema,
     Company: S.CompanySchema,
+    // change #19 wave C: hub
+    IntegrationProviderInfo: S.IntegrationProviderInfoSchema,
+    WebhookAttempt: S.WebhookAttemptSchema,
+    PayloadMapping: S.PayloadMappingSchema,
   };
   const componentJson = Object.fromEntries(Object.entries(components).map(([name, schema]) => [name, inlineJsonOf(schema)]));
 
   for (const [id, def] of Object.entries(API_ROUTES) as Array<[string, RouteDef]>) {
+    if (opts.include && !opts.include(id, def)) continue;
     const path = def.absolute ? def.path : `${API_BASE_PATH}${def.path}`;
     const security: Array<Record<string, string[]>> =
-      def.auth === 'jwt'
+      opts.publicApi && (def.auth === 'api_key' || def.auth === 'jwt_or_api_key')
+        ? [{ apiKey: [] }]
+        : def.auth === 'jwt'
         ? [{ bearerJwt: [] }]
         : def.auth === 'api_key'
           ? [{ apiKey: [] }]
@@ -104,10 +129,10 @@ export function buildOpenApiDocument(opts: { serverUrl?: string; version?: strin
       method: def.method,
       path,
       summary: def.summary,
-      description: [
-        def.permission ? `Requires permission \`${def.permission}\`.` : null,
-        `Owner: ${def.owner}. Phase ${def.phase}.`,
-      ]
+      description: (opts.publicApi
+        ? [def.permission ? `Requires the API key scope \`${def.permission}\`.` : null, def.auth === 'webhook' ? 'Signed with the source secret (see webhookSignature).' : null]
+        : [def.permission ? `Requires permission \`${def.permission}\`.` : null, `Owner: ${def.owner}. Phase ${def.phase}.`]
+      )
         .filter(Boolean)
         .join(' '),
       tags: [def.tag],
@@ -141,15 +166,56 @@ export function buildOpenApiDocument(opts: { serverUrl?: string; version?: strin
   const generator = new OpenApiGeneratorV31(registry.definitions);
   const doc = generator.generateDocument({
     openapi: '3.1.0',
-    info: {
-      title: 'Vistar API',
-      version: opts.version ?? '0.1.0',
-      description:
-        'Multi-tenant sales management API. All data is scoped to the caller workspace. Errors use the ApiError envelope with stable codes.',
-    },
+    info: opts.publicApi
+      ? {
+          title: 'Vistar public API',
+          version: opts.version ?? '0.1.0',
+          description:
+            'REST API for your workspace. Authenticate with an API key (Authorization: Bearer vst_live_...); each key has scopes and a per-minute rate limit (429 with Retry-After). All data is scoped to the key\'s workspace. Errors use the ApiError envelope with stable codes.',
+        }
+      : {
+          title: 'Vistar API',
+          version: opts.version ?? '0.1.0',
+          description:
+            'Multi-tenant sales management API. All data is scoped to the caller workspace. Errors use the ApiError envelope with stable codes.',
+        },
     servers: [{ url: opts.serverUrl ?? 'http://localhost:4000' }],
   });
-  return dedupeComponents(doc, componentJson);
+  const deduped = dedupeComponents(doc, componentJson);
+  return opts.publicApi ? pruneComponents(deduped) : deduped;
+}
+
+/** Drop component schemas (and security schemes) that no path references, directly or through other components. */
+function pruneComponents(doc: OpenApiDocument): OpenApiDocument {
+  const schemas = (doc.components?.schemas ?? {}) as Record<string, unknown>;
+  const used = new Set<string>();
+  const usedSecurity = new Set<string>();
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (!node || typeof node !== 'object') return;
+    for (const [k, v] of Object.entries(node)) {
+      if (k === '$ref' && typeof v === 'string' && v.startsWith('#/components/schemas/')) {
+        const name = v.slice('#/components/schemas/'.length);
+        if (!used.has(name)) {
+          used.add(name);
+          visit(schemas[name]);
+        }
+      } else if (k === 'security' && Array.isArray(v)) {
+        for (const req of v) for (const scheme of Object.keys(req as object)) usedSecurity.add(scheme);
+        visit(v);
+      } else visit(v);
+    }
+  };
+  visit(doc.paths);
+  const securitySchemes = Object.fromEntries(Object.entries(doc.components?.securitySchemes ?? {}).filter(([name]) => usedSecurity.has(name)));
+  return {
+    ...doc,
+    components: {
+      ...doc.components,
+      schemas: Object.fromEntries(Object.entries(schemas).filter(([name]) => used.has(name))) as never,
+      securitySchemes: securitySchemes as never,
+    },
+  };
 }
 
 /** Exact JSON the generator produces for a schema when inlined (used as the component body). */
