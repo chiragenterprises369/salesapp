@@ -45,6 +45,20 @@ template (`flat/floor-map.tsx`).
 Every template has its own bakes (no shared module bakes): all three fit the budgets, and per-template
 bakes keep contact shadows and light pools correct where modules meet.
 
+## Shipped by the API: PDF fonts (`apps/api/assets/fonts/`, D-071)
+
+| Name | File | Source | Author | License | Link | Size |
+| --- | --- | --- | --- | --- | --- | --- |
+| Noto Sans Regular (Latin, Greek, Cyrillic, rupee sign) | `NotoSans-Regular.ttf` | npm `@expo-google-fonts/noto-sans@0.4.2` (`400Regular/NotoSans_400Regular.ttf`, Google Fonts build) | The Noto Project Authors | SIL Open Font License 1.1 (`OFL-NotoSans.txt`) | https://github.com/notofonts/latin-greek-cyrillic | 614 KB |
+| Noto Sans Bold | `NotoSans-Bold.ttf` | same package (`700Bold/NotoSans_700Bold.ttf`) | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSans.txt`) | https://github.com/notofonts/latin-greek-cyrillic | 616 KB |
+| Noto Sans Devanagari Regular | `NotoSansDevanagari-Regular.ttf` | npm `@expo-google-fonts/noto-sans-devanagari@0.4.2` (`400Regular/...`) | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansDevanagari.txt`) | https://github.com/notofonts/devanagari | 212 KB |
+| Noto Sans Devanagari Bold | `NotoSansDevanagari-Bold.ttf` | same package (`700Bold/...`) | The Noto Project Authors | SIL OFL 1.1 (`OFL-NotoSansDevanagari.txt`) | https://github.com/notofonts/devanagari | 213 KB |
+
+The API reads them once per process (`apps/api/src/modules/documents/pdf/fonts.ts`; override the folder with
+`PDF_FONT_DIR`) and embeds only the glyphs a document uses (subset TrueType, Type0 / Identity-H with a ToUnicode
+map). The OFL allows bundling and embedding; the fonts keep their names and are not sold on their own. A
+deployment must copy `apps/api/assets/` next to `apps/api/dist/`.
+
 ## Reference material (not shipped)
 
 | Name | File | Source | License | Use |

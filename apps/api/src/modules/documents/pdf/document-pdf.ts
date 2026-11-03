@@ -4,7 +4,8 @@ import { hexToRgb, PdfDocument, wrapText, type PdfImage, type Rgb } from './pdf-
 /**
  * A4 quotation / tax invoice template (SPEC 29.9): brand colour band and logo, seller and buyer blocks
  * with GSTIN and place of supply, line table with HSN/SAC, totals with CGST + SGST or IGST and round-off,
- * amount in words, HSN summary, payments (invoices), bank details, terms, signature, page numbers.
+ * amount in words, HSN summary, payments (invoices), bank details, terms, signature, page numbers. Text uses the
+ * embedded Noto fonts (D-071), so amounts carry the rupee sign and Devanagari names print shaped.
  */
 export interface DocumentPdfInput {
   kind: 'quotation' | 'invoice';
@@ -208,7 +209,7 @@ export function renderDocumentPdf(d: DocumentPdfInput): Buffer {
   }
   pdf.rect(tx - 6, y + 2, 226, 22, { fill: brand });
   pdf.text(tx, y + 17, 'Total (INR)', { size: 10, font: 'bold', color: [255, 255, 255] });
-  pdf.text(M + W - 4, y + 17, `Rs. ${money(t.totalPaise)}`, { size: 10.5, font: 'bold', color: [255, 255, 255], align: 'right' });
+  pdf.text(M + W - 4, y + 17, formatPaise(t.totalPaise), { size: 10.5, font: 'bold', color: [255, 255, 255], align: 'right' });
   y += 30;
   if (d.kind === 'invoice' && d.paidPaise !== null && d.balancePaise !== null && d.paidPaise > 0) {
     pdf.text(tx, y + 10, 'Paid', { size: 8.5, color: MUTED });
@@ -258,7 +259,7 @@ export function renderDocumentPdf(d: DocumentPdfInput): Buffer {
     y += 6;
   };
   if (d.kind === 'invoice' && d.payments.length) {
-    section('PAYMENTS RECEIVED', d.payments.map((p) => `${fmtDate(p.paidOn)}  ${p.mode.replace('_', ' ')}  Rs. ${money(p.amountPaise)}${p.reference ? `  (${p.reference})` : ''}`).join('\n'));
+    section('PAYMENTS RECEIVED', d.payments.map((p) => `${fmtDate(p.paidOn)}  ${p.mode.replace('_', ' ')}  ${formatPaise(p.amountPaise)}${p.reference ? `  (${p.reference})` : ''}`).join('\n'));
   }
   const bank = s?.bank;
   if (bank && (bank.accountNumber || bank.upiId)) {

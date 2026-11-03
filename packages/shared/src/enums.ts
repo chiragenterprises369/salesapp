@@ -178,6 +178,13 @@ export const NOTIFICATION_TYPES = [
   'system',
   /** Change #19 wave B: calendar reminder (Meeting.reminders minutes before the start). */
   'meeting_reminder',
+  // ---- change #19 wave C: billing (company admins; Vistar subscription)
+  /** The trial ends in BILLING_TRIAL_REMINDER_DAYS days. */
+  'billing_trial_ending',
+  /** A checkout payment failed, or a Vistar invoice is overdue (dunning reminders). */
+  'billing_payment_failed',
+  /** Vistar issued an invoice to the company. */
+  'billing_invoice_issued',
 ] as const;
 export const NotificationTypeSchema = z.enum(NOTIFICATION_TYPES);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
@@ -436,3 +443,46 @@ export type CaptureFormStatus = z.infer<typeof CaptureFormStatusSchema>;
 export const CRM_NOTE_ENTITIES = ['contact', 'account', 'deal'] as const;
 export const CrmNoteEntitySchema = z.enum(CRM_NOTE_ENTITIES);
 export type CrmNoteEntity = z.infer<typeof CrmNoteEntitySchema>;
+
+// ---- change #19 wave C: billing (Vistar subscription of a company; Prisma enums use the same literals)
+
+/** trialing -> active (paid or free plan) -> past_due (an invoice is overdue) -> cancelled (dropped to free after the grace period). */
+export const SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due', 'cancelled'] as const;
+export const SubscriptionStatusSchema = z.enum(SUBSCRIPTION_STATUSES);
+export type SubscriptionStatus = z.infer<typeof SubscriptionStatusSchema>;
+
+export const BILLING_CYCLES = ['monthly', 'yearly'] as const;
+export const BillingCycleSchema = z.enum(BILLING_CYCLES);
+export type BillingCycle = z.infer<typeof BillingCycleSchema>;
+
+/** Invoices from Vistar to a company (not the company's own CRM invoices). */
+export const PLATFORM_INVOICE_STATUSES = ['draft', 'issued', 'paid', 'cancelled'] as const;
+export const PlatformInvoiceStatusSchema = z.enum(PLATFORM_INVOICE_STATUSES);
+export type PlatformInvoiceStatus = z.infer<typeof PlatformInvoiceStatusSchema>;
+
+/** subscription = renewal or first period after the trial; plan_change = upgrade (prorated); manual = created by a Super Admin. */
+export const PLATFORM_INVOICE_KINDS = ['subscription', 'plan_change', 'manual'] as const;
+export const PlatformInvoiceKindSchema = z.enum(PLATFORM_INVOICE_KINDS);
+export type PlatformInvoiceKind = z.infer<typeof PlatformInvoiceKindSchema>;
+
+export const PLATFORM_PAYMENT_STATUSES = ['created', 'captured', 'failed', 'refunded'] as const;
+export const PlatformPaymentStatusSchema = z.enum(PLATFORM_PAYMENT_STATUSES);
+export type PlatformPaymentStatus = z.infer<typeof PlatformPaymentStatusSchema>;
+
+/** razorpay = Razorpay checkout; mock = local dev provider (no network); manual = marked paid by a Super Admin. */
+export const PAYMENT_PROVIDERS = ['razorpay', 'mock', 'manual'] as const;
+export const PaymentProviderSchema = z.enum(PAYMENT_PROVIDERS);
+export type PaymentProvider = z.infer<typeof PaymentProviderSchema>;
+
+/** Upgrade requests made while no checkout is configured; the Super Admin approves or rejects. */
+export const PLAN_CHANGE_STATUSES = ['pending', 'approved', 'rejected', 'cancelled'] as const;
+export const PlanChangeStatusSchema = z.enum(PLAN_CHANGE_STATUSES);
+export type PlanChangeStatus = z.infer<typeof PlanChangeStatusSchema>;
+
+/**
+ * Metered usage against plan limits. seats, leads, storage_mb and api_keys are current totals; whatsapp_messages,
+ * api_calls and workflow_runs count the current calendar month (IST, UsageCounter.period YYYY-MM).
+ */
+export const USAGE_METRICS = ['seats', 'leads', 'storage_mb', 'whatsapp_messages', 'api_calls', 'workflow_runs', 'api_keys'] as const;
+export const UsageMetricSchema = z.enum(USAGE_METRICS);
+export type UsageMetric = z.infer<typeof UsageMetricSchema>;

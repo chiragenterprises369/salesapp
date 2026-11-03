@@ -27,6 +27,10 @@ const NOTIFY_LABEL: Record<NotificationType, string> = {
   import_completed: 'A lead import finishes',
   system: 'Vistar product updates',
   meeting_reminder: 'A meeting is about to start',
+  // change #19 wave C: billing
+  billing_trial_ending: 'The Vistar trial is about to end',
+  billing_payment_failed: 'A Vistar payment fails or is overdue',
+  billing_invoice_issued: 'Vistar sends a new invoice',
 };
 
 const MOTION: ReadonlyArray<{ value: ReducedMotionSetting; label: string; hint: string }> = [

@@ -74,6 +74,14 @@ export function buildOpenApiDocument(opts: { serverUrl?: string; version?: strin
     SeatMap: S.SeatMapSchema,
     FloorAsset: S.FloorAssetSchema,
     Company: S.CompanySchema,
+    // ---- change #19 wave C: billing
+    Subscription: S.SubscriptionSchema,
+    UsageMeter: S.UsageMeterSchema,
+    PlatformInvoiceListItem: S.PlatformInvoiceListItemSchema,
+    PlatformInvoice: S.PlatformInvoiceSchema,
+    PlatformPayment: S.PlatformPaymentSchema,
+    PlanChangeRequest: S.PlanChangeRequestSchema,
+    Checkout: S.CheckoutSchema,
   };
   const componentJson = Object.fromEntries(Object.entries(components).map(([name, schema]) => [name, inlineJsonOf(schema)]));
 

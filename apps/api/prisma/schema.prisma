@@ -276,6 +276,10 @@ enum NotificationType {
   import_completed
   system
   meeting_reminder
+  // ---- change #19 wave C: billing
+  billing_trial_ending
+  billing_payment_failed
+  billing_invoice_issued
 }
 
 // change #19 wave B (SPEC 29.9): CRM features
@@ -545,6 +549,11 @@ model Workspace {
   routingRules      RoutingRule[]
   captureForms      CaptureForm[]
   captureSubmissions CaptureSubmission[]
+  // ---- change #19 wave C: billing
+  subscription        Subscription?
+  platformInvoices    PlatformInvoice[]
+  platformPayments    PlatformPayment[]
+  planChangeRequests  PlanChangeRequest[]
 }
 
 model User {
@@ -2697,4 +2706,201 @@ model AndroidRelease {
   file PlatformFile @relation(fields: [fileId], references: [id], onDelete: Restrict)
 
   @@index([createdAt])
+}
+
+// ---- change #19 wave C: billing (Vistar subscription billing, SPEC 15.7 and 16, D-072; literals match packages/shared/src/enums.ts)
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  cancelled
+}
+
+enum BillingCycle {
+  monthly
+  yearly
+}
+
+enum PlatformInvoiceStatus {
+  draft
+  issued
+  paid
+  cancelled
+}
+
+enum PlatformPaymentStatus {
+  created
+  captured
+  failed
+  refunded
+}
+
+enum PlanChangeStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+/// The company's Vistar subscription (one per workspace). Workspace.plan, .status (trial/active) and .trialEndsAt
+/// mirror plan, status and trialEndsAt so existing feature-flag and pack checks keep working.
+model Subscription {
+  id                 String             @id @default(uuid(7)) @db.Uuid
+  workspaceId        String             @unique @db.Uuid
+  plan               Plan
+  status             SubscriptionStatus @default(trialing)
+  cycle              BillingCycle       @default(monthly)
+  /// Seats bought beyond the plan's included seats
+  extraSeats         Int                @default(0)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  trialEndsAt        DateTime?
+  /// Downgrade (or cycle change) applied at currentPeriodEnd
+  pendingPlan        Plan?
+  pendingCycle       BillingCycle?
+  pastDueSince       DateTime?
+  cancelledAt        DateTime?
+  /// BillingContact JSON (name, email, phone, gstin, address)
+  billingContact     Json?
+  trialReminderAt    DateTime?
+  /// Overdue reminders sent for the current past-due spell (index into BILLING_DUNNING_DAYS)
+  dunningStep        Int                @default(0)
+  lastDunningAt      DateTime?
+  version            Int                @default(1)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([status, currentPeriodEnd])
+  @@index([status, trialEndsAt])
+}
+
+/// Invoice from Vistar to the company. Money in paise (BigInt). seller/buyer are JSON snapshots (SellerSnapshot, Party)
+/// frozen at issue; lines = PlatformInvoiceLine[] with computed GST. Numbers VST/<FY>/<seq> come from PlatformInvoiceSeries.
+model PlatformInvoice {
+  id             String                @id @default(uuid(7)) @db.Uuid
+  workspaceId    String                @db.Uuid
+  number         String?               @unique
+  financialYear  String?
+  sequence       Int?
+  /// subscription | plan_change | manual
+  kind           String
+  status         PlatformInvoiceStatus @default(draft)
+  plan           Plan?
+  cycle          BillingCycle?
+  extraSeats     Int?
+  periodStart    DateTime?             @db.Date
+  periodEnd      DateTime?             @db.Date
+  issueDate      DateTime              @db.Date
+  dueDate        DateTime?             @db.Date
+  seller         Json?
+  buyer          Json
+  buyerName      String
+  placeOfSupply  String?
+  /// intra | inter
+  taxMode        String                @default("intra")
+  lines          Json
+  subtotalPaise  BigInt                @default(0)
+  discountPaise  BigInt                @default(0)
+  taxablePaise   BigInt                @default(0)
+  cgstPaise      BigInt                @default(0)
+  sgstPaise      BigInt                @default(0)
+  igstPaise      BigInt                @default(0)
+  roundOffPaise  BigInt                @default(0)
+  totalPaise     BigInt                @default(0)
+  paidPaise      BigInt                @default(0)
+  notes          String?
+  issuedAt       DateTime?
+  paidAt         DateTime?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  /// PlatformAdmin id for manual invoices; null = created by the billing cycle or a company plan change
+  createdById    String?               @db.Uuid
+  version        Int                   @default(1)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  payments  PlatformPayment[]
+
+  @@index([workspaceId, createdAt])
+  @@index([status, dueDate])
+  @@index([kind, status])
+}
+
+/// Payment of a Vistar invoice: a Razorpay (or mock) order and its outcome, or a manual payment by a Super Admin.
+model PlatformPayment {
+  id                String                @id @default(uuid(7)) @db.Uuid
+  workspaceId       String                @db.Uuid
+  invoiceId         String                @db.Uuid
+  amountPaise       BigInt
+  status            PlatformPaymentStatus @default(created)
+  /// razorpay | mock | manual
+  provider          String
+  /// PaymentMode for manual payments
+  mode              PaymentMode?
+  providerOrderId   String?               @unique
+  providerPaymentId String?               @unique
+  reference         String?
+  note              String?
+  paidOn            DateTime?             @db.Date
+  failureReason     String?
+  /// Idempotency key of a manual payment (unique per invoice)
+  clientPaymentId   String?
+  recordedById      String?               @db.Uuid
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invoice   PlatformInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceId, clientPaymentId])
+  @@index([workspaceId, createdAt])
+}
+
+/// Upgrade request made while no checkout is available; decided by a Super Admin.
+model PlanChangeRequest {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  workspaceId   String           @db.Uuid
+  fromPlan      Plan
+  toPlan        Plan
+  cycle         BillingCycle
+  status        PlanChangeStatus @default(pending)
+  note          String?
+  requestedById String?          @db.Uuid
+  decidedById   String?          @db.Uuid
+  decidedAt     DateTime?
+  decisionNote  String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status])
+  @@index([status, createdAt])
+}
+
+/// Platform numbering of Vistar invoices per financial year (atomic INSERT ... ON CONFLICT ... RETURNING). Platform table.
+model PlatformInvoiceSeries {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  financialYear String   @unique
+  prefix        String
+  nextNumber    Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/// Processed payment-provider webhook events (idempotency by the provider's event id). Platform table.
+model BillingWebhookEvent {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  provider    String
+  eventId     String
+  type        String
+  workspaceId String?  @db.Uuid
+  receivedAt  DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([receivedAt])
 }
