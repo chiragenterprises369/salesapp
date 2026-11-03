@@ -6,7 +6,7 @@ export const hubKeys = {
   integrations: {
     all: ['integrations'] as const,
     list: () => ['integrations', 'list'] as const,
-    detail: (provider: string) => ['integrations', 'detail', provider] as const,
+    catalog: () => ['integrations', 'catalog'] as const,
   },
   webhooks: {
     all: ['webhooks'] as const,
@@ -20,6 +20,7 @@ export const hubKeys = {
   apiKeys: {
     all: ['api-keys'] as const,
     list: () => ['api-keys', 'list'] as const,
+    scopes: () => ['api-keys', 'scopes'] as const,
   },
   docs: {
     reference: () => ['api-docs', 'openapi'] as const,

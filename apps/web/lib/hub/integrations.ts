@@ -16,24 +16,46 @@ export function useIntegrations() {
     queryKey: hubKeys.integrations.list(),
     queryFn: ({ signal }) => api.call('integrationList', { signal }),
     enabled: !isMockData(),
-    // Sync status and "last checked" move on the server; refresh quietly while the page is open.
+    // Sync times and "last checked" move on the server; refresh quietly while the page is open.
     refetchInterval: 60_000,
+  });
+}
+
+/** Provider catalog: connect fields, setup steps, capabilities, availability on this server, plan feature. */
+export function useIntegrationCatalog() {
+  return useQuery({
+    queryKey: hubKeys.integrations.catalog(),
+    queryFn: ({ signal }) => api.call('integrationCatalog', { signal }),
+    enabled: !isMockData(),
+    staleTime: 10 * 60_000,
   });
 }
 
 export function useIntegrationMutations() {
   const qc = useQueryClient();
+  /** Put the fresh row in the list cache, then refetch in the background. */
   const put = (i: Integration) => {
-    qc.setQueryData<{ items: Integration[] }>(hubKeys.integrations.list(), (prev) => (prev ? { ...prev, items: prev.items.map((x) => (x.provider === i.provider ? i : x)).concat(prev.items.some((x) => x.provider === i.provider) ? [] : [i]) } : prev));
-    return qc.invalidateQueries({ queryKey: hubKeys.integrations.all });
+    qc.setQueryData<{ items: Integration[] }>(hubKeys.integrations.list(), (prev) => (prev ? { ...prev, items: prev.items.map((x) => (x.provider === i.provider ? i : x)) } : prev));
+    return qc.invalidateQueries({ queryKey: hubKeys.integrations.list() });
   };
-  const refresh = () => qc.invalidateQueries({ queryKey: hubKeys.integrations.all });
   return {
     connect: useMutation({
-      mutationFn: ({ provider, body }: { provider: string; body: RouteBody<'integrationConnect'> }) => api.call('integrationConnect', { params: { provider }, body }),
+      mutationFn: ({ provider, body }: { provider: Integration['provider']; body: RouteBody<'integrationConnect'> }) => api.call('integrationConnect', { params: { provider }, body }),
       onSuccess: put,
     }),
-    test: useMutation({ mutationFn: (provider: string) => api.call('integrationTest', { params: { provider } }), onSettled: refresh }),
-    disconnect: useMutation({ mutationFn: (provider: string) => api.call('integrationDisconnect', { params: { provider } }), onSuccess: refresh }),
+    test: useMutation({
+      mutationFn: ({ provider, to }: { provider: Integration['provider']; to?: string }) => api.call('integrationTest', { params: { provider }, body: to ? { to } : {} }),
+      onSuccess: (r) => put(r.integration),
+    }),
+    sync: useMutation({
+      mutationFn: (provider: Integration['provider']) => api.call('integrationSync', { params: { provider } }),
+      onSuccess: (r) => put(r.integration),
+    }),
+    oauthStart: useMutation({ mutationFn: (provider: Integration['provider']) => api.call('integrationOAuthStart', { params: { provider } }) }),
+    rotateToken: useMutation({ mutationFn: (provider: Integration['provider']) => api.call('integrationRotateToken', { params: { provider } }), onSuccess: put }),
+    disconnect: useMutation({
+      mutationFn: (provider: Integration['provider']) => api.call('integrationDisconnect', { params: { provider } }),
+      onSuccess: () => qc.invalidateQueries({ queryKey: hubKeys.integrations.all }),
+    }),
   };
 }

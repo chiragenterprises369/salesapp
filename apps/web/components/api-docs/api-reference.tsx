@@ -3,7 +3,7 @@
 import type { ChipTone } from '@vistar/shared';
 import { BookOpen, KeyRound, Lock, Search, ShieldCheck, X } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { EmptyState } from '@/components/common/empty-state';
 import { InlineAlert, LoadError } from '@/components/settings/common/states';
 import { SettingsCard } from '@/components/settings/settings-card';
@@ -31,10 +31,20 @@ export function MethodChip({ method, className }: { method: string; className?: 
 
 const opAnchor = (id: string) => `op-${id.replace(/[^A-Za-z0-9_-]/g, '-')}`;
 
-function readHash(): string | null {
-  if (typeof window === 'undefined') return null;
-  const h = decodeURIComponent(window.location.hash.replace(/^#/, ''));
-  return h.startsWith('op-') ? h : null;
+/** Location hash as an external store (deep links `#op-...`, back and forward). */
+const HASH_EVENT = 'vistar:hash';
+function subscribeHash(onChange: () => void) {
+  window.addEventListener('hashchange', onChange);
+  window.addEventListener(HASH_EVENT, onChange);
+  return () => {
+    window.removeEventListener('hashchange', onChange);
+    window.removeEventListener(HASH_EVENT, onChange);
+  };
+}
+const readHash = () => decodeURIComponent(window.location.hash.replace(/^#/, ''));
+function setHash(anchor: string) {
+  window.history.replaceState(null, '', `#${anchor}`);
+  window.dispatchEvent(new Event(HASH_EVENT));
 }
 
 /**
@@ -78,27 +88,15 @@ function Reference({ doc }: { doc: OpenApiDocument }) {
   const [query, setQuery] = useState('');
   const found = useMemo(() => searchOperations(all, query), [all, query]);
   const groups = useMemo(() => groupByTag(doc, found), [doc, found]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const hash = useSyncExternalStore(subscribeHash, readHash, () => '');
   const baseUrl = apiBaseUrl(doc);
   const detailRef = useRef<HTMLDivElement>(null);
   const searchId = useId();
 
-  // Deep link (#op-leadList) on load and on back/forward.
-  useEffect(() => {
-    const pick = () => {
-      const anchor = readHash();
-      const op = anchor ? all.find((o) => opAnchor(o.id) === anchor) : null;
-      setSelected(op ? op.id : (all[0]?.id ?? null));
-    };
-    pick();
-    window.addEventListener('hashchange', pick);
-    return () => window.removeEventListener('hashchange', pick);
-  }, [all]);
-
-  const current = all.find((o) => o.id === selected) ?? null;
+  const current = all.find((o) => opAnchor(o.id) === hash) ?? all[0] ?? null;
+  const selected = current?.id ?? null;
   const open = (op: ApiOperation) => {
-    setSelected(op.id);
-    window.history.replaceState(null, '', `#${opAnchor(op.id)}`);
+    setHash(opAnchor(op.id));
     // On narrow screens the detail sits below the list: bring it into view and move focus to it.
     requestAnimationFrame(() => {
       const el = detailRef.current;

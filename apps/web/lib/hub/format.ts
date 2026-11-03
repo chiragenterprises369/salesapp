@@ -108,3 +108,26 @@ export function httpTone(status: number | null | undefined): ChipTone {
   if (status < 500) return 'amber';
   return 'red';
 }
+
+/** "3 Nov, 2:30:12 pm" in the workspace zone (delivery log: seconds matter). */
+export function formatInstant(iso: string | null | undefined, timeZone: string): string {
+  if (!iso) return '';
+  return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true, timeZone }).format(new Date(iso));
+}
+
+/** Pretty JSON for request and response bodies (strings that hold JSON are parsed first). */
+export function prettyBody(body: unknown): string {
+  if (body === null || body === undefined || body === '') return '';
+  if (typeof body === 'string') {
+    try {
+      return JSON.stringify(JSON.parse(body), null, 2);
+    } catch {
+      return body;
+    }
+  }
+  try {
+    return JSON.stringify(body, null, 2);
+  } catch {
+    return String(body);
+  }
+}

@@ -58,6 +58,18 @@ export function inboundNode(url: string, sample?: unknown): string {
   ].join('\n');
 }
 
+/** curl for a source with token verification (tools that cannot sign). */
+export function inboundTokenCurl(url: string, sample?: unknown): string {
+  return [
+    `# Set VISTAR_WEBHOOK_SECRET to the source's token first.`,
+    `curl -X POST ${shellQuote(url)} \\`,
+    `  -H 'Content-Type: application/json' \\`,
+    `  -H "X-Vistar-Token: $VISTAR_WEBHOOK_SECRET" \\`,
+    `  -H "Idempotency-Key: $(date +%s%N)" \\`,
+    `  --data ${shellQuote(bodyText(sample))}`,
+  ].join('\n');
+}
+
 /** Receiver side (Node + Express): verify an outbound Vistar delivery before trusting it. */
 export function outboundVerifyNode(): string {
   return [
