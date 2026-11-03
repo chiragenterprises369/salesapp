@@ -9,6 +9,7 @@ import { hashToken, randomToken } from '../../infra/crypto/secrets.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { securityPolicy } from '../config-registry/snapshot.js';
 import { PlatformMailerService } from '../mail/platform-mailer.service.js';
+import { requireUserId } from '../workspace/users.service.js';
 import { clientIp } from './auth.constants.js';
 import { hashPassword } from './password.js';
 import { SessionService } from './session.service.js';
@@ -147,16 +148,17 @@ export class AccountLinksService {
 
   async status(auth: AuthContext): Promise<EmailVerificationStatus> {
     const db = this.prisma.forTenant(auth.workspaceId);
+    const userId = requireUserId(auth);
     const [user, last] = await Promise.all([
-      db.user.findFirst({ where: { id: auth.userId }, select: { emailVerifiedAt: true } }),
-      db.userToken.findFirst({ where: { userId: auth.userId, kind: 'email_verify' }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
+      db.user.findFirst({ where: { id: userId }, select: { emailVerifiedAt: true } }),
+      db.userToken.findFirst({ where: { userId, kind: 'email_verify' }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
     ]);
     return { verified: !!user?.emailVerifiedAt, verifiedAt: user?.emailVerifiedAt?.toISOString() ?? null, sentAt: last?.createdAt.toISOString() ?? null };
   }
 
   async resend(auth: AuthContext, req: Request): Promise<EmailVerificationStatus> {
     if (auth.impersonation) throw new AppException('FORBIDDEN', 'Not available while viewing as the company');
-    await this.sendVerification(auth.userId, auth.workspaceId, req);
+    await this.sendVerification(requireUserId(auth), auth.workspaceId, req);
     return this.status(auth);
   }
 }

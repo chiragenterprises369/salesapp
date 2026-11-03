@@ -15,6 +15,7 @@ import { AppException } from '../../common/errors/app-exception.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
 import { IntegrationStore } from '../integrations/integration-store.js';
+import { requireUserId } from '../workspace/users.service.js';
 
 const AckSchema = z.array(z.string()).catch([]);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -33,20 +34,28 @@ export class SetupService {
     private readonly integrations: IntegrationStore,
   ) {}
 
-  private async acknowledged(auth: AuthContext): Promise<string[]> {
-    const row = await this.prisma.forTenant(auth.workspaceId).setting.findFirst({ where: { scope: 'workspace', scopeId: auth.workspaceId, key: SETUP_SETTING_KEYS.acknowledged }, select: { value: true } });
+  private async acknowledged(workspaceId: string): Promise<string[]> {
+    const row = await this.prisma.forTenant(workspaceId).setting.findFirst({ where: { scope: 'workspace', scopeId: workspaceId, key: SETUP_SETTING_KEYS.acknowledged }, select: { value: true } });
     return AckSchema.parse(row?.value ?? []);
   }
 
-  async checklist(auth: AuthContext): Promise<SetupChecklist> {
-    const wid = auth.workspaceId;
+  checklist(auth: AuthContext): Promise<SetupChecklist> {
+    return this.checklistFor(auth.workspaceId, auth.userId);
+  }
+
+  /**
+   * The checklist of any workspace. `userId` decides `bannerDismissed` (null: Super Admin view or an API key,
+   * always false). Used by GET /setup and by GET /api/super/companies/{id}/setup.
+   */
+  async checklistFor(workspaceId: string, userId: string | null): Promise<SetupChecklist> {
+    const wid = workspaceId;
     const db = this.prisma.forTenant(wid);
     const settingKeys = [SETTING_KEYS.workspace.brandingLogoLight, SETTING_KEYS.workspace.brandingBrandColor, SETTING_KEYS.workspace.sellerProfile];
     const [ws, settings, ack, banner, users, invites, customRoles, connected, approvedWa, emailTemplates, routing, forms, apiKeys, webhooks, markers, floorRequests, fieldStaff, features] = await Promise.all([
       db.workspace.findFirst({ select: { holidays: true } }),
       db.setting.findMany({ where: { scope: 'workspace', scopeId: wid, key: { in: settingKeys } }, select: { key: true, value: true } }),
-      this.acknowledged(auth),
-      db.setting.findFirst({ where: { scope: 'user', scopeId: auth.userId, key: SETUP_SETTING_KEYS.bannerDismissed }, select: { value: true } }),
+      this.acknowledged(wid),
+      userId ? db.setting.findFirst({ where: { scope: 'user', scopeId: userId, key: SETUP_SETTING_KEYS.bannerDismissed }, select: { value: true } }) : null,
       db.user.count({ where: { isActive: true, deletedAt: null } }),
       db.invite.count({ where: { acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } } }),
       db.role.count({ where: { isSystem: false } }),
@@ -105,7 +114,7 @@ export class SetupService {
   }
 
   private async upsertSetting(auth: AuthContext, scope: 'workspace' | 'user', key: string, value: Prisma.InputJsonValue): Promise<void> {
-    const scopeId = scope === 'workspace' ? auth.workspaceId : auth.userId;
+    const scopeId = scope === 'workspace' ? auth.workspaceId : requireUserId(auth);
     await this.prisma.forTenant(auth.workspaceId).setting.upsert({
       where: { workspaceId_scope_scopeId_key: { workspaceId: auth.workspaceId, scope, scopeId, key } },
       create: { workspaceId: auth.workspaceId, scope, scopeId, key, value },
@@ -115,7 +124,7 @@ export class SetupService {
 
   async acknowledge(auth: AuthContext, req: Request, key: SetupItemKey, acknowledged: boolean): Promise<SetupChecklist> {
     if (!SETUP_ACKNOWLEDGEABLE_ITEMS.includes(key)) throw new AppException('VALIDATION_FAILED', 'This item is detected automatically and cannot be ticked by hand');
-    const current = await this.acknowledged(auth);
+    const current = await this.acknowledged(auth.workspaceId);
     const next = acknowledged ? [...new Set([...current, key])] : current.filter((k) => k !== key);
     await this.upsertSetting(auth, 'workspace', SETUP_SETTING_KEYS.acknowledged, next);
     await this.audit.record(auth, req, { action: 'setup.acknowledge', entityType: 'workspace', entityId: auth.workspaceId, diff: { key, acknowledged } });
@@ -124,7 +133,7 @@ export class SetupService {
 
   async banner(auth: AuthContext, dismissed: boolean): Promise<SetupChecklist> {
     if (dismissed) await this.upsertSetting(auth, 'user', SETUP_SETTING_KEYS.bannerDismissed, new Date().toISOString());
-    else await this.prisma.forTenant(auth.workspaceId).setting.deleteMany({ where: { scope: 'user', scopeId: auth.userId, key: SETUP_SETTING_KEYS.bannerDismissed } });
+    else await this.prisma.forTenant(auth.workspaceId).setting.deleteMany({ where: { scope: 'user', scopeId: requireUserId(auth), key: SETUP_SETTING_KEYS.bannerDismissed } });
     return this.checklist(auth);
   }
 }

@@ -1,9 +1,9 @@
-import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { BUNNY_STORAGE_HOSTS, type StorageDriverKind } from '@vistar/shared';
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { constants as fsConstants, existsSync } from 'node:fs';
 import { createReadStream } from 'node:fs';
-import { copyFile, mkdir, rm, stat } from 'node:fs/promises';
+import { access, copyFile, mkdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
@@ -21,6 +21,8 @@ export interface StorageDriver {
   put(key: string, src: string, size: number, mime: string): Promise<void>;
   get(key: string): Promise<Readable>;
   delete(key: string): Promise<void>;
+  /** Cheap read-only reachability and credential check (readiness probe); throws on failure. */
+  check(): Promise<void>;
 }
 
 /** Monorepo root (the folder with pnpm-workspace.yaml), from the API's working directory. */
@@ -67,6 +69,12 @@ export class LocalDiskDriver implements StorageDriver {
   async delete(key: string): Promise<void> {
     await rm(this.resolve(key), { force: true });
   }
+
+  /** The root exists (created on first use) and is writable. */
+  async check(): Promise<void> {
+    await mkdir(this.root, { recursive: true });
+    await access(this.root, fsConstants.W_OK);
+  }
 }
 
 export class S3Driver implements StorageDriver {
@@ -96,6 +104,11 @@ export class S3Driver implements StorageDriver {
   async delete(key: string): Promise<void> {
     assertKey(key);
     await this.client.send(new DeleteObjectCommand({ Bucket: this.cfg.bucket, Key: key }));
+  }
+
+  /** HeadBucket: the bucket exists and the credentials may access it. */
+  async check(): Promise<void> {
+    await this.client.send(new HeadBucketCommand({ Bucket: this.cfg.bucket }));
   }
 }
 
@@ -134,7 +147,7 @@ export class BunnyDriver implements StorageDriver {
     const res = await fetch(this.url(key), {
       method,
       headers,
-      body: init.body ? (Readable.toWeb(init.body) as unknown as BodyInit) : undefined,
+      body: init.body ? (Readable.toWeb(init.body) as unknown as NonNullable<RequestInit['body']>) : undefined,
       // Node needs duplex 'half' for a streaming request body.
       ...(init.body ? { duplex: 'half' } : {}),
       redirect: 'error',
@@ -163,6 +176,13 @@ export class BunnyDriver implements StorageDriver {
     const res = await this.request('DELETE', key);
     await res.body?.cancel().catch(() => undefined);
     if (res.status !== 200 && res.status !== 404) throw new StorageHttpError(res.status, `Bunny delete failed (HTTP ${res.status})`);
+  }
+
+  /** Lists the zone root (GET <zone>/): 200 with the password, 401 without. */
+  async check(): Promise<void> {
+    const res = await fetch(`${this.base}/`, { headers: { AccessKey: this.cfg.password, accept: 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(10_000) });
+    await res.body?.cancel().catch(() => undefined);
+    if (res.status !== 200) throw new StorageHttpError(res.status, res.status === 401 ? 'Bunny rejected the storage password' : `Bunny answered HTTP ${res.status}`);
   }
 }
 

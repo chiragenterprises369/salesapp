@@ -345,6 +345,7 @@ export class PlatformConfigService implements OnModuleInit, OnModuleDestroy {
       details.push({ path: 'values.clientId', message: 'A Google OAuth client id ends with .apps.googleusercontent.com' });
     }
     if (group === 'whatsapp_app' && typeof values.graphVersion === 'string' && !/^v\d{1,2}\.\d$/.test(values.graphVersion)) details.push({ path: 'values.graphVersion', message: 'Use a Graph API version like v23.0' });
+    if (group === 'storage' && typeof values.bunnyStorageZone === 'string' && !/^[A-Za-z0-9-]{1,64}$/.test(values.bunnyStorageZone)) details.push({ path: 'values.bunnyStorageZone', message: 'A Bunny storage zone name uses letters, digits and hyphens only' });
   }
 
   async reset(admin: PlatformAuthContext, req: Request, group: RegistryGroupKey): Promise<ConfigGroup> {

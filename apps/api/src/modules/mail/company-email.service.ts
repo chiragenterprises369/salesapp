@@ -130,6 +130,12 @@ export class CompanyEmailService {
     });
   }
 
+  /** Company SMTP connected, or the platform mailer available (EMAIL_NOT_CONFIGURED when false). */
+  async isConfigured(workspaceId: string): Promise<boolean> {
+    if (this.platform.isConfigured()) return true;
+    return (await this.companyMailer(workspaceId).catch(() => null)) !== null;
+  }
+
   /** Send a message for a company: its SMTP, else the platform mailer with the company as the sender name. */
   async send(workspaceId: string, msg: MailMessage, opts: { throwOnError?: boolean; senderName?: string | null; tag?: string } = {}): Promise<MailSendResult> {
     let mailer: Mailer | null = null;

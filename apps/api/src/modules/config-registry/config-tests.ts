@@ -2,7 +2,7 @@ import { parseSentryDsn, renderEmail, type ConfigTestResult, type RegistryGroupK
 import { randomUUID } from 'node:crypto';
 import { getEnv } from '../../config/env.js';
 import { exotelTelephony } from '../integrations/providers/adapters.js';
-import { createPlatformMailer, DevLogMailer } from '../mail/mailer.js';
+import { createPlatformMailer, DevLogMailer, type Mailer } from '../mail/mailer.js';
 import { StorageService } from '../storage/storage.service.js';
 import { googleOAuthConfig, mailConfig, monitoringConfig, platformBranding, platformConfig, storageConfig, telephonyConfig, whatsappAppConfig } from './snapshot.js';
 
@@ -18,7 +18,7 @@ function missingResult(group: RegistryGroupKey, started: number): ConfigTestResu
 async function testEmail(to: string, started: number): Promise<ConfigTestResult> {
   const cfg = mailConfig();
   const production = getEnv().NODE_ENV === 'production';
-  const mailer = createPlatformMailer(cfg) ?? (production ? null : new DevLogMailer({ name: platformBranding().productName, email: 'no-reply@vistar.local' }));
+  const mailer: Mailer | null = createPlatformMailer(cfg) ?? (production ? null : new DevLogMailer({ name: platformBranding().productName, email: 'no-reply@vistar.local' }));
   if (!mailer) return missingResult('email', started) ?? result(false, 'Platform email is not configured', started);
   if (mailer.verify) {
     const v = await mailer.verify();

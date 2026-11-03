@@ -56,6 +56,15 @@ export class PlatformMailerService {
     return mailer;
   }
 
+  /**
+   * Can platform e-mail be sent? False only in production without Super Admin > Config > Platform email
+   * (development always has at least the log mailer). PROD-HUB: EMAIL_NOT_CONFIGURED when this and the company
+   * SMTP are both missing (`CompanyEmailService.isConfigured(workspaceId)` checks both).
+   */
+  isConfigured(): boolean {
+    return this.mailer() !== null;
+  }
+
   /** Forget cached template overrides (after a save or reset). */
   invalidateTemplate(key: string): void {
     this.templates.delete(key);

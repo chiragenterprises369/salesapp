@@ -195,7 +195,7 @@ export class EmailTemplatesService {
 
   async companyTest(auth: AuthContext, key: CompanyEmailTemplateKey, body: EmailTemplateTest): Promise<EmailSendResult> {
     const db = this.prisma.forTenant(auth.workspaceId);
-    const to = body.to ?? (await db.user.findFirst({ where: { id: auth.userId }, select: { email: true } }))?.email;
+    const to = body.to ?? (auth.userId ? (await db.user.findFirst({ where: { id: auth.userId }, select: { email: true } }))?.email : undefined);
     if (!to) throw new AppException('VALIDATION_FAILED', 'Enter the recipient', { details: [{ path: 'to', message: 'Required' }] });
     const saved = await this.companyGet(auth, key);
     const override = { subject: body.subject ?? saved.subject, html: sanitizeEmailHtml(body.html ?? saved.html) };

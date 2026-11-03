@@ -96,7 +96,7 @@ export class InviteService {
     const url = `${webOrigin()}/invite/${token}`;
     // ---- change #20: config. E-mail invites are sent for real (platform mailer); the link is still returned.
     if (email) {
-      const [inviter, ws] = await Promise.all([db.user.findFirst({ where: { id: auth.userId }, select: { name: true } }), db.workspace.findFirst({ select: { name: true } })]);
+      const [inviter, ws] = await Promise.all([auth.userId ? db.user.findFirst({ where: { id: auth.userId }, select: { name: true } }) : null, db.workspace.findFirst({ select: { name: true } })]);
       await this.mailer.sendTemplate('invite', email, {
         name: email.split('@')[0] ?? email,
         inviterName: inviter?.name ?? 'Your admin',

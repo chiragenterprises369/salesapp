@@ -54,6 +54,8 @@ export interface ValidatedUpload {
 
 type TokenScope = 't' | 'p';
 
+const HEALTH_CACHE_MS = 30_000;
+
 /**
  * STORAGE (D-065). Validates uploads per purpose (size, extension, MIME, magic bytes, model / APK structure),
  * writes them through the configured driver, and serves them with signed URLs (private) or a public route
@@ -133,6 +135,41 @@ export class StorageService {
     } finally {
       await rm(tmp, { force: true }).catch(() => undefined);
     }
+  }
+
+  // ---------------------------------------------------------------- readiness (change #20, P5 for PROD-HUB's /api/ready)
+
+  private health: { at: number; loadedAt: number; result: { ok: boolean; driver: string; message?: string } } | null = null;
+
+  /**
+   * Readiness of the storage for NEW uploads: a cheap read-only check of the active driver (local root writable,
+   * S3 HeadBucket, Bunny zone listing), cached 30 s so a probe every few seconds does not hit the provider each
+   * time. Never throws. `driver` = 'none' when storage is not configured (production without a driver).
+   */
+  async healthCheck(): Promise<{ ok: boolean; driver: string; message?: string }> {
+    const loadedAt = platformConfig().loadedAt;
+    if (this.health && this.health.loadedAt === loadedAt && Date.now() - this.health.at < HEALTH_CACHE_MS) return this.health.result;
+    let primary: StorageDriver | null;
+    try {
+      primary = this.drivers().primary;
+    } catch {
+      primary = null;
+    }
+    let result: { ok: boolean; driver: string; message?: string };
+    if (!primary) {
+      result = { ok: false, driver: 'none', message: 'File storage is not configured (Super Admin > Config > File storage)' };
+    } else {
+      try {
+        await primary.check();
+        result = { ok: true, driver: primary.name };
+      } catch (err) {
+        const e = err as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+        const message = e.name === 'StorageHttpError' ? (e.message ?? 'Storage error') : e.$metadata?.httpStatusCode ? `S3 answered HTTP ${e.$metadata.httpStatusCode}` : e.name === 'TimeoutError' ? 'The storage server did not answer in time' : `Storage error${e.name ? ` (${e.name})` : ''}`;
+        result = { ok: false, driver: primary.name, message };
+      }
+    }
+    this.health = { at: Date.now(), loadedAt, result };
+    return result;
   }
 
   // ---------------------------------------------------------------- validation
