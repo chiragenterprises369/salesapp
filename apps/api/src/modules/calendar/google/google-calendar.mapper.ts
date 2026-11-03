@@ -85,6 +85,7 @@ export interface GoogleEvent {
   guestsCanInviteOthers?: boolean;
   htmlLink?: string;
   updated?: string;
+  etag?: string;
 }
 
 const RESPONSE: Record<string, string> = { pending: 'needsAction', accepted: 'accepted', declined: 'declined', tentative: 'tentative' };

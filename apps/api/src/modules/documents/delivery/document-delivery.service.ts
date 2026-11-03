@@ -196,7 +196,13 @@ export class DocumentDeliveryService {
     if (template.status !== 'approved') throw new AppException('WHATSAPP_TEMPLATE_NOT_APPROVED', 'This template is not approved by WhatsApp yet');
     const what = kind === 'quotation' ? 'Quotation' : 'Invoice';
     const totals = documentTemplateVars({ kind, buyerName: d.buyerName, sellerName: d.sellerName, number: d.number, totalPaise: d.totalPaise, due: d.due, link: share.url, pdfLink: share.pdfUrl, message: null, senderName: null, brandColor: null });
-    const values: Record<string, string> = { '1': d.buyerName, '2': `${what} ${d.number}`, '3': share.url, '4': totals.total!, ...totals, ...(body.variables ?? {}) };
+    const values: Record<string, string> = { '1': d.buyerName, '2': `${what} ${d.number}`, '3': share.url, '4': totals.total!, ...totals, 'header.media': share.pdfUrl, 'header.filename': `${d.number.replace(/[^\w.-]+/g, '-')}.pdf` };
+    // URL buttons ending in {{1}} (e.g. https://app.example.in/d/{{1}}) get the share token
+    const token = share.url.split('/').pop() ?? '';
+    (Array.isArray(template.buttons) ? (template.buttons as Array<{ type?: string; url?: string }>) : []).forEach((b, i) => {
+      if (b.type === 'url' && b.url && /\{\{\s*1\s*\}\}\s*$/.test(b.url)) values[`button.${i}`] = token;
+    });
+    Object.assign(values, body.variables ?? {});
     const payload = whatsappTemplatePayload(template, values);
 
     // contact and conversation of that number (as an inbound message would create them)

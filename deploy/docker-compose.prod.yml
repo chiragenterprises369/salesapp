@@ -24,6 +24,8 @@ x-api-env: &api-env
   # Caddy is the only hop in front of the API (docker network).
   TRUST_PROXY: ${TRUST_PROXY:-1}
   CUSTOM_DOMAIN_CNAME_TARGET: ${CUSTOM_DOMAIN_CNAME_TARGET:?set CUSTOM_DOMAIN_CNAME_TARGET}
+  # true when the `backup` profile runs (Go-live check; the job also writes a heartbeat row)
+  BACKUP_ENABLED: ${BACKUP_ENABLED:-false}
   DB_POOL_MAX: ${DB_POOL_MAX:-10}
   LOG_LEVEL: ${LOG_LEVEL:-log}
   APP_VERSION: ${APP_VERSION:-unknown}

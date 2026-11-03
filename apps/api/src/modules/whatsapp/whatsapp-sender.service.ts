@@ -12,7 +12,7 @@ import { StorageService } from '../storage/storage.service.js';
 /** What to send through the WhatsApp Cloud API (change #20). */
 export type WhatsappPayload =
   | { kind: 'text'; body: string }
-  | { kind: 'template'; name: string; language: string; bodyParams: string[]; headerParams: string[]; buttonParams: Array<{ index: number; text: string }> }
+  | { kind: 'template'; name: string; language: string; bodyParams: string[]; headerParams: string[]; headerMedia?: { format: 'image' | 'video' | 'document'; link: string; filename?: string }; buttonParams: Array<{ index: number; text: string }> }
   | { kind: 'media'; fileId: string; mime: string; name: string; caption: string | null };
 
 export interface WhatsappSendResult {
@@ -63,18 +63,38 @@ const waId = (phone: string) => phone.replace(/[^\d]/g, '');
  * suffixes from "button.<index>". Throws VALIDATION_FAILED listing missing values (Meta rejects empty parameters).
  */
 export function whatsappTemplatePayload(
-  t: { name: string; language: string; body: string; header: string | null; variables: readonly string[] },
+  t: { name: string; language: string; body: string; header: string | null; variables: readonly string[]; headerFormat?: string | null; headerExample?: string | null; buttons?: unknown },
   values: Record<string, string>,
 ): Extract<WhatsappPayload, { kind: 'template' }> {
   const body = templateParams(t.body, t.variables, values);
-  const header = templateParams(t.header, [], values, 'header.');
+  const format = t.headerFormat ?? 'none';
+  const header = format === 'text' || format === 'none' ? templateParams(t.header, [], values, 'header.') : { params: [], missing: [] };
   const missing = [...header.missing, ...body.missing];
+  // media header (image, video, document): a public https link, e.g. the document PDF
+  let headerMedia: { format: 'image' | 'video' | 'document'; link: string; filename?: string } | undefined;
+  if (format === 'image' || format === 'video' || format === 'document') {
+    const link = values['header.media'] ?? t.headerExample ?? '';
+    if (!/^https:\/\//.test(link)) missing.push('header.media');
+    else headerMedia = { format, link, ...(format === 'document' && values['header.filename'] ? { filename: values['header.filename'].slice(0, 240) } : {}) };
+  }
+  // URL buttons with a dynamic suffix ({{1}} at the end) need their value by button index
+  const buttons = Array.isArray(t.buttons) ? (t.buttons as Array<{ type?: string; url?: string }>) : [];
+  const buttonParams: Array<{ index: number; text: string }> = [];
+  buttons.forEach((b, index) => {
+    if (b.type !== 'url' || !b.url || !/\{\{\s*1\s*\}\}\s*$/.test(b.url)) return;
+    const v = values[`button.${index}`];
+    if (!v) missing.push(`button.${index}`);
+    else buttonParams.push({ index, text: v.slice(0, 2000) });
+  });
+  if (!buttons.length) {
+    // templates synced before buttons were stored: explicit values only
+    for (const [k, v] of Object.entries(values)) {
+      const m = /^button\.(\d)$/.exec(k);
+      if (m && v) buttonParams.push({ index: Number(m[1]), text: v.slice(0, 2000) });
+    }
+  }
   if (missing.length) throw new AppException('VALIDATION_FAILED', 'Fill in every template variable', { details: missing.map((m) => ({ path: `variables.${m}`, message: 'Required' })) });
-  const buttonParams = Object.entries(values)
-    .map(([k, v]) => [/^button\.(\d)$/.exec(k)?.[1], v] as const)
-    .filter((e): e is readonly [string, string] => e[0] !== undefined && !!e[1])
-    .map(([i, text]) => ({ index: Number(i), text: text.slice(0, 2000) }));
-  return { kind: 'template', name: t.name, language: t.language || 'en', bodyParams: body.params, headerParams: header.params, buttonParams };
+  return { kind: 'template', name: t.name, language: t.language || 'en', bodyParams: body.params, headerParams: header.params, ...(headerMedia ? { headerMedia } : {}), buttonParams };
 }
 
 const MOCK_STEPS: Array<{ after: number; status: MessageStatus }> = [
@@ -126,7 +146,8 @@ export class WhatsappSender implements OnModuleDestroy {
     if (payload.kind === 'text') Object.assign(body, { type: 'text', text: { body: payload.body, preview_url: true } });
     if (payload.kind === 'template') {
       const components: unknown[] = [];
-      if (payload.headerParams.length) components.push({ type: 'header', parameters: payload.headerParams.map((text) => ({ type: 'text', text })) });
+      if (payload.headerMedia) components.push({ type: 'header', parameters: [{ type: payload.headerMedia.format, [payload.headerMedia.format]: { link: payload.headerMedia.link, ...(payload.headerMedia.filename ? { filename: payload.headerMedia.filename } : {}) } }] });
+      else if (payload.headerParams.length) components.push({ type: 'header', parameters: payload.headerParams.map((text) => ({ type: 'text', text })) });
       if (payload.bodyParams.length) components.push({ type: 'body', parameters: payload.bodyParams.map((text) => ({ type: 'text', text })) });
       for (const b of payload.buttonParams) components.push({ type: 'button', sub_type: 'url', index: String(b.index), parameters: [{ type: 'text', text: b.text }] });
       Object.assign(body, { type: 'template', template: { name: payload.name, language: { code: payload.language }, ...(components.length ? { components } : {}) } });

@@ -93,5 +93,12 @@ case "$TARGET" in
 esac
 
 find "$DIR" -maxdepth 1 -type f -name 'vistar-*.dump*' -mtime "+$KEEP_LOCAL" -print -delete 2> /dev/null | sed 's/^/backup: removed local /' || true
+
+# Heartbeat for Super Admin > Go-live (contract: PlatformSetting "ops.backup", CONFIG-API contracts-20 section 7)
+SIZE_BYTES="$(stat -c %s "$DIR/$FILE" 2> /dev/null || echo 0)"
+HB_TARGET=local
+[[ "$TARGET" == "s3" || "$TARGET" == "bunny" ]] && HB_TARGET=storage
+psql -v ON_ERROR_STOP=1 -q -c "INSERT INTO \"PlatformSetting\" (\"id\",\"key\",\"value\",\"createdAt\",\"updatedAt\") VALUES (gen_random_uuid(),'ops.backup',jsonb_build_object('lastSuccessAt',now(),'sizeBytes',${SIZE_BYTES},'target','${HB_TARGET}','file','${FILE}'),now(),now()) ON CONFLICT (\"key\") DO UPDATE SET \"value\"=EXCLUDED.\"value\",\"updatedAt\"=now();" \
+  || log "could not record the backup heartbeat (the go-live check will warn)"
 ping_hc
 log "done"

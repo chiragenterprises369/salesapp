@@ -129,6 +129,7 @@ export class GoogleCalendarSyncService implements OnModuleInit, OnModuleDestroy 
     const meeting = deleted ? null : await db.meeting.findFirst({ where: { id: meetingId, deletedAt: null }, include: MEETING_INCLUDE });
     try {
       if (row.mode === 'mock') {
+        if (meeting) await db.meeting.updateMany({ where: { id: meetingId }, data: { externalProvider: 'google_calendar', externalCalendarId: 'mock', externalEventId: googleEventId(meetingId), externalSyncedAt: new Date() } });
         await this.note(workspaceId, row, (s) => ({ ...s, pushed: (s.pushed ?? 0) + 1, lastPushAt: new Date().toISOString(), pending: (s.pending ?? []).filter((id) => id !== meetingId) }));
         return;
       }
@@ -136,7 +137,14 @@ export class GoogleCalendarSyncService implements OnModuleInit, OnModuleDestroy 
       if (!client) return;
       const eventId = googleEventId(meetingId);
       if (!meeting) await client.remove(eventId);
-      else await client.upsert(eventId, toGoogleEvent(meeting, { workspaceId, link: this.link(meetingId), reminders: true }));
+      else {
+        const saved = await client.upsert(eventId, toGoogleEvent(meeting, { workspaceId, link: this.link(meetingId), reminders: true }));
+        // ---- change #20: prod (Meeting.external* columns of the contract: the event in the external calendar)
+        await db.meeting.updateMany({
+          where: { id: meetingId },
+          data: { externalProvider: 'google_calendar', externalCalendarId: (row.config as GoogleConfig).calendarId || 'primary', externalEventId: eventId, externalEtag: saved.etag ?? null, externalSyncedAt: new Date() },
+        });
+      }
       await this.note(workspaceId, row, (s) => ({ ...s, pushed: (s.pushed ?? 0) + 1, lastPushAt: new Date().toISOString(), pending: (s.pending ?? []).filter((id) => id !== meetingId) }));
     } catch (err) {
       const e = err instanceof GoogleApiError ? err : null;
@@ -255,7 +263,7 @@ export class GoogleCalendarSyncService implements OnModuleInit, OnModuleDestroy 
       data.endAt = patch.endAt;
       changed.push('endAt');
     }
-    const res = await db.meeting.updateMany({ where: { id: m.id, version: m.version }, data });
+    const res = await db.meeting.updateMany({ where: { id: m.id, version: m.version }, data: { ...data, externalEtag: e.etag ?? m.externalEtag, externalSyncedAt: new Date() } });
     if (res.count !== 1) return false; // changed in Vistar meanwhile: Vistar wins, the next push overwrites Google
     const updated = await db.meeting.findUniqueOrThrow({ where: { id: m.id }, include: MEETING_INCLUDE });
     await publishSafe(this.events, this.logger, 'meeting.updated', workspaceId, { meeting: toMeeting(updated), changed }, { actor: { type: 'integration', id: row.id, name: GOOGLE_ACTOR_NAME } });
