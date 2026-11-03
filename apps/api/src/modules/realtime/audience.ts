@@ -106,6 +106,10 @@ export const AUDIENCE_RULES: Record<EventName, Rule> = {
   'meeting.updated': ev<'meeting.updated'>((e) => meetingAudience(e.payload.meeting.organizer?.id ?? null, e.payload.meeting.attendees.map((a) => a.userId))),
   'meeting.deleted': ev<'meeting.deleted'>((e) => meetingAudience(e.payload.organizerId, e.payload.attendeeUserIds)),
   'meeting.reminder': () => ({ kind: 'workspace' }), // always addressed to one user room (envelope userId)
+  // ---- change #19 wave C: billing (company admins by default)
+  'billing.subscription_updated': () => ({ kind: 'permission', permission: 'billing.read' }),
+  'billing.invoice_updated': () => ({ kind: 'permission', permission: 'billing.read' }),
+  'billing.usage_alert': () => ({ kind: 'permission', permission: 'billing.read' }),
 };
 
 /** Organizer and attending users; attendees always get their own meetings. */

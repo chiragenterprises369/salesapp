@@ -2,7 +2,7 @@
 
 import type { NotificationType } from '@vistar/shared';
 import { formatDistanceStrict } from 'date-fns';
-import { AlertTriangle, AtSign, Bell, CalendarClock, CheckCheck, Clock, FileUp, Info, ListTodo, MessageCircle, UserPlus, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, AtSign, Bell, CalendarClock, CheckCheck, CircleAlert, Clock, CreditCard, FileUp, Info, ListTodo, MessageCircle, ReceiptIndianRupee, UserPlus, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { EmptyState } from '@/components/common/empty-state';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/common/popover';
@@ -22,6 +22,10 @@ const ICON: Record<NotificationType, LucideIcon> = {
   import_completed: FileUp,
   system: Info,
   meeting_reminder: CalendarClock,
+  // change #19 wave C: billing
+  billing_trial_ending: CreditCard,
+  billing_payment_failed: CircleAlert,
+  billing_invoice_issued: ReceiptIndianRupee,
 };
 
 /**

@@ -20,6 +20,8 @@ import { WorkflowRunStepSchema } from './schemas/workflow.js';
 import { AccountListItemSchema, ContactListItemSchema, DealListItemSchema } from './schemas/crm.js';
 import { InvoiceListItemSchema, PaymentSchema, QuotationListItemSchema } from './schemas/documents.js';
 import { MeetingSchema } from './schemas/calendar.js';
+// ---- change #19 wave C: billing
+import { PlatformInvoiceListItemSchema, SubscriptionSchema, UsageMeterSchema } from './schemas/billing.js';
 
 /**
  * REALTIME EVENT CONTRACT
@@ -237,6 +239,13 @@ export const eventPayloadSchemas = {
   'meeting.deleted': z.object({ meetingId: IdSchema, organizerId: IdSchema.nullable(), attendeeUserIds: z.array(IdSchema) }),
   /** Sent to each attending user's room (envelope userId) `minutesBefore` the occurrence start. */
   'meeting.reminder': z.object({ meeting: MeetingSchema, occurrenceStart: IsoDateTimeSchema, minutesBefore: z.number().int() }),
+  // ---- change #19 wave C: billing (users with billing.read; see realtime/audience.ts)
+  /** Plan, cycle, status, trial or scheduled change of the company's Vistar subscription changed. */
+  'billing.subscription_updated': z.object({ subscription: SubscriptionSchema }),
+  /** A Vistar invoice was issued, paid or cancelled (drafts are not sent to companies). */
+  'billing.invoice_updated': z.object({ invoice: PlatformInvoiceListItemSchema }),
+  /** A usage meter reached 80 % (warning) or 100 % (reached) of the plan limit, or a create was blocked. */
+  'billing.usage_alert': z.object({ meter: UsageMeterSchema, blocked: z.boolean() }),
 } as const;
 
 export type EventName = keyof typeof eventPayloadSchemas;
@@ -274,7 +283,7 @@ export function parseDomainEvent(raw: unknown): DomainEvent {
 }
 
 /** Query-cache scopes the client should invalidate after a resync. */
-export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace', 'contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture-forms'] as const;
+export const SYNC_SCOPES = ['leads', 'board', 'tasks', 'calls', 'conversations', 'notifications', 'dashboard', 'team-floor', 'workflows', 'customization', 'records', 'presence', 'attendance', 'workspace', 'contacts', 'accounts', 'deals', 'products', 'quotations', 'invoices', 'calendar', 'routing', 'capture-forms', /* ---- change #19 wave C: billing */ 'billing'] as const;
 export type SyncScope = (typeof SYNC_SCOPES)[number];
 
 /**
