@@ -111,6 +111,9 @@ components:
                 - IDEMPOTENCY_CONFLICT
                 - API_KEY_SCOPE_NOT_ALLOWED
                 - OAUTH_STATE_INVALID
+                - PAYMENT_PROVIDER_NOT_CONFIGURED
+                - PAYMENT_VERIFICATION_FAILED
+                - PLAN_CHANGE_INVALID
             message:
               type: string
               description: Human-readable, safe to show to the user. Never contains PII or
@@ -130,6 +133,51 @@ components:
                   - message
             requestId:
               type: string
+            planLimit:
+              type: object
+              properties:
+                metric:
+                  type: string
+                  enum:
+                    - seats
+                    - leads
+                    - storage_mb
+                    - whatsapp_messages
+                    - api_calls
+                    - workflow_runs
+                    - api_keys
+                limit:
+                  type: integer
+                used:
+                  type: integer
+                plan:
+                  type: string
+                  enum:
+                    - free
+                    - starter
+                    - growth
+                    - enterprise
+                upgradePlan:
+                  type:
+                    - string
+                    - "null"
+                  enum:
+                    - free
+                    - starter
+                    - growth
+                    - enterprise
+                    - null
+                upgradeUrl:
+                  type: string
+                  description: Web path, e.g. /app/billing?upgrade=growth
+              required:
+                - metric
+                - limit
+                - used
+                - plan
+                - upgradePlan
+                - upgradeUrl
+              description: Only on PLAN_LIMIT_REACHED (402)
           required:
             - code
             - message
@@ -3402,6 +3450,9 @@ components:
             - import_completed
             - system
             - meeting_reminder
+            - billing_trial_ending
+            - billing_payment_failed
+            - billing_invoice_issued
         title:
           type: string
         body:
@@ -6883,6 +6934,1263 @@ components:
           default: {}
       required:
         - fields
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        plan:
+          type: string
+          enum:
+            - free
+            - starter
+            - growth
+            - enterprise
+        planName:
+          type: string
+        status:
+          type: string
+          enum:
+            - trialing
+            - active
+            - past_due
+            - cancelled
+        cycle:
+          type: string
+          enum:
+            - monthly
+            - yearly
+        seatsIncluded:
+          type:
+            - integer
+            - "null"
+          description: Seats in the plan (null = unlimited)
+        extraSeats:
+          type: integer
+          minimum: 0
+        seats:
+          type:
+            - integer
+            - "null"
+          description: Seat limit in effect = seatsIncluded + extraSeats
+        pricePaise:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000000
+          description: Price of one cycle before GST (plan plus extra seats)
+        currentPeriodStart:
+          type: string
+          format: date-time
+        currentPeriodEnd:
+          type: string
+          format: date-time
+        trialEndsAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        trialDaysLeft:
+          type:
+            - integer
+            - "null"
+          description: null when not trialing
+        pastDueSince:
+          type:
+            - string
+            - "null"
+          format: date-time
+        cancelledAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        scheduledChange:
+          type:
+            - object
+            - "null"
+          properties:
+            plan:
+              type: string
+              enum:
+                - free
+                - starter
+                - growth
+                - enterprise
+            cycle:
+              type: string
+              enum:
+                - monthly
+                - yearly
+            effectiveAt:
+              type: string
+              format: date-time
+              description: The current period end
+          required:
+            - plan
+            - cycle
+            - effectiveAt
+          description: A downgrade waiting for the period end
+        billingContact:
+          type:
+            - object
+            - "null"
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 160
+              description: Legal name on Vistar invoices
+            email:
+              type:
+                - string
+                - "null"
+              format: email
+              default: null
+            phone:
+              type:
+                - string
+                - "null"
+              pattern: ^\+[1-9]\d{6,14}$
+              default: null
+            gstin:
+              type:
+                - string
+                - "null"
+              default: null
+              description: Lets the company claim input tax credit
+            address:
+              type:
+                - object
+                - "null"
+              properties:
+                line1:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                line2:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+                  default: null
+                city:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                state:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 80
+                  default: null
+                stateCode:
+                  type:
+                    - string
+                    - "null"
+                  default: null
+                pincode:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 12
+                  default: null
+                country:
+                  type: string
+                  minLength: 2
+                  maxLength: 2
+                  default: IN
+              default: null
+              required:
+                - line1
+                - city
+          required:
+            - name
+        version:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workspaceId
+        - plan
+        - planName
+        - status
+        - cycle
+        - seatsIncluded
+        - extraSeats
+        - seats
+        - pricePaise
+        - currentPeriodStart
+        - currentPeriodEnd
+        - trialEndsAt
+        - trialDaysLeft
+        - pastDueSince
+        - cancelledAt
+        - scheduledChange
+        - billingContact
+        - version
+        - createdAt
+        - updatedAt
+    UsageMeter:
+      type: object
+      properties:
+        metric:
+          type: string
+          enum:
+            - seats
+            - leads
+            - storage_mb
+            - whatsapp_messages
+            - api_calls
+            - workflow_runs
+            - api_keys
+        label:
+          type: string
+        unit:
+          type: string
+          enum:
+            - count
+            - mb
+        window:
+          type: string
+          enum:
+            - total
+            - month
+          description: total = current count; month = this calendar month (IST)
+        used:
+          type: integer
+        limit:
+          type:
+            - integer
+            - "null"
+          description: null = unlimited
+        percent:
+          type:
+            - number
+            - "null"
+        state:
+          type: string
+          enum:
+            - ok
+            - warning
+            - reached
+          description: warning from USAGE_WARNING_PERCENT (80), reached at 100 (creates
+            answer 402)
+      required:
+        - metric
+        - label
+        - unit
+        - window
+        - used
+        - limit
+        - percent
+        - state
+    PlatformInvoiceListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        number:
+          type:
+            - string
+            - "null"
+          description: VST/<FY>/<seq>; null while draft
+        kind:
+          type: string
+          enum:
+            - subscription
+            - plan_change
+            - manual
+        status:
+          type: string
+          enum:
+            - draft
+            - issued
+            - paid
+            - cancelled
+        issueDate:
+          type: string
+          format: date
+        dueDate:
+          type:
+            - string
+            - "null"
+          format: date
+        plan:
+          type:
+            - string
+            - "null"
+          enum:
+            - free
+            - starter
+            - growth
+            - enterprise
+            - null
+        cycle:
+          type:
+            - string
+            - "null"
+          enum:
+            - monthly
+            - yearly
+            - null
+        periodStart:
+          type:
+            - string
+            - "null"
+          format: date
+        periodEnd:
+          type:
+            - string
+            - "null"
+          format: date
+        taxMode:
+          type: string
+          enum:
+            - intra
+            - inter
+        totalPaise:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000000
+        paidPaise:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000000
+        balancePaise:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000000
+        overdue:
+          type: boolean
+          description: Issued and past the due date
+        issuedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        paidAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workspaceId
+        - companyName
+        - number
+        - kind
+        - status
+        - issueDate
+        - dueDate
+        - plan
+        - cycle
+        - periodStart
+        - periodEnd
+        - taxMode
+        - totalPaise
+        - paidPaise
+        - balancePaise
+        - overdue
+        - issuedAt
+        - paidAt
+        - createdAt
+    PlatformInvoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        number:
+          type:
+            - string
+            - "null"
+          description: VST/<FY>/<seq>; null while draft
+        kind:
+          type: string
+          enum:
+            - subscription
+            - plan_change
+            - manual
+        status:
+          type: string
+          enum:
+            - draft
+            - issued
+            - paid
+            - cancelled
+        issueDate:
+          type: string
+          format: date
+        dueDate:
+          type:
+            - string
+            - "null"
+          format: date
+        plan:
+          type:
+            - string
+            - "null"
+          enum:
+            - free
+            - starter
+            - growth
+            - enterprise
+            - null
+        cycle:
+          type:
+            - string
+            - "null"
+          enum:
+            - monthly
+            - yearly
+            - null
+        periodStart:
+          type:
+            - string
+            - "null"
+          format: date
+        periodEnd:
+          type:
+            - string
+            - "null"
+          format: date
+        taxMode:
+          type: string
+          enum:
+            - intra
+            - inter
+        totalPaise:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000000
+        paidPaise:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000000
+        balancePaise:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000000
+        overdue:
+          type: boolean
+          description: Issued and past the due date
+        issuedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        paidAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        seller:
+          type: object
+          properties:
+            legalName:
+              type: string
+              minLength: 1
+              maxLength: 160
+            tradeName:
+              type:
+                - string
+                - "null"
+              maxLength: 160
+              default: null
+            gstin:
+              type:
+                - string
+                - "null"
+              default: null
+              description: null = not GST registered (documents then show no GST lines)
+            pan:
+              type:
+                - string
+                - "null"
+              pattern: ^[A-Z]{5}\d{4}[A-Z]$
+              default: null
+            address:
+              type: object
+              properties:
+                line1:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                line2:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+                  default: null
+                city:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                state:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 80
+                  default: null
+                stateCode:
+                  type:
+                    - string
+                    - "null"
+                  default: null
+                pincode:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 12
+                  default: null
+                country:
+                  type: string
+                  minLength: 2
+                  maxLength: 2
+                  default: IN
+              required:
+                - line1
+                - city
+            phone:
+              type:
+                - string
+                - "null"
+              pattern: ^\+[1-9]\d{6,14}$
+              default: null
+            email:
+              type:
+                - string
+                - "null"
+              format: email
+              default: null
+            website:
+              type:
+                - string
+                - "null"
+              format: uri
+              default: null
+            bank:
+              type: object
+              properties:
+                accountName:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                  default: null
+                accountNumber:
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^\d{6,20}$
+                  default: null
+                ifsc:
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^[A-Z]{4}0[A-Z0-9]{6}$
+                  default: null
+                bankName:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                  default: null
+                branch:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                  default: null
+                upiId:
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^[\w.-]{2,64}@[A-Za-z]{2,64}$
+                  default: null
+              default:
+                accountName: null
+                accountNumber: null
+                ifsc: null
+                bankName: null
+                branch: null
+                upiId: null
+            signatureLabel:
+              type: string
+              maxLength: 80
+              default: Authorised signatory
+          required:
+            - legalName
+            - address
+          description: Vistar, frozen at issue
+        buyer:
+          type: object
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 160
+            gstin:
+              type:
+                - string
+                - "null"
+              default: null
+            pan:
+              type:
+                - string
+                - "null"
+              pattern: ^[A-Z]{5}\d{4}[A-Z]$
+              default: null
+            phone:
+              type:
+                - string
+                - "null"
+              pattern: ^\+[1-9]\d{6,14}$
+              default: null
+            email:
+              type:
+                - string
+                - "null"
+              format: email
+              default: null
+            billingAddress:
+              type:
+                - object
+                - "null"
+              properties:
+                line1:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                line2:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+                  default: null
+                city:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                state:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 80
+                  default: null
+                stateCode:
+                  type:
+                    - string
+                    - "null"
+                  default: null
+                pincode:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 12
+                  default: null
+                country:
+                  type: string
+                  minLength: 2
+                  maxLength: 2
+                  default: IN
+              default: null
+              required:
+                - line1
+                - city
+            shippingAddress:
+              type:
+                - object
+                - "null"
+              properties:
+                line1:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                line2:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 200
+                  default: null
+                city:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                state:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 80
+                  default: null
+                stateCode:
+                  type:
+                    - string
+                    - "null"
+                  default: null
+                pincode:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 12
+                  default: null
+                country:
+                  type: string
+                  minLength: 2
+                  maxLength: 2
+                  default: IN
+              default: null
+              required:
+                - line1
+                - city
+            contactName:
+              type:
+                - string
+                - "null"
+              maxLength: 120
+              default: null
+          required:
+            - name
+          description: The company, from its billing contact (frozen at issue)
+        placeOfSupplyStateCode:
+          type:
+            - string
+            - "null"
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type:
+                  - string
+                  - "null"
+              sacCode:
+                type:
+                  - string
+                  - "null"
+              quantity:
+                type: number
+              unitPricePaise:
+                type: integer
+                minimum: 0
+                maximum: 1000000000000000
+              gstRate:
+                anyOf:
+                  - type: number
+                    enum:
+                      - 0
+                  - type: number
+                    enum:
+                      - 5
+                  - type: number
+                    enum:
+                      - 12
+                  - type: number
+                    enum:
+                      - 18
+                  - type: number
+                    enum:
+                      - 28
+              taxablePaise:
+                type: integer
+                minimum: 0
+                maximum: 1000000000000000
+              cgstPaise:
+                type: integer
+                minimum: 0
+                maximum: 1000000000000000
+              sgstPaise:
+                type: integer
+                minimum: 0
+                maximum: 1000000000000000
+              igstPaise:
+                type: integer
+                minimum: 0
+                maximum: 1000000000000000
+              totalPaise:
+                type: integer
+                minimum: 0
+                maximum: 1000000000000000
+            required:
+              - name
+              - description
+              - sacCode
+              - quantity
+              - unitPricePaise
+              - gstRate
+              - taxablePaise
+              - cgstPaise
+              - sgstPaise
+              - igstPaise
+              - totalPaise
+        totals:
+          type: object
+          properties:
+            taxMode:
+              type: string
+              enum:
+                - intra
+                - inter
+            subtotalPaise:
+              type: integer
+              minimum: 0
+              maximum: 1000000000000000
+            discountPaise:
+              type: integer
+              minimum: 0
+              maximum: 1000000000000000
+            taxablePaise:
+              type: integer
+              minimum: 0
+              maximum: 1000000000000000
+            cgstPaise:
+              type: integer
+              minimum: 0
+              maximum: 1000000000000000
+            sgstPaise:
+              type: integer
+              minimum: 0
+              maximum: 1000000000000000
+            igstPaise:
+              type: integer
+              minimum: 0
+              maximum: 1000000000000000
+            taxPaise:
+              type: integer
+              minimum: 0
+              maximum: 1000000000000000
+            roundOffPaise:
+              type: integer
+              minimum: -1000000000000000
+              maximum: 1000000000000000
+            totalPaise:
+              type: integer
+              minimum: 0
+              maximum: 1000000000000000
+            amountInWords:
+              type: string
+            taxSummary:
+              type: array
+              items:
+                type: object
+                properties:
+                  hsnSac:
+                    type:
+                      - string
+                      - "null"
+                  gstRate:
+                    type: integer
+                  taxablePaise:
+                    type: integer
+                    minimum: 0
+                    maximum: 1000000000000000
+                  cgstPaise:
+                    type: integer
+                    minimum: 0
+                    maximum: 1000000000000000
+                  sgstPaise:
+                    type: integer
+                    minimum: 0
+                    maximum: 1000000000000000
+                  igstPaise:
+                    type: integer
+                    minimum: 0
+                    maximum: 1000000000000000
+                required:
+                  - hsnSac
+                  - gstRate
+                  - taxablePaise
+                  - cgstPaise
+                  - sgstPaise
+                  - igstPaise
+          required:
+            - taxMode
+            - subtotalPaise
+            - discountPaise
+            - taxablePaise
+            - cgstPaise
+            - sgstPaise
+            - igstPaise
+            - taxPaise
+            - roundOffPaise
+            - totalPaise
+            - amountInWords
+            - taxSummary
+        notes:
+          type:
+            - string
+            - "null"
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlatformPayment"
+        cancelledAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        cancelReason:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - workspaceId
+        - companyName
+        - number
+        - kind
+        - status
+        - issueDate
+        - dueDate
+        - plan
+        - cycle
+        - periodStart
+        - periodEnd
+        - taxMode
+        - totalPaise
+        - paidPaise
+        - balancePaise
+        - overdue
+        - issuedAt
+        - paidAt
+        - createdAt
+        - seller
+        - buyer
+        - placeOfSupplyStateCode
+        - lines
+        - totals
+        - notes
+        - payments
+        - cancelledAt
+        - cancelReason
+    PlatformPayment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        invoiceId:
+          type: string
+          format: uuid
+        invoiceNumber:
+          type:
+            - string
+            - "null"
+        amountPaise:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000000
+        status:
+          type: string
+          enum:
+            - created
+            - captured
+            - failed
+            - refunded
+        provider:
+          type: string
+          enum:
+            - razorpay
+            - mock
+            - manual
+        mode:
+          type:
+            - string
+            - "null"
+          enum:
+            - cash
+            - upi
+            - bank_transfer
+            - cheque
+            - card
+            - other
+            - null
+          description: Manual payments only
+        providerOrderId:
+          type:
+            - string
+            - "null"
+        providerPaymentId:
+          type:
+            - string
+            - "null"
+        reference:
+          type:
+            - string
+            - "null"
+        note:
+          type:
+            - string
+            - "null"
+        paidOn:
+          type:
+            - string
+            - "null"
+          format: date
+        failureReason:
+          type:
+            - string
+            - "null"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workspaceId
+        - invoiceId
+        - invoiceNumber
+        - amountPaise
+        - status
+        - provider
+        - mode
+        - providerOrderId
+        - providerPaymentId
+        - reference
+        - note
+        - paidOn
+        - failureReason
+        - createdAt
+    PlanChangeRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+        fromPlan:
+          type: string
+          enum:
+            - free
+            - starter
+            - growth
+            - enterprise
+        toPlan:
+          type: string
+          enum:
+            - free
+            - starter
+            - growth
+            - enterprise
+        cycle:
+          type: string
+          enum:
+            - monthly
+            - yearly
+        status:
+          type: string
+          enum:
+            - pending
+            - approved
+            - rejected
+            - cancelled
+        note:
+          type:
+            - string
+            - "null"
+        requestedBy:
+          type:
+            - object
+            - "null"
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            role:
+              type: string
+              enum:
+                - company_admin
+                - manager
+                - employee
+                - viewer
+            status:
+              type: string
+              enum:
+                - on_call
+                - busy
+                - idle
+                - away
+                - offline
+            avatar:
+              type:
+                - object
+                - "null"
+              properties:
+                skinTone:
+                  type: string
+                  pattern: ^#[0-9A-Fa-f]{6}$
+                hairColor:
+                  type: string
+                  pattern: ^#[0-9A-Fa-f]{6}$
+                hairStyle:
+                  type: string
+                  enum:
+                    - short
+                    - long
+                    - bun
+                    - curly
+                    - bald
+                outfitColor:
+                  type: string
+                  pattern: ^#[0-9A-Fa-f]{6}$
+              required:
+                - skinTone
+                - hairColor
+                - hairStyle
+                - outfitColor
+          required:
+            - id
+            - name
+            - role
+            - status
+            - avatar
+        decidedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        decisionNote:
+          type:
+            - string
+            - "null"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - workspaceId
+        - companyName
+        - fromPlan
+        - toPlan
+        - cycle
+        - status
+        - note
+        - requestedBy
+        - decidedAt
+        - decisionNote
+        - createdAt
+    Checkout:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - razorpay
+            - mock
+        mode:
+          type:
+            - string
+            - "null"
+          enum:
+            - test
+            - live
+            - null
+        keyId:
+          type:
+            - string
+            - "null"
+          description: Razorpay key id (public); null for mock
+        scriptUrl:
+          type:
+            - string
+            - "null"
+          description: RAZORPAY_CHECKOUT_SCRIPT; null for mock
+        orderId:
+          type: string
+        amountPaise:
+          type: integer
+          minimum: 0
+          maximum: 1000000000000000
+        currency:
+          type: string
+          enum:
+            - INR
+        invoiceId:
+          type: string
+          format: uuid
+        invoiceNumber:
+          type:
+            - string
+            - "null"
+        name:
+          type: string
+          description: Merchant name shown in the checkout
+        description:
+          type: string
+        prefill:
+          type: object
+          properties:
+            name:
+              type:
+                - string
+                - "null"
+            email:
+              type:
+                - string
+                - "null"
+            contact:
+              type:
+                - string
+                - "null"
+          required:
+            - name
+            - email
+            - contact
+        notes:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - provider
+        - mode
+        - keyId
+        - scriptUrl
+        - orderId
+        - amountPaise
+        - currency
+        - invoiceId
+        - invoiceNumber
+        - name
+        - description
+        - prefill
+        - notes
   parameters: {}
 paths:
   /api/health:
@@ -26522,6 +27830,14 @@ paths:
                               type:
                                 - integer
                                 - "null"
+                            apiKeys:
+                              type:
+                                - integer
+                                - "null"
+                            apiCallsPerMonth:
+                              type:
+                                - integer
+                                - "null"
                           required:
                             - seats
                             - leads
@@ -26665,6 +27981,14 @@ paths:
                       type:
                         - integer
                         - "null"
+                    apiKeys:
+                      type:
+                        - integer
+                        - "null"
+                    apiCallsPerMonth:
+                      type:
+                        - integer
+                        - "null"
                   required:
                     - seats
                     - leads
@@ -26782,6 +28106,14 @@ paths:
                           - integer
                           - "null"
                       storageMb:
+                        type:
+                          - integer
+                          - "null"
+                      apiKeys:
+                        type:
+                          - integer
+                          - "null"
+                      apiCallsPerMonth:
                         type:
                           - integer
                           - "null"
@@ -73156,6 +74488,4367 @@ paths:
                   - ok
                   - message
                   - redirectUrl
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing:
+    get:
+      operationId: billingOverview
+      summary: Subscription, plan, usage meters, checkout availability, pending
+        request and open invoices
+      description: "Requires permission `billing.read`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscription:
+                    $ref: "#/components/schemas/Subscription"
+                  plan:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      name:
+                        type: string
+                      priceInrMonthly:
+                        type: integer
+                        minimum: 0
+                      priceInrYearly:
+                        type: integer
+                        minimum: 0
+                      limits:
+                        type: object
+                        properties:
+                          seats:
+                            type:
+                              - integer
+                              - "null"
+                          leads:
+                            type:
+                              - integer
+                              - "null"
+                          whatsappMessagesPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          workflowRunsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          storageMb:
+                            type:
+                              - integer
+                              - "null"
+                          apiKeys:
+                            type:
+                              - integer
+                              - "null"
+                          apiCallsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - seats
+                          - leads
+                          - whatsappMessagesPerMonth
+                          - workflowRunsPerMonth
+                          - storageMb
+                      features:
+                        type: object
+                        properties:
+                          team_floor_3d:
+                            type: boolean
+                          ai_node:
+                            type: boolean
+                          telephony:
+                            type: boolean
+                          api_access:
+                            type: boolean
+                          whatsapp:
+                            type: boolean
+                          employee_rank:
+                            type: boolean
+                          custom_domain:
+                            type: boolean
+                          field_tracking:
+                            type: boolean
+                        required:
+                          - team_floor_3d
+                          - ai_node
+                          - telephony
+                          - api_access
+                          - whatsapp
+                          - employee_rank
+                          - custom_domain
+                          - field_tracking
+                      overage:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          perSeatInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000LeadsInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000WhatsappInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000RunsInr:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - perSeatInr
+                          - per1000LeadsInr
+                          - per1000WhatsappInr
+                          - per1000RunsInr
+                      trialDays:
+                        type: integer
+                        minimum: 0
+                      isActive:
+                        type: boolean
+                    required:
+                      - key
+                      - name
+                      - priceInrMonthly
+                      - priceInrYearly
+                      - limits
+                      - features
+                      - overage
+                      - trialDays
+                      - isActive
+                  usage:
+                    type: object
+                    properties:
+                      period:
+                        type: string
+                        description: YYYY-MM (IST) of the monthly meters
+                      meters:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/UsageMeter"
+                      generatedAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - period
+                      - meters
+                      - generatedAt
+                  checkout:
+                    type: object
+                    properties:
+                      available:
+                        type: boolean
+                        description: 'false = no Razorpay config and not in development: show "Request
+                          change"'
+                      provider:
+                        type:
+                          - string
+                          - "null"
+                        enum:
+                          - razorpay
+                          - mock
+                          - null
+                      mode:
+                        type:
+                          - string
+                          - "null"
+                        enum:
+                          - test
+                          - live
+                          - null
+                    required:
+                      - available
+                      - provider
+                      - mode
+                  pendingRequest:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      workspaceId:
+                        type: string
+                        format: uuid
+                      companyName:
+                        type: string
+                      fromPlan:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      toPlan:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      cycle:
+                        type: string
+                        enum:
+                          - monthly
+                          - yearly
+                      status:
+                        type: string
+                        enum:
+                          - pending
+                          - approved
+                          - rejected
+                          - cancelled
+                      note:
+                        type:
+                          - string
+                          - "null"
+                      requestedBy:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                          role:
+                            type: string
+                            enum:
+                              - company_admin
+                              - manager
+                              - employee
+                              - viewer
+                          status:
+                            type: string
+                            enum:
+                              - on_call
+                              - busy
+                              - idle
+                              - away
+                              - offline
+                          avatar:
+                            type:
+                              - object
+                              - "null"
+                            properties:
+                              skinTone:
+                                type: string
+                                pattern: ^#[0-9A-Fa-f]{6}$
+                              hairColor:
+                                type: string
+                                pattern: ^#[0-9A-Fa-f]{6}$
+                              hairStyle:
+                                type: string
+                                enum:
+                                  - short
+                                  - long
+                                  - bun
+                                  - curly
+                                  - bald
+                              outfitColor:
+                                type: string
+                                pattern: ^#[0-9A-Fa-f]{6}$
+                            required:
+                              - skinTone
+                              - hairColor
+                              - hairStyle
+                              - outfitColor
+                        required:
+                          - id
+                          - name
+                          - role
+                          - status
+                          - avatar
+                      decidedAt:
+                        type:
+                          - string
+                          - "null"
+                        format: date-time
+                      decisionNote:
+                        type:
+                          - string
+                          - "null"
+                      createdAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - id
+                      - workspaceId
+                      - companyName
+                      - fromPlan
+                      - toPlan
+                      - cycle
+                      - status
+                      - note
+                      - requestedBy
+                      - decidedAt
+                      - decisionNote
+                      - createdAt
+                  openInvoices:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                      balancePaise:
+                        type: integer
+                        minimum: 0
+                        maximum: 1000000000000000
+                      overdue:
+                        type: integer
+                    required:
+                      - count
+                      - balancePaise
+                      - overdue
+                  nextInvoiceAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: Renewal or end of trial for paid plans; null on free
+                required:
+                  - subscription
+                  - plan
+                  - usage
+                  - checkout
+                  - pendingRequest
+                  - openInvoices
+                  - nextInvoiceAt
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/usage:
+    get:
+      operationId: billingUsage
+      summary: Usage against plan limits (seats, leads, storage, WhatsApp, API calls,
+        workflow runs, API keys); 80 % warning, 100 % reached
+      description: "Requires permission `billing.read`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: string
+                    description: YYYY-MM (IST) of the monthly meters
+                  meters:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UsageMeter"
+                  generatedAt:
+                    type: string
+                    format: date-time
+                required:
+                  - period
+                  - meters
+                  - generatedAt
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/plans:
+    get:
+      operationId: billingPlans
+      summary: Active plans for the comparison table
+      description: "Requires permission `billing.read`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          enum:
+                            - free
+                            - starter
+                            - growth
+                            - enterprise
+                        name:
+                          type: string
+                        priceInrMonthly:
+                          type: integer
+                          minimum: 0
+                        priceInrYearly:
+                          type: integer
+                          minimum: 0
+                        limits:
+                          type: object
+                          properties:
+                            seats:
+                              type:
+                                - integer
+                                - "null"
+                            leads:
+                              type:
+                                - integer
+                                - "null"
+                            whatsappMessagesPerMonth:
+                              type:
+                                - integer
+                                - "null"
+                            workflowRunsPerMonth:
+                              type:
+                                - integer
+                                - "null"
+                            storageMb:
+                              type:
+                                - integer
+                                - "null"
+                            apiKeys:
+                              type:
+                                - integer
+                                - "null"
+                            apiCallsPerMonth:
+                              type:
+                                - integer
+                                - "null"
+                          required:
+                            - seats
+                            - leads
+                            - whatsappMessagesPerMonth
+                            - workflowRunsPerMonth
+                            - storageMb
+                        features:
+                          type: object
+                          properties:
+                            team_floor_3d:
+                              type: boolean
+                            ai_node:
+                              type: boolean
+                            telephony:
+                              type: boolean
+                            api_access:
+                              type: boolean
+                            whatsapp:
+                              type: boolean
+                            employee_rank:
+                              type: boolean
+                            custom_domain:
+                              type: boolean
+                            field_tracking:
+                              type: boolean
+                          required:
+                            - team_floor_3d
+                            - ai_node
+                            - telephony
+                            - api_access
+                            - whatsapp
+                            - employee_rank
+                            - custom_domain
+                            - field_tracking
+                        overage:
+                          type:
+                            - object
+                            - "null"
+                          properties:
+                            perSeatInr:
+                              type:
+                                - integer
+                                - "null"
+                            per1000LeadsInr:
+                              type:
+                                - integer
+                                - "null"
+                            per1000WhatsappInr:
+                              type:
+                                - integer
+                                - "null"
+                            per1000RunsInr:
+                              type:
+                                - integer
+                                - "null"
+                          required:
+                            - perSeatInr
+                            - per1000LeadsInr
+                            - per1000WhatsappInr
+                            - per1000RunsInr
+                        trialDays:
+                          type: integer
+                          minimum: 0
+                        isActive:
+                          type: boolean
+                      required:
+                        - key
+                        - name
+                        - priceInrMonthly
+                        - priceInrYearly
+                        - limits
+                        - features
+                        - overage
+                        - trialDays
+                        - isActive
+                required:
+                  - items
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/contact:
+    put:
+      operationId: billingContactUpdate
+      summary: Billing contact, GSTIN and address printed on Vistar invoices (state
+        code = place of supply); audited
+      description: "Requires permission `billing.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                  description: Legal name on Vistar invoices
+                email:
+                  type:
+                    - string
+                    - "null"
+                  format: email
+                  default: null
+                phone:
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^\+[1-9]\d{6,14}$
+                  default: null
+                gstin:
+                  type:
+                    - string
+                    - "null"
+                  default: null
+                  description: Lets the company claim input tax credit
+                address:
+                  type:
+                    - object
+                    - "null"
+                  properties:
+                    line1:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    line2:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 200
+                      default: null
+                    city:
+                      type: string
+                      minLength: 1
+                      maxLength: 80
+                    state:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 80
+                      default: null
+                    stateCode:
+                      type:
+                        - string
+                        - "null"
+                      default: null
+                    pincode:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 12
+                      default: null
+                    country:
+                      type: string
+                      minLength: 2
+                      maxLength: 2
+                      default: IN
+                  default: null
+                  required:
+                    - line1
+                    - city
+              required:
+                - name
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    minLength: 1
+                    maxLength: 160
+                    description: Legal name on Vistar invoices
+                  email:
+                    type:
+                      - string
+                      - "null"
+                    format: email
+                    default: null
+                  phone:
+                    type:
+                      - string
+                      - "null"
+                    pattern: ^\+[1-9]\d{6,14}$
+                    default: null
+                  gstin:
+                    type:
+                      - string
+                      - "null"
+                    default: null
+                    description: Lets the company claim input tax credit
+                  address:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      line1:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                      line2:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 200
+                        default: null
+                      city:
+                        type: string
+                        minLength: 1
+                        maxLength: 80
+                      state:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 80
+                        default: null
+                      stateCode:
+                        type:
+                          - string
+                          - "null"
+                        default: null
+                      pincode:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 12
+                        default: null
+                      country:
+                        type: string
+                        minLength: 2
+                        maxLength: 2
+                        default: IN
+                    default: null
+                    required:
+                      - line1
+                      - city
+                required:
+                  - name
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/plan-change:
+    post:
+      operationId: billingPlanChange
+      summary: "Change plan: upgrade now via checkout (prorated invoice), otherwise a
+        request for the Super Admin; downgrade at the period end"
+      description: "Requires permission `billing.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan:
+                  type: string
+                  enum:
+                    - free
+                    - starter
+                    - growth
+                    - enterprise
+                cycle:
+                  type: string
+                  enum:
+                    - monthly
+                    - yearly
+                  description: "Default: the current cycle"
+                note:
+                  type: string
+                  maxLength: 500
+              required:
+                - plan
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outcome:
+                    type: string
+                    enum:
+                      - checkout
+                      - scheduled
+                      - requested
+                      - applied
+                  subscription:
+                    $ref: "#/components/schemas/Subscription"
+                  checkout:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      provider:
+                        type: string
+                        enum:
+                          - razorpay
+                          - mock
+                      mode:
+                        type:
+                          - string
+                          - "null"
+                        enum:
+                          - test
+                          - live
+                          - null
+                      keyId:
+                        type:
+                          - string
+                          - "null"
+                        description: Razorpay key id (public); null for mock
+                      scriptUrl:
+                        type:
+                          - string
+                          - "null"
+                        description: RAZORPAY_CHECKOUT_SCRIPT; null for mock
+                      orderId:
+                        type: string
+                      amountPaise:
+                        type: integer
+                        minimum: 0
+                        maximum: 1000000000000000
+                      currency:
+                        type: string
+                        enum:
+                          - INR
+                      invoiceId:
+                        type: string
+                        format: uuid
+                      invoiceNumber:
+                        type:
+                          - string
+                          - "null"
+                      name:
+                        type: string
+                        description: Merchant name shown in the checkout
+                      description:
+                        type: string
+                      prefill:
+                        type: object
+                        properties:
+                          name:
+                            type:
+                              - string
+                              - "null"
+                          email:
+                            type:
+                              - string
+                              - "null"
+                          contact:
+                            type:
+                              - string
+                              - "null"
+                        required:
+                          - name
+                          - email
+                          - contact
+                      notes:
+                        type: object
+                        additionalProperties:
+                          type: string
+                    required:
+                      - provider
+                      - mode
+                      - keyId
+                      - scriptUrl
+                      - orderId
+                      - amountPaise
+                      - currency
+                      - invoiceId
+                      - invoiceNumber
+                      - name
+                      - description
+                      - prefill
+                      - notes
+                  invoice:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      workspaceId:
+                        type: string
+                        format: uuid
+                      companyName:
+                        type: string
+                      number:
+                        type:
+                          - string
+                          - "null"
+                        description: VST/<FY>/<seq>; null while draft
+                      kind:
+                        type: string
+                        enum:
+                          - subscription
+                          - plan_change
+                          - manual
+                      status:
+                        type: string
+                        enum:
+                          - draft
+                          - issued
+                          - paid
+                          - cancelled
+                      issueDate:
+                        type: string
+                        format: date
+                      dueDate:
+                        type:
+                          - string
+                          - "null"
+                        format: date
+                      plan:
+                        type:
+                          - string
+                          - "null"
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                          - null
+                      cycle:
+                        type:
+                          - string
+                          - "null"
+                        enum:
+                          - monthly
+                          - yearly
+                          - null
+                      periodStart:
+                        type:
+                          - string
+                          - "null"
+                        format: date
+                      periodEnd:
+                        type:
+                          - string
+                          - "null"
+                        format: date
+                      taxMode:
+                        type: string
+                        enum:
+                          - intra
+                          - inter
+                      totalPaise:
+                        type: integer
+                        minimum: 0
+                        maximum: 1000000000000000
+                      paidPaise:
+                        type: integer
+                        minimum: 0
+                        maximum: 1000000000000000
+                      balancePaise:
+                        type: integer
+                        minimum: 0
+                        maximum: 1000000000000000
+                      overdue:
+                        type: boolean
+                        description: Issued and past the due date
+                      issuedAt:
+                        type:
+                          - string
+                          - "null"
+                        format: date-time
+                      paidAt:
+                        type:
+                          - string
+                          - "null"
+                        format: date-time
+                      createdAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - id
+                      - workspaceId
+                      - companyName
+                      - number
+                      - kind
+                      - status
+                      - issueDate
+                      - dueDate
+                      - plan
+                      - cycle
+                      - periodStart
+                      - periodEnd
+                      - taxMode
+                      - totalPaise
+                      - paidPaise
+                      - balancePaise
+                      - overdue
+                      - issuedAt
+                      - paidAt
+                      - createdAt
+                  request:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      workspaceId:
+                        type: string
+                        format: uuid
+                      companyName:
+                        type: string
+                      fromPlan:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      toPlan:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      cycle:
+                        type: string
+                        enum:
+                          - monthly
+                          - yearly
+                      status:
+                        type: string
+                        enum:
+                          - pending
+                          - approved
+                          - rejected
+                          - cancelled
+                      note:
+                        type:
+                          - string
+                          - "null"
+                      requestedBy:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                          role:
+                            type: string
+                            enum:
+                              - company_admin
+                              - manager
+                              - employee
+                              - viewer
+                          status:
+                            type: string
+                            enum:
+                              - on_call
+                              - busy
+                              - idle
+                              - away
+                              - offline
+                          avatar:
+                            type:
+                              - object
+                              - "null"
+                            properties:
+                              skinTone:
+                                type: string
+                                pattern: ^#[0-9A-Fa-f]{6}$
+                              hairColor:
+                                type: string
+                                pattern: ^#[0-9A-Fa-f]{6}$
+                              hairStyle:
+                                type: string
+                                enum:
+                                  - short
+                                  - long
+                                  - bun
+                                  - curly
+                                  - bald
+                              outfitColor:
+                                type: string
+                                pattern: ^#[0-9A-Fa-f]{6}$
+                            required:
+                              - skinTone
+                              - hairColor
+                              - hairStyle
+                              - outfitColor
+                        required:
+                          - id
+                          - name
+                          - role
+                          - status
+                          - avatar
+                      decidedAt:
+                        type:
+                          - string
+                          - "null"
+                        format: date-time
+                      decisionNote:
+                        type:
+                          - string
+                          - "null"
+                      createdAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - id
+                      - workspaceId
+                      - companyName
+                      - fromPlan
+                      - toPlan
+                      - cycle
+                      - status
+                      - note
+                      - requestedBy
+                      - decidedAt
+                      - decisionNote
+                      - createdAt
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                    description: e.g. usage above the limits of the lower plan
+                required:
+                  - outcome
+                  - subscription
+                  - checkout
+                  - invoice
+                  - request
+                  - warnings
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: billingPlanChangeCancel
+      summary: Cancel the scheduled downgrade or the pending request
+      description: "Requires permission `billing.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subscription:
+                    $ref: "#/components/schemas/Subscription"
+                  plan:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      name:
+                        type: string
+                      priceInrMonthly:
+                        type: integer
+                        minimum: 0
+                      priceInrYearly:
+                        type: integer
+                        minimum: 0
+                      limits:
+                        type: object
+                        properties:
+                          seats:
+                            type:
+                              - integer
+                              - "null"
+                          leads:
+                            type:
+                              - integer
+                              - "null"
+                          whatsappMessagesPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          workflowRunsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          storageMb:
+                            type:
+                              - integer
+                              - "null"
+                          apiKeys:
+                            type:
+                              - integer
+                              - "null"
+                          apiCallsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - seats
+                          - leads
+                          - whatsappMessagesPerMonth
+                          - workflowRunsPerMonth
+                          - storageMb
+                      features:
+                        type: object
+                        properties:
+                          team_floor_3d:
+                            type: boolean
+                          ai_node:
+                            type: boolean
+                          telephony:
+                            type: boolean
+                          api_access:
+                            type: boolean
+                          whatsapp:
+                            type: boolean
+                          employee_rank:
+                            type: boolean
+                          custom_domain:
+                            type: boolean
+                          field_tracking:
+                            type: boolean
+                        required:
+                          - team_floor_3d
+                          - ai_node
+                          - telephony
+                          - api_access
+                          - whatsapp
+                          - employee_rank
+                          - custom_domain
+                          - field_tracking
+                      overage:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          perSeatInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000LeadsInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000WhatsappInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000RunsInr:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - perSeatInr
+                          - per1000LeadsInr
+                          - per1000WhatsappInr
+                          - per1000RunsInr
+                      trialDays:
+                        type: integer
+                        minimum: 0
+                      isActive:
+                        type: boolean
+                    required:
+                      - key
+                      - name
+                      - priceInrMonthly
+                      - priceInrYearly
+                      - limits
+                      - features
+                      - overage
+                      - trialDays
+                      - isActive
+                  usage:
+                    type: object
+                    properties:
+                      period:
+                        type: string
+                        description: YYYY-MM (IST) of the monthly meters
+                      meters:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/UsageMeter"
+                      generatedAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - period
+                      - meters
+                      - generatedAt
+                  checkout:
+                    type: object
+                    properties:
+                      available:
+                        type: boolean
+                        description: 'false = no Razorpay config and not in development: show "Request
+                          change"'
+                      provider:
+                        type:
+                          - string
+                          - "null"
+                        enum:
+                          - razorpay
+                          - mock
+                          - null
+                      mode:
+                        type:
+                          - string
+                          - "null"
+                        enum:
+                          - test
+                          - live
+                          - null
+                    required:
+                      - available
+                      - provider
+                      - mode
+                  pendingRequest:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      workspaceId:
+                        type: string
+                        format: uuid
+                      companyName:
+                        type: string
+                      fromPlan:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      toPlan:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      cycle:
+                        type: string
+                        enum:
+                          - monthly
+                          - yearly
+                      status:
+                        type: string
+                        enum:
+                          - pending
+                          - approved
+                          - rejected
+                          - cancelled
+                      note:
+                        type:
+                          - string
+                          - "null"
+                      requestedBy:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                          role:
+                            type: string
+                            enum:
+                              - company_admin
+                              - manager
+                              - employee
+                              - viewer
+                          status:
+                            type: string
+                            enum:
+                              - on_call
+                              - busy
+                              - idle
+                              - away
+                              - offline
+                          avatar:
+                            type:
+                              - object
+                              - "null"
+                            properties:
+                              skinTone:
+                                type: string
+                                pattern: ^#[0-9A-Fa-f]{6}$
+                              hairColor:
+                                type: string
+                                pattern: ^#[0-9A-Fa-f]{6}$
+                              hairStyle:
+                                type: string
+                                enum:
+                                  - short
+                                  - long
+                                  - bun
+                                  - curly
+                                  - bald
+                              outfitColor:
+                                type: string
+                                pattern: ^#[0-9A-Fa-f]{6}$
+                            required:
+                              - skinTone
+                              - hairColor
+                              - hairStyle
+                              - outfitColor
+                        required:
+                          - id
+                          - name
+                          - role
+                          - status
+                          - avatar
+                      decidedAt:
+                        type:
+                          - string
+                          - "null"
+                        format: date-time
+                      decisionNote:
+                        type:
+                          - string
+                          - "null"
+                      createdAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - id
+                      - workspaceId
+                      - companyName
+                      - fromPlan
+                      - toPlan
+                      - cycle
+                      - status
+                      - note
+                      - requestedBy
+                      - decidedAt
+                      - decisionNote
+                      - createdAt
+                  openInvoices:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                      balancePaise:
+                        type: integer
+                        minimum: 0
+                        maximum: 1000000000000000
+                      overdue:
+                        type: integer
+                    required:
+                      - count
+                      - balancePaise
+                      - overdue
+                  nextInvoiceAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                    description: Renewal or end of trial for paid plans; null on free
+                required:
+                  - subscription
+                  - plan
+                  - usage
+                  - checkout
+                  - pendingRequest
+                  - openInvoices
+                  - nextInvoiceAt
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/invoices:
+    get:
+      operationId: billingInvoiceList
+      summary: Vistar invoices of the company, newest first
+      description: "Requires permission `billing.read`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            description: Opaque cursor from the previous page nextCursor
+          required: false
+          description: Opaque cursor from the previous page nextCursor
+          name: cursor
+          in: query
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          required: false
+          name: limit
+          in: query
+        - schema:
+            type: string
+            enum:
+              - draft
+              - issued
+              - paid
+              - cancelled
+          required: false
+          name: status
+          in: query
+        - schema:
+            type: string
+            enum:
+              - subscription
+              - plan_change
+              - manual
+          required: false
+          name: kind
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: overdue
+          in: query
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformInvoiceListItem"
+                  nextCursor:
+                    type:
+                      - string
+                      - "null"
+                  total:
+                    type: integer
+                    description: Present only when cheap to compute or requested
+                required:
+                  - items
+                  - nextCursor
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/invoices/{id}:
+    get:
+      operationId: billingInvoiceGet
+      summary: Vistar invoice with lines, GST totals and payments (drafts are not
+        shown to companies)
+      description: "Requires permission `billing.read`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformInvoice"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/invoices/{id}/pdf:
+    get:
+      operationId: billingInvoicePdf
+      summary: A4 tax invoice PDF from Vistar (?download=1)
+      description: "Requires permission `billing.read`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+          required: false
+          name: download
+          in: query
+      responses:
+        "200":
+          description: OK
+          content:
+            application/pdf:
+              schema:
+                type: string
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/invoices/{id}/pay:
+    post:
+      operationId: billingInvoicePay
+      summary: Start checkout for an issued invoice (Razorpay order or mock order);
+        422 PAYMENT_PROVIDER_NOT_CONFIGURED without a provider
+      description: "Requires permission `billing.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Checkout"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/checkout/verify:
+    post:
+      operationId: billingCheckoutVerify
+      summary: Verify the checkout.js success fields (HMAC of order|payment); marks
+        the invoice paid and applies a paid upgrade; idempotent
+      description: "Requires permission `billing.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                paymentId:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                signature:
+                  type: string
+                  pattern: ^[0-9a-f]{64}$
+              required:
+                - orderId
+                - paymentId
+                - signature
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice:
+                    $ref: "#/components/schemas/PlatformInvoice"
+                  subscription:
+                    $ref: "#/components/schemas/Subscription"
+                required:
+                  - invoice
+                  - subscription
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/checkout/mock-pay:
+    post:
+      operationId: billingCheckoutMockPay
+      summary: "Dev mock checkout: returns signed success fields (or records a
+        failure); 404 unless the mock provider is active"
+      description: "Requires permission `billing.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+                outcome:
+                  type: string
+                  enum:
+                    - success
+                    - failure
+                  default: success
+              required:
+                - orderId
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                  paymentId:
+                    type: string
+                  signature:
+                    type:
+                      - string
+                      - "null"
+                    description: null when the outcome is failure
+                  error:
+                    type:
+                      - string
+                      - "null"
+                required:
+                  - orderId
+                  - paymentId
+                  - signature
+                  - error
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/billing/payments:
+    get:
+      operationId: billingPaymentList
+      summary: Payment history (captured, failed, refunded)
+      description: "Requires permission `billing.read`. Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            description: Opaque cursor from the previous page nextCursor
+          required: false
+          description: Opaque cursor from the previous page nextCursor
+          name: cursor
+          in: query
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          required: false
+          name: limit
+          in: query
+        - schema:
+            type: string
+            enum:
+              - created
+              - captured
+              - failed
+              - refunded
+          required: false
+          name: status
+          in: query
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformPayment"
+                  nextCursor:
+                    type:
+                      - string
+                      - "null"
+                  total:
+                    type: integer
+                    description: Present only when cheap to compute or requested
+                required:
+                  - items
+                  - nextCursor
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/hooks/razorpay:
+    post:
+      operationId: razorpayWebhook
+      summary: Razorpay events (X-Razorpay-Signature = HMAC-SHA256 of the raw body
+        with the webhook secret; idempotent by x-razorpay-event-id)
+      description: "Owner: backend-core. Phase 19."
+      tags:
+        - billing
+      security:
+        - webhookSignature: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  duplicate:
+                    type: boolean
+                required:
+                  - ok
+                  - duplicate
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/subscriptions:
+    get:
+      operationId: superBillingSubscriptions
+      summary: Subscriptions across companies with filters and totals (MRR,
+        outstanding, by status and plan)
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            description: Opaque cursor from the previous page nextCursor
+          required: false
+          description: Opaque cursor from the previous page nextCursor
+          name: cursor
+          in: query
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          required: false
+          name: limit
+          in: query
+        - schema:
+            type: string
+            maxLength: 200
+          required: false
+          name: q
+          in: query
+        - schema:
+            type: string
+            enum:
+              - trialing
+              - active
+              - past_due
+              - cancelled
+          required: false
+          name: status
+          in: query
+        - schema:
+            type: string
+            enum:
+              - free
+              - starter
+              - growth
+              - enterprise
+          required: false
+          name: plan
+          in: query
+        - schema:
+            type: string
+            enum:
+              - monthly
+              - yearly
+          required: false
+          name: cycle
+          in: query
+        - schema:
+            type: string
+            description: Only companies with an overdue invoice
+          required: false
+          description: Only companies with an overdue invoice
+          name: overdue
+          in: query
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 60
+            description: Only trials ending within n days
+          required: false
+          description: Only trials ending within n days
+          name: trialEndingDays
+          in: query
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        company:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            name:
+                              type: string
+                            slug:
+                              type: string
+                            status:
+                              type: string
+                              enum:
+                                - active
+                                - trial
+                                - suspended
+                                - deleted
+                          required:
+                            - id
+                            - name
+                            - slug
+                            - status
+                        subscription:
+                          $ref: "#/components/schemas/Subscription"
+                        mrrPaise:
+                          type: integer
+                          minimum: 0
+                          maximum: 1000000000000000
+                          description: "Monthly value: cycle price (yearly / 12) while active or past due"
+                        outstandingPaise:
+                          type: integer
+                          minimum: 0
+                          maximum: 1000000000000000
+                        overdueInvoices:
+                          type: integer
+                        seatsUsed:
+                          type: integer
+                        lastPaymentAt:
+                          type:
+                            - string
+                            - "null"
+                          format: date-time
+                        pendingRequest:
+                          type: boolean
+                      required:
+                        - company
+                        - subscription
+                        - mrrPaise
+                        - outstandingPaise
+                        - overdueInvoices
+                        - seatsUsed
+                        - lastPaymentAt
+                        - pendingRequest
+                  nextCursor:
+                    type:
+                      - string
+                      - "null"
+                  totals:
+                    type: object
+                    properties:
+                      companies:
+                        type: integer
+                      mrrPaise:
+                        type: integer
+                        minimum: 0
+                        maximum: 1000000000000000
+                      outstandingPaise:
+                        type: integer
+                        minimum: 0
+                        maximum: 1000000000000000
+                      overdueCompanies:
+                        type: integer
+                      byStatus:
+                        type: object
+                        properties:
+                          trialing:
+                            type: integer
+                          active:
+                            type: integer
+                          past_due:
+                            type: integer
+                          cancelled:
+                            type: integer
+                      byPlan:
+                        type: object
+                        properties:
+                          free:
+                            type: integer
+                          starter:
+                            type: integer
+                          growth:
+                            type: integer
+                          enterprise:
+                            type: integer
+                    required:
+                      - companies
+                      - mrrPaise
+                      - outstandingPaise
+                      - overdueCompanies
+                      - byStatus
+                      - byPlan
+                required:
+                  - items
+                  - nextCursor
+                  - totals
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/companies/{id}:
+    get:
+      operationId: superBillingCompany
+      summary: "A company's billing: subscription, usage, invoices, payments, plan
+        requests"
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  company:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      slug:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - active
+                          - trial
+                          - suspended
+                          - deleted
+                    required:
+                      - id
+                      - name
+                      - slug
+                      - status
+                  subscription:
+                    $ref: "#/components/schemas/Subscription"
+                  plan:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      name:
+                        type: string
+                      priceInrMonthly:
+                        type: integer
+                        minimum: 0
+                      priceInrYearly:
+                        type: integer
+                        minimum: 0
+                      limits:
+                        type: object
+                        properties:
+                          seats:
+                            type:
+                              - integer
+                              - "null"
+                          leads:
+                            type:
+                              - integer
+                              - "null"
+                          whatsappMessagesPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          workflowRunsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          storageMb:
+                            type:
+                              - integer
+                              - "null"
+                          apiKeys:
+                            type:
+                              - integer
+                              - "null"
+                          apiCallsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - seats
+                          - leads
+                          - whatsappMessagesPerMonth
+                          - workflowRunsPerMonth
+                          - storageMb
+                      features:
+                        type: object
+                        properties:
+                          team_floor_3d:
+                            type: boolean
+                          ai_node:
+                            type: boolean
+                          telephony:
+                            type: boolean
+                          api_access:
+                            type: boolean
+                          whatsapp:
+                            type: boolean
+                          employee_rank:
+                            type: boolean
+                          custom_domain:
+                            type: boolean
+                          field_tracking:
+                            type: boolean
+                        required:
+                          - team_floor_3d
+                          - ai_node
+                          - telephony
+                          - api_access
+                          - whatsapp
+                          - employee_rank
+                          - custom_domain
+                          - field_tracking
+                      overage:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          perSeatInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000LeadsInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000WhatsappInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000RunsInr:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - perSeatInr
+                          - per1000LeadsInr
+                          - per1000WhatsappInr
+                          - per1000RunsInr
+                      trialDays:
+                        type: integer
+                        minimum: 0
+                      isActive:
+                        type: boolean
+                    required:
+                      - key
+                      - name
+                      - priceInrMonthly
+                      - priceInrYearly
+                      - limits
+                      - features
+                      - overage
+                      - trialDays
+                      - isActive
+                  usage:
+                    type: object
+                    properties:
+                      period:
+                        type: string
+                        description: YYYY-MM (IST) of the monthly meters
+                      meters:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/UsageMeter"
+                      generatedAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - period
+                      - meters
+                      - generatedAt
+                  invoices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformInvoiceListItem"
+                    description: Newest 50
+                  payments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformPayment"
+                    description: Newest 50
+                  requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlanChangeRequest"
+                    description: Newest 20
+                required:
+                  - company
+                  - subscription
+                  - plan
+                  - usage
+                  - invoices
+                  - payments
+                  - requests
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/companies/{id}/invoices:
+    post:
+      operationId: superBillingInvoiceCreate
+      summary: Create a manual invoice (GST from gst.ts; issued with VST/<FY>/<seq>
+        unless issue=false); audited
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        minLength: 1
+                        maxLength: 200
+                      description:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 500
+                      sacCode:
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^\d{4,8}$
+                        description: "Default: the Vistar billing profile SAC"
+                      quantity:
+                        type: number
+                        exclusiveMinimum: 0
+                        maximum: 1000000
+                        default: 1
+                      unitPricePaise:
+                        type: integer
+                        minimum: 0
+                        maximum: 1000000000000000
+                      gstRate:
+                        anyOf:
+                          - type: number
+                            enum:
+                              - 0
+                          - type: number
+                            enum:
+                              - 5
+                          - type: number
+                            enum:
+                              - 12
+                          - type: number
+                            enum:
+                              - 18
+                          - type: number
+                            enum:
+                              - 28
+                        description: "Default: the Vistar billing profile rate (18)"
+                    required:
+                      - name
+                      - unitPricePaise
+                  minItems: 1
+                  maxItems: 50
+                issueDate:
+                  type: string
+                  format: date
+                  description: "Default: today (IST)"
+                dueDate:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+                  description: "Default: issue date + profile paymentTermsDays"
+                placeOfSupplyStateCode:
+                  type:
+                    - string
+                    - "null"
+                  description: "Default: the billing contact state, else Vistar state"
+                notes:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 2000
+                issue:
+                  type: boolean
+                  default: true
+                  description: false keeps a draft (no number)
+              required:
+                - lines
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformInvoice"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/companies/{id}/extend-trial:
+    post:
+      operationId: superBillingTrialExtend
+      summary: Extend the trial by n days or to a date (also restarts a lapsed trial);
+        audited
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                days:
+                  type: integer
+                  minimum: 1
+                  maximum: 90
+                until:
+                  type: string
+                  format: date
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+              required:
+                - reason
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  company:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      slug:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - active
+                          - trial
+                          - suspended
+                          - deleted
+                    required:
+                      - id
+                      - name
+                      - slug
+                      - status
+                  subscription:
+                    $ref: "#/components/schemas/Subscription"
+                  plan:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      name:
+                        type: string
+                      priceInrMonthly:
+                        type: integer
+                        minimum: 0
+                      priceInrYearly:
+                        type: integer
+                        minimum: 0
+                      limits:
+                        type: object
+                        properties:
+                          seats:
+                            type:
+                              - integer
+                              - "null"
+                          leads:
+                            type:
+                              - integer
+                              - "null"
+                          whatsappMessagesPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          workflowRunsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          storageMb:
+                            type:
+                              - integer
+                              - "null"
+                          apiKeys:
+                            type:
+                              - integer
+                              - "null"
+                          apiCallsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - seats
+                          - leads
+                          - whatsappMessagesPerMonth
+                          - workflowRunsPerMonth
+                          - storageMb
+                      features:
+                        type: object
+                        properties:
+                          team_floor_3d:
+                            type: boolean
+                          ai_node:
+                            type: boolean
+                          telephony:
+                            type: boolean
+                          api_access:
+                            type: boolean
+                          whatsapp:
+                            type: boolean
+                          employee_rank:
+                            type: boolean
+                          custom_domain:
+                            type: boolean
+                          field_tracking:
+                            type: boolean
+                        required:
+                          - team_floor_3d
+                          - ai_node
+                          - telephony
+                          - api_access
+                          - whatsapp
+                          - employee_rank
+                          - custom_domain
+                          - field_tracking
+                      overage:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          perSeatInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000LeadsInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000WhatsappInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000RunsInr:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - perSeatInr
+                          - per1000LeadsInr
+                          - per1000WhatsappInr
+                          - per1000RunsInr
+                      trialDays:
+                        type: integer
+                        minimum: 0
+                      isActive:
+                        type: boolean
+                    required:
+                      - key
+                      - name
+                      - priceInrMonthly
+                      - priceInrYearly
+                      - limits
+                      - features
+                      - overage
+                      - trialDays
+                      - isActive
+                  usage:
+                    type: object
+                    properties:
+                      period:
+                        type: string
+                        description: YYYY-MM (IST) of the monthly meters
+                      meters:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/UsageMeter"
+                      generatedAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - period
+                      - meters
+                      - generatedAt
+                  invoices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformInvoiceListItem"
+                    description: Newest 50
+                  payments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformPayment"
+                    description: Newest 50
+                  requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlanChangeRequest"
+                    description: Newest 20
+                required:
+                  - company
+                  - subscription
+                  - plan
+                  - usage
+                  - invoices
+                  - payments
+                  - requests
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/companies/{id}/plan:
+    post:
+      operationId: superBillingPlanChange
+      summary: Change plan, cycle or extra seats now or at the period end (optional
+        prorated invoice); audited
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan:
+                  type: string
+                  enum:
+                    - free
+                    - starter
+                    - growth
+                    - enterprise
+                cycle:
+                  type: string
+                  enum:
+                    - monthly
+                    - yearly
+                  description: "Default: the current cycle"
+                extraSeats:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                effective:
+                  type: string
+                  enum:
+                    - now
+                    - period_end
+                  default: now
+                invoice:
+                  type: boolean
+                  default: false
+                  description: Issue a prorated plan_change invoice when the change costs more now
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+              required:
+                - plan
+                - reason
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  company:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      slug:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - active
+                          - trial
+                          - suspended
+                          - deleted
+                    required:
+                      - id
+                      - name
+                      - slug
+                      - status
+                  subscription:
+                    $ref: "#/components/schemas/Subscription"
+                  plan:
+                    type: object
+                    properties:
+                      key:
+                        type: string
+                        enum:
+                          - free
+                          - starter
+                          - growth
+                          - enterprise
+                      name:
+                        type: string
+                      priceInrMonthly:
+                        type: integer
+                        minimum: 0
+                      priceInrYearly:
+                        type: integer
+                        minimum: 0
+                      limits:
+                        type: object
+                        properties:
+                          seats:
+                            type:
+                              - integer
+                              - "null"
+                          leads:
+                            type:
+                              - integer
+                              - "null"
+                          whatsappMessagesPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          workflowRunsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                          storageMb:
+                            type:
+                              - integer
+                              - "null"
+                          apiKeys:
+                            type:
+                              - integer
+                              - "null"
+                          apiCallsPerMonth:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - seats
+                          - leads
+                          - whatsappMessagesPerMonth
+                          - workflowRunsPerMonth
+                          - storageMb
+                      features:
+                        type: object
+                        properties:
+                          team_floor_3d:
+                            type: boolean
+                          ai_node:
+                            type: boolean
+                          telephony:
+                            type: boolean
+                          api_access:
+                            type: boolean
+                          whatsapp:
+                            type: boolean
+                          employee_rank:
+                            type: boolean
+                          custom_domain:
+                            type: boolean
+                          field_tracking:
+                            type: boolean
+                        required:
+                          - team_floor_3d
+                          - ai_node
+                          - telephony
+                          - api_access
+                          - whatsapp
+                          - employee_rank
+                          - custom_domain
+                          - field_tracking
+                      overage:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          perSeatInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000LeadsInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000WhatsappInr:
+                            type:
+                              - integer
+                              - "null"
+                          per1000RunsInr:
+                            type:
+                              - integer
+                              - "null"
+                        required:
+                          - perSeatInr
+                          - per1000LeadsInr
+                          - per1000WhatsappInr
+                          - per1000RunsInr
+                      trialDays:
+                        type: integer
+                        minimum: 0
+                      isActive:
+                        type: boolean
+                    required:
+                      - key
+                      - name
+                      - priceInrMonthly
+                      - priceInrYearly
+                      - limits
+                      - features
+                      - overage
+                      - trialDays
+                      - isActive
+                  usage:
+                    type: object
+                    properties:
+                      period:
+                        type: string
+                        description: YYYY-MM (IST) of the monthly meters
+                      meters:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/UsageMeter"
+                      generatedAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - period
+                      - meters
+                      - generatedAt
+                  invoices:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformInvoiceListItem"
+                    description: Newest 50
+                  payments:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformPayment"
+                    description: Newest 50
+                  requests:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlanChangeRequest"
+                    description: Newest 20
+                required:
+                  - company
+                  - subscription
+                  - plan
+                  - usage
+                  - invoices
+                  - payments
+                  - requests
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/invoices:
+    get:
+      operationId: superBillingInvoiceList
+      summary: Vistar invoices across companies
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            description: Opaque cursor from the previous page nextCursor
+          required: false
+          description: Opaque cursor from the previous page nextCursor
+          name: cursor
+          in: query
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          required: false
+          name: limit
+          in: query
+        - schema:
+            type: string
+            enum:
+              - draft
+              - issued
+              - paid
+              - cancelled
+          required: false
+          name: status
+          in: query
+        - schema:
+            type: string
+            enum:
+              - subscription
+              - plan_change
+              - manual
+          required: false
+          name: kind
+          in: query
+        - schema:
+            type: string
+          required: false
+          name: overdue
+          in: query
+        - schema:
+            type: string
+            format: uuid
+          required: false
+          name: workspaceId
+          in: query
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlatformInvoiceListItem"
+                  nextCursor:
+                    type:
+                      - string
+                      - "null"
+                  total:
+                    type: integer
+                    description: Present only when cheap to compute or requested
+                required:
+                  - items
+                  - nextCursor
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/invoices/{id}:
+    get:
+      operationId: superBillingInvoiceGet
+      summary: One Vistar invoice (drafts included)
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformInvoice"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/invoices/{id}/pdf:
+    get:
+      operationId: superBillingInvoicePdf
+      summary: Invoice PDF (?download=1)
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+        - schema:
+            type: string
+          required: false
+          name: download
+          in: query
+      responses:
+        "200":
+          description: OK
+          content:
+            application/pdf:
+              schema:
+                type: string
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/invoices/{id}/issue:
+    post:
+      operationId: superBillingInvoiceIssue
+      summary: Issue a draft (assigns the number, freezes seller and buyer, notifies
+        the company admins); audited
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dueDate:
+                  type:
+                    - string
+                    - "null"
+                  format: date
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformInvoice"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/invoices/{id}/mark-paid:
+    post:
+      operationId: superBillingInvoiceMarkPaid
+      summary: Record a manual payment of the balance (idempotent with
+        clientPaymentId); applies a paid upgrade, clears past due; audited
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum:
+                    - cash
+                    - upi
+                    - bank_transfer
+                    - cheque
+                    - card
+                    - other
+                reference:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 120
+                  description: UTR, cheque number, ...
+                paidOn:
+                  type: string
+                  format: date
+                  description: "Default: today (IST)"
+                note:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 500
+                clientPaymentId:
+                  type: string
+                  minLength: 8
+                  maxLength: 64
+                  description: Retry with the same id = no second payment
+              required:
+                - mode
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformInvoice"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/invoices/{id}/cancel:
+    post:
+      operationId: superBillingInvoiceCancel
+      summary: Cancel an unpaid invoice with a reason (the number stays used); audited
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+              required:
+                - reason
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformInvoice"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/plan-requests:
+    get:
+      operationId: superBillingRequestList
+      summary: Plan change requests from companies (newest first)
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - pending
+              - approved
+              - rejected
+              - cancelled
+          required: false
+          name: status
+          in: query
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlanChangeRequest"
+                required:
+                  - items
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/plan-requests/{id}/decide:
+    post:
+      operationId: superBillingRequestDecide
+      summary: Approve (plan changes, optional invoice) or reject a pending request;
+        audited
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - approve
+                    - reject
+                note:
+                  type: string
+                  maxLength: 500
+                effective:
+                  type: string
+                  enum:
+                    - now
+                    - period_end
+                  default: now
+                invoice:
+                  type: boolean
+                  default: true
+                  description: "On approve: issue the prorated invoice (paid later by checkout or
+                    manually)"
+              required:
+                - decision
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanChangeRequest"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/billing/profile:
+    get:
+      operationId: superBillingProfileGet
+      summary: Vistar's billing profile (legal name, GSTIN, address with state code,
+        bank, SAC, prefix)
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      legalName:
+                        type: string
+                        minLength: 1
+                        maxLength: 160
+                      tradeName:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 160
+                        default: null
+                      gstin:
+                        type:
+                          - string
+                          - "null"
+                        default: null
+                        description: null = not GST registered (documents then show no GST lines)
+                      pan:
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^[A-Z]{5}\d{4}[A-Z]$
+                        default: null
+                      address:
+                        type: object
+                        properties:
+                          line1:
+                            type: string
+                            minLength: 1
+                            maxLength: 200
+                          line2:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 200
+                            default: null
+                          city:
+                            type: string
+                            minLength: 1
+                            maxLength: 80
+                          state:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 80
+                            default: null
+                          stateCode:
+                            type:
+                              - string
+                              - "null"
+                            default: null
+                          pincode:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 12
+                            default: null
+                          country:
+                            type: string
+                            minLength: 2
+                            maxLength: 2
+                            default: IN
+                        required:
+                          - line1
+                          - city
+                      phone:
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^\+[1-9]\d{6,14}$
+                        default: null
+                      email:
+                        type:
+                          - string
+                          - "null"
+                        format: email
+                        default: null
+                      website:
+                        type:
+                          - string
+                          - "null"
+                        format: uri
+                        default: null
+                      bank:
+                        type: object
+                        properties:
+                          accountName:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 120
+                            default: null
+                          accountNumber:
+                            type:
+                              - string
+                              - "null"
+                            pattern: ^\d{6,20}$
+                            default: null
+                          ifsc:
+                            type:
+                              - string
+                              - "null"
+                            pattern: ^[A-Z]{4}0[A-Z0-9]{6}$
+                            default: null
+                          bankName:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 120
+                            default: null
+                          branch:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 120
+                            default: null
+                          upiId:
+                            type:
+                              - string
+                              - "null"
+                            pattern: ^[\w.-]{2,64}@[A-Za-z]{2,64}$
+                            default: null
+                        default:
+                          accountName: null
+                          accountNumber: null
+                          ifsc: null
+                          bankName: null
+                          branch: null
+                          upiId: null
+                      signatureLabel:
+                        type: string
+                        maxLength: 80
+                        default: Authorised signatory
+                      invoicePrefix:
+                        type: string
+                        pattern: ^[A-Z0-9-]{1,6}$
+                        default: VST
+                      sacCode:
+                        type: string
+                        pattern: ^\d{4,8}$
+                        default: "998314"
+                      gstRate:
+                        anyOf:
+                          - type: number
+                            enum:
+                              - 0
+                          - type: number
+                            enum:
+                              - 5
+                          - type: number
+                            enum:
+                              - 12
+                          - type: number
+                            enum:
+                              - 18
+                          - type: number
+                            enum:
+                              - 28
+                        default: 18
+                      paymentTermsDays:
+                        type: integer
+                        minimum: 0
+                        maximum: 60
+                        default: 7
+                      invoiceTerms:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 4000
+                        default: null
+                      brandColor:
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^#[0-9A-Fa-f]{6}$
+                        default: null
+                    required:
+                      - legalName
+                      - address
+                  complete:
+                    type: boolean
+                    description: "Legal name and state code set: needed to issue invoices (renewals
+                      wait until then)"
+                required:
+                  - profile
+                  - complete
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: superBillingProfileUpdate
+      summary: Save the Vistar billing profile (GSTIN state must match the address
+        state); audited
+      description: "Requires permission `platform.billing.manage`. Owner:
+        backend-core. Phase 19."
+      tags:
+        - super-billing
+      security:
+        - bearerPlatform: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                legalName:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                tradeName:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 160
+                  default: null
+                gstin:
+                  type:
+                    - string
+                    - "null"
+                  default: null
+                  description: null = not GST registered (documents then show no GST lines)
+                pan:
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^[A-Z]{5}\d{4}[A-Z]$
+                  default: null
+                address:
+                  type: object
+                  properties:
+                    line1:
+                      type: string
+                      minLength: 1
+                      maxLength: 200
+                    line2:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 200
+                      default: null
+                    city:
+                      type: string
+                      minLength: 1
+                      maxLength: 80
+                    state:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 80
+                      default: null
+                    stateCode:
+                      type:
+                        - string
+                        - "null"
+                      default: null
+                    pincode:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 12
+                      default: null
+                    country:
+                      type: string
+                      minLength: 2
+                      maxLength: 2
+                      default: IN
+                  required:
+                    - line1
+                    - city
+                phone:
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^\+[1-9]\d{6,14}$
+                  default: null
+                email:
+                  type:
+                    - string
+                    - "null"
+                  format: email
+                  default: null
+                website:
+                  type:
+                    - string
+                    - "null"
+                  format: uri
+                  default: null
+                bank:
+                  type: object
+                  properties:
+                    accountName:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 120
+                      default: null
+                    accountNumber:
+                      type:
+                        - string
+                        - "null"
+                      pattern: ^\d{6,20}$
+                      default: null
+                    ifsc:
+                      type:
+                        - string
+                        - "null"
+                      pattern: ^[A-Z]{4}0[A-Z0-9]{6}$
+                      default: null
+                    bankName:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 120
+                      default: null
+                    branch:
+                      type:
+                        - string
+                        - "null"
+                      maxLength: 120
+                      default: null
+                    upiId:
+                      type:
+                        - string
+                        - "null"
+                      pattern: ^[\w.-]{2,64}@[A-Za-z]{2,64}$
+                      default: null
+                  default:
+                    accountName: null
+                    accountNumber: null
+                    ifsc: null
+                    bankName: null
+                    branch: null
+                    upiId: null
+                signatureLabel:
+                  type: string
+                  maxLength: 80
+                  default: Authorised signatory
+                invoicePrefix:
+                  type: string
+                  pattern: ^[A-Z0-9-]{1,6}$
+                  default: VST
+                sacCode:
+                  type: string
+                  pattern: ^\d{4,8}$
+                  default: "998314"
+                gstRate:
+                  anyOf:
+                    - type: number
+                      enum:
+                        - 0
+                    - type: number
+                      enum:
+                        - 5
+                    - type: number
+                      enum:
+                        - 12
+                    - type: number
+                      enum:
+                        - 18
+                    - type: number
+                      enum:
+                        - 28
+                  default: 18
+                paymentTermsDays:
+                  type: integer
+                  minimum: 0
+                  maximum: 60
+                  default: 7
+                invoiceTerms:
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 4000
+                  default: null
+                brandColor:
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^#[0-9A-Fa-f]{6}$
+                  default: null
+              required:
+                - legalName
+                - address
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      legalName:
+                        type: string
+                        minLength: 1
+                        maxLength: 160
+                      tradeName:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 160
+                        default: null
+                      gstin:
+                        type:
+                          - string
+                          - "null"
+                        default: null
+                        description: null = not GST registered (documents then show no GST lines)
+                      pan:
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^[A-Z]{5}\d{4}[A-Z]$
+                        default: null
+                      address:
+                        type: object
+                        properties:
+                          line1:
+                            type: string
+                            minLength: 1
+                            maxLength: 200
+                          line2:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 200
+                            default: null
+                          city:
+                            type: string
+                            minLength: 1
+                            maxLength: 80
+                          state:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 80
+                            default: null
+                          stateCode:
+                            type:
+                              - string
+                              - "null"
+                            default: null
+                          pincode:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 12
+                            default: null
+                          country:
+                            type: string
+                            minLength: 2
+                            maxLength: 2
+                            default: IN
+                        required:
+                          - line1
+                          - city
+                      phone:
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^\+[1-9]\d{6,14}$
+                        default: null
+                      email:
+                        type:
+                          - string
+                          - "null"
+                        format: email
+                        default: null
+                      website:
+                        type:
+                          - string
+                          - "null"
+                        format: uri
+                        default: null
+                      bank:
+                        type: object
+                        properties:
+                          accountName:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 120
+                            default: null
+                          accountNumber:
+                            type:
+                              - string
+                              - "null"
+                            pattern: ^\d{6,20}$
+                            default: null
+                          ifsc:
+                            type:
+                              - string
+                              - "null"
+                            pattern: ^[A-Z]{4}0[A-Z0-9]{6}$
+                            default: null
+                          bankName:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 120
+                            default: null
+                          branch:
+                            type:
+                              - string
+                              - "null"
+                            maxLength: 120
+                            default: null
+                          upiId:
+                            type:
+                              - string
+                              - "null"
+                            pattern: ^[\w.-]{2,64}@[A-Za-z]{2,64}$
+                            default: null
+                        default:
+                          accountName: null
+                          accountNumber: null
+                          ifsc: null
+                          bankName: null
+                          branch: null
+                          upiId: null
+                      signatureLabel:
+                        type: string
+                        maxLength: 80
+                        default: Authorised signatory
+                      invoicePrefix:
+                        type: string
+                        pattern: ^[A-Z0-9-]{1,6}$
+                        default: VST
+                      sacCode:
+                        type: string
+                        pattern: ^\d{4,8}$
+                        default: "998314"
+                      gstRate:
+                        anyOf:
+                          - type: number
+                            enum:
+                              - 0
+                          - type: number
+                            enum:
+                              - 5
+                          - type: number
+                            enum:
+                              - 12
+                          - type: number
+                            enum:
+                              - 18
+                          - type: number
+                            enum:
+                              - 28
+                        default: 18
+                      paymentTermsDays:
+                        type: integer
+                        minimum: 0
+                        maximum: 60
+                        default: 7
+                      invoiceTerms:
+                        type:
+                          - string
+                          - "null"
+                        maxLength: 4000
+                        default: null
+                      brandColor:
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^#[0-9A-Fa-f]{6}$
+                        default: null
+                    required:
+                      - legalName
+                      - address
+                  complete:
+                    type: boolean
+                    description: "Legal name and state code set: needed to issue invoices (renewals
+                      wait until then)"
+                required:
+                  - profile
+                  - complete
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/super/config/razorpay:
+    get:
+      operationId: superRazorpayGet
+      summary: Razorpay config status (secrets masked), webhook URL and the active
+        provider
+      description: "Requires permission `platform.system.manage`. Owner: backend-core.
+        Phase 19."
+      tags:
+        - super-config
+      security:
+        - bearerPlatform: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  enabled:
+                    type: boolean
+                  mode:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - test
+                      - live
+                      - null
+                  keyId:
+                    type:
+                      - string
+                      - "null"
+                    description: Public key id (checkout.js needs it)
+                  keySecretLast4:
+                    type:
+                      - string
+                      - "null"
+                  webhookSecretSet:
+                    type: boolean
+                  webhookUrl:
+                    type: string
+                    description: <API_PUBLIC_URL>/api/hooks/razorpay; events payment.captured,
+                      payment.failed, order.paid
+                  activeProvider:
+                    type: string
+                    enum:
+                      - razorpay
+                      - mock
+                      - none
+                    description: What checkout uses now (mock in development without a config)
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  lastWebhookAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                required:
+                  - configured
+                  - enabled
+                  - mode
+                  - keyId
+                  - keySecretLast4
+                  - webhookSecretSet
+                  - webhookUrl
+                  - activeProvider
+                  - updatedAt
+                  - lastWebhookAt
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: superRazorpayUpdate
+      summary: Save key id, mode and (write-only) key secret and webhook secret,
+        stored encrypted; audited
+      description: "Requires permission `platform.system.manage`. Owner: backend-core.
+        Phase 19."
+      tags:
+        - super-config
+      security:
+        - bearerPlatform: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum:
+                    - test
+                    - live
+                keyId:
+                  type: string
+                  pattern: ^rzp_(test|live)_[A-Za-z0-9]{6,32}$
+                keySecret:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+                webhookSecret:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+                enabled:
+                  type: boolean
+                  default: true
+              required:
+                - mode
+                - keyId
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  enabled:
+                    type: boolean
+                  mode:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - test
+                      - live
+                      - null
+                  keyId:
+                    type:
+                      - string
+                      - "null"
+                    description: Public key id (checkout.js needs it)
+                  keySecretLast4:
+                    type:
+                      - string
+                      - "null"
+                  webhookSecretSet:
+                    type: boolean
+                  webhookUrl:
+                    type: string
+                    description: <API_PUBLIC_URL>/api/hooks/razorpay; events payment.captured,
+                      payment.failed, order.paid
+                  activeProvider:
+                    type: string
+                    enum:
+                      - razorpay
+                      - mock
+                      - none
+                    description: What checkout uses now (mock in development without a config)
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  lastWebhookAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                required:
+                  - configured
+                  - enabled
+                  - mode
+                  - keyId
+                  - keySecretLast4
+                  - webhookSecretSet
+                  - webhookUrl
+                  - activeProvider
+                  - updatedAt
+                  - lastWebhookAt
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: superRazorpayDelete
+      summary: Remove the Razorpay config (checkout falls back to mock in development,
+        else "Request change"); audited
+      description: "Requires permission `platform.system.manage`. Owner: backend-core.
+        Phase 19."
+      tags:
+        - super-config
+      security:
+        - bearerPlatform: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  enabled:
+                    type: boolean
+                  mode:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - test
+                      - live
+                      - null
+                  keyId:
+                    type:
+                      - string
+                      - "null"
+                    description: Public key id (checkout.js needs it)
+                  keySecretLast4:
+                    type:
+                      - string
+                      - "null"
+                  webhookSecretSet:
+                    type: boolean
+                  webhookUrl:
+                    type: string
+                    description: <API_PUBLIC_URL>/api/hooks/razorpay; events payment.captured,
+                      payment.failed, order.paid
+                  activeProvider:
+                    type: string
+                    enum:
+                      - razorpay
+                      - mock
+                      - none
+                    description: What checkout uses now (mock in development without a config)
+                  updatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  lastWebhookAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                required:
+                  - configured
+                  - enabled
+                  - mode
+                  - keyId
+                  - keySecretLast4
+                  - webhookSecretSet
+                  - webhookUrl
+                  - activeProvider
+                  - updatedAt
+                  - lastWebhookAt
         4XX:
           description: Error
           content:

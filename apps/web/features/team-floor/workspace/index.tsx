@@ -14,6 +14,7 @@ import { toast } from '@/components/ui/toast';
 import { isMockData } from '@/lib/api/data-source';
 import { cn } from '@/lib/cn';
 import { filtersToSearchParams, searchParamsToFilters, useLeadsViewState } from '@/lib/leads/state';
+import { registerScreenSource, screenChanged, screenForFloorModule } from '@/lib/realtime/logic';
 import { useCan } from '@/lib/session/session';
 import { TeamFloor } from '../index';
 import { readDevParams, useIsClient, useMediaQuery } from '../state/env';
@@ -137,6 +138,18 @@ function FloorWorkspaceClient({ panel, title, description, mode, readOnly = fals
   const defaultWidth = layout === 'dock' ? Math.min(640, dockMax) : Math.min(720, Math.round(areaWidth * 0.55), floatMax);
   const width = Math.max(PANEL_MIN_WIDTH, Math.min(max, layout === 'sheet' ? 0 : (ui.widths[layout] ?? defaultWidth)));
   const dockOpen = !!active && areaWidth > 0;
+
+  // Heartbeat screen (D-062): while a panel is open over the floor, report that module's screen
+  // (Leads, Inbox, ...) instead of "team floor" (lib/realtime/logic screen sources).
+  const shownModule = useRef<ModuleId | null>(null);
+  useEffect(
+    () => registerScreenSource(window.location.pathname, () => (shownModule.current ? screenForFloorModule(shownModule.current, window.location.search) : null)),
+    [],
+  );
+  useEffect(() => {
+    shownModule.current = dockOpen ? active : null;
+    screenChanged();
+  }, [active, dockOpen]);
 
   const openModule = useCallback(
     (m: ModuleId) => {

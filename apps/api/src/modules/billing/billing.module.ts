@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { PLAN_LIMIT_CHECK } from '../webhooks/plan-limit.hook.js';
 import { ApiCallMeterInterceptor } from './api-call-meter.interceptor.js';
 import { BillingCoreService } from './billing-core.service.js';
 import { BillingCycleScheduler } from './billing-cycle.scheduler.js';
@@ -35,7 +36,9 @@ import { UsageService } from './usage.service.js';
     SubscriptionsService,
     BillingCycleScheduler,
     { provide: APP_INTERCEPTOR, useClass: ApiCallMeterInterceptor },
+    // Plan-limit hook for API key creation (requests-19c B1; webhooks/plan-limit.hook.ts reads this symbol).
+    { provide: PLAN_LIMIT_CHECK, useExisting: PlanLimitsService },
   ],
-  exports: [PlanLimitsService, UsageService, BillingCoreService],
+  exports: [PlanLimitsService, UsageService, BillingCoreService, PLAN_LIMIT_CHECK],
 })
 export class BillingModule {}

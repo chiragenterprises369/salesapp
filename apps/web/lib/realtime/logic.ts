@@ -179,7 +179,9 @@ export function scopesForEvent(type: EventName): SyncScope[] {
   if (type.startsWith('message.') || type === 'conversation.updated') return ['conversations'];
   if (type === 'notification.created') return ['notifications'];
   if (type.startsWith('workflow.')) return ['workflows'];
-  if (type === 'webhook.delivery_updated') return ['workflows'];
+  // change #19 wave C hub: integration cards, webhook endpoints and the delivery log (lib/hub keys).
+  if (type === 'integration.updated') return ['integrations'];
+  if (type === 'webhook.endpoint_updated' || type === 'webhook.delivery_updated') return ['webhooks'];
   if (type === 'import.progress') return ['leads', 'board'];
   if (type === 'customization.changed' || type.startsWith('pack.'))
     return ['customization', 'workspace'];
