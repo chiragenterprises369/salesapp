@@ -66,6 +66,7 @@ const SESSION_END_CODES = new Set<string>(['AUTH_UNAUTHENTICATED', 'AUTH_TOKEN_I
 const STATUS_FALLBACK: Array<[number, ErrorCode, string]> = [
   [400, 'VALIDATION_FAILED', 'Some fields are invalid. Check them and try again.'],
   [401, 'AUTH_UNAUTHENTICATED', 'Sign in to continue.'],
+  [402, 'PLAN_LIMIT_REACHED', 'Your plan limit is reached. Upgrade the plan to add more.'],
   [403, 'FORBIDDEN', 'You do not have permission to do this.'],
   [404, 'NOT_FOUND', 'This item was not found. It may have been deleted.'],
   [409, 'CONFLICT', 'Someone changed this at the same time. Reload and try again.'],
@@ -289,6 +290,17 @@ function parseResponse(def: RouteDef, id: string, json: unknown, res: Response):
   );
 }
 
+/**
+ * 402 PLAN_LIMIT_REACHED on any workspace request (creates of users, invites, leads, API keys...): one
+ * central toast with the upgrade link, on top of the caller's own error handling. Loaded on demand.
+ */
+function notifyPlanLimit(err: ApiRequestError): void {
+  if (typeof window === 'undefined') return;
+  void import('../billing/plan-limit')
+    .then((m) => m.showPlanLimitToast(err))
+    .catch(() => undefined);
+}
+
 export function createApiClient(audience: Audience): ApiClient {
   function routeFor(id: ApiRouteId): RouteDef {
     const def = API_ROUTES[id] as RouteDef | undefined;
@@ -332,6 +344,7 @@ export function createApiClient(audience: Audience): ApiClient {
         endSession(audience, err);
       }
     }
+    if (err.code === 'PLAN_LIMIT_REACHED' && audience === 'workspace') notifyPlanLimit(err);
     throw err;
   }
 
