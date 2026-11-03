@@ -62,6 +62,7 @@ export function CompaniesSection() {
         { key: 'created', label: 'Created', hideBelow: 'lg' },
       ]}
       extraColumns={SWITCH_COLUMNS}
+      rowHref={(row) => `/super-admin/companies/${encodeURIComponent(row.id)}`}
       emptyTitle="No companies yet"
       emptyDescription="Companies appear here when they sign up or when you create one."
     />

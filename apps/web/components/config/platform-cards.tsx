@@ -3,7 +3,6 @@
 import { CheckCircle2, CircleAlert, FileJson, KeyRound, Smartphone, Trash2, Upload } from 'lucide-react';
 import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { columnClass, DataTable, type DataColumn } from '@/components/common/data-table';
-import { PageHeader } from '@/components/common/page-header';
 import { formatDateTimeIn } from '@/components/common/time';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +10,6 @@ import { Chip } from '@/components/ui/chip';
 import { FormField, Input, Label, Textarea } from '@/components/ui/input';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
-import { RazorpayCard } from '@/components/billing/super/razorpay-card';
 import { errorMessage } from '@/lib/branding/http';
 import {
   ANDROID_PACKAGE,
@@ -66,7 +64,7 @@ function FilePick({ accept, label, onFile, loading, variant = 'secondary' }: { a
   );
 }
 
-function FirebaseCard() {
+export function FirebaseCard() {
   const status = useFirebaseStatus();
   const uploadClient = useUploadGoogleServices();
   const uploadAccount = useUploadServiceAccount();
@@ -218,7 +216,7 @@ const RELEASE_COLUMNS: DataColumn[] = [
   { key: 'uploaded', label: 'Uploaded', hideBelow: 'sm' },
 ];
 
-function ReleasesCard() {
+export function ReleasesCard() {
   const releases = useAndroidReleases();
   const upload = useUploadRelease();
   const [versionName, setVersionName] = useState('');
@@ -329,17 +327,5 @@ function ReleasesCard() {
   );
 }
 
-/** Super Admin > Config (SPEC 29.6): Firebase for push, the Android app releases and Razorpay (online payments). */
-export function PlatformConfig() {
-  return (
-    <div className="flex flex-col gap-4">
-      <PageHeader title="Config" description="Push notifications, the Android employee app and online payments for every company." className="mb-1" />
-      <div className="grid items-start gap-4 3xl:grid-cols-2">
-        <FirebaseCard />
-        <ReleasesCard />
-        {/* ---- change #19 wave C: billing (BILLING-WEB owns this card) */}
-        <RazorpayCard />
-      </div>
-    </div>
-  );
-}
+/* Super Admin > Config (SPEC 29.6) cards: Firebase for push and the Android app releases. Since change #20
+   they render inside the grouped Config page (components/config/config-console.tsx) next to Razorpay. */

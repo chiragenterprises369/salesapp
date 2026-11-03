@@ -40,7 +40,8 @@ export const FLAG_LABEL: Record<FeatureFlag, string> = {
   custom_domain: 'Custom domain',
   field_tracking: 'Field tracking',
 };
-const ACTION_LABEL: Record<string, string> = {
+// ---- change #20: config (exported for the company detail Audit tab)
+export const ACTION_LABEL: Record<string, string> = {
   'impersonation.start': 'Started View as company',
   'impersonation.end': 'Ended View as company',
   'plan.change': 'Changed plan',
