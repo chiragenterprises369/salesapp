@@ -34,10 +34,11 @@ export class SetupController {
   }
 }
 
-/** OWNER: backend-core (CONFIG-API stream, change #20). Company setup checklist. */
+/** OWNER: backend-core (CONFIG-API stream, change #20). Company setup checklist (exported for the Super Admin company detail). */
 @Module({
   imports: [IntegrationsModule],
   controllers: [SetupController],
   providers: [SetupService],
+  exports: [SetupService],
 })
 export class SetupModule {}

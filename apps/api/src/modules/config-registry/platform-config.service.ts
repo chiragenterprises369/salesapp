@@ -308,7 +308,7 @@ export class PlatformConfigService implements OnModuleInit, OnModuleDestroy {
       }
     }
     this.extraChecks(group, values, req, details);
-    if (details.length) throw new AppException('VALIDATION_FAILED', 'Some fields are invalid', { details });
+    if (details.length) throw new AppException('VALIDATION_FAILED', 'Some fields are invalid', { details, status: 422 });
 
     const key = configSettingKey(group);
     // Values changed: the last test no longer says anything about them.

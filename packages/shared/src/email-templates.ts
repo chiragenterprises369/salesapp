@@ -164,15 +164,15 @@ export const COMPANY_EMAIL_DEFAULTS: Record<CompanyEmailTemplateKey, EmailTempla
     label: 'Quotation sent',
     description: 'Sent with a quotation PDF (Send quotation by e-mail).',
     subject: 'Quotation {{quotationNumber}} from {{company}}',
-    html: [p('Dear {{customerName}},'), p('Thank you for your enquiry. Please find our quotation <strong>{{quotationNumber}}</strong> for {{amount}} attached, valid until {{validUntil}}.'), button('View the quotation online'), p('Regards,<br>{{senderName}}<br>{{company}}')].join('\n'),
-    variables: [v('customerName', 'Customer name', 'Mr. Sharma'), v('quotationNumber', 'Quotation number', 'QT/2026-27/0012'), v('amount', 'Total', '₹1,18,000', 'money'), v('validUntil', 'Valid until', '30 Nov 2026', 'date'), v('link', 'Online link', 'https://app.vistar.app/d/abc123', 'url'), v('senderName', 'Sender', 'Rahul Mehta')],
+    html: [p('Dear {{customerName}},'), p('{{message}}'), p('Thank you for your enquiry. Please find our quotation <strong>{{quotationNumber}}</strong> for {{amount}} attached, valid until {{validUntil}}.'), button('View the quotation online'), p('Regards,<br>{{senderName}}<br>{{company}}')].join('\n'),
+    variables: [v('customerName', 'Customer name', 'Mr. Sharma'), v('quotationNumber', 'Quotation number', 'QT/2026-27/0012'), v('amount', 'Total', '₹1,18,000', 'money'), v('validUntil', 'Valid until', '30 Nov 2026', 'date'), v('link', 'Online link', 'https://app.vistar.app/d/abc123', 'url'), v('senderName', 'Sender', 'Rahul Mehta'), v('message', 'Personal message (optional)', 'As discussed on the phone, here is our best price.')],
   },
   invoice_sent: {
     label: 'Invoice sent',
     description: 'Sent with an invoice PDF (Send invoice by e-mail).',
     subject: 'Invoice {{invoiceNumber}} from {{company}}',
-    html: [p('Dear {{customerName}},'), p('Please find invoice <strong>{{invoiceNumber}}</strong> for {{amount}} attached, due on {{dueDate}}.'), button('View the invoice online'), p('Regards,<br>{{senderName}}<br>{{company}}')].join('\n'),
-    variables: [v('customerName', 'Customer name', 'Mr. Sharma'), v('invoiceNumber', 'Invoice number', 'INV/2026-27/0034'), v('amount', 'Total', '₹1,18,000', 'money'), v('dueDate', 'Due date', '15 Nov 2026', 'date'), v('link', 'Online link', 'https://app.vistar.app/d/abc123', 'url'), v('senderName', 'Sender', 'Rahul Mehta')],
+    html: [p('Dear {{customerName}},'), p('{{message}}'), p('Please find invoice <strong>{{invoiceNumber}}</strong> for {{amount}} attached, due on {{dueDate}}.'), button('View the invoice online'), p('Regards,<br>{{senderName}}<br>{{company}}')].join('\n'),
+    variables: [v('customerName', 'Customer name', 'Mr. Sharma'), v('invoiceNumber', 'Invoice number', 'INV/2026-27/0034'), v('amount', 'Total', '₹1,18,000', 'money'), v('dueDate', 'Due date', '15 Nov 2026', 'date'), v('link', 'Online link', 'https://app.vistar.app/d/abc123', 'url'), v('senderName', 'Sender', 'Rahul Mehta'), v('message', 'Personal message (optional)', 'Thank you for your order.')],
   },
   payment_reminder: {
     label: 'Payment reminder',
@@ -296,7 +296,10 @@ export function renderSubject(subject: string, values: TemplateValues, variables
 /** Fill `{{var}}` in an HTML fragment: values HTML-escaped, active markup removed. */
 export function renderHtmlFragment(html: string, values: TemplateValues, variables: readonly EmailTemplateVariable[] = []): string {
   const kinds = new Map(variables.map((x) => [x.name, x.kind]));
-  return sanitizeEmailHtml(html).replace(VAR_RE, (_, name: string) => escapeHtml(valueOf(name, values, kinds)));
+  // change #20b: a paragraph that held only an empty optional variable ({{message}}) is dropped.
+  return sanitizeEmailHtml(html)
+    .replace(VAR_RE, (_, name: string) => escapeHtml(valueOf(name, values, kinds)))
+    .replace(/<p>\s*<\/p>\n?/g, '');
 }
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", apos: "'", nbsp: ' ', rsquo: '’', lsquo: '‘', ndash: '–', mdash: '—', hellip: '…' };

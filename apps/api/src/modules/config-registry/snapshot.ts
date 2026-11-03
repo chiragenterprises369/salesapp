@@ -177,7 +177,7 @@ export type StorageConfig =
   | { driver: 's3'; endpoint: string | null; region: string; bucket: string; accessKey: string; secretKey: string; forcePathStyle: boolean; publicBaseUrl: string | null }
   | { driver: 'bunny'; storageZone: string; region: string; password: string; publicBaseUrl: string | null };
 
-/** Storage for NEW uploads; null = not configured (production without a driver: uploads answer CONFIG_MISSING). */
+/** Storage for NEW uploads; null = not configured (production without a cloud driver: uploads answer CONFIG_MISSING). */
 export function storageConfig(): StorageConfig | null {
   const g = platformConfig().storage;
   const v = g.values;
@@ -186,6 +186,9 @@ export function storageConfig(): StorageConfig | null {
   if (g.evaluation.status === 'missing' || !driver) return null;
   if (driver === 's3') return { driver, endpoint: v.s3Endpoint, region: v.s3Region ?? 'ap-south-1', bucket: v.s3Bucket!, accessKey: v.s3AccessKey!, secretKey: v.s3SecretKey!, forcePathStyle: v.s3ForcePathStyle ?? false, publicBaseUrl: v.publicBaseUrl };
   if (driver === 'bunny') return { driver, storageZone: v.bunnyStorageZone!, region: v.bunnyRegion ?? 'de', password: v.bunnyPassword!, publicBaseUrl: v.publicBaseUrl };
+  // Production never writes new uploads to the local disk, whatever the source (panel refuses it, env STORAGE_DRIVER=local
+  // included): uploads answer CONFIG_MISSING and the go-live checklist fails until S3 or Bunny is set.
+  if (isProduction()) return null;
   return { driver: 'local', root };
 }
 

@@ -93,6 +93,12 @@ async function insertCompany(prisma: PrismaClient, ctx: CompanyCtx, h: History, 
 }
 
 async function main() {
+  // ---- change #20: config (P6). Demo companies and demo accounts never reach a production database.
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Refusing to run seed:demo with NODE_ENV=production: demo companies and demo accounts are for development, test and worktree databases only.');
+    process.exit(1);
+  }
+  // ---- end change #20: config
   const url = seedDatabaseUrl();
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
   const rng = createRng(2026);
