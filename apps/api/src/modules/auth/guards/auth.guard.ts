@@ -1,7 +1,7 @@
 import { type CanActivate, type ExecutionContext, Injectable, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { API_KEY_SCOPES, type Permission, type PlatformPermission, type RouteAuth } from '@vistar/shared';
-import type { Request } from 'express';
+import { API_KEY_DEFAULT_RATE_LIMIT_PER_MIN, API_KEY_SCOPES, type Permission, type PlatformPermission, type RouteAuth } from '@vistar/shared';
+import type { Request, Response } from 'express';
 import { AUTH_MODE_KEY, PERMISSION_KEY, type AuthContext } from '../../../common/auth/auth-context.js';
 import { AppException } from '../../../common/errors/app-exception.js';
 import { getEnv } from '../../../config/env.js';
@@ -10,12 +10,16 @@ import { PrismaService } from '../../../infra/prisma/prisma.service.js';
 import { API_KEY_PREFIX, bearerToken } from '../auth.constants.js';
 import { authContextFromClaims } from '../session.service.js';
 import { AccountStatusService } from '../state/account-status.service.js';
+import { KvStore } from '../state/kv.store.js';
+import { WorkspaceService } from '../../workspace/workspace.service.js';
 import { SuperAuthService } from '../super/super-auth.service.js';
 import { TokenService } from '../token.service.js';
 
 const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const API_KEY_SCOPE_SET = new Set<string>(API_KEY_SCOPES);
 const API_KEY_TOUCH_INTERVAL_MS = 60_000;
+/** change #19 wave C: plan feature api_access is cached this long per workspace. */
+const API_ACCESS_CACHE_SEC = 60;
 
 const unauthenticated = () => new AppException('AUTH_UNAUTHENTICATED', 'Sign in to continue');
 const disabledWorkspace = () => new AppException('AUTH_ACCOUNT_DISABLED', 'This workspace is suspended. Contact Vistar support');
@@ -42,6 +46,8 @@ export class AuthGuard implements CanActivate {
     private readonly tokens: TokenService,
     private readonly state: AccountStatusService,
     private readonly superAuth: SuperAuthService,
+    private readonly kv: KvStore,
+    private readonly workspaces: WorkspaceService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -72,7 +78,7 @@ export class AuthGuard implements CanActivate {
     let auth: AuthContext;
     if (mode === 'api_key' || (mode === 'jwt_or_api_key' && isApiKey)) {
       if (!isApiKey) throw new AppException('API_KEY_INVALID', 'Use an API key (vst_live_...) for this endpoint');
-      auth = await this.authenticateApiKey(token);
+      auth = await this.authenticateApiKey(token, req, ctx.switchToHttp().getResponse<Response>());
     } else {
       auth = await this.authenticateJwt(token, req);
     }
@@ -110,22 +116,48 @@ export class AuthGuard implements CanActivate {
     return authContextFromClaims(claims, impersonation);
   }
 
-  private async authenticateApiKey(token: string): Promise<AuthContext> {
-    // Cross-tenant lookup by the SHA-256 of an unguessable key (the key decides the tenant).
-    const key = await this.prisma.apiKey.findUnique({
-      where: { keyHash: hashToken(token) },
-      select: { id: true, workspaceId: true, scopes: true, lastUsedAt: true, expiresAt: true, revokedAt: true },
-    });
+  private async apiAccess(workspaceId: string): Promise<boolean> {
+    const cacheKey = `apiaccess:${workspaceId}`;
+    const cached = await this.kv.get(cacheKey);
+    if (cached !== null) return cached === '1';
+    const db = this.prisma.forTenant(workspaceId);
+    const ws = await db.workspace.findFirst({ select: { plan: true } });
+    const enabled = (await this.workspaces.features(db, ws?.plan ?? 'free')).api_access;
+    await this.kv.set(cacheKey, enabled ? '1' : '0', API_ACCESS_CACHE_SEC);
+    return enabled;
+  }
+
+  private async authenticateApiKey(token: string, req: Request, res: Response | undefined): Promise<AuthContext> {
+    // Cross-tenant lookup by the SHA-256 of an unguessable key (the key decides the tenant). After a rotation the old
+    // key keeps working until previousKeyExpiresAt (change #19 wave C).
+    const hash = hashToken(token);
+    const select = { id: true, workspaceId: true, scopes: true, lastUsedAt: true, expiresAt: true, revokedAt: true, rateLimitPerMinute: true, previousKeyExpiresAt: true } as const;
     const now = Date.now();
+    let key = await this.prisma.apiKey.findUnique({ where: { keyHash: hash }, select });
+    if (!key) {
+      const old = await this.prisma.apiKey.findUnique({ where: { previousKeyHash: hash }, select });
+      if (old?.previousKeyExpiresAt && old.previousKeyExpiresAt.getTime() > now) key = old;
+    }
     if (!key || key.revokedAt || (key.expiresAt && key.expiresAt.getTime() <= now)) throw new AppException('API_KEY_INVALID', 'This API key is invalid, expired or revoked');
     const ws = await this.state.workspaceStatus(key.workspaceId);
     if (!ws || ws === 'deleted' || ws === 'suspended') throw disabledWorkspace();
+    if (!(await this.apiAccess(key.workspaceId))) throw new AppException('FEATURE_DISABLED', 'API access is not part of this workspace plan');
+
+    // Per-key rate limit (fixed one-minute window, Redis or memory).
+    const limit = key.rateLimitPerMinute ?? API_KEY_DEFAULT_RATE_LIMIT_PER_MIN;
+    const used = await this.kv.incr(`rl:apikey:${key.id}:${Math.floor(now / 60_000)}`, 70);
+    res?.setHeader('X-RateLimit-Limit', String(limit));
+    res?.setHeader('X-RateLimit-Remaining', String(Math.max(0, limit - used)));
+    if (used > limit) {
+      res?.setHeader('Retry-After', String(Math.max(1, 60 - Math.floor((now % 60_000) / 1000))));
+      throw new AppException('RATE_LIMITED', `This API key is limited to ${limit} requests a minute`);
+    }
 
     if (!key.lastUsedAt || now - key.lastUsedAt.getTime() > API_KEY_TOUCH_INTERVAL_MS) {
       const threshold = new Date(now - API_KEY_TOUCH_INTERVAL_MS);
       void this.prisma
         .forTenant(key.workspaceId)
-        .apiKey.updateMany({ where: { id: key.id, OR: [{ lastUsedAt: null }, { lastUsedAt: { lt: threshold } }] }, data: { lastUsedAt: new Date(now) } })
+        .apiKey.updateMany({ where: { id: key.id, OR: [{ lastUsedAt: null }, { lastUsedAt: { lt: threshold } }] }, data: { lastUsedAt: new Date(now), lastUsedIp: (req.ip ?? '').slice(0, 64) || null } })
         .catch((err: Error) => this.logger.warn(`API key lastUsedAt update failed: ${err.name}`));
     }
 

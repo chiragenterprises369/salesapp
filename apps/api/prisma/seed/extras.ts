@@ -3,8 +3,8 @@
  * quick replies, integrations, webhooks + deliveries, API keys, usage counters, audit log, settings and
  * invites. Secrets are random, encrypted or hashed exactly like the API modules do, and never printed.
  */
-import { API_KEY_PREFIX, SETTING_KEYS, WEBHOOK_RETRY_DELAYS_SEC, type ApiKeyScope, type NotificationType, type OutboundWebhookEvent } from '@vistar/shared';
-import { randomUUID } from 'node:crypto';
+import { API_KEY_PREFIX, SETTING_KEYS, WEBHOOK_RETRY_DELAYS_SEC, webhookAttemptOffsetsSec, type ApiKeyScope, type NotificationType, type OutboundWebhookEvent } from '@vistar/shared';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Prisma } from '../../src/generated/prisma/client.js';
 import { encryptSecret, hashToken, randomToken } from '../../src/infra/crypto/secrets.js';
 import type { CompanyCtx, SeedUser } from './company.js';
@@ -234,19 +234,31 @@ export function buildExtras(ctx: CompanyCtx, h: History): Extras {
   const qrCount = ctx.fx.slug === 'shakti' ? C.QUICK_REPLIES.length : ctx.fx.slug === 'navkar' ? 8 : 6;
   for (const q of C.QUICK_REPLIES.slice(0, qrCount)) x.quickReplies.push({ id: randomUUID(), workspaceId, shortcut: q.shortcut, body: q.body, createdAt: d(ctx.createdAt + 3 * DAY) });
 
-  // ------------------------------------------------------------ integrations
+  // ------------------------------------------------------------ integrations (change #19 wave C: mock adapters, masked secret hints, inbound tokens)
   const connectedAt = ctx.createdAt + between(rng, DAY, 3 * DAY);
   const imported30d = h.states.filter((s) => s.d.source === 'indiamart' && s.created > now - 30 * DAY).length;
-  const integ = (provider: Prisma.IntegrationCreateManyInput['provider'], displayName: string, config: Json, secrets: Record<string, string> | null, status: 'connected' | 'error' = 'connected', lastError: string | null = null) =>
+  const hint = (v: string) => (v.length >= 8 ? `••••${v.slice(-4)}` : '••••');
+  type IntegOpts = { status?: 'connected' | 'error'; lastError?: string | null; mode?: 'live' | 'mock'; tokens?: Record<string, string>; stats?: Json; syncState?: Json; lastSyncAt?: Date | null };
+  const integ = (provider: Prisma.IntegrationCreateManyInput['provider'], displayName: string, config: Json, secrets: Record<string, string> | null, o: IntegOpts = {}) =>
     x.integrations.push({
-      id: randomUUID(), workspaceId, provider, status, displayName, config, secretsEncrypted: secrets ? encryptSecret(JSON.stringify(secrets)) : null,
-      lastCheckedAt: d(now - between(rng, MIN, 40 * MIN)), lastError, connectedAt: d(connectedAt + between(rng, 0, 2 * DAY)), createdAt: d(connectedAt), updatedAt: d(now - between(rng, MIN, 40 * MIN)),
+      id: randomUUID(), workspaceId, provider, status: o.status ?? 'connected', mode: o.mode ?? 'mock', displayName, config,
+      secretsEncrypted: secrets ? encryptSecret(JSON.stringify(secrets)) : null,
+      secretHints: secrets ? Object.fromEntries(Object.entries(secrets).map(([k, v]) => [k, hint(v)])) : {},
+      inboundTokensEncrypted: o.tokens ? encryptSecret(JSON.stringify(o.tokens)) : null,
+      stats: o.stats ?? {}, syncState: o.syncState ?? {}, lastSyncAt: o.lastSyncAt ?? null, connectedById: ctx.admin.id,
+      lastCheckedAt: d(now - between(rng, MIN, 40 * MIN)), lastError: o.lastError ?? null, connectedAt: d(connectedAt + between(rng, 0, 2 * DAY)), createdAt: d(connectedAt), updatedAt: d(now - between(rng, MIN, 40 * MIN)),
     });
-  integ('indiamart', 'IndiaMART Lead Manager', { mode: 'pull', pullIntervalMin: 15, glusrId: String(int(rng, 10_000_000, 99_999_999)), lastPulledAt: iso(now - between(rng, MIN, 14 * MIN)), enquiriesLast30Days: imported30d }, { crmKey: randomToken(24) });
-  integ('whatsapp_cloud', 'WhatsApp Cloud API', { phoneNumberId: ctx.business.phoneNumberId, wabaId: ctx.business.wabaId, displayPhoneNumber: ctx.business.number, verifiedName: ctx.workspaceName, qualityRating: 'GREEN', messagingLimit: ctx.fx.slug === 'shakti' ? 'TIER_10K' : 'TIER_1K' }, { accessToken: randomToken(48), appSecret: randomToken(24) });
-  integ('telephony', 'Telephony (mock adapter)', { provider: 'mock', callerId: ctx.business.number, recordCalls: true, ringTimeoutSec: 30 }, null);
+  // IndiaMART: nextSyncAt stays null so the dev cron does not keep adding mock leads to the demo data until someone presses "Sync now".
+  const lastPull = now - between(rng, MIN, 14 * MIN);
+  integ('indiamart', 'IndiaMART Lead Manager', { pullEnabled: true, pullIntervalMin: 15, pushEnabled: true, tags: ['indiamart'] }, { crmKey: randomToken(24) }, {
+    tokens: { pushKey: `im_${randomToken(24)}` }, stats: { leadsImported30d: imported30d, lastPulledCount: int(rng, 0, 3), lastCreatedCount: 0 }, syncState: { lastPullAt: iso(lastPull), lastWindowEnd: iso(lastPull) }, lastSyncAt: d(lastPull),
+  });
+  integ('whatsapp_cloud', 'WhatsApp Cloud API', { phoneNumberId: ctx.business.phoneNumberId, wabaId: ctx.business.wabaId, displayPhoneNumber: ctx.business.number }, { accessToken: randomToken(48), appSecret: randomToken(24) }, {
+    tokens: { verifyToken: `wa_${randomToken(24)}` }, stats: { displayPhoneNumber: ctx.business.number, verifiedName: ctx.workspaceName, qualityRating: 'GREEN', messagingLimit: ctx.fx.slug === 'shakti' ? 'TIER_10K' : 'TIER_1K' }, syncState: { webhookVerifiedAt: iso(connectedAt + DAY) },
+  });
+  integ('telephony', 'Telephony (mock adapter)', { provider: 'mock', recordCalls: true }, null, { tokens: { callbackToken: `tel_${randomToken(24)}` } });
   if (ctx.fx.slug === 'shakti') {
-    integ('smtp', 'Email (SMTP)', { host: 'smtp.zoho.in', port: 587, secure: false, from: 'sales@shakti.example' }, { password: randomToken(18) }, 'error', 'Authentication failed (535): check the app password');
+    integ('smtp', 'Email (SMTP)', { host: 'smtp.zoho.in', port: 587, secure: false, username: 'sales@shakti.example', fromEmail: 'sales@shakti.example', fromName: 'Shakti Sales' }, { password: randomToken(18) }, { status: 'error', mode: 'live', lastError: 'Authentication failed (535): check the user name and password' });
   }
 
   // ------------------------------------------------------------ webhooks
@@ -257,7 +269,8 @@ export function buildExtras(ctx: CompanyCtx, h: History): Extras {
     return id;
   };
   const inboundId = endpoint({
-    direction: 'inbound', name: 'Website contact form', isActive: true, sourceKey: 'website-form', action: 'create_lead',
+    direction: 'inbound', name: 'Website contact form', isActive: true, sourceKey: 'website-form', action: 'create_lead', verification: 'hmac', matchBy: ['phone', 'email'], createIfMissing: true, createdById: ctx.admin.id,
+    samplePayload: { name: 'Ramesh Patil', mobile: '98220 12345', email: 'ramesh.patil@example.in', city: 'Pune', product: 'MS Angle', message: 'Need a quotation for 200 kg' }, sampleCapturedAt: d(ctx.createdAt + 2 * DAY + 10 * MIN),
     mapping: { fields: [{ from: 'name', to: 'name', transform: 'trim' }, { from: 'mobile', to: 'phone', transform: 'phone_in' }, { from: 'email', to: 'email', transform: 'lower' }, { from: 'city', to: 'city', transform: 'trim' }, { from: 'product', to: 'productInterest', transform: 'trim' }, { from: 'message', to: 'requirement', transform: 'none' }], defaults: { source: 'webhook' } },
     createdAt: d(ctx.createdAt + 2 * DAY), updatedAt: d(ctx.createdAt + 2 * DAY),
   });
@@ -292,7 +305,7 @@ export function buildExtras(ctx: CompanyCtx, h: History): Extras {
     const shakti = ctx.fx.slug === 'shakti';
     const events: OutboundWebhookEvent[] = shakti ? ['lead.created', 'lead.assigned', 'stage.changed'] : ['stage.changed'];
     const outId = endpoint({
-      direction: 'outbound', name: shakti ? 'ERP sync' : 'Tally bridge', isActive: true, url: shakti ? 'https://erp.shakti.example/hooks/vistar' : 'https://tally-bridge.navkar.example/vistar', events,
+      direction: 'outbound', name: shakti ? 'ERP sync' : 'Tally bridge', isActive: true, createIfMissing: false, createdById: ctx.admin.id, url: shakti ? 'https://erp.shakti.example/hooks/vistar' : 'https://tally-bridge.navkar.example/vistar', events,
       createdAt: d(ctx.createdAt + 20 * DAY), updatedAt: d(ctx.createdAt + 20 * DAY),
     });
     const outEvents: Array<{ at: number; event: OutboundWebhookEvent; payload: Json }> = [];
@@ -341,11 +354,49 @@ export function buildExtras(ctx: CompanyCtx, h: History): Extras {
     }
   }
 
+  // ------------------------------------------------------------ delivery timelines and endpoint counters (change #19 wave C)
+  const offsets = webhookAttemptOffsetsSec();
+  const hashByKey = new Map<string, string>();
+  for (const dl of x.deliveries) {
+    const created = (dl.createdAt as Date).getTime();
+    const n = Math.max(1, dl.attempt ?? 1);
+    const ok = dl.status === 'success';
+    const spaced = dl.direction === 'outbound' && !dl.replayOfId;
+    dl.attempts = Array.from({ length: n }, (_, i) => {
+      const last = i === n - 1;
+      const good = last && ok;
+      return { attempt: i + 1, at: iso(created + (spaced ? (offsets[i] ?? 0) : 0) * SEC), ok: good, responseStatus: last ? (dl.responseStatus ?? null) : null, latencyMs: last ? (dl.latencyMs ?? null) : 10_000, error: good ? null : last ? (dl.error ?? null) : 'Timed out after 10 s' };
+    });
+    if (spaced) dl.dedupeKey = dl.eventId ?? null;
+    if (dl.direction === 'inbound') {
+      dl.signatureValid = ok;
+      const hash = createHash('sha256').update(JSON.stringify(dl.requestBody ?? null)).digest('hex');
+      dl.bodyHash = dl.idempotencyKey ? (hashByKey.get(dl.idempotencyKey) ?? hash) : hash;
+      if (dl.idempotencyKey && !hashByKey.has(dl.idempotencyKey)) hashByKey.set(dl.idempotencyKey, hash);
+      if (ok) {
+        const r = JSON.parse(dl.responseBody ?? '{}') as { leadId?: string | null; duplicate?: boolean };
+        dl.result = { action: 'create_lead', leadId: r.leadId ?? null, runId: null, duplicate: !!r.duplicate, captured: false };
+        dl.responseBody = JSON.stringify({ ok: true, duplicate: !!r.duplicate, leadId: r.leadId ?? null, runId: null, deliveryId: dl.id, captured: false });
+      }
+    }
+  }
+  for (const e of x.endpoints) {
+    const mine = x.deliveries.filter((dl) => dl.endpointId === e.id).sort((a, b) => (a.createdAt as Date).getTime() - (b.createdAt as Date).getTime());
+    const lastAt = (r: (typeof mine)[number] | undefined) => (r ? (r.updatedAt as Date) : null);
+    const lastOk = [...mine].reverse().find((r) => r.status === 'success');
+    const lastBad = [...mine].reverse().find((r) => r.status !== 'success');
+    e.lastDeliveryAt = lastAt(mine.at(-1));
+    e.lastSuccessAt = lastAt(lastOk);
+    e.lastFailureAt = lastAt(lastBad);
+    const okAt = lastOk ? (lastOk.createdAt as Date).getTime() : 0;
+    e.consecutiveFailures = e.direction === 'outbound' ? mine.filter((r) => r.status !== 'success' && (r.createdAt as Date).getTime() > okAt).reduce((sum, r) => sum + (r.attempt ?? 1), 0) : 0;
+  }
+
   // ------------------------------------------------------------ API keys (plans with api_access only)
-  const keySpecs: Array<{ name: string; scopes: ApiKeyScope[]; createdAgo: number; usedAgo: number | null; revokedAgo?: number; expiresIn?: number }> =
+  const keySpecs: Array<{ name: string; scopes: ApiKeyScope[]; createdAgo: number; usedAgo: number | null; revokedAgo?: number; expiresIn?: number; rateLimit?: number }> =
     ctx.fx.plan === 'growth' || ctx.fx.plan === 'enterprise'
       ? [
-          { name: 'ERP sync', scopes: ['leads.read', 'leads.update', 'tasks.read'], createdAgo: 40 * DAY, usedAgo: 3 * MIN },
+          { name: 'ERP sync', scopes: ['leads.read', 'leads.update', 'tasks.read'], createdAgo: 40 * DAY, usedAgo: 3 * MIN, rateLimit: 300 },
           { name: 'Website form backup', scopes: ['leads.create'], createdAgo: 70 * DAY, usedAgo: 2 * DAY },
           { name: 'Old Zapier key', scopes: ['leads.read', 'leads.create'], createdAgo: 95 * DAY, usedAgo: 26 * DAY, revokedAgo: 21 * DAY },
         ]
@@ -359,6 +410,7 @@ export function buildExtras(ctx: CompanyCtx, h: History): Extras {
     x.apiKeys.push({
       id, workspaceId, name: k.name, prefix: key.slice(0, API_KEY_PREFIX.length + 4), keyHash: hashToken(key), scopes: k.scopes, lastUsedAt: k.usedAgo !== null ? d(now - k.usedAgo) : null,
       expiresAt: k.expiresIn ? d(now + k.expiresIn) : null, revokedAt: k.revokedAgo ? d(now - k.revokedAgo) : null, createdById: ctx.admin.id, createdAt: d(createdAt),
+      rateLimitPerMinute: k.rateLimit ?? null, lastUsedIp: k.usedAgo !== null ? pick(rng, C.AUDIT_IPS) : null,
     });
     audit(ctx.admin, createdAt, 'apikey.create', 'api_key', id, { name: k.name, prefix: key.slice(0, API_KEY_PREFIX.length + 4), scopes: k.scopes });
     if (k.revokedAgo) audit(ctx.admin, now - k.revokedAgo, 'apikey.revoke', 'api_key', id, { name: k.name });
