@@ -9,6 +9,8 @@ import {
   ConfigGroupUpdateSchema,
   ConfigRegistrySchema,
   ConfigTestResultSchema,
+  DocumentDeliverSchema,
+  DocumentDeliveryResultSchema,
   EmailPreviewSchema,
   EmailSendResultSchema,
   EmailTemplatePreviewSchema,
@@ -25,11 +27,14 @@ import {
   PasswordResetSchema,
   PlatformEmailTemplateParamSchema,
   PublicPlatformInfoSchema,
+  ReadyResponseSchema,
   RegistryGroupParamSchema,
   SetupBannerSchema,
   SetupChecklistSchema,
   SetupItemAckSchema,
   SetupItemParamSchema,
+  SuperCompanyUserSchema,
+  TlsAskQuerySchema,
   WhatsAppTemplateCreateSchema,
   WhatsAppTemplateListQuerySchema,
   WhatsAppTemplateSchema,
@@ -98,4 +103,17 @@ export const CONFIG_ROUTES = {
 
   // ---------------- public
   publicPlatformInfo: route({ ...COMPANY, tag: 'public', method: 'get', path: '/public/platform', summary: 'Vistar product name, support contacts, legal links, password rule, web monitoring DSN, Google sign-in availability (no secrets)', auth: 'public', permission: null, response: PublicPlatformInfoSchema }),
+
+  // ================ change #20b: contract addendum (requests-20). Handlers: P1 to P4 PROD-HUB, 1 and 4 CONFIG-API.
+  // ---------------- P1: send quotations and invoices by e-mail (PDF attached) or WhatsApp (share link)
+  quotationDeliver: route({ ...COMPANY, tag: 'quotations', method: 'post', path: '/quotations/{id}/deliver', summary: 'Send a quotation by e-mail (company template quotation_sent, PDF attached, company SMTP or the platform mailer) or WhatsApp (approved template with the share link); a draft is marked sent first (same rules as quotationSend); recorded on the timeline; 422 EMAIL_NOT_CONFIGURED', permission: 'quotations.send', params: IdParamSchema, body: DocumentDeliverSchema, response: DocumentDeliveryResultSchema }),
+  invoiceDeliver: route({ ...COMPANY, tag: 'invoices', method: 'post', path: '/invoices/{id}/deliver', summary: 'Send an invoice by e-mail (company template invoice_sent, PDF attached) or WhatsApp (approved template with the share link); a draft is issued first (same rules as invoiceSend); recorded on the timeline; 422 EMAIL_NOT_CONFIGURED', permission: 'invoices.issue', params: IdParamSchema, body: DocumentDeliverSchema, response: DocumentDeliveryResultSchema }),
+  // ---------------- P2, P3, P4: production probes and receivers (absolute; one path segment under /api/hooks)
+  ready: route({ ...COMPANY, tag: 'system', method: 'get', path: '/api/ready', absolute: true, summary: 'Readiness: database, Redis and storage reachable and not draining; 200 when ok, 503 with the same body otherwise (health stays the liveness check)', auth: 'public', permission: null, response: ReadyResponseSchema }),
+  tlsAsk: route({ ...COMPANY, tag: 'system', method: 'get', path: '/api/tls/ask', absolute: true, summary: 'Caddy on-demand TLS ask: 200 when the host may get a certificate (verified custom domain of a company with the custom_domain switch on, or the WEB_ORIGIN / API_PUBLIC_URL host), 404 otherwise; internal network only (the Caddyfile blocks it from outside)', auth: 'public', permission: null, query: TlsAskQuerySchema, response: null }),
+  googleCalendarWebhook: route({ ...COMPANY, tag: 'webhooks', method: 'post', path: '/api/hooks/google-calendar', absolute: true, summary: 'Google Calendar push notifications of watch channels (X-Goog-Channel-ID, X-Goog-Channel-Token = per-workspace HMAC, X-Goog-Resource-State); triggers an incremental sync', auth: 'webhook', permission: null, body: z.unknown(), response: null, status: 200 }),
+  // ---------------- requests 1 and 4: Super Admin company detail (users tab, setup progress)
+  superCompanyUsers: route({ ...SUPER, tag: 'super', method: 'get', path: '/api/super/companies/{id}/users', summary: 'Users of a company: name, e-mail, role, active, last active, devices (no phone numbers)', permission: 'platform.companies.read', params: IdParamSchema, response: listOf(SuperCompanyUserSchema) }),
+  superCompanySetup: route({ ...SUPER, tag: 'super', method: 'get', path: '/api/super/companies/{id}/setup', summary: 'Setup checklist of a company (same schema as GET /setup; bannerDismissed is always false)', permission: 'platform.companies.read', params: IdParamSchema, response: SetupChecklistSchema }),
+  // ================ end change #20b
 } as const satisfies Record<string, RouteDef>;
