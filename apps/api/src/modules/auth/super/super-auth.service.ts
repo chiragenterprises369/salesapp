@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   PLATFORM_PERMISSIONS,
-  SUPER_SESSION,
   type PlatformAdmin,
   type PlatformPermission,
   type SuperLoginChallenge,
@@ -15,11 +14,15 @@ import { AppException } from '../../../common/errors/app-exception.js';
 import { decryptSecret, encryptSecret, hashToken, randomToken } from '../../../infra/crypto/secrets.js';
 import { generateTotpSecret, otpauthUrl, verifyTotp } from '../../../infra/crypto/totp.js';
 import { PrismaService } from '../../../infra/prisma/prisma.service.js';
+import { securityPolicy } from '../../config-registry/snapshot.js';
+import { PlatformMailerService } from '../../mail/platform-mailer.service.js';
 import {
   CHALLENGE_MAX_ATTEMPTS,
   CHALLENGE_TTL_SEC,
   clientIp,
   refreshCookieOptions,
+  SUPER_ABSOLUTE_TIMEOUT_SEC,
+  SUPER_IDLE_TIMEOUT_SEC,
   SUPER_REFRESH_COOKIE,
   SUPER_REFRESH_PATH,
   userAgent,
@@ -33,6 +36,12 @@ const PLATFORM_PERMISSION_SET = new Set<string>(PLATFORM_PERMISSIONS);
 const invalidCredentials = () => new AppException('AUTH_INVALID_CREDENTIALS', 'Email or password is incorrect');
 const badCode = () => new AppException('AUTH_INVALID_CREDENTIALS', 'The code is incorrect or expired. Enter the latest code from your app');
 const sessionEnded = () => new AppException('AUTH_TOKEN_INVALID', 'Your session ended. Sign in again');
+
+/** change #20: the admin's own allowlist AND the platform-wide one (Super Admin > Config > Security policy). */
+function superIpAllowed(req: Request, adminList: readonly string[]): boolean {
+  const ip = clientIp(req);
+  return ipAllowed(ip, adminList) && ipAllowed(ip, securityPolicy().superIpAllowlist);
+}
 
 const chalKeys = {
   used: (jti: string) => `vistar:super:chal:used:${jti}`,
@@ -86,6 +95,8 @@ export class SuperAuthService {
     private readonly tokens: TokenService,
     private readonly kv: KvStore,
     private readonly audit: AuditService,
+    // ---- change #20: config (login alert e-mail)
+    private readonly mailer: PlatformMailerService,
   ) {}
 
   private async auditFailure(req: Request, adminId: string | null, reason: string, email?: string): Promise<void> {
@@ -105,7 +116,7 @@ export class SuperAuthService {
       await this.auditFailure(req, admin?.id ?? null, 'invalid_credentials', body.email);
       throw invalidCredentials();
     }
-    if (!ipAllowed(clientIp(req), admin.ipAllowlist)) {
+    if (!superIpAllowed(req, admin.ipAllowlist)) {
       // Same message as a wrong password: do not reveal that the password was right.
       await this.auditFailure(req, admin.id, 'ip_not_allowed');
       throw invalidCredentials();
@@ -141,7 +152,7 @@ export class SuperAuthService {
       await this.auditFailure(req, challenge.sub, admin && !admin.isActive ? 'account_disabled' : 'invalid_challenge');
       throw invalidCredentials();
     }
-    if (!ipAllowed(clientIp(req), admin.ipAllowlist)) {
+    if (!superIpAllowed(req, admin.ipAllowlist)) {
       await this.auditFailure(req, admin.id, 'ip_not_allowed');
       throw invalidCredentials();
     }
@@ -178,13 +189,20 @@ export class SuperAuthService {
 
     const familyId = randomUUID();
     const refreshToken = randomToken(32);
-    const expiresAt = new Date(now.getTime() + SUPER_SESSION.absoluteTimeoutSec * 1000);
+    const expiresAt = new Date(now.getTime() + SUPER_ABSOLUTE_TIMEOUT_SEC() * 1000);
     await this.prisma.platformSession.create({
       data: { adminId: admin.id, familyId, tokenHash: hashToken(refreshToken), ip: clientIp(req), userAgent: userAgent(req), lastSeenAt: now, expiresAt },
     });
     this.setCookie(res, refreshToken, expiresAt);
     const updated = await this.prisma.platformAdmin.findUniqueOrThrow({ where: { id: admin.id } });
     await this.audit.platform({ adminId: admin.id }, req, { action: 'auth.login', entityType: 'platform_admin', entityId: admin.id, diff: { mfaEnrolled: enrolling } }, admin.name);
+    // ---- change #20: config. Login alert (background; never blocks or fails the sign-in).
+    void this.mailer.sendTemplate('super_admin_login_alert', admin.email, {
+      name: admin.name,
+      time: `${now.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })} IST`,
+      ip: clientIp(req) ?? 'unknown',
+      userAgent: (userAgent(req) ?? 'unknown browser').slice(0, 120),
+    });
     return this.session(updated, familyId);
   }
 
@@ -218,7 +236,7 @@ export class SuperAuthService {
       this.clearCookie(res);
       throw new AppException('AUTH_ACCOUNT_DISABLED', 'This Super Admin account is disabled');
     }
-    if (!ipAllowed(clientIp(req), session.admin.ipAllowlist)) throw new AppException('FORBIDDEN', 'Requests from this network are not allowed');
+    if (!superIpAllowed(req, session.admin.ipAllowlist)) throw new AppException('FORBIDDEN', 'Requests from this network are not allowed');
 
     const nextToken = randomToken(32);
     const rotated = await this.prisma
@@ -278,7 +296,7 @@ export class SuperAuthService {
     const timeout = this.timeoutReason(session, now);
     if (timeout) throw new AppException('AUTH_TOKEN_EXPIRED', timeout);
     if (!session.admin.isActive) throw new AppException('AUTH_ACCOUNT_DISABLED', 'This Super Admin account is disabled');
-    if (!ipAllowed(clientIp(req), session.admin.ipAllowlist)) throw new AppException('FORBIDDEN', 'Requests from this network are not allowed');
+    if (!superIpAllowed(req, session.admin.ipAllowlist)) throw new AppException('FORBIDDEN', 'Requests from this network are not allowed');
     if (now - session.lastSeenAt.getTime() > 60_000) {
       await this.prisma.platformSession.updateMany({ where: { id: session.id, lastSeenAt: { lt: new Date(now - 60_000) } }, data: { lastSeenAt: new Date(now) } });
     }
@@ -286,14 +304,15 @@ export class SuperAuthService {
   }
 
   private timeoutReason(session: { expiresAt: Date; lastSeenAt: Date }, now: number): string | null {
-    if (session.expiresAt.getTime() <= now) return 'Your session reached its 12-hour limit. Sign in again';
-    if (session.lastSeenAt.getTime() + SUPER_SESSION.idleTimeoutSec * 1000 <= now) return 'You were signed out after 30 minutes of inactivity';
+    if (session.expiresAt.getTime() <= now) return 'Your session reached its time limit. Sign in again';
+    const idle = SUPER_IDLE_TIMEOUT_SEC();
+    if (session.lastSeenAt.getTime() + idle * 1000 <= now) return `You were signed out after ${Math.round(idle / 60)} minutes of inactivity`;
     return null;
   }
 
   private session(admin: AdminRow, familyId: string): SuperSession {
     const { token, expiresIn } = this.tokens.signPlatformAccess({ sub: admin.id, role: 'super_admin', perms: platformPermissions(admin.permissions), sid: familyId, mfa: true });
-    return { accessToken: token, expiresIn, admin: toPlatformAdmin(admin), idleTimeoutSec: SUPER_SESSION.idleTimeoutSec };
+    return { accessToken: token, expiresIn, admin: toPlatformAdmin(admin), idleTimeoutSec: SUPER_IDLE_TIMEOUT_SEC() };
   }
 
   private async revokeFamily(familyId: string): Promise<void> {

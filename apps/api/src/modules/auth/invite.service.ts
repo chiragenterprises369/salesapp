@@ -11,8 +11,12 @@ import { assertInTenant } from '../../infra/prisma/tenant.js';
 import { AUTH_USER_SELECT, authContextFromClaims, SessionService, type AuthSession } from './session.service.js';
 import { hashPassword } from './password.js';
 import { PlanLimitsService } from '../billing/plan-limits.service.js';
+import { platformBranding } from '../config-registry/snapshot.js';
+import { PlatformMailerService } from '../mail/platform-mailer.service.js';
+import { AccountLinksService, assertPasswordPolicy } from './account-links.service.js';
 
 const inviteInvalid = () => new AppException('AUTH_INVITE_INVALID', 'This invite link is invalid or has expired. Ask your admin for a new one');
+const formatDate = (d: Date) => d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
 
 /** Identity of the person accepting an invite (password form or verified Google account). */
 export interface InviteAcceptIdentity {
@@ -35,6 +39,9 @@ export class InviteService {
     private readonly audit: AuditService,
     // ---- change #19 wave C: billing (seat limit)
     private readonly planLimits: PlanLimitsService,
+    // ---- change #20: config (invite e-mails, verification of link invites)
+    private readonly mailer: PlatformMailerService,
+    private readonly links: AccountLinksService,
   ) {}
 
   private toInvite(row: { id: string; email: string | null; roleId: string; expiresAt: Date; acceptedAt: Date | null; createdAt: Date }, roleName: string, url?: string): Invite {
@@ -86,7 +93,20 @@ export class InviteService {
       entityId: invite.id,
       diff: { email, roleId: body.roleId, teamId: body.teamId ?? null, expiresAt: invite.expiresAt.toISOString() },
     });
-    return this.toInvite(invite, role.name, `${webOrigin()}/invite/${token}`);
+    const url = `${webOrigin()}/invite/${token}`;
+    // ---- change #20: config. E-mail invites are sent for real (platform mailer); the link is still returned.
+    if (email) {
+      const [inviter, ws] = await Promise.all([db.user.findFirst({ where: { id: auth.userId }, select: { name: true } }), db.workspace.findFirst({ select: { name: true } })]);
+      await this.mailer.sendTemplate('invite', email, {
+        name: email.split('@')[0] ?? email,
+        inviterName: inviter?.name ?? 'Your admin',
+        workspace: ws?.name ?? '',
+        role: role.name,
+        link: url,
+        expiresAt: formatDate(invite.expiresAt),
+      });
+    }
+    return this.toInvite(invite, role.name, url);
   }
 
   /**
@@ -103,7 +123,19 @@ export class InviteService {
         data: { workspaceId, email, roleId: body.roleId, tokenHash: hashToken(token), expiresAt: new Date(now.getTime() + body.expiresInDays * 86_400_000), createdById: null },
       });
     });
-    return { id: invite.id, url: `${webOrigin()}/invite/${token}`, expiresAt: invite.expiresAt };
+    const url = `${webOrigin()}/invite/${token}`;
+    // ---- change #20: config. The first admin of a company created by the Super Admin gets the invite by e-mail.
+    const db = this.prisma.forTenant(workspaceId);
+    const [ws, role] = await Promise.all([db.workspace.findFirst({ select: { name: true } }), db.role.findFirst({ where: { id: body.roleId }, select: { name: true } })]);
+    await this.mailer.sendTemplate('invite', email, {
+      name: email.split('@')[0] ?? email,
+      inviterName: `The ${platformBranding().productName} team`,
+      workspace: ws?.name ?? '',
+      role: role?.name ?? 'Company admin',
+      link: url,
+      expiresAt: formatDate(invite.expiresAt),
+    });
+    return { id: invite.id, url, expiresAt: invite.expiresAt };
   }
 
   async list(auth: AuthContext): Promise<{ items: Invite[] }> {
@@ -155,6 +187,8 @@ export class InviteService {
     const role = await db.role.findFirst({ where: { id: invite.roleId }, select: { id: true } });
     if (!role) throw inviteInvalid();
     const teamId = invite.teamId && (await db.team.count({ where: { id: invite.teamId } })) ? invite.teamId : null;
+    // ---- change #20: config (security policy password length)
+    assertPasswordPolicy(identity.password);
     const passwordHash = identity.password ? await hashPassword(identity.password) : null;
     // ---- change #19 wave C: billing. The invite's seat was reserved; a lower plan since then can still block it.
     await this.planLimits.assertCanAdd(wid, 'seats', 1, { countInvites: false });
@@ -168,7 +202,8 @@ export class InviteService {
         });
         if (count !== 1) throw new Error('invite-race');
         const user = await tx.user.create({
-          data: { workspaceId: wid, email, name: identity.name, passwordHash, googleSub: identity.googleSub, roleId: role.id, teamId, status: 'offline' },
+          // change #20: the invite e-mail (or a verified Google account) proves the address.
+          data: { workspaceId: wid, email, name: identity.name, passwordHash, googleSub: identity.googleSub, roleId: role.id, teamId, status: 'offline', emailVerifiedAt: invite.email || identity.googleSub ? now : null },
           select: { id: true },
         });
         return user.id;
@@ -184,6 +219,8 @@ export class InviteService {
     const session = await this.sessions.start(user, req, res);
     const auth = authContextFromClaims(this.sessions.claimsFor(user, 'invite'));
     await this.audit.record(auth, req, { action: 'invite.accept', entityType: 'invite', entityId: invite.id, diff: { userId, roleId: role.id, teamId } }, user.name);
+    // Link invites carry no e-mail: confirm the address the person typed.
+    if (!invite.email && !identity.googleSub) void this.links.sendVerification(userId, wid, req);
     return session;
   }
 

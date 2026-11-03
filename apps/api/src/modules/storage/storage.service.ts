@@ -9,6 +9,7 @@ import { AppException } from '../../common/errors/app-exception.js';
 import { getEnv } from '../../config/env.js';
 import type { File as FileRow, PlatformFile } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../infra/prisma/prisma.service.js';
+import { platformConfig, storageConfig, storageDriverConfig, type StorageConfig } from '../config-registry/snapshot.js';
 import {
   checkApk,
   checkGlb,
@@ -21,7 +22,7 @@ import {
   svgLooksUnsafe,
   type ImageKind,
 } from './file-validation.js';
-import { createDriver, LocalDiskDriver, repoRoot, S3Driver, type StorageDriver } from './storage.drivers.js';
+import { createDriverFor, LocalDiskDriver, type StorageDriver } from './storage.drivers.js';
 
 /** Minimal multer file (disk storage via `dest`, or memory storage with `buffer`). */
 export interface UploadedFileLike {
@@ -64,28 +65,74 @@ type TokenScope = 't' | 'p';
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private readonly env = getEnv();
-  private readonly primary: StorageDriver = createDriver(this.env);
-  private readonly drivers = new Map<string, StorageDriver>([[this.primary.name, this.primary]]);
+  /** Drivers built from the config snapshot; rebuilt when the snapshot changes (change #20: runtime switch). */
+  private cache: { at: number; primary: StorageDriver | null; byName: Map<string, StorageDriver> } | null = null;
   private readonly tokenKey = createHmac('sha256', Buffer.from(this.env.ENCRYPTION_KEY, 'base64')).update('vistar:file-url:v1').digest();
 
   constructor(private readonly prisma: PrismaService) {}
 
+  private drivers() {
+    const at = platformConfig().loadedAt;
+    if (this.cache?.at === at) return this.cache;
+    const cfg = storageConfig();
+    this.cache = { at, primary: cfg ? createDriverFor(cfg) : null, byName: new Map() };
+    if (this.cache.primary) this.cache.byName.set(this.cache.primary.name, this.cache.primary);
+    return this.cache;
+  }
+
+  /** Driver for NEW uploads. CONFIG_MISSING when no storage is configured (production without a driver). */
+  private get primary(): StorageDriver {
+    const p = this.drivers().primary;
+    if (!p) throw new AppException('CONFIG_MISSING', 'File storage is not configured: Super Admin > Config > File storage');
+    return p;
+  }
+
   get driverName(): string {
-    return this.primary.name;
+    return this.drivers().primary?.name ?? 'none';
   }
 
   /** Root of the local driver (tests and dev tooling). */
   get localRoot(): string | null {
-    return this.primary instanceof LocalDiskDriver ? this.primary.root : null;
+    const p = this.drivers().primary;
+    return p instanceof LocalDiskDriver ? p.root : null;
   }
 
+  /** Driver a stored row was written with (its settings may differ from the active driver after a switch). */
   private driver(name: string): StorageDriver {
-    let d = this.drivers.get(name);
+    const c = this.drivers();
+    let d = c.byName.get(name);
     if (!d) {
-      d = name === 's3' ? new S3Driver(this.env) : new LocalDiskDriver(this.env.STORAGE_LOCAL_ROOT ? path.resolve(this.env.STORAGE_LOCAL_ROOT) : path.join(repoRoot(), '.data', 'uploads'));
-      this.drivers.set(name, d);
+      const cfg: StorageConfig | null = name === 'local' ? { driver: 'local', root: this.env.STORAGE_LOCAL_ROOT ?? null } : storageDriverConfig(name === 'bunny' ? 'bunny' : 's3');
+      if (!cfg) throw new AppException('CONFIG_MISSING', `The ${name} storage settings were removed: files stored there cannot be read`);
+      d = createDriverFor(cfg);
+      c.byName.set(name, d);
     }
     return d;
+  }
+
+  /** Write, read back and delete a small object with a config (Super Admin > Config > File storage > Test). */
+  static async probe(cfg: StorageConfig): Promise<{ ok: boolean; message: string; latencyMs: number }> {
+    const started = Date.now();
+    const d = createDriverFor(cfg);
+    const key = `p/healthcheck/${randomUUID()}.txt`;
+    const body = `vistar storage test ${new Date().toISOString()}`;
+    const tmp = path.join(os.tmpdir(), `vistar-probe-${randomUUID()}`);
+    try {
+      await writeFile(tmp, body);
+      await d.put(key, tmp, Buffer.byteLength(body), 'text/plain');
+      const stream = await d.get(key);
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
+      await d.delete(key);
+      const same = Buffer.concat(chunks).toString('utf8') === body;
+      return { ok: same, message: same ? `Wrote, read and deleted a test file (${d.name === 'local' ? 'local disk' : d.name})` : 'The file read back differs from the one written', latencyMs: Date.now() - started };
+    } catch (err) {
+      const e = err as { name?: string; message?: string; $metadata?: { httpStatusCode?: number } };
+      const message = e.name === 'StorageHttpError' ? (e.message ?? 'Storage error') : e.$metadata?.httpStatusCode ? `S3 answered HTTP ${e.$metadata.httpStatusCode}${e.name ? ` (${e.name})` : ''}` : e.name === 'TimeoutError' ? 'The storage server did not answer in time' : `Storage error${e.name ? ` (${e.name})` : ''}`;
+      return { ok: false, message, latencyMs: Date.now() - started };
+    } finally {
+      await rm(tmp, { force: true }).catch(() => undefined);
+    }
   }
 
   // ---------------------------------------------------------------- validation
@@ -215,7 +262,10 @@ export class StorageService {
 
   // ---------------------------------------------------------------- reads
 
-  publicUrl(fileId: string): string {
+  publicUrl(fileId: string, row?: { key: string; driver: string }): string {
+    // ---- change #20: config. Public files on a cloud driver with a CDN base (Bunny pull zone) are served by the CDN.
+    const cfg = row ? storageDriverConfig(row.driver === 'bunny' ? 'bunny' : row.driver === 's3' ? 's3' : 'local') : null;
+    if (row && cfg && cfg.driver !== 'local' && cfg.publicBaseUrl) return `${cfg.publicBaseUrl.replace(/\/+$/, '')}/${row.key}`;
     return `${this.env.API_PUBLIC_URL.replace(/\/+$/, '')}/api/files/p/${fileId}`;
   }
 
@@ -228,7 +278,7 @@ export class StorageService {
       size: row.size,
       sha256: row.sha256,
       visibility: row.visibility,
-      publicUrl: row.visibility === 'public' ? this.publicUrl(row.id) : null,
+      publicUrl: row.visibility === 'public' ? this.publicUrl(row.id, row) : null,
       createdAt: row.createdAt.toISOString(),
     };
   }

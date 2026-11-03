@@ -219,7 +219,7 @@ export const WhatsAppTemplateHeaderSchema = z.object({
   format: WhatsAppHeaderFormatSchema.default('none'),
   /** format text: up to 60 characters, at most one variable {{1}} */
   text: z.string().max(60).nullable().default(null),
-  /** format text with {{1}}: example value; media formats: an https example URL Meta can download */
+  /** format text with {{1}}: example value; media formats: a Meta upload handle (Resumable Upload API; required for live submit) or an https sample URL (preview and mock only) */
   example: z.string().max(2000).nullable().default(null),
 });
 export type WhatsAppTemplateHeader = z.infer<typeof WhatsAppTemplateHeaderSchema>;
@@ -317,7 +317,7 @@ export function whatsappTemplateProblems(t: Pick<WhatsAppTemplateCreate, 'body' 
     if (hv.length > 1 || (hv.length === 1 && hv[0] !== 1)) problems.push({ path: 'header.text', message: 'A text header can use only {{1}}' });
     if (hv.length === 1 && !h.example) problems.push({ path: 'header.example', message: 'Add an example for {{1}}' });
   }
-  if ((h.format === 'image' || h.format === 'video' || h.format === 'document') && h.example && !/^https:\/\//.test(h.example)) problems.push({ path: 'header.example', message: 'Use an https link to a sample file' });
+  if ((h.format === 'image' || h.format === 'video' || h.format === 'document') && !h.example) problems.push({ path: 'header.example', message: 'Add a sample file: the Meta upload handle of an example (Meta reviews it)' });
   if (t.buttons.filter((b) => b.type === 'phone').length > 1) problems.push({ path: 'buttons', message: 'Use at most one phone button' });
   if (t.buttons.filter((b) => b.type === 'url').length > 2) problems.push({ path: 'buttons', message: 'Use at most two URL buttons' });
   t.buttons.forEach((b, i) => {

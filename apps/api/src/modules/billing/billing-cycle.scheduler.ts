@@ -108,13 +108,19 @@ export class BillingCycleScheduler {
       if (!count) continue;
       const days = Math.max(1, daysLeft(sub.trialEndsAt!, now));
       const plan = await this.plan(sub.plan);
-      await this.core.notifyAdmins(sub.workspaceId, {
-        type: 'billing_trial_ending',
-        title: `Your trial ends in ${days} day${days === 1 ? '' : 's'}`,
-        body: planPricePaise(plan, sub.cycle, sub.extraSeats) > 0 ? `The ${plan.name} plan then costs ${formatPaise(planPricePaise(plan, sub.cycle, sub.extraSeats))} a ${sub.cycle === 'yearly' ? 'year' : 'month'} plus GST` : `You stay on the ${plan.name} plan`,
-        path: '/billing',
-        data: { trialEndsAt: sub.trialEndsAt!.toISOString() },
-      });
+      const priceNote = planPricePaise(plan, sub.cycle, sub.extraSeats) > 0 ? `The ${plan.name} plan then costs ${formatPaise(planPricePaise(plan, sub.cycle, sub.extraSeats))} a ${sub.cycle === 'yearly' ? 'year' : 'month'} plus GST` : `You stay on the ${plan.name} plan`;
+      await this.core.notifyAdmins(
+        sub.workspaceId,
+        {
+          type: 'billing_trial_ending',
+          title: `Your trial ends in ${days} day${days === 1 ? '' : 's'}`,
+          body: priceNote,
+          path: '/billing',
+          data: { trialEndsAt: sub.trialEndsAt!.toISOString() },
+        },
+        // ---- change #20: config (e-mail)
+        { key: 'trial_ending', values: { plan: plan.name, trialEndsAt: fmt(sub.trialEndsAt!), daysLeft: String(days), priceNote: `${priceNote}.` } },
+      );
     }
   }
 
@@ -217,13 +223,20 @@ export class BillingCycleScheduler {
       const { count } = await this.prisma.subscription.updateMany({ where: { id: sub.id, dunningStep: sub.dunningStep, status: 'past_due' }, data: { dunningStep: step, lastDunningAt: now } });
       if (!count) continue;
       const left = Math.max(0, BILLING_GRACE_DAYS - Math.floor((now.getTime() - (sub.pastDueSince ?? now).getTime()) / DAY));
-      await this.core.notifyAdmins(sub.workspaceId, {
-        type: 'billing_payment_failed',
-        title: `Payment overdue: invoice ${oldest.number ?? ''}`.trim(),
-        body: `${formatPaise(n(oldest.totalPaise) - n(oldest.paidPaise))} was due on ${fmt(oldest.dueDate)}. Pay within ${left} day${left === 1 ? '' : 's'} to keep your plan`,
-        path: `/billing?invoice=${oldest.id}`,
-        data: { invoiceId: oldest.id, step },
-      });
+      const title = `Payment overdue: invoice ${oldest.number ?? ''}`.trim();
+      const body = `${formatPaise(n(oldest.totalPaise) - n(oldest.paidPaise))} was due on ${fmt(oldest.dueDate)}. Pay within ${left} day${left === 1 ? '' : 's'} to keep your plan`;
+      await this.core.notifyAdmins(
+        sub.workspaceId,
+        {
+          type: 'billing_payment_failed',
+          title,
+          body,
+          path: `/billing?invoice=${oldest.id}`,
+          data: { invoiceId: oldest.id, step },
+        },
+        // ---- change #20: config (e-mail)
+        { key: 'payment_failed', values: { title, message: `${body}.`, invoiceNumber: oldest.number ?? '', amount: formatPaise(n(oldest.totalPaise) - n(oldest.paidPaise)) } },
+      );
     }
   }
 
@@ -237,13 +250,19 @@ export class BillingCycleScheduler {
       });
       if (!next) continue;
       await this.publishSub(next);
-      await this.core.notifyAdmins(sub.workspaceId, {
-        type: 'billing_payment_failed',
-        title: 'Your Vistar subscription was cancelled',
-        body: `The invoice stayed unpaid for ${BILLING_GRACE_DAYS} days, so the company moved to the Free plan. Your data is kept; pay the invoice or upgrade to restore the limits`,
-        path: '/billing',
-        data: { subscriptionId: sub.id },
-      });
+      const cancelBody = `The invoice stayed unpaid for ${BILLING_GRACE_DAYS} days, so the company moved to the Free plan. Your data is kept; pay the invoice or upgrade to restore the limits`;
+      await this.core.notifyAdmins(
+        sub.workspaceId,
+        {
+          type: 'billing_payment_failed',
+          title: 'Your Vistar subscription was cancelled',
+          body: cancelBody,
+          path: '/billing',
+          data: { subscriptionId: sub.id },
+        },
+        // ---- change #20: config (e-mail)
+        { key: 'payment_failed', values: { title: 'Your Vistar subscription was cancelled', message: `${cancelBody}.` } },
+      );
     }
   }
 

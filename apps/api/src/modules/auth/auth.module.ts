@@ -3,6 +3,8 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { WorkspaceModule } from '../workspace/workspace.module.js';
+import { AccountLinksController } from './account-links.controller.js';
+import { AccountLinksService } from './account-links.service.js';
 import { AuthController, InviteController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { AuthGuard } from './guards/auth.guard.js';
@@ -24,7 +26,7 @@ import { WorkspaceProvisioner } from './workspace-provisioner.js';
  */
 @Module({
   imports: [JwtModule.register({}), ThrottlerModule.forRoot(THROTTLER_OPTIONS), AuthStateModule, WorkspaceModule],
-  controllers: [AuthController, InviteController, SuperAuthController],
+  controllers: [AuthController, InviteController, SuperAuthController, AccountLinksController],
   providers: [
     TokenService,
     SessionService,
@@ -33,9 +35,11 @@ import { WorkspaceProvisioner } from './workspace-provisioner.js';
     InviteService,
     WorkspaceProvisioner,
     SuperAuthService,
+    // ---- change #20: config (password reset, e-mail verification)
+    AccountLinksService,
     { provide: APP_GUARD, useClass: HttpThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
-  exports: [TokenService, MeService, WorkspaceProvisioner, InviteService],
+  exports: [TokenService, MeService, WorkspaceProvisioner, InviteService, AccountLinksService],
 })
 export class AuthModule {}
