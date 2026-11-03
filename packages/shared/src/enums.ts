@@ -129,7 +129,12 @@ export const INTEGRATION_PROVIDERS = ['indiamart', 'whatsapp_cloud', 'telephony'
 export const IntegrationProviderSchema = z.enum(INTEGRATION_PROVIDERS);
 export type IntegrationProvider = z.infer<typeof IntegrationProviderSchema>;
 
-export const INTEGRATION_STATUSES = ['disconnected', 'connected', 'error'] as const;
+/**
+ * Change #19 wave C (D-069): not_connected (never connected or disconnected), connected (last check ok), error
+ * (last test or sync failed), needs_attention (connected, but the admin must act: e.g. WhatsApp webhook not
+ * verified yet, Google access revoked, IndiaMART rate limit). The reason is in Integration.attention / lastError.
+ */
+export const INTEGRATION_STATUSES = ['not_connected', 'connected', 'error', 'needs_attention'] as const;
 export const IntegrationStatusSchema = z.enum(INTEGRATION_STATUSES);
 export type IntegrationStatus = z.infer<typeof IntegrationStatusSchema>;
 
@@ -141,7 +146,8 @@ export const WEBHOOK_DELIVERY_STATUSES = ['pending', 'success', 'failed', 'dead'
 export const WebhookDeliveryStatusSchema = z.enum(WEBHOOK_DELIVERY_STATUSES);
 export type WebhookDeliveryStatus = z.infer<typeof WebhookDeliveryStatusSchema>;
 
-export const INBOUND_WEBHOOK_ACTIONS = ['create_lead', 'start_workflow'] as const;
+/** update_lead (wave C): update the lead matched by phone or email (WebhookEndpoint.matchBy); create one when none matches and createIfMissing. */
+export const INBOUND_WEBHOOK_ACTIONS = ['create_lead', 'update_lead', 'start_workflow'] as const;
 export const InboundWebhookActionSchema = z.enum(INBOUND_WEBHOOK_ACTIONS);
 export type InboundWebhookAction = z.infer<typeof InboundWebhookActionSchema>;
 
@@ -436,3 +442,35 @@ export type CaptureFormStatus = z.infer<typeof CaptureFormStatusSchema>;
 export const CRM_NOTE_ENTITIES = ['contact', 'account', 'deal'] as const;
 export const CrmNoteEntitySchema = z.enum(CRM_NOTE_ENTITIES);
 export type CrmNoteEntity = z.infer<typeof CrmNoteEntitySchema>;
+
+// ---- change #19 wave C: hub (integrations, webhooks, API keys; D-069, D-070)
+
+/** live = real provider API; mock = in-process dev provider (development and test only, refused in production). */
+export const INTEGRATION_MODES = ['live', 'mock'] as const;
+export const IntegrationModeSchema = z.enum(INTEGRATION_MODES);
+export type IntegrationMode = z.infer<typeof IntegrationModeSchema>;
+
+/** Server-side availability of a provider: not_configured = a platform env setting is missing (e.g. Google OAuth client). */
+export const INTEGRATION_AVAILABILITIES = ['ready', 'not_configured'] as const;
+export const IntegrationAvailabilitySchema = z.enum(INTEGRATION_AVAILABILITIES);
+export type IntegrationAvailability = z.infer<typeof IntegrationAvailabilitySchema>;
+
+/** Telephony adapters: mock (dev) and exotel (stub behind config). */
+export const TELEPHONY_PROVIDERS = ['mock', 'exotel'] as const;
+export const TelephonyProviderSchema = z.enum(TELEPHONY_PROVIDERS);
+export type TelephonyProvider = z.infer<typeof TelephonyProviderSchema>;
+
+/** How an inbound source proves the sender: hmac = X-Vistar-Signature (default); token = X-Vistar-Token header or ?token= (for tools that cannot sign). */
+export const WEBHOOK_VERIFICATIONS = ['hmac', 'token'] as const;
+export const WebhookVerificationSchema = z.enum(WEBHOOK_VERIFICATIONS);
+export type WebhookVerification = z.infer<typeof WebhookVerificationSchema>;
+
+/** Inbound match keys for update_lead / start_workflow. */
+export const WEBHOOK_MATCH_KEYS = ['phone', 'email'] as const;
+export const WebhookMatchKeySchema = z.enum(WEBHOOK_MATCH_KEYS);
+export type WebhookMatchKey = z.infer<typeof WebhookMatchKeySchema>;
+
+/** API key state derived from revokedAt / expiresAt. */
+export const API_KEY_STATUSES = ['active', 'expired', 'revoked'] as const;
+export const ApiKeyStatusSchema = z.enum(API_KEY_STATUSES);
+export type ApiKeyStatus = z.infer<typeof ApiKeyStatusSchema>;

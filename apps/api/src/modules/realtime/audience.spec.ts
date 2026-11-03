@@ -13,7 +13,7 @@ const perms = (...p: string[]) => new Set(p);
 const BASE = ['leads.read', 'tasks.read', 'calls.read', 'messages.read', 'records.read'];
 const employee: SocketViewer = { userId: EMP, workspaceId: W, visibleUserIds: new Set([EMP]), permissions: perms(...BASE) };
 const manager: SocketViewer = { userId: MGR, workspaceId: W, visibleUserIds: new Set([MGR, EMP]), permissions: perms(...BASE, 'messages.team_inbox', 'workflows.read') };
-const admin: SocketViewer = { userId: ADMIN, workspaceId: W, visibleUserIds: null, permissions: perms(...BASE, 'workflows.read', 'webhooks.manage', 'leads.import') };
+const admin: SocketViewer = { userId: ADMIN, workspaceId: W, visibleUserIds: null, permissions: perms(...BASE, 'workflows.read', 'webhooks.manage', 'webhooks.read', 'integrations.read', 'leads.import') };
 
 const summary = (id: string) => ({ id, name: 'X', role: 'employee' as const, status: 'idle' as const, avatar: null });
 const env = <T extends DomainEvent['type']>(type: T, payload: unknown, extra: Partial<DomainEvent> = {}): DomainEvent =>

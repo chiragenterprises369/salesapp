@@ -105,6 +105,12 @@ components:
                 - PRODUCT_SKU_TAKEN
                 - SHARE_LINK_EXPIRED
                 - CAPTURE_FORM_CLOSED
+                - INTEGRATION_NOT_CONFIGURED
+                - WEBHOOK_URL_BLOCKED
+                - WEBHOOK_REPLAY_NOT_ALLOWED
+                - IDEMPOTENCY_CONFLICT
+                - API_KEY_SCOPE_NOT_ALLOWED
+                - OAUTH_STATE_INVALID
             message:
               type: string
               description: Human-readable, safe to show to the user. Never contains PII or
@@ -3511,6 +3517,7 @@ components:
             - "null"
           enum:
             - create_lead
+            - update_lead
             - start_workflow
             - null
         workflowId:
@@ -3530,9 +3537,28 @@ components:
                 properties:
                   from:
                     type: string
-                    description: Dot/JSONPath-lite path, e.g. "data.customer.mobile"
+                    minLength: 1
+                    maxLength: 500
                   to:
-                    type: string
+                    anyOf:
+                      - type: string
+                        enum:
+                          - name
+                          - companyName
+                          - phone
+                          - email
+                          - city
+                          - state
+                          - source
+                          - sourceRef
+                          - productInterest
+                          - requirement
+                          - valueInr
+                          - tags
+                          - ownerEmail
+                          - stageName
+                      - type: string
+                        pattern: ^custom\.[a-z0-9_]+$
                     description: LEAD_IMPORT_FIELDS value or custom.<key>
                   transform:
                     type: string
@@ -3540,19 +3566,53 @@ components:
                       - none
                       - trim
                       - lower
+                      - upper
                       - phone_in
                       - number
+                      - first_name
+                      - last_name
                     default: none
                 required:
                   - from
                   - to
+              maxItems: 60
             defaults:
               type: object
               additionalProperties:
                 type: string
+                maxLength: 500
               default: {}
           required:
             - fields
+        verification:
+          type:
+            - string
+            - "null"
+          enum:
+            - hmac
+            - token
+            - null
+        matchBy:
+          type: array
+          items:
+            type: string
+            enum:
+              - phone
+              - email
+        createIfMissing:
+          type: boolean
+        samplePayload:
+          description: Captured or pasted sample (inbound)
+        sampleCapturedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        captureUntil:
+          type:
+            - string
+            - "null"
+          format: date-time
         url:
           type:
             - string
@@ -3571,10 +3631,77 @@ components:
               - message.received
               - task.overdue
               - workflow.failed
+              - contact.created
+              - contact.updated
+              - account.created
+              - account.updated
+              - deal.created
+              - deal.updated
+              - deal.moved
+              - quotation.created
+              - quotation.updated
+              - invoice.created
+              - invoice.updated
+              - invoice.payment_recorded
+              - meeting.created
+              - meeting.updated
         secretPreview:
           type: string
           description: Last 4 chars only, e.g. "…a9f2"
+        secretRotatedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        previousSecretExpiresAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        disabledAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        disabledReason:
+          type:
+            - string
+            - "null"
+        consecutiveFailures:
+          type: integer
+          description: Failed attempts since the last success
+        deadStreak:
+          type: integer
+          description: Dead deliveries in a row
+        lastDeliveryAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        lastSuccessAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        lastFailureAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        stats:
+          type: object
+          properties:
+            deliveries24h:
+              type: integer
+            failures24h:
+              type: integer
+          required:
+            - deliveries24h
+            - failures24h
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
       required:
@@ -3587,10 +3714,26 @@ components:
         - action
         - workflowId
         - mapping
+        - verification
+        - matchBy
+        - createIfMissing
+        - sampleCapturedAt
+        - captureUntil
         - url
         - events
         - secretPreview
+        - secretRotatedAt
+        - previousSecretExpiresAt
+        - disabledAt
+        - disabledReason
+        - consecutiveFailures
+        - deadStreak
+        - lastDeliveryAt
+        - lastSuccessAt
+        - lastFailureAt
+        - stats
         - createdAt
+        - updatedAt
     WebhookDelivery:
       type: object
       properties:
@@ -3600,6 +3743,8 @@ components:
         endpointId:
           type: string
           format: uuid
+        endpointName:
+          type: string
         direction:
           type: string
           enum:
@@ -3618,6 +3763,13 @@ components:
             - dead
         attempt:
           type: integer
+        maxAttempts:
+          type: integer
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookAttempt"
+          description: Attempt timeline, oldest first
         requestHeaders:
           type: object
           additionalProperties:
@@ -3655,16 +3807,57 @@ components:
             - string
             - "null"
           format: date-time
+        signatureValid:
+          type:
+            - boolean
+            - "null"
+        result:
+          type:
+            - object
+            - "null"
+          properties:
+            action:
+              type:
+                - string
+                - "null"
+            leadId:
+              type:
+                - string
+                - "null"
+              format: uuid
+            runId:
+              type:
+                - string
+                - "null"
+              format: uuid
+            duplicate:
+              type: boolean
+            captured:
+              type: boolean
+          required:
+            - action
+            - leadId
+            - runId
+            - duplicate
+            - captured
+        canReplay:
+          type: boolean
         createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
       required:
         - id
         - endpointId
+        - endpointName
         - direction
         - event
         - status
         - attempt
+        - maxAttempts
+        - attempts
         - requestHeaders
         - responseStatus
         - responseBody
@@ -3673,12 +3866,18 @@ components:
         - idempotencyKey
         - replayOfId
         - nextAttemptAt
+        - signatureValid
+        - result
+        - canReplay
         - createdAt
+        - updatedAt
     Integration:
       type: object
       properties:
         id:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
         provider:
           type: string
@@ -3691,9 +3890,15 @@ components:
         status:
           type: string
           enum:
-            - disconnected
+            - not_connected
             - connected
             - error
+            - needs_attention
+        mode:
+          type: string
+          enum:
+            - live
+            - mock
         displayName:
           type: string
         config:
@@ -3702,6 +3907,10 @@ components:
           description: Non-secret config only
         hasSecrets:
           type: boolean
+        secretHints:
+          type: object
+          additionalProperties:
+            type: string
         lastCheckedAt:
           type:
             - string
@@ -3711,7 +3920,138 @@ components:
           type:
             - string
             - "null"
+        lastSyncAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        nextSyncAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        attention:
+          type:
+            - string
+            - "null"
         connectedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        connectedBy:
+          type:
+            - object
+            - "null"
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            role:
+              type: string
+              enum:
+                - company_admin
+                - manager
+                - employee
+                - viewer
+            status:
+              type: string
+              enum:
+                - on_call
+                - busy
+                - idle
+                - away
+                - offline
+            avatar:
+              type:
+                - object
+                - "null"
+              properties:
+                skinTone:
+                  type: string
+                  pattern: ^#[0-9A-Fa-f]{6}$
+                hairColor:
+                  type: string
+                  pattern: ^#[0-9A-Fa-f]{6}$
+                hairStyle:
+                  type: string
+                  enum:
+                    - short
+                    - long
+                    - bun
+                    - curly
+                    - bald
+                outfitColor:
+                  type: string
+                  pattern: ^#[0-9A-Fa-f]{6}$
+              required:
+                - skinTone
+                - hairColor
+                - hairStyle
+                - outfitColor
+          required:
+            - id
+            - name
+            - role
+            - status
+            - avatar
+        endpoints:
+          type:
+            - object
+            - "null"
+          properties:
+            pushUrl:
+              type:
+                - string
+                - "null"
+              format: uri
+            webhookUrl:
+              type:
+                - string
+                - "null"
+              format: uri
+            verifyToken:
+              type:
+                - string
+                - "null"
+            callbackUrl:
+              type:
+                - string
+                - "null"
+              format: uri
+            oauthRedirectUri:
+              type:
+                - string
+                - "null"
+              format: uri
+          required:
+            - pushUrl
+            - webhookUrl
+            - verifyToken
+            - callbackUrl
+            - oauthRedirectUri
+        stats:
+          type: object
+          additionalProperties:
+            anyOf:
+              - type: number
+              - type: string
+              - type: "null"
+        availability:
+          type: string
+          enum:
+            - ready
+            - not_configured
+        availabilityNote:
+          type:
+            - string
+            - "null"
+        enabled:
+          type: boolean
+          description: Plan feature present (whatsapp, telephony)
+        updatedAt:
           type:
             - string
             - "null"
@@ -3720,12 +4060,24 @@ components:
         - id
         - provider
         - status
+        - mode
         - displayName
         - config
         - hasSecrets
+        - secretHints
         - lastCheckedAt
         - lastError
+        - lastSyncAt
+        - nextSyncAt
+        - attention
         - connectedAt
+        - connectedBy
+        - endpoints
+        - stats
+        - availability
+        - availabilityNote
+        - enabled
+        - updatedAt
     ApiKey:
       type: object
       properties:
@@ -3736,7 +4088,7 @@ components:
           type: string
         prefix:
           type: string
-          description: First 8 chars, e.g. "vst_live_ab12"
+          description: API_KEY_DISPLAY_PREFIX_LENGTH chars, e.g. "vst_live_ab12"
         scopes:
           type: array
           items:
@@ -3752,11 +4104,25 @@ components:
               - messages.read
               - messages.send
               - workflows.read
+        status:
+          type: string
+          enum:
+            - active
+            - expired
+            - revoked
         lastUsedAt:
           type:
             - string
             - "null"
           format: date-time
+        lastUsedIp:
+          type:
+            - string
+            - "null"
+        rateLimitPerMinute:
+          type:
+            - integer
+            - "null"
         expiresAt:
           type:
             - string
@@ -3767,6 +4133,74 @@ components:
             - string
             - "null"
           format: date-time
+        rotatedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        previousKeyExpiresAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdBy:
+          type:
+            - object
+            - "null"
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            role:
+              type: string
+              enum:
+                - company_admin
+                - manager
+                - employee
+                - viewer
+            status:
+              type: string
+              enum:
+                - on_call
+                - busy
+                - idle
+                - away
+                - offline
+            avatar:
+              type:
+                - object
+                - "null"
+              properties:
+                skinTone:
+                  type: string
+                  pattern: ^#[0-9A-Fa-f]{6}$
+                hairColor:
+                  type: string
+                  pattern: ^#[0-9A-Fa-f]{6}$
+                hairStyle:
+                  type: string
+                  enum:
+                    - short
+                    - long
+                    - bun
+                    - curly
+                    - bald
+                outfitColor:
+                  type: string
+                  pattern: ^#[0-9A-Fa-f]{6}$
+              required:
+                - skinTone
+                - hairColor
+                - hairStyle
+                - outfitColor
+          required:
+            - id
+            - name
+            - role
+            - status
+            - avatar
         createdAt:
           type: string
           format: date-time
@@ -3775,9 +4209,15 @@ components:
         - name
         - prefix
         - scopes
+        - status
         - lastUsedAt
+        - lastUsedIp
+        - rateLimitPerMinute
         - expiresAt
         - revokedAt
+        - rotatedAt
+        - previousKeyExpiresAt
+        - createdBy
         - createdAt
     WorkflowGraph:
       type: object
@@ -4376,7 +4816,9 @@ components:
                   - workflows.edit
                   - workflows.publish
                   - workflows.run
+                  - webhooks.read
                   - webhooks.manage
+                  - integrations.read
                   - integrations.manage
                   - apikeys.manage
                   - reports.read
@@ -4477,7 +4919,9 @@ components:
               - workflows.edit
               - workflows.publish
               - workflows.run
+              - webhooks.read
               - webhooks.manage
+              - integrations.read
               - integrations.manage
               - apikeys.manage
               - reports.read
@@ -6178,6 +6622,267 @@ components:
         - ownerEmail
         - lastActiveAt
         - createdAt
+    IntegrationProviderInfo:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum:
+            - indiamart
+            - whatsapp_cloud
+            - telephony
+            - smtp
+            - google_calendar
+        label:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum:
+            - leads
+            - messaging
+            - calls
+            - email
+            - calendar
+        featureFlag:
+          type:
+            - string
+            - "null"
+          enum:
+            - team_floor_3d
+            - ai_node
+            - telephony
+            - api_access
+            - whatsapp
+            - employee_rank
+            - custom_domain
+            - field_tracking
+            - null
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              type:
+                type: string
+                enum:
+                  - text
+                  - password
+                  - number
+                  - boolean
+                  - select
+                  - email
+                  - tags
+              secret:
+                type: boolean
+              required:
+                type: boolean
+                description: Required in live mode; mock mode needs no credentials
+              placeholder:
+                type:
+                  - string
+                  - "null"
+              help:
+                type:
+                  - string
+                  - "null"
+              options:
+                type:
+                  - array
+                  - "null"
+                items:
+                  type: object
+                  properties:
+                    value:
+                      type: string
+                    label:
+                      type: string
+                  required:
+                    - value
+                    - label
+              default:
+                anyOf:
+                  - type: string
+                  - type: number
+                  - type: boolean
+                  - type: array
+                    items:
+                      type: string
+                  - type: "null"
+              showIf:
+                type:
+                  - object
+                  - "null"
+                properties:
+                  key:
+                    type: string
+                  equals:
+                    anyOf:
+                      - type: string
+                      - type: boolean
+                required:
+                  - key
+                  - equals
+            required:
+              - key
+              - label
+              - type
+              - secret
+              - required
+              - placeholder
+              - help
+              - options
+              - default
+              - showIf
+        setupSteps:
+          type: array
+          items:
+            type: string
+          description: Plain-language steps for the connect sheet
+        capabilities:
+          type: object
+          properties:
+            test:
+              type: boolean
+            sync:
+              type: boolean
+              description: '"Sync now" button'
+            push:
+              type: boolean
+              description: The provider calls a Vistar URL (IndiaMART push, WhatsApp webhook,
+                telephony callbacks)
+            oauth:
+              type: boolean
+              description: Connect through a provider sign-in (Google)
+            mock:
+              type: boolean
+              description: A dev mock mode exists
+          required:
+            - test
+            - sync
+            - push
+            - oauth
+            - mock
+        docsUrl:
+          type:
+            - string
+            - "null"
+          format: uri
+        availability:
+          type: string
+          enum:
+            - ready
+            - not_configured
+        availabilityNote:
+          type:
+            - string
+            - "null"
+        enabled:
+          type: boolean
+      required:
+        - provider
+        - label
+        - description
+        - category
+        - featureFlag
+        - fields
+        - setupSteps
+        - capabilities
+        - docsUrl
+        - availability
+        - availabilityNote
+        - enabled
+    WebhookAttempt:
+      type: object
+      properties:
+        attempt:
+          type: integer
+        at:
+          type: string
+          format: date-time
+        ok:
+          type: boolean
+        responseStatus:
+          type:
+            - integer
+            - "null"
+        latencyMs:
+          type:
+            - integer
+            - "null"
+        error:
+          type:
+            - string
+            - "null"
+      required:
+        - attempt
+        - at
+        - ok
+        - responseStatus
+        - latencyMs
+        - error
+    PayloadMapping:
+      type: object
+      properties:
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              from:
+                type: string
+                minLength: 1
+                maxLength: 500
+              to:
+                anyOf:
+                  - type: string
+                    enum:
+                      - name
+                      - companyName
+                      - phone
+                      - email
+                      - city
+                      - state
+                      - source
+                      - sourceRef
+                      - productInterest
+                      - requirement
+                      - valueInr
+                      - tags
+                      - ownerEmail
+                      - stageName
+                  - type: string
+                    pattern: ^custom\.[a-z0-9_]+$
+                description: LEAD_IMPORT_FIELDS value or custom.<key>
+              transform:
+                type: string
+                enum:
+                  - none
+                  - trim
+                  - lower
+                  - upper
+                  - phone_in
+                  - number
+                  - first_name
+                  - last_name
+                default: none
+            required:
+              - from
+              - to
+          maxItems: 60
+        defaults:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 500
+          default: {}
+      required:
+        - fields
   parameters: {}
 paths:
   /api/health:
@@ -7699,7 +8404,9 @@ paths:
                               - workflows.edit
                               - workflows.publish
                               - workflows.run
+                              - webhooks.read
                               - webhooks.manage
+                              - integrations.read
                               - integrations.manage
                               - apikeys.manage
                               - reports.read
@@ -7844,7 +8551,9 @@ paths:
                       - workflows.edit
                       - workflows.publish
                       - workflows.run
+                      - webhooks.read
                       - webhooks.manage
+                      - integrations.read
                       - integrations.manage
                       - apikeys.manage
                       - reports.read
@@ -7965,7 +8674,9 @@ paths:
                         - workflows.edit
                         - workflows.publish
                         - workflows.run
+                        - webhooks.read
                         - webhooks.manage
+                        - integrations.read
                         - integrations.manage
                         - apikeys.manage
                         - reports.read
@@ -8116,7 +8827,9 @@ paths:
                       - workflows.edit
                       - workflows.publish
                       - workflows.run
+                      - webhooks.read
                       - webhooks.manage
+                      - integrations.read
                       - integrations.manage
                       - apikeys.manage
                       - reports.read
@@ -8232,7 +8945,9 @@ paths:
                         - workflows.edit
                         - workflows.publish
                         - workflows.run
+                        - webhooks.read
                         - webhooks.manage
+                        - integrations.read
                         - integrations.manage
                         - apikeys.manage
                         - reports.read
@@ -16009,7 +16724,9 @@ paths:
                               - workflows.edit
                               - workflows.publish
                               - workflows.run
+                              - webhooks.read
                               - webhooks.manage
+                              - integrations.read
                               - integrations.manage
                               - apikeys.manage
                               - reports.read
@@ -16146,7 +16863,9 @@ paths:
                               - workflows.edit
                               - workflows.publish
                               - workflows.run
+                              - webhooks.read
                               - webhooks.manage
+                              - integrations.read
                               - integrations.manage
                               - apikeys.manage
                               - reports.read
@@ -16266,7 +16985,9 @@ paths:
                               - workflows.edit
                               - workflows.publish
                               - workflows.run
+                              - webhooks.read
                               - webhooks.manage
+                              - integrations.read
                               - integrations.manage
                               - apikeys.manage
                               - reports.read
@@ -19425,8 +20146,11 @@ paths:
   /api/v1/integrations:
     get:
       operationId: integrationList
-      summary: Integration hub status
-      description: "Requires permission `integrations.manage`. Owner:
+      summary: "Integration hub: all five providers with status, mode, last check,
+        last sync, attention and masked secret hints (never-connected providers
+        have id null, status not_connected); endpoints only for
+        integrations.manage"
+      description: "Requires permission `integrations.read`. Owner:
         realtime-integrations. Phase 5."
       tags:
         - integrations
@@ -19461,7 +20185,9 @@ paths:
   /api/v1/integrations/{provider}/connect:
     post:
       operationId: integrationConnect
-      summary: Connect or update an integration
+      summary: Connect or update an integration (config validated per provider;
+        secrets write-only, omitted secrets are kept; mock mode only outside
+        production; runs the test unless test=false); audited
       description: "Requires permission `integrations.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -19471,6 +20197,12 @@ paths:
       parameters:
         - schema:
             type: string
+            enum:
+              - indiamart
+              - whatsapp_cloud
+              - telephony
+              - smtp
+              - google_calendar
           required: true
           name: provider
           in: path
@@ -19481,16 +20213,33 @@ paths:
             schema:
               type: object
               properties:
+                mode:
+                  type: string
+                  enum:
+                    - live
+                    - mock
+                  default: live
+                  description: mock is refused in production
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
                 config:
                   type: object
                   additionalProperties: {}
                   default: {}
+                  description: Validated with INTEGRATION_CONFIG_SCHEMAS[provider].config
                 secrets:
                   type: object
                   additionalProperties:
                     type: string
+                    maxLength: 4000
                   default: {}
-                  description: Encrypted at rest; never echoed back
+                  description: Encrypted at rest; never echoed back. Omitted keys keep the stored
+                    value; "" removes it
+                test:
+                  type: boolean
+                  default: true
       responses:
         "200":
           description: OK
@@ -19513,7 +20262,8 @@ paths:
   /api/v1/integrations/{provider}/test:
     post:
       operationId: integrationTest
-      summary: Test connection
+      summary: Test the connection (SMTP sends a test e-mail to `to` or the caller);
+        status follows the result
       description: "Requires permission `integrations.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -19523,9 +20273,26 @@ paths:
       parameters:
         - schema:
             type: string
+            enum:
+              - indiamart
+              - whatsapp_cloud
+              - telephony
+              - smtp
+              - google_calendar
           required: true
           name: provider
           in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to:
+                  type: string
+                  format: email
+              default: {}
       responses:
         "200":
           description: OK
@@ -19542,10 +20309,13 @@ paths:
                     type:
                       - integer
                       - "null"
+                  integration:
+                    $ref: "#/components/schemas/Integration"
                 required:
                   - ok
                   - message
                   - latencyMs
+                  - integration
         4XX:
           description: Error
           content:
@@ -19561,7 +20331,8 @@ paths:
   /api/v1/integrations/{provider}:
     delete:
       operationId: integrationDisconnect
-      summary: Disconnect and wipe secrets
+      summary: Disconnect and wipe secrets and generated tokens (status
+        not_connected); audited
       description: "Requires permission `integrations.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -19571,6 +20342,12 @@ paths:
       parameters:
         - schema:
             type: string
+            enum:
+              - indiamart
+              - whatsapp_cloud
+              - telephony
+              - smtp
+              - google_calendar
           required: true
           name: provider
           in: path
@@ -19580,14 +20357,46 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  ok:
-                    type: boolean
-                    enum:
-                      - true
-                required:
-                  - ok
+                $ref: "#/components/schemas/Integration"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: integrationGet
+      summary: One provider of the hub
+      description: "Requires permission `integrations.read`. Owner: backend-core. Phase 19."
+      tags:
+        - integrations
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - indiamart
+              - whatsapp_cloud
+              - telephony
+              - smtp
+              - google_calendar
+          required: true
+          name: provider
+          in: path
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Integration"
         4XX:
           description: Error
           content:
@@ -19603,13 +20412,22 @@ paths:
   /api/v1/webhooks/endpoints:
     get:
       operationId: webhookEndpointList
-      summary: Inbound and outbound endpoints
-      description: "Requires permission `webhooks.manage`. Owner:
-        realtime-integrations. Phase 5."
+      summary: Inbound and outbound endpoints (filter by direction)
+      description: "Requires permission `webhooks.read`. Owner: realtime-integrations.
+        Phase 5."
       tags:
         - webhooks
       security:
         - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - inbound
+              - outbound
+          required: false
+          name: direction
+          in: query
       responses:
         "200":
           description: OK
@@ -19639,7 +20457,7 @@ paths:
   /api/v1/webhooks/endpoints/inbound:
     post:
       operationId: webhookInboundCreate
-      summary: Create an inbound source URL (secret returned once)
+      summary: Create an inbound source URL (secret returned once); audited
       description: "Requires permission `webhooks.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -19664,44 +20482,36 @@ paths:
                   type: string
                   enum:
                     - create_lead
+                    - update_lead
                     - start_workflow
                   default: create_lead
                 workflowId:
                   type: string
                   format: uuid
                 mapping:
-                  type: object
-                  properties:
-                    fields:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          from:
-                            type: string
-                            description: Dot/JSONPath-lite path, e.g. "data.customer.mobile"
-                          to:
-                            type: string
-                            description: LEAD_IMPORT_FIELDS value or custom.<key>
-                          transform:
-                            type: string
-                            enum:
-                              - none
-                              - trim
-                              - lower
-                              - phone_in
-                              - number
-                            default: none
-                        required:
-                          - from
-                          - to
-                    defaults:
-                      type: object
-                      additionalProperties:
-                        type: string
-                      default: {}
-                  required:
-                    - fields
+                  $ref: "#/components/schemas/PayloadMapping"
+                verification:
+                  type: string
+                  enum:
+                    - hmac
+                    - token
+                  default: hmac
+                matchBy:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - phone
+                      - email
+                  minItems: 1
+                  maxItems: 2
+                  default:
+                    - phone
+                    - email
+                createIfMissing:
+                  type: boolean
+                  default: true
+                samplePayload: {}
               required:
                 - name
                 - sourceKey
@@ -19741,6 +20551,7 @@ paths:
                       - "null"
                     enum:
                       - create_lead
+                      - update_lead
                       - start_workflow
                       - null
                   workflowId:
@@ -19760,9 +20571,28 @@ paths:
                           properties:
                             from:
                               type: string
-                              description: Dot/JSONPath-lite path, e.g. "data.customer.mobile"
+                              minLength: 1
+                              maxLength: 500
                             to:
-                              type: string
+                              anyOf:
+                                - type: string
+                                  enum:
+                                    - name
+                                    - companyName
+                                    - phone
+                                    - email
+                                    - city
+                                    - state
+                                    - source
+                                    - sourceRef
+                                    - productInterest
+                                    - requirement
+                                    - valueInr
+                                    - tags
+                                    - ownerEmail
+                                    - stageName
+                                - type: string
+                                  pattern: ^custom\.[a-z0-9_]+$
                               description: LEAD_IMPORT_FIELDS value or custom.<key>
                             transform:
                               type: string
@@ -19770,19 +20600,53 @@ paths:
                                 - none
                                 - trim
                                 - lower
+                                - upper
                                 - phone_in
                                 - number
+                                - first_name
+                                - last_name
                               default: none
                           required:
                             - from
                             - to
+                        maxItems: 60
                       defaults:
                         type: object
                         additionalProperties:
                           type: string
+                          maxLength: 500
                         default: {}
                     required:
                       - fields
+                  verification:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - hmac
+                      - token
+                      - null
+                  matchBy:
+                    type: array
+                    items:
+                      type: string
+                      enum:
+                        - phone
+                        - email
+                  createIfMissing:
+                    type: boolean
+                  samplePayload:
+                    description: Captured or pasted sample (inbound)
+                  sampleCapturedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  captureUntil:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
                   url:
                     type:
                       - string
@@ -19801,10 +20665,77 @@ paths:
                         - message.received
                         - task.overdue
                         - workflow.failed
+                        - contact.created
+                        - contact.updated
+                        - account.created
+                        - account.updated
+                        - deal.created
+                        - deal.updated
+                        - deal.moved
+                        - quotation.created
+                        - quotation.updated
+                        - invoice.created
+                        - invoice.updated
+                        - invoice.payment_recorded
+                        - meeting.created
+                        - meeting.updated
                   secretPreview:
                     type: string
                     description: Last 4 chars only, e.g. "…a9f2"
+                  secretRotatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  previousSecretExpiresAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  disabledAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  disabledReason:
+                    type:
+                      - string
+                      - "null"
+                  consecutiveFailures:
+                    type: integer
+                    description: Failed attempts since the last success
+                  deadStreak:
+                    type: integer
+                    description: Dead deliveries in a row
+                  lastDeliveryAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  lastSuccessAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  lastFailureAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  stats:
+                    type: object
+                    properties:
+                      deliveries24h:
+                        type: integer
+                      failures24h:
+                        type: integer
+                    required:
+                      - deliveries24h
+                      - failures24h
                   createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
                     type: string
                     format: date-time
                   secret:
@@ -19819,10 +20750,26 @@ paths:
                   - action
                   - workflowId
                   - mapping
+                  - verification
+                  - matchBy
+                  - createIfMissing
+                  - sampleCapturedAt
+                  - captureUntil
                   - url
                   - events
                   - secretPreview
+                  - secretRotatedAt
+                  - previousSecretExpiresAt
+                  - disabledAt
+                  - disabledReason
+                  - consecutiveFailures
+                  - deadStreak
+                  - lastDeliveryAt
+                  - lastSuccessAt
+                  - lastFailureAt
+                  - stats
                   - createdAt
+                  - updatedAt
                   - secret
         4XX:
           description: Error
@@ -19839,7 +20786,8 @@ paths:
   /api/v1/webhooks/endpoints/outbound:
     post:
       operationId: webhookOutboundCreate
-      summary: Subscribe a URL to events (secret returned once)
+      summary: Subscribe a URL to events (secret returned once; private, loopback and
+        link-local targets answer 422 WEBHOOK_URL_BLOCKED); audited
       description: "Requires permission `webhooks.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -19859,6 +20807,7 @@ paths:
                   maxLength: 80
                 url:
                   type: string
+                  maxLength: 2000
                   format: uri
                 events:
                   type: array
@@ -19873,7 +20822,24 @@ paths:
                       - message.received
                       - task.overdue
                       - workflow.failed
+                      - contact.created
+                      - contact.updated
+                      - account.created
+                      - account.updated
+                      - deal.created
+                      - deal.updated
+                      - deal.moved
+                      - quotation.created
+                      - quotation.updated
+                      - invoice.created
+                      - invoice.updated
+                      - invoice.payment_recorded
+                      - meeting.created
+                      - meeting.updated
                   minItems: 1
+                isActive:
+                  type: boolean
+                  default: true
               required:
                 - name
                 - url
@@ -19914,6 +20880,7 @@ paths:
                       - "null"
                     enum:
                       - create_lead
+                      - update_lead
                       - start_workflow
                       - null
                   workflowId:
@@ -19933,9 +20900,28 @@ paths:
                           properties:
                             from:
                               type: string
-                              description: Dot/JSONPath-lite path, e.g. "data.customer.mobile"
+                              minLength: 1
+                              maxLength: 500
                             to:
-                              type: string
+                              anyOf:
+                                - type: string
+                                  enum:
+                                    - name
+                                    - companyName
+                                    - phone
+                                    - email
+                                    - city
+                                    - state
+                                    - source
+                                    - sourceRef
+                                    - productInterest
+                                    - requirement
+                                    - valueInr
+                                    - tags
+                                    - ownerEmail
+                                    - stageName
+                                - type: string
+                                  pattern: ^custom\.[a-z0-9_]+$
                               description: LEAD_IMPORT_FIELDS value or custom.<key>
                             transform:
                               type: string
@@ -19943,19 +20929,53 @@ paths:
                                 - none
                                 - trim
                                 - lower
+                                - upper
                                 - phone_in
                                 - number
+                                - first_name
+                                - last_name
                               default: none
                           required:
                             - from
                             - to
+                        maxItems: 60
                       defaults:
                         type: object
                         additionalProperties:
                           type: string
+                          maxLength: 500
                         default: {}
                     required:
                       - fields
+                  verification:
+                    type:
+                      - string
+                      - "null"
+                    enum:
+                      - hmac
+                      - token
+                      - null
+                  matchBy:
+                    type: array
+                    items:
+                      type: string
+                      enum:
+                        - phone
+                        - email
+                  createIfMissing:
+                    type: boolean
+                  samplePayload:
+                    description: Captured or pasted sample (inbound)
+                  sampleCapturedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  captureUntil:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
                   url:
                     type:
                       - string
@@ -19974,10 +20994,77 @@ paths:
                         - message.received
                         - task.overdue
                         - workflow.failed
+                        - contact.created
+                        - contact.updated
+                        - account.created
+                        - account.updated
+                        - deal.created
+                        - deal.updated
+                        - deal.moved
+                        - quotation.created
+                        - quotation.updated
+                        - invoice.created
+                        - invoice.updated
+                        - invoice.payment_recorded
+                        - meeting.created
+                        - meeting.updated
                   secretPreview:
                     type: string
                     description: Last 4 chars only, e.g. "…a9f2"
+                  secretRotatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  previousSecretExpiresAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  disabledAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  disabledReason:
+                    type:
+                      - string
+                      - "null"
+                  consecutiveFailures:
+                    type: integer
+                    description: Failed attempts since the last success
+                  deadStreak:
+                    type: integer
+                    description: Dead deliveries in a row
+                  lastDeliveryAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  lastSuccessAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  lastFailureAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  stats:
+                    type: object
+                    properties:
+                      deliveries24h:
+                        type: integer
+                      failures24h:
+                        type: integer
+                    required:
+                      - deliveries24h
+                      - failures24h
                   createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
                     type: string
                     format: date-time
                   secret:
@@ -19992,10 +21079,26 @@ paths:
                   - action
                   - workflowId
                   - mapping
+                  - verification
+                  - matchBy
+                  - createIfMissing
+                  - sampleCapturedAt
+                  - captureUntil
                   - url
                   - events
                   - secretPreview
+                  - secretRotatedAt
+                  - previousSecretExpiresAt
+                  - disabledAt
+                  - disabledReason
+                  - consecutiveFailures
+                  - deadStreak
+                  - lastDeliveryAt
+                  - lastSuccessAt
+                  - lastFailureAt
+                  - stats
                   - createdAt
+                  - updatedAt
                   - secret
         4XX:
           description: Error
@@ -20012,7 +21115,8 @@ paths:
   /api/v1/webhooks/endpoints/{id}:
     patch:
       operationId: webhookEndpointUpdate
-      summary: Update an endpoint
+      summary: Update an endpoint (isActive true also clears an auto-disable and
+        resets the failure counters)
       description: "Requires permission `webhooks.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -20043,6 +21147,7 @@ paths:
                   type: string
                   enum:
                     - create_lead
+                    - update_lead
                     - start_workflow
                 workflowId:
                   type:
@@ -20050,40 +21155,27 @@ paths:
                     - "null"
                   format: uuid
                 mapping:
-                  type: object
-                  properties:
-                    fields:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          from:
-                            type: string
-                            description: Dot/JSONPath-lite path, e.g. "data.customer.mobile"
-                          to:
-                            type: string
-                            description: LEAD_IMPORT_FIELDS value or custom.<key>
-                          transform:
-                            type: string
-                            enum:
-                              - none
-                              - trim
-                              - lower
-                              - phone_in
-                              - number
-                            default: none
-                        required:
-                          - from
-                          - to
-                    defaults:
-                      type: object
-                      additionalProperties:
-                        type: string
-                      default: {}
-                  required:
-                    - fields
+                  $ref: "#/components/schemas/PayloadMapping"
+                verification:
+                  type: string
+                  enum:
+                    - hmac
+                    - token
+                matchBy:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - phone
+                      - email
+                  minItems: 1
+                  maxItems: 2
+                createIfMissing:
+                  type: boolean
+                samplePayload: {}
                 url:
                   type: string
+                  maxLength: 2000
                   format: uri
                 events:
                   type: array
@@ -20098,6 +21190,20 @@ paths:
                       - message.received
                       - task.overdue
                       - workflow.failed
+                      - contact.created
+                      - contact.updated
+                      - account.created
+                      - account.updated
+                      - deal.created
+                      - deal.updated
+                      - deal.moved
+                      - quotation.created
+                      - quotation.updated
+                      - invoice.created
+                      - invoice.updated
+                      - invoice.payment_recorded
+                      - meeting.created
+                      - meeting.updated
                   minItems: 1
       responses:
         "200":
@@ -20120,7 +21226,8 @@ paths:
                 $ref: "#/components/schemas/ApiError"
     delete:
       operationId: webhookEndpointDelete
-      summary: Delete an endpoint
+      summary: Delete an endpoint (soft; the inbound URL answers 404, pending outbound
+        deliveries stop); audited
       description: "Requires permission `webhooks.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -20160,12 +21267,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
-  /api/v1/webhooks/endpoints/{id}/rotate-secret:
-    post:
-      operationId: webhookRotateSecret
-      summary: Rotate signing secret (returned once)
-      description: "Requires permission `webhooks.manage`. Owner:
-        realtime-integrations. Phase 5."
+    get:
+      operationId: webhookEndpointGet
+      summary: One endpoint with its sample payload and failure counters
+      description: "Requires permission `webhooks.read`. Owner: backend-core. Phase 19."
       tags:
         - webhooks
       security:
@@ -20183,12 +21288,68 @@ paths:
           content:
             application/json:
               schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/webhooks/endpoints/{id}/rotate-secret:
+    post:
+      operationId: webhookRotateSecret
+      summary: Rotate the signing secret (returned once); the previous one stays valid
+        for graceHours; audited
+      description: "Requires permission `webhooks.manage`. Owner:
+        realtime-integrations. Phase 5."
+      tags:
+        - webhooks
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                graceHours:
+                  type: integer
+                  minimum: 0
+                  maximum: 72
+                  default: 24
+              default: {}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
                 type: object
                 properties:
                   secret:
                     type: string
+                  previousSecretExpiresAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
                 required:
                   - secret
+                  - previousSecretExpiresAt
         4XX:
           description: Error
           content:
@@ -20204,7 +21365,8 @@ paths:
   /api/v1/webhooks/mapping/preview:
     post:
       operationId: webhookMappingPreview
-      summary: Preview mapping on a sample payload
+      summary: "Preview a mapping on a sample payload (same engine as ingestion:
+        applyPayloadMapping) and list its paths"
       description: "Requires permission `webhooks.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -20220,38 +21382,7 @@ paths:
               properties:
                 samplePayload: {}
                 mapping:
-                  type: object
-                  properties:
-                    fields:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          from:
-                            type: string
-                            description: Dot/JSONPath-lite path, e.g. "data.customer.mobile"
-                          to:
-                            type: string
-                            description: LEAD_IMPORT_FIELDS value or custom.<key>
-                          transform:
-                            type: string
-                            enum:
-                              - none
-                              - trim
-                              - lower
-                              - phone_in
-                              - number
-                            default: none
-                        required:
-                          - from
-                          - to
-                    defaults:
-                      type: object
-                      additionalProperties:
-                        type: string
-                      default: {}
-                  required:
-                    - fields
+                  $ref: "#/components/schemas/PayloadMapping"
               required:
                 - mapping
       responses:
@@ -20277,9 +21408,27 @@ paths:
                       required:
                         - path
                         - message
+                  paths:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        type:
+                          type: string
+                        sample:
+                          type:
+                            - string
+                            - "null"
+                      required:
+                        - path
+                        - type
+                        - sample
                 required:
                   - lead
                   - errors
+                  - paths
         4XX:
           description: Error
           content:
@@ -20295,9 +21444,10 @@ paths:
   /api/v1/webhooks/deliveries:
     get:
       operationId: webhookDeliveryList
-      summary: Delivery log
-      description: "Requires permission `webhooks.manage`. Owner:
-        realtime-integrations. Phase 5."
+      summary: "Delivery log, newest first (filters: endpoint, status, direction,
+        event, from, to)"
+      description: "Requires permission `webhooks.read`. Owner: realtime-integrations.
+        Phase 5."
       tags:
         - webhooks
       security:
@@ -20342,6 +21492,24 @@ paths:
           required: false
           name: direction
           in: query
+        - schema:
+            type: string
+            maxLength: 60
+          required: false
+          name: event
+          in: query
+        - schema:
+            type: string
+            format: date-time
+          required: false
+          name: from
+          in: query
+        - schema:
+            type: string
+            format: date-time
+          required: false
+          name: to
+          in: query
       responses:
         "200":
           description: OK
@@ -20379,9 +21547,9 @@ paths:
   /api/v1/webhooks/deliveries/{id}:
     get:
       operationId: webhookDeliveryGet
-      summary: Delivery detail
-      description: "Requires permission `webhooks.manage`. Owner:
-        realtime-integrations. Phase 5."
+      summary: Delivery detail with request, response, latency and the attempt timeline
+      description: "Requires permission `webhooks.read`. Owner: realtime-integrations.
+        Phase 5."
       tags:
         - webhooks
       security:
@@ -20415,7 +21583,10 @@ paths:
   /api/v1/webhooks/deliveries/{id}/replay:
     post:
       operationId: webhookDeliveryReplay
-      summary: Replay a delivery
+      summary: "Replay a delivery as a new delivery (replayOfId set): outbound
+        re-sends the same body with a fresh signature, inbound re-processes the
+        stored body (not for unverified requests: 422
+        WEBHOOK_REPLAY_NOT_ALLOWED)"
       description: "Requires permission `webhooks.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -20451,7 +21622,11 @@ paths:
   /api/hooks/{workspaceId}/{sourceKey}:
     post:
       operationId: inboundWebhook
-      summary: Inbound webhook (HMAC-SHA256 signed)
+      summary: 'Inbound webhook: X-Vistar-Signature (t=<unix>,v1=<hex HMAC-SHA256 of
+        "t.rawBody">, 300 s tolerance) or X-Vistar-Token for token sources;
+        Idempotency-Key (24 h: same key and body = 200 duplicate, same key and
+        other body = 409); 401 WEBHOOK_SIGNATURE_INVALID /
+        WEBHOOK_TIMESTAMP_EXPIRED, 404 unknown source, 410 paused source'
       description: "Owner: realtime-integrations. Phase 5."
       tags:
         - webhooks
@@ -20469,6 +21644,12 @@ paths:
           required: true
           name: sourceKey
           in: path
+        - schema:
+            type: string
+            maxLength: 200
+          required: false
+          name: token
+          in: query
       requestBody:
         required: true
         content:
@@ -20498,11 +21679,18 @@ paths:
                       - string
                       - "null"
                     format: uuid
+                  deliveryId:
+                    type: string
+                    format: uuid
+                  captured:
+                    type: boolean
                 required:
                   - ok
                   - duplicate
                   - leadId
                   - runId
+                  - deliveryId
+                  - captured
         4XX:
           description: Error
           content:
@@ -20518,7 +21706,8 @@ paths:
   /api/hooks/whatsapp:
     get:
       operationId: whatsappWebhookVerify
-      summary: WhatsApp Cloud API verification challenge
+      summary: WhatsApp Cloud API verification challenge for the platform Meta app
+        (WHATSAPP_VERIFY_TOKEN); answers hub.challenge as text/plain
       description: "Owner: realtime-integrations. Phase 5."
       tags:
         - webhooks
@@ -20536,12 +21725,17 @@ paths:
           in: query
         - schema:
             type: string
+            maxLength: 200
           required: true
           name: hub.challenge
           in: query
       responses:
         "200":
           description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
         4XX:
           description: Error
           content:
@@ -20556,7 +21750,9 @@ paths:
                 $ref: "#/components/schemas/ApiError"
     post:
       operationId: whatsappWebhook
-      summary: WhatsApp Cloud API events (X-Hub-Signature-256)
+      summary: WhatsApp Cloud API events for the platform Meta app
+        (X-Hub-Signature-256 with WHATSAPP_APP_SECRET); routed to the workspace
+        by metadata.phone_number_id
       description: "Owner: realtime-integrations. Phase 5."
       tags:
         - webhooks
@@ -20585,7 +21781,7 @@ paths:
   /api/v1/api-keys:
     get:
       operationId: apiKeyList
-      summary: API keys
+      summary: API keys (needs the api_access plan feature for create)
       description: "Requires permission `apikeys.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -20620,7 +21816,9 @@ paths:
                 $ref: "#/components/schemas/ApiError"
     post:
       operationId: apiKeyCreate
-      summary: Create an API key (shown once)
+      summary: "Create an API key (shown once; scopes must be permissions the creator
+        holds: 403 API_KEY_SCOPE_NOT_ALLOWED; FEATURE_DISABLED without
+        api_access); audited"
       description: "Requires permission `apikeys.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -20654,9 +21852,16 @@ paths:
                       - messages.send
                       - workflows.read
                   minItems: 1
+                  description: Each scope must be a permission the creator holds
+                    (API_KEY_SCOPE_NOT_ALLOWED)
                 expiresAt:
                   type: string
                   format: date-time
+                  description: Must be in the future
+                rateLimitPerMinute:
+                  type: integer
+                  minimum: 10
+                  maximum: 1200
               required:
                 - name
                 - scopes
@@ -20675,7 +21880,7 @@ paths:
                     type: string
                   prefix:
                     type: string
-                    description: First 8 chars, e.g. "vst_live_ab12"
+                    description: API_KEY_DISPLAY_PREFIX_LENGTH chars, e.g. "vst_live_ab12"
                   scopes:
                     type: array
                     items:
@@ -20691,11 +21896,25 @@ paths:
                         - messages.read
                         - messages.send
                         - workflows.read
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - expired
+                      - revoked
                   lastUsedAt:
                     type:
                       - string
                       - "null"
                     format: date-time
+                  lastUsedIp:
+                    type:
+                      - string
+                      - "null"
+                  rateLimitPerMinute:
+                    type:
+                      - integer
+                      - "null"
                   expiresAt:
                     type:
                       - string
@@ -20706,6 +21925,74 @@ paths:
                       - string
                       - "null"
                     format: date-time
+                  rotatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  previousKeyExpiresAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  createdBy:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      role:
+                        type: string
+                        enum:
+                          - company_admin
+                          - manager
+                          - employee
+                          - viewer
+                      status:
+                        type: string
+                        enum:
+                          - on_call
+                          - busy
+                          - idle
+                          - away
+                          - offline
+                      avatar:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          skinTone:
+                            type: string
+                            pattern: ^#[0-9A-Fa-f]{6}$
+                          hairColor:
+                            type: string
+                            pattern: ^#[0-9A-Fa-f]{6}$
+                          hairStyle:
+                            type: string
+                            enum:
+                              - short
+                              - long
+                              - bun
+                              - curly
+                              - bald
+                          outfitColor:
+                            type: string
+                            pattern: ^#[0-9A-Fa-f]{6}$
+                        required:
+                          - skinTone
+                          - hairColor
+                          - hairStyle
+                          - outfitColor
+                    required:
+                      - id
+                      - name
+                      - role
+                      - status
+                      - avatar
                   createdAt:
                     type: string
                     format: date-time
@@ -20716,9 +22003,15 @@ paths:
                   - name
                   - prefix
                   - scopes
+                  - status
                   - lastUsedAt
+                  - lastUsedIp
+                  - rateLimitPerMinute
                   - expiresAt
                   - revokedAt
+                  - rotatedAt
+                  - previousKeyExpiresAt
+                  - createdBy
                   - createdAt
                   - key
         4XX:
@@ -20736,7 +22029,8 @@ paths:
   /api/v1/api-keys/{id}/rotate:
     post:
       operationId: apiKeyRotate
-      summary: Rotate an API key (shown once)
+      summary: Rotate an API key (new key shown once; the old key keeps working for
+        graceMinutes); audited
       description: "Requires permission `apikeys.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -20750,6 +22044,19 @@ paths:
           required: true
           name: id
           in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                graceMinutes:
+                  type: integer
+                  minimum: 0
+                  maximum: 1440
+                  default: 60
+              default: {}
       responses:
         "200":
           description: OK
@@ -20765,7 +22072,7 @@ paths:
                     type: string
                   prefix:
                     type: string
-                    description: First 8 chars, e.g. "vst_live_ab12"
+                    description: API_KEY_DISPLAY_PREFIX_LENGTH chars, e.g. "vst_live_ab12"
                   scopes:
                     type: array
                     items:
@@ -20781,11 +22088,25 @@ paths:
                         - messages.read
                         - messages.send
                         - workflows.read
+                  status:
+                    type: string
+                    enum:
+                      - active
+                      - expired
+                      - revoked
                   lastUsedAt:
                     type:
                       - string
                       - "null"
                     format: date-time
+                  lastUsedIp:
+                    type:
+                      - string
+                      - "null"
+                  rateLimitPerMinute:
+                    type:
+                      - integer
+                      - "null"
                   expiresAt:
                     type:
                       - string
@@ -20796,6 +22117,74 @@ paths:
                       - string
                       - "null"
                     format: date-time
+                  rotatedAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  previousKeyExpiresAt:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  createdBy:
+                    type:
+                      - object
+                      - "null"
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      role:
+                        type: string
+                        enum:
+                          - company_admin
+                          - manager
+                          - employee
+                          - viewer
+                      status:
+                        type: string
+                        enum:
+                          - on_call
+                          - busy
+                          - idle
+                          - away
+                          - offline
+                      avatar:
+                        type:
+                          - object
+                          - "null"
+                        properties:
+                          skinTone:
+                            type: string
+                            pattern: ^#[0-9A-Fa-f]{6}$
+                          hairColor:
+                            type: string
+                            pattern: ^#[0-9A-Fa-f]{6}$
+                          hairStyle:
+                            type: string
+                            enum:
+                              - short
+                              - long
+                              - bun
+                              - curly
+                              - bald
+                          outfitColor:
+                            type: string
+                            pattern: ^#[0-9A-Fa-f]{6}$
+                        required:
+                          - skinTone
+                          - hairColor
+                          - hairStyle
+                          - outfitColor
+                    required:
+                      - id
+                      - name
+                      - role
+                      - status
+                      - avatar
                   createdAt:
                     type: string
                     format: date-time
@@ -20806,9 +22195,15 @@ paths:
                   - name
                   - prefix
                   - scopes
+                  - status
                   - lastUsedAt
+                  - lastUsedIp
+                  - rateLimitPerMinute
                   - expiresAt
                   - revokedAt
+                  - rotatedAt
+                  - previousKeyExpiresAt
+                  - createdBy
                   - createdAt
                   - key
         4XX:
@@ -20826,7 +22221,7 @@ paths:
   /api/v1/api-keys/{id}:
     delete:
       operationId: apiKeyRevoke
-      summary: Revoke an API key
+      summary: Revoke an API key (also ends a rotation grace); audited
       description: "Requires permission `apikeys.manage`. Owner:
         realtime-integrations. Phase 5."
       tags:
@@ -20854,6 +22249,695 @@ paths:
                       - true
                 required:
                   - ok
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: apiKeyUpdate
+      summary: Rename a key or change its rate limit (null = default); audited
+      description: "Requires permission `apikeys.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - api-keys
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                rateLimitPerMinute:
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 10
+                  maximum: 1200
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/integrations/catalog:
+    get:
+      operationId: integrationCatalog
+      summary: "Provider catalog: connect fields (secret fields marked), setup steps,
+        capabilities, availability (not_configured when a platform setting is
+        missing) and plan feature"
+      description: "Requires permission `integrations.read`. Owner: backend-core. Phase 19."
+      tags:
+        - integrations
+      security:
+        - bearerJwt: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/IntegrationProviderInfo"
+                required:
+                  - items
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/integrations/{provider}/sync:
+    post:
+      operationId: integrationSync
+      summary: "Sync now: IndiaMART pull (window from the last pull minus 5 min, max 7
+        days; dedupe by UNIQUE_QUERY_ID; 429 RATE_LIMITED within 5 min of the
+        last pull), WhatsApp phone number profile, Google calendar check"
+      description: "Requires permission `integrations.manage`. Owner: backend-core.
+        Phase 19."
+      tags:
+        - integrations
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - indiamart
+              - whatsapp_cloud
+              - telephony
+              - smtp
+              - google_calendar
+          required: true
+          name: provider
+          in: path
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  message:
+                    type: string
+                  fetched:
+                    type: integer
+                  created:
+                    type: integer
+                  updated:
+                    type: integer
+                  skipped:
+                    type: integer
+                    description: Duplicates (e.g. IndiaMART UNIQUE_QUERY_ID already imported)
+                  windowStart:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  windowEnd:
+                    type:
+                      - string
+                      - "null"
+                    format: date-time
+                  integration:
+                    $ref: "#/components/schemas/Integration"
+                required:
+                  - ok
+                  - message
+                  - fetched
+                  - created
+                  - updated
+                  - skipped
+                  - windowStart
+                  - windowEnd
+                  - integration
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/integrations/{provider}/rotate-token:
+    post:
+      operationId: integrationRotateToken
+      summary: New IndiaMART push key, WhatsApp verify token or telephony callback
+        token (the old one stops working); audited
+      description: "Requires permission `integrations.manage`. Owner: backend-core.
+        Phase 19."
+      tags:
+        - integrations
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - indiamart
+              - whatsapp_cloud
+              - telephony
+              - smtp
+              - google_calendar
+          required: true
+          name: provider
+          in: path
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Integration"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/integrations/{provider}/oauth/start:
+    post:
+      operationId: integrationOAuthStart
+      summary: Start Google sign-in for google_calendar (422
+        INTEGRATION_NOT_CONFIGURED without GOOGLE_CLIENT_ID /
+        GOOGLE_CLIENT_SECRET); open authUrl in the browser
+      description: "Requires permission `integrations.manage`. Owner: backend-core.
+        Phase 19."
+      tags:
+        - integrations
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - indiamart
+              - whatsapp_cloud
+              - telephony
+              - smtp
+              - google_calendar
+          required: true
+          name: provider
+          in: path
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authUrl:
+                    type: string
+                    format: uri
+                  expiresAt:
+                    type: string
+                    format: date-time
+                required:
+                  - authUrl
+                  - expiresAt
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/oauth/google/callback:
+    get:
+      operationId: integrationOAuthCallback
+      summary: "Google OAuth redirect: stores the tokens encrypted and redirects to
+        WEB_ORIGIN/app/integrations?provider=google_calendar&result=connected|e\
+        rror"
+      description: "Owner: backend-core. Phase 19."
+      tags:
+        - integrations
+      security: []
+      parameters:
+        - schema:
+            type: string
+            maxLength: 2000
+          required: false
+          name: code
+          in: query
+        - schema:
+            type: string
+            maxLength: 2000
+          required: true
+          name: state
+          in: query
+        - schema:
+            type: string
+            maxLength: 200
+          required: false
+          name: error
+          in: query
+      responses:
+        "302":
+          description: OK
+          content:
+            text/html:
+              schema:
+                type: string
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/hooks/{workspaceId}/indiamart:
+    post:
+      operationId: indiamartPush
+      summary: "IndiaMART Push API receiver (push key in ?key=; body { CODE, STATUS,
+        RESPONSE: {...} }); creates a routed lead with source indiamart,
+        duplicate UNIQUE_QUERY_ID = 200 duplicate"
+      description: "Owner: backend-core. Phase 19."
+      tags:
+        - webhooks
+      security:
+        - webhookSignature: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: workspaceId
+          in: path
+        - schema:
+            type: string
+            maxLength: 200
+          required: false
+          name: key
+          in: query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  duplicate:
+                    type: boolean
+                  leadId:
+                    type:
+                      - string
+                      - "null"
+                    format: uuid
+                required:
+                  - ok
+                  - duplicate
+                  - leadId
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/hooks/{workspaceId}/whatsapp:
+    get:
+      operationId: whatsappWorkspaceVerify
+      summary: WhatsApp Cloud API verification challenge for a workspace's own Meta
+        app (verify token from the integration); 403 on a wrong token
+      description: "Owner: backend-core. Phase 19."
+      tags:
+        - webhooks
+      security: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: workspaceId
+          in: path
+        - schema:
+            type: string
+          required: true
+          name: hub.mode
+          in: query
+        - schema:
+            type: string
+          required: true
+          name: hub.verify_token
+          in: query
+        - schema:
+            type: string
+            maxLength: 200
+          required: true
+          name: hub.challenge
+          in: query
+      responses:
+        "200":
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: whatsappWorkspaceWebhook
+      summary: "WhatsApp Cloud API events of a workspace's own Meta app
+        (X-Hub-Signature-256 with its app secret): messages into the Inbox (24 h
+        window, message.received), statuses onto sent messages"
+      description: "Owner: backend-core. Phase 19."
+      tags:
+        - webhooks
+      security:
+        - webhookSignature: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: workspaceId
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {}
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                required:
+                  - ok
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/webhooks/endpoints/{id}/capture:
+    post:
+      operationId: webhookCapture
+      summary: "Arm (or stop) sample capture on an inbound source: verified requests
+        until captureUntil are stored as the sample and not processed (202 with
+        captured result)"
+      description: "Requires permission `webhooks.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - webhooks
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                minutes:
+                  type: integer
+                  minimum: 1
+                  maximum: 60
+                  default: 15
+              required:
+                - enabled
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookEndpoint"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/webhooks/endpoints/{id}/test:
+    post:
+      operationId: webhookTestSend
+      summary: Send one signed test delivery to an outbound endpoint now (event
+        webhook.test or a sample of `event`; no retries)
+      description: "Requires permission `webhooks.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - webhooks
+      security:
+        - bearerJwt: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+          required: true
+          name: id
+          in: path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event:
+                  type: string
+                  enum:
+                    - lead.created
+                    - lead.updated
+                    - lead.assigned
+                    - stage.changed
+                    - call.ended
+                    - message.received
+                    - task.overdue
+                    - workflow.failed
+                    - contact.created
+                    - contact.updated
+                    - account.created
+                    - account.updated
+                    - deal.created
+                    - deal.updated
+                    - deal.moved
+                    - quotation.created
+                    - quotation.updated
+                    - invoice.created
+                    - invoice.updated
+                    - invoice.payment_recorded
+                    - meeting.created
+                    - meeting.updated
+              default: {}
+      responses:
+        "201":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDelivery"
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/api-keys/scopes:
+    get:
+      operationId: apiKeyScopes
+      summary: "Scope picker: every API key scope with allowed = the caller holds the
+        permission"
+      description: "Requires permission `apikeys.manage`. Owner: backend-core. Phase 19."
+      tags:
+        - api-keys
+      security:
+        - bearerJwt: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        scope:
+                          type: string
+                          enum:
+                            - leads.read
+                            - leads.create
+                            - leads.update
+                            - tasks.read
+                            - tasks.create
+                            - tasks.update
+                            - calls.read
+                            - messages.read
+                            - messages.send
+                            - workflows.read
+                        resource:
+                          type: string
+                        action:
+                          type: string
+                        label:
+                          type: string
+                        allowed:
+                          type: boolean
+                      required:
+                        - scope
+                        - resource
+                        - action
+                        - label
+                        - allowed
+                required:
+                  - items
+        4XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        5XX:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /api/v1/openapi.json:
+    get:
+      operationId: publicOpenApi
+      summary: "Public API reference (OpenAPI 3.1): only the routes that accept API
+        keys plus the inbound webhook, server = API_PUBLIC_URL"
+      description: "Owner: backend-core. Phase 19."
+      tags:
+        - public
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+                description: OpenAPI 3.1 document
         4XX:
           description: Error
           content:
@@ -23092,10 +25176,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
-  /api/hooks/telephony/{provider}:
+  /api/hooks/{workspaceId}/telephony/{provider}:
     post:
       operationId: telephonyWebhook
-      summary: Telephony provider callbacks
+      summary: Telephony provider callbacks (callback token in ?token=; mock and
+        Exotel status callbacks update or create the call by providerCallId)
       description: "Owner: realtime-integrations. Phase 7."
       tags:
         - calls
@@ -23104,9 +25189,24 @@ paths:
       parameters:
         - schema:
             type: string
+            format: uuid
+          required: true
+          name: workspaceId
+          in: path
+        - schema:
+            type: string
+            enum:
+              - mock
+              - exotel
           required: true
           name: provider
           in: path
+        - schema:
+            type: string
+            maxLength: 200
+          required: false
+          name: token
+          in: query
       requestBody:
         required: true
         content:
@@ -26980,7 +29080,9 @@ paths:
                                   - workflows.edit
                                   - workflows.publish
                                   - workflows.run
+                                  - webhooks.read
                                   - webhooks.manage
+                                  - integrations.read
                                   - integrations.manage
                                   - apikeys.manage
                                   - reports.read
@@ -27173,7 +29275,9 @@ paths:
                                   - workflows.edit
                                   - workflows.publish
                                   - workflows.run
+                                  - webhooks.read
                                   - webhooks.manage
+                                  - integrations.read
                                   - integrations.manage
                                   - apikeys.manage
                                   - reports.read
@@ -27290,7 +29394,9 @@ paths:
                                   - workflows.edit
                                   - workflows.publish
                                   - workflows.run
+                                  - webhooks.read
                                   - webhooks.manage
+                                  - integrations.read
                                   - integrations.manage
                                   - apikeys.manage
                                   - reports.read
@@ -27494,7 +29600,9 @@ paths:
                                   - workflows.edit
                                   - workflows.publish
                                   - workflows.run
+                                  - webhooks.read
                                   - webhooks.manage
+                                  - integrations.read
                                   - integrations.manage
                                   - apikeys.manage
                                   - reports.read
