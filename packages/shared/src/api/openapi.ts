@@ -104,6 +104,15 @@ export function buildOpenApiDocument(opts: OpenApiOptions = {}): OpenApiDocument
     PlatformPayment: S.PlatformPaymentSchema,
     PlanChangeRequest: S.PlanChangeRequestSchema,
     Checkout: S.CheckoutSchema,
+    // ---- change #20: config
+    ConfigGroup: S.ConfigGroupSchema,
+    ConfigFieldState: S.ConfigFieldStateSchema,
+    ConfigTestResult: S.ConfigTestResultSchema,
+    EmailTemplate: S.EmailTemplateSchema,
+    EmailPreview: S.EmailPreviewSchema,
+    WhatsAppTemplate: S.WhatsAppTemplateSchema,
+    SetupChecklist: S.SetupChecklistSchema,
+    GoLiveChecklist: S.GoLiveChecklistSchema,
   };
   const componentJson = Object.fromEntries(Object.entries(components).map(([name, schema]) => [name, inlineJsonOf(schema)]));
 

@@ -47,6 +47,8 @@ const PLATFORM_MODELS = new Set([
   // ---- change #19 wave C: billing
   'PlatformInvoiceSeries',
   'BillingWebhookEvent',
+  // ---- change #20: config
+  'PlatformEmailTemplate',
 ]);
 
 type AnyArgs = Record<string, unknown> & {
