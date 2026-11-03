@@ -2,13 +2,13 @@
 
 import {
   ANDROID_PACKAGE_NAME,
-  FEATURE_FLAGS,
   parseGoogleServicesJson,
   type AndroidRelease,
   type AppConfig,
   type Company,
   type FeatureFlag,
   type FirebaseConfigStatus,
+  type RouteBody,
 } from '@vistar/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, apiMode, apiUrl } from './http';
@@ -312,12 +312,13 @@ const SWITCH_FLAG: Record<keyof CompanySwitches, FeatureFlag> = { customDomain: 
 export function useSetCompanySwitch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ workspaceId, key, value, overrides }: { workspaceId: string; key: keyof CompanySwitches; value: boolean; overrides?: Company['flagOverrides'] }) => {
+    // `overrides` (the company's current overrides) is no longer needed; kept so callers stay unchanged.
+    mutationFn: async ({ workspaceId, key, value }: { workspaceId: string; key: keyof CompanySwitches; value: boolean; overrides?: Company['flagOverrides'] }) => {
       if (apiMode()) {
-        // CompanyFlagsUpdateSchema.overrides is a full record (requests-19.md): send every flag, null = no override.
-        const full = Object.fromEntries(FEATURE_FLAGS.map((f) => [f, overrides?.[f] ?? null])) as Record<FeatureFlag, boolean | null>;
-        full[SWITCH_FLAG[key]] = value;
-        await api<Company>(`/api/super/companies/${workspaceId}/flags`, { method: 'PUT', json: { overrides: full } });
+        // CompanyFlagsUpdateSchema.overrides is a partial map since 3d6adb3: send only the switch that changed,
+        // so a concurrent change to another flag is never overwritten with a stale value.
+        const body: RouteBody<'superCompanyFlags'> = { overrides: { [SWITCH_FLAG[key]]: value } };
+        await api<Company>(`/api/super/companies/${workspaceId}/flags`, { method: 'PUT', json: body });
         return;
       }
       await pause(200);
