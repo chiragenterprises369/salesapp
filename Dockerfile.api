@@ -1,0 +1,84 @@
+# syntax=docker/dockerfile:1.7
+# Vistar API image (change #20). Build from the repo root:
+#   docker build -f Dockerfile.api -t vistar-api --build-arg APP_VERSION=$(git rev-parse --short HEAD) .
+# Targets: `runtime` (default, production dependencies only, non-root) and `tools` (prisma CLI + tsx for
+# `prisma migrate deploy` and the clean seed that creates plans and the Super Admin).
+ARG NODE_VERSION=26
+
+FROM node:${NODE_VERSION}-bookworm-slim AS base
+ENV PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH \
+    CI=true \
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable && corepack prepare pnpm@11.9.0 --activate
+WORKDIR /app
+
+# 1. Package store from the lockfile only: cached until pnpm-lock.yaml changes.
+FROM base AS fetch
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch --frozen-lockfile
+
+# 2. Build @vistar/shared and the API (all dependencies).
+FROM fetch AS build
+# prisma.config.ts reads DATABASE_URL; generate does not connect. Not a secret.
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
+COPY package.json tsconfig.base.json ./
+COPY packages/shared packages/shared
+COPY apps/api apps/api
+COPY packs packs
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --offline --filter "@vistar/api..."
+RUN pnpm --filter @vistar/shared build \
+ && pnpm --filter @vistar/api exec prisma generate \
+ && pnpm --filter @vistar/api build \
+ && test -f apps/api/dist/main.js \
+ && test -f apps/api/assets/fonts/NotoSans-Regular.ttf
+
+# 3. One-off jobs: migrations and the clean seed. Not used for serving traffic.
+#   docker compose -f deploy/docker-compose.prod.yml --profile tools run --rm migrate
+FROM build AS tools
+ENV NODE_ENV=production
+RUN chown -R node:node /app
+USER node
+WORKDIR /app/apps/api
+CMD ["pnpm", "exec", "prisma", "migrate", "deploy"]
+
+# 4. Production dependencies only (no prisma CLI, tsx, vitest or nest CLI; scripts skipped: argon2 ships prebuilds).
+FROM fetch AS prod-deps
+COPY package.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/api/package.json apps/api/
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile --offline --prod --ignore-scripts --filter "@vistar/api..."
+
+# 5. Runtime: non-root, tini as PID 1 (signals reach node for the graceful shutdown), health check.
+FROM node:${NODE_VERSION}-bookworm-slim AS runtime
+ARG APP_VERSION=dev
+ENV NODE_ENV=production \
+    API_PORT=4000 \
+    APP_VERSION=${APP_VERSION} \
+    LOG_FORMAT=json \
+    NODE_OPTIONS=--max-old-space-size=768
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tini ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --chown=node:node pnpm-workspace.yaml package.json ./
+COPY --chown=node:node packs packs
+COPY --from=prod-deps --chown=node:node /app/node_modules node_modules
+COPY --from=prod-deps --chown=node:node /app/packages/shared/node_modules packages/shared/node_modules
+COPY --from=prod-deps --chown=node:node /app/apps/api/node_modules apps/api/node_modules
+COPY --from=build --chown=node:node /app/packages/shared/package.json packages/shared/package.json
+COPY --from=build --chown=node:node /app/packages/shared/dist packages/shared/dist
+COPY --from=build --chown=node:node /app/apps/api/package.json apps/api/package.json
+COPY --from=build --chown=node:node /app/apps/api/dist apps/api/dist
+COPY --from=build --chown=node:node /app/apps/api/assets apps/api/assets
+# Upload temp files (multer, os.tmpdir()/vistar-uploads) are the only files written inside the container.
+RUN mkdir -p /tmp/vistar-uploads && chown node:node /tmp/vistar-uploads
+USER node
+EXPOSE 4000
+HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.API_PORT||4000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "apps/api/dist/main.js"]

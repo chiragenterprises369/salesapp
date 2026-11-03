@@ -3,6 +3,8 @@ import type { ApiError, ErrorCode } from '@vistar/shared';
 import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { AppException } from './app-exception.js';
+// ---- change #20: prod
+import { reportError } from '../../infra/prod/error-reporter.js';
 
 const STATUS_TO_CODE: Record<number, ErrorCode> = {
   400: 'VALIDATION_FAILED',
@@ -63,6 +65,9 @@ export class AppExceptionFilter implements ExceptionFilter {
     if (status >= 500) {
       const err = exception instanceof Error ? exception : new Error(String(exception));
       const where = `${req?.method} ${req?.route?.path ?? req?.path} [${requestId}]`;
+      // ---- change #20: prod (error monitoring; message and stack are redacted by the reporter)
+      reportError(err, { tags: { route: String(req?.route?.path ?? 'unknown').slice(0, 120), status: String(status) } });
+      // ---- end change #20: prod
       // Prisma messages embed query arguments (phones, emails): log only the error class and code.
       if (err.name.startsWith('PrismaClient') || err.name.startsWith('DriverAdapter')) {
         this.logger.error(`${where} failed: ${err.name}${(err as { code?: string }).code ? ` ${(err as { code?: string }).code}` : ''}`);

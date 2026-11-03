@@ -4,6 +4,7 @@ import type { Redis } from 'ioredis';
 import { ApiRoute } from '../common/http/api-route.decorator.js';
 import { PrismaService } from '../infra/prisma/prisma.service.js';
 import { REDIS } from '../infra/redis/redis.module.js';
+import { appVersion } from '../infra/prod/prod-env.js';
 
 @Controller()
 export class HealthController {
@@ -16,6 +17,7 @@ export class HealthController {
   async health() {
     const db = await this.prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false);
     const redis = this.redis ? await this.redis.ping().then((r) => r === 'PONG').catch(() => false) : false;
-    return { ok: db, db, redis, version: process.env.npm_package_version ?? '0.1.0' };
+    // ---- change #20: prod (APP_VERSION from the image)
+    return { ok: db, db, redis, version: appVersion() };
   }
 }

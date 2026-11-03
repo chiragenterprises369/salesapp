@@ -1,0 +1,26 @@
+# change #20: keep the build context small and free of secrets
+.git
+.worktrees
+.backups
+.data
+.claude
+**/node_modules
+**/dist
+**/.next
+**/*.tsbuildinfo
+**/coverage
+apps/mobile
+docs/screenshots
+references
+e2e/.results
+e2e/.report
+playwright-report
+test-results
+*.log
+*.dump
+.env
+.env.*
+!.env.example
+!.env.production.example
+**/*.pem
+deploy/backups

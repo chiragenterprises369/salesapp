@@ -35,6 +35,8 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { WhatsappModule } from './modules/whatsapp/whatsapp.module.js';
 import { WorkflowsModule } from './modules/workflows/workflows.module.js';
 import { WorkspaceModule } from './modules/workspace/workspace.module.js';
+// ---- change #20: prod
+import { ProdModule } from './infra/prod/prod.module.js';
 
 /** Wave 1 only (see common/auth/dev-auth.guard.ts). */
 const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useClass: DevAuthGuard }] : [];
@@ -82,6 +84,8 @@ const devProviders: Provider[] = getEnv().DEV_AUTH ? [{ provide: APP_GUARD, useC
     SuperadminModule,
     // ---- change #19 wave C: billing (global: plan limits for invites, leads and API keys)
     BillingModule,
+    // ---- change #20: prod (readiness, draining, per-user rate limit)
+    ProdModule,
   ],
   controllers: [HealthController],
   providers: devProviders,
