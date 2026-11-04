@@ -125,7 +125,7 @@ export function ThemeDefaultsForm() {
       </SettingsCard>
       <SettingsCard
         title="Leads page view"
-        description="The view people see the first time they open Leads. Anyone can switch, and Vistar remembers their choice."
+        description="The view people see the first time they open Leads. Anyone can switch, and Tootodo remembers their choice."
         footer={
           <SaveBar
             dirty={dirty}

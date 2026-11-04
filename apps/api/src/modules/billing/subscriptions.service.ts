@@ -80,8 +80,8 @@ export class SubscriptionsService {
       pendingRequest: pending ? toRequest(pending, name, requestedBy) : null,
       openInvoices: {
         count: open.length,
-        balancePaise: open.reduce((s, i) => s + Math.max(0, n(i.totalPaise) - n(i.paidPaise)), 0),
-        overdue: open.filter((i) => i.dueDate && i.dueDate < today).length,
+        balancePaise: open.reduce((s: number, i: any) => s + Math.max(0, n(i.totalPaise) - n(i.paidPaise)), 0),
+        overdue: open.filter((i: any) => i.dueDate && i.dueDate < today).length,
       },
       nextInvoiceAt: sub.status === 'cancelled' ? null : sub.status === 'trialing' ? (paidPlan ? (sub.trialEndsAt?.toISOString() ?? null) : null) : paidPlan || sub.pendingPlan ? sub.currentPeriodEnd.toISOString() : null,
     };

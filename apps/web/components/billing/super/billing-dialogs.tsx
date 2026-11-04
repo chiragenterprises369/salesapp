@@ -130,7 +130,7 @@ export function ManualInvoiceDialog({ billing, open, onOpenChange }: { billing: 
   const [issue, setIssue] = useState(true);
   const set = (key: string, patch: Partial<LineDraft>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
-  // Live GST preview with the shared math (Vistar's state comes from the API; the preview uses the place of supply only for the mode label).
+  // Live GST preview with the shared math (Tootodo's state comes from the API; the preview uses the place of supply only for the mode label).
   const parsed = lines.map((l) => ({ quantity: Number(l.quantity) || 0, unitPricePaise: parseRupees(l.price) ?? 0, discountKind: 'percent' as const, discountValue: 0, gstRate: Number(l.gstRate) || 0 }));
   const preview = computeDocument(parsed, { sellerStateCode: null, placeOfSupplyStateCode: null });
 
@@ -160,7 +160,7 @@ export function ManualInvoiceDialog({ billing, open, onOpenChange }: { billing: 
   };
 
   return (
-    <Shell open={open} onOpenChange={onOpenChange} size="xl" title={`New invoice for ${billing.company.name}`} description="GST is worked out from Vistar's state and the place of supply (CGST + SGST or IGST)." formId={f.formId} submitLabel={issue ? 'Issue invoice' : 'Save draft'} submitting={m.createInvoice.isPending} error={f.error}>
+    <Shell open={open} onOpenChange={onOpenChange} size="xl" title={`New invoice for ${billing.company.name}`} description="GST is worked out from Tootodo's state and the place of supply (CGST + SGST or IGST)." formId={f.formId} submitLabel={issue ? 'Issue invoice' : 'Save draft'} submitting={m.createInvoice.isPending} error={f.error}>
       <form
         id={f.formId}
         noValidate
@@ -211,12 +211,12 @@ export function ManualInvoiceDialog({ billing, open, onOpenChange }: { billing: 
           <FormField label="Issue date">
             <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
           </FormField>
-          <FormField label="Due date" hint="Empty = the payment terms of the Vistar profile" error={f.errors.dueDate}>
+          <FormField label="Due date" hint="Empty = the payment terms of the Tootodo profile" error={f.errors.dueDate}>
             <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </FormField>
           <FormField label="Place of supply" hint={contactState ? 'From the billing details' : 'No billing state on file'} error={f.errors.placeOfSupplyStateCode}>
             <NativeSelect value={pos} onChange={(e) => setPos(e.target.value)}>
-              <option value="">Billing state, else Vistar&apos;s state</option>
+              <option value="">Billing state, else Tootodo&apos;s state</option>
               {INDIAN_STATES.map((s) => (
                 <option key={s.code} value={s.code}>
                   {s.name} ({s.code})

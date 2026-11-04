@@ -42,7 +42,7 @@ export const RESOURCE_LABELS: Record<PermissionResource, { label: string; hint: 
   billing: { label: 'Billing', hint: 'Plan and invoices' },
   settings: { label: 'Workspace settings', hint: 'Hours, stages, fields, branding' },
   audit: { label: 'Audit log', hint: 'Who changed what' },
-  support_access: { label: 'Support access', hint: 'Let Vistar support view the workspace' },
+  support_access: { label: 'Support access', hint: 'Let Tootodo support view the workspace' },
   contacts: { label: 'Contacts', hint: 'People at customers and their details' },
   accounts: { label: 'Accounts', hint: 'Customer companies, GSTIN and addresses' },
   deals: { label: 'Deals', hint: 'Opportunities on the Deals board' },

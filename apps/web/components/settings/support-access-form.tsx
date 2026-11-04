@@ -29,7 +29,7 @@ const useSupportAccessStore = create<{ value: SupportAccess | null; set: (v: Sup
   set: (value) => set({ value }),
 }));
 
-/** Company-controlled access for Vistar support ("View as company"), with expiry and content option. */
+/** Company-controlled access for Tootodo support ("View as company"), with expiry and content option. */
 export function SupportAccessForm() {
   const me = useMe()!;
   const { reason } = useReadOnly();
@@ -68,7 +68,7 @@ export function SupportAccessForm() {
           </span>
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-fg">
-              {active ? 'Vistar support can view your workspace' : 'Vistar support cannot view your workspace'}
+              {active ? 'Tootodo support can view your workspace' : 'Tootodo support cannot view your workspace'}
               <Chip tone={active ? 'green' : 'grey'} dot>
                 {active ? 'On' : 'Off'}
               </Chip>
@@ -102,7 +102,7 @@ export function SupportAccessForm() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <Label htmlFor="support-enabled" className="text-sm font-medium text-fg">
-                Let Vistar support view this workspace
+                Let Tootodo support view this workspace
               </Label>
               <p id="support-enabled-hint" className="text-xs text-muted">
                 Support sees what a company admin sees, without changing anything.

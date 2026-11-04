@@ -74,7 +74,7 @@ export function LoginForm({ next }: { next: string | null }) {
 
   return (
     <>
-      <AuthCard title="Sign in to Vistar" description="Use the email your company added you with.">
+      <AuthCard title="Sign in to Tootodo" description="Use the email your company added you with.">
         <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           {!failure && endReason && endReason.code !== 'AUTH_UNAUTHENTICATED' && (
             <FormAlert tone="info">
@@ -135,7 +135,7 @@ export function LoginForm({ next }: { next: string | null }) {
       </AuthCard>
       {!brandedHost && (
         <p className="text-center text-sm text-muted-strong">
-          New to Vistar?{' '}
+          New to Tootodo?{' '}
           <Link href="/signup" className="focus-ring rounded-xs font-medium text-accent-text underline-offset-4 hover:underline">
             Create a workspace
           </Link>

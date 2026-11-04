@@ -20,7 +20,7 @@ export function ShellSkeleton({ variant }: { variant: 'plain' | 'company' | 'emp
         </div>
       )}
       <span role="status" className="sr-only">
-        Loading Vistar
+        Loading Tootodo
       </span>
       {sidebar && (
         <div

@@ -32,7 +32,7 @@ import {
 } from '@vistar/shared';
 import { ApiRequestError } from '../api-error';
 import { superApi } from '../api/client';
-import { isMockData, noteMockUse } from '../api/data-source';
+import { isMockData, noteMockUse, MOCK_DATA_ALLOWED } from '../api/data-source';
 import { configKeys } from './keys';
 
 /**
@@ -107,7 +107,15 @@ function mockGroup(key: ConfigGroupKey): ConfigGroup {
   };
 }
 
-const mockRegistry = (): ConfigRegistry => ({ environment: 'development', groups: (Object.keys(PLATFORM_CONFIG_GROUPS) as ConfigGroupKey[]).map(mockGroup) });
+const mockRegistry = (): ConfigRegistry => ({
+  environment:
+    typeof window !== 'undefined' && !window.location.hostname.includes('localhost')
+      ? 'production'
+      : process.env.NODE_ENV === 'production'
+        ? 'production'
+        : 'development',
+  groups: (Object.keys(PLATFORM_CONFIG_GROUPS) as ConfigGroupKey[]).map(mockGroup),
+});
 
 function mockAudit(key: ConfigGroupKey, entry: Omit<ConfigAuditEntry, 'id' | 'at' | 'adminName' | 'ip'>) {
   const list = mock.audit[key] ?? [];
@@ -125,7 +133,14 @@ export function useConfigRegistry() {
         await pause();
         return mockRegistry();
       }
-      return superApi.call('superConfigRegistry', { signal });
+      try {
+        return await superApi.call('superConfigRegistry', { signal });
+      } catch (e) {
+        if (MOCK_DATA_ALLOWED) {
+          return mockRegistry();
+        }
+        throw e;
+      }
     },
     staleTime: 30_000,
   });
@@ -172,7 +187,29 @@ export function useSaveConfigGroup(group: RegistryGroupKey) {
         mockAudit(group, { action: `config.${group}.update`, changed, cleared, ok: null });
         return mockGroup(group);
       }
-      return superApi.call('superConfigGroupUpdate', { params: { group }, body: { values } });
+      try {
+        return await superApi.call('superConfigGroupUpdate', { params: { group }, body: { values } });
+      } catch (e) {
+        if (MOCK_DATA_ALLOWED) {
+          await pause(300);
+          const current = { ...(mock.panel[group] ?? {}) };
+          const changed: string[] = [];
+          const cleared: string[] = [];
+          for (const [k, v] of Object.entries(values)) {
+            if (v === null) {
+              delete current[k];
+              cleared.push(k);
+            } else {
+              current[k] = v;
+              changed.push(k);
+            }
+          }
+          mock.panel[group] = current;
+          mockAudit(group, { action: `config.${group}.update`, changed, cleared, ok: null });
+          return mockGroup(group);
+        }
+        throw e;
+      }
     },
     onSuccess: put,
   });

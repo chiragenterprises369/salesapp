@@ -10,7 +10,7 @@ import { cn } from '@/lib/cn';
 import { SaveBar, SettingsCard } from './settings-card';
 
 export const COMPONENT_STYLE_HINT: Record<ComponentStyle, string> = {
-  standard: 'The current Vistar components: rounded pills, soft cards, roomy tables.',
+  standard: 'The current Tootodo components: rounded pills, soft cards, roomy tables.',
   premium: 'Enterprise look: crisp hairlines, layered shadows, denser tables with small-caps headers, breadcrumbs and a prominent search.',
 };
 

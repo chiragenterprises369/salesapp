@@ -25,11 +25,11 @@ export function entitlementText(e: PackEntitlement, plan: Plan): string {
     case 'plan':
       return `Included in your ${PLAN_LABELS[plan]} plan`;
     case 'grant':
-      return 'Turned on for your company by Vistar support';
+      return 'Turned on for your company by Tootodo support';
     case 'none':
       return `Not included in your ${PLAN_LABELS[plan]} plan`;
     case 'revoked':
-      return 'Turned off for your company by Vistar support';
+      return 'Turned off for your company by Tootodo support';
   }
 }
 

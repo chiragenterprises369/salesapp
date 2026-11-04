@@ -39,7 +39,7 @@ export function AuthFrame({ children, badge, brand = true }: { children: ReactNo
                   <span className="truncate text-sm font-semibold text-fg">{b.workspaceName}</span>
                 </Link>
               ) : (
-                <Link href="/" className="focus-ring rounded-md" aria-label="Vistar home">
+                <Link href="/" className="focus-ring rounded-md" aria-label="Tootodo home">
                   <Logo />
                 </Link>
               )}
@@ -50,7 +50,7 @@ export function AuthFrame({ children, badge, brand = true }: { children: ReactNo
           <main className="flex flex-1 justify-center px-4 pt-4 pb-12 sm:items-center sm:pt-0">
             <div className="flex w-full max-w-sm flex-col gap-4">
               {children}
-              {b && <p className="text-center text-xs text-muted-strong">Powered by Vistar</p>}
+              {b && <p className="text-center text-xs text-muted-strong">Powered by Tootodo</p>}
               {/* ---- change #20: config (platform branding: legal links and support from Super Admin > Config) */}
               <PlatformLinks />
             </div>

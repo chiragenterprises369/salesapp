@@ -327,7 +327,7 @@ export function UploadCard({
         <div>
           <CardTitle>Upload the floor</CardTitle>
           <CardDescription>
-            A Vistar floor plan (.json from the AI chat), a .glb model, or a .zip with one .gltf. Up
+            A Tootodo floor plan (.json from the AI chat), a .glb model, or a .zip with one .gltf. Up
             to 40 MB; each upload is a new draft version.
           </CardDescription>
         </div>

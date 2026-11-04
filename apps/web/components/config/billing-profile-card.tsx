@@ -72,13 +72,13 @@ function toDraft(p: PlatformBillingProfile | null): Draft {
   };
 }
 
-/** Super Admin > Config > Vistar billing profile: the seller identity on Vistar's own invoices to companies. */
+/** Super Admin > Config > Tootodo billing profile: the seller identity on Tootodo's own invoices to companies. */
 export function VistarBillingProfileCard() {
   const canManage = useCan('platform.billing.manage');
   const q = useVistarBillingProfile();
   if (!canManage)
     return (
-      <SettingsCard title="Vistar billing profile">
+      <SettingsCard title="Tootodo billing profile">
         <p className="text-sm text-muted-strong">Your Super Admin role does not include billing. Ask an owner for platform billing access.</p>
       </SettingsCard>
     );
@@ -227,7 +227,7 @@ function ProfileForm({ profile, complete }: { profile: PlatformBillingProfile | 
           <AddressFields legend="Registered address" value={draft.address} onChange={(address) => set({ address })} errors={nestedErrors(errors, 'address')} />
         </div>
       </SettingsCard>
-      <SettingsCard title="Bank and UPI" description="Payment details on Vistar invoices (for bank transfers when online payment is off).">
+      <SettingsCard title="Bank and UPI" description="Payment details on Tootodo invoices (for bank transfers when online payment is off).">
         <FormGrid className="xl:grid-cols-3">
           <FormField label="Account name">
             <Input value={draft.accountName} onChange={(e) => set({ accountName: e.target.value })} />
@@ -271,7 +271,7 @@ function ProfileForm({ profile, complete }: { profile: PlatformBillingProfile | 
           <FormField label="Payment due after (days)" error={errors.paymentTermsDays}>
             <Input inputMode="numeric" value={draft.paymentTermsDays} onChange={(e) => set({ paymentTermsDays: e.target.value.replace(/\D/g, '') })} />
           </FormField>
-          <FormField label="Brand colour on invoices" error={errors.brandColor} hint="Hex, e.g. #4F46E5. Empty = Vistar indigo">
+          <FormField label="Brand colour on invoices" error={errors.brandColor} hint="Hex, e.g. #D4FF3F. Empty = Tootodo accent">
             <Input value={draft.brandColor} maxLength={7} spellCheck={false} onChange={(e) => set({ brandColor: e.target.value })} />
           </FormField>
           <FormField label="Invoice terms" className="sm:col-span-2 xl:col-span-3">

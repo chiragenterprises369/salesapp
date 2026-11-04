@@ -22,7 +22,7 @@ import { CancelInvoiceDialog, DecideRequestDialog, ExtendTrialDialog, ManualInvo
 
 /**
  * A company's billing for the Super Admin (the "Billing" tab of a company): subscription, usage,
- * Vistar invoices with issue, mark paid and cancel, payments and plan requests; actions to change the
+ * Tootodo invoices with issue, mark paid and cancel, payments and plan requests; actions to change the
  * plan, extend the trial and create a manual invoice. Every action is audited by the API.
  * `embedded` drops the page header (when a company detail page shows it as one of its tabs).
  */

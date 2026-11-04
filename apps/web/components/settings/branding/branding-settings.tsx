@@ -77,7 +77,7 @@ export function BrandingSettings() {
           </div>
         </SettingsCard>
 
-        <SettingsCard title="Brand colour" description="Buttons, links, selection and focus rings use it. Vistar adjusts the lightness so text stays readable (WCAG AA) in light and dark.">
+        <SettingsCard title="Brand colour" description="Buttons, links, selection and focus rings use it. Tootodo adjusts the lightness so text stays readable (WCAG AA) in light and dark.">
           <BrandColorField value={draft.brandColor} onChange={setBrandColor} disabled={disabled} />
         </SettingsCard>
 

@@ -12,7 +12,7 @@ import { useBillingMutations } from '@/lib/billing/hooks';
 import { CheckoutCancelled, openRazorpayCheckout } from '@/lib/billing/razorpay';
 
 /**
- * Pays a Vistar invoice: Razorpay Standard Checkout (checkout.js loaded on demand) or, in development
+ * Pays a Tootodo invoice: Razorpay Standard Checkout (checkout.js loaded on demand) or, in development
  * without a Razorpay config, the `mock` provider's test payment dialog. Both end in
  * POST /billing/checkout/verify, which marks the invoice paid and applies a paid upgrade.
  */
@@ -38,7 +38,7 @@ export function useCheckoutFlow(): { start: (c: Checkout) => Promise<void>; busy
         return;
       }
       if (!c.keyId) {
-        toast.error('Online payment is not set up yet. Vistar can record a bank transfer instead.');
+        toast.error('Online payment is not set up yet. Tootodo can record a bank transfer instead.');
         return;
       }
       setBusy(true);

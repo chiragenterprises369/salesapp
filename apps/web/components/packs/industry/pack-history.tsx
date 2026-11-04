@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { usePackLog } from '@/lib/packs';
 import { describeSummary } from './pack-meta';
 
-const ACTION_LABEL: Record<PackInstallLog['action'], string> = { install: 'Installed', upgrade: 'Upgraded', uninstall: 'Uninstalled', sync: 'Synced by Vistar' };
+const ACTION_LABEL: Record<PackInstallLog['action'], string> = { install: 'Installed', upgrade: 'Upgraded', uninstall: 'Uninstalled', sync: 'Synced by Tootodo' };
 const STATUS_CHIP: Record<PackInstallLog['status'], { label: string; tone: 'green' | 'grey' | 'red' }> = {
   success: { label: 'Done', tone: 'green' },
   noop: { label: 'No changes', tone: 'grey' },

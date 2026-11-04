@@ -13,7 +13,7 @@ import { formErrorMessage, focusFirstInvalid, nestedErrors, serverFieldErrors } 
 import { addressToDraft, AddressFields, draftToAddress, formatAddress, FormGrid, parseEmail, parsePhone, type AddressDraft } from '@/lib/crm/ui/fields';
 
 /**
- * Who Vistar bills (printed on Vistar's invoices): legal name, email, phone, GSTIN for input tax
+ * Who Tootodo bills (printed on Tootodo's invoices): legal name, email, phone, GSTIN for input tax
  * credit and the billing address; its state is the place of supply (CGST + SGST or IGST).
  */
 export function BillingContactCard({ contact, companyName, canManage }: { contact: BillingContact | null; companyName: string; canManage: boolean }) {
@@ -23,7 +23,7 @@ export function BillingContactCard({ contact, companyName, canManage }: { contac
       <CardHeader className="flex-row items-start justify-between gap-2">
         <div>
           <CardTitle id="billing-contact-title">Billing details</CardTitle>
-          <CardDescription>Printed on invoices from Vistar. Add your GSTIN to claim input tax credit.</CardDescription>
+          <CardDescription>Printed on invoices from Tootodo. Add your GSTIN to claim input tax credit.</CardDescription>
         </div>
         {canManage && !editing && (
           <Button size="sm" onClick={() => setEditing(true)}>

@@ -25,12 +25,12 @@ const NOTIFY_LABEL: Record<NotificationType, string> = {
   workflow_failed: 'A workflow step fails',
   mention: 'Someone mentions me in a note',
   import_completed: 'A lead import finishes',
-  system: 'Vistar product updates',
+  system: 'Tootodo product updates',
   meeting_reminder: 'A meeting is about to start',
   // change #19 wave C: billing
-  billing_trial_ending: 'The Vistar trial is about to end',
-  billing_payment_failed: 'A Vistar payment fails or is overdue',
-  billing_invoice_issued: 'Vistar sends a new invoice',
+  billing_trial_ending: 'The Tootodo trial is about to end',
+  billing_payment_failed: 'A Tootodo payment fails or is overdue',
+  billing_invoice_issued: 'Tootodo sends a new invoice',
 };
 
 const MOTION: ReadonlyArray<{ value: ReducedMotionSetting; label: string; hint: string }> = [
@@ -146,12 +146,12 @@ export function PersonalPreferences({ touch = false }: { touch?: boolean }) {
 
       <LeadsBoardCard />
 
-      <SettingsCard title="Notifications" description="Choose how and when Vistar tells you about your work." footer={<Saved status={notifySaved.status} />}>
+      <SettingsCard title="Notifications" description="Choose how and when Tootodo tells you about your work." footer={<Saved status={notifySaved.status} />}>
         <div className="flex flex-col gap-4">
           {(
             [
               ['inApp', 'In the app', 'The bell in the top bar and pop-up alerts'],
-              ['push', 'Push notifications', 'On your phone, when the Vistar app is installed'],
+              ['push', 'Push notifications', 'On your phone, when the Tootodo app is installed'],
             ] as const
           ).map(([key, label, hint]) => (
             <div key={key} className={cn('flex items-center justify-between gap-4', touch && 'min-h-11')}>

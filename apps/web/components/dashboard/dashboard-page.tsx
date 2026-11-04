@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
 import { animatePageEntrance } from '@/lib/rivet-motion';
 import { api } from '@/lib/api/client';
-import { isMockData } from '@/lib/api/data-source';
+import { isMockData, MOCK_DATA_ALLOWED } from '@/lib/api/data-source';
 import { useTeams } from '@/lib/api/directory';
 import { useCan, useMe, useSessionStatus } from '@/lib/session/session';
 import { Select } from '@/components/leads/primitives/select';
@@ -86,7 +86,7 @@ function useDashboardTeams(me: MeResponse) {
   const mock = isMockData();
   const q = useTeams();
   return useMemo(() => {
-    if (mock) return teamsFor(me);
+    if (mock || (!q.data && MOCK_DATA_ALLOWED)) return teamsFor(me);
     const all = (q.data ?? []).map((t) => ({ id: t.id, name: t.name, memberIds: t.managerId ? [t.managerId, ...t.memberIds] : t.memberIds }));
     return me.role.dataScope === 'all' ? all : all.filter((t) => t.memberIds.includes(me.user.id));
   }, [mock, me, q.data]);
@@ -107,7 +107,14 @@ function Dashboard({ me }: { me: MeResponse }) {
       if (!mock) {
         const now = Date.now();
         const from = range === 'today' ? istDayStart(now) : now - RANGE_DAYS[range] * DAY_MS;
-        return api.call('dashboardSummary', { query: { from: new Date(from).toISOString(), to: new Date(now).toISOString(), ...(teamId ? { teamId } : {}) } });
+        try {
+          return await api.call('dashboardSummary', { query: { from: new Date(from).toISOString(), to: new Date(now).toISOString(), ...(teamId ? { teamId } : {}) } });
+        } catch (e) {
+          if (MOCK_DATA_ALLOWED) {
+            return buildDashboard(me, range, teamId);
+          }
+          throw e;
+        }
       }
       await new Promise((r) => setTimeout(r, 450));
       return buildDashboard(me, range, teamId);

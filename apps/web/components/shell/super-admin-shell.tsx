@@ -30,7 +30,7 @@ function ConsoleHeader({ expanded }: { expanded: boolean }) {
       <LogoMark className="size-6" />
       {expanded && (
         <>
-          <span className="text-sm font-semibold">Vistar</span>
+          <span className="text-sm font-semibold">Tootodo</span>
           <Chip tone="indigo">Platform</Chip>
           <span className="sr-only">overview</span>
         </>

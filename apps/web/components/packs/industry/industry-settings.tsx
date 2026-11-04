@@ -25,7 +25,7 @@ export function IndustrySettings() {
 
   if (q.isPending) return <ListSkeleton rows={2} label="Loading industry packs" />;
   if (q.isError) return <LoadError title="Industry packs did not load" onRetry={() => void q.refetch()} />;
-  if (q.data.length === 0) return <EmptyState icon={<Package />} title="No packs available yet" description="Vistar support can add industry packs to your plan." />;
+  if (q.data.length === 0) return <EmptyState icon={<Package />} title="No packs available yet" description="Tootodo support can add industry packs to your plan." />;
 
   // Core first, then active, then the rest.
   const rank = (p: PackListItem) => (p.core ? 0 : displayStatus(p) === 'active' ? 1 : displayStatus(p) === 'locked' ? 3 : 2);
@@ -109,7 +109,7 @@ function PackCard({ pack, onAction }: { pack: PackListItem; onAction: (a: PackAc
         )}
         {status === 'locked' && (
           <InlineAlert tone="info" title={pack.entitlement === 'revoked' ? 'Turned off for your company' : 'Not in your plan'}>
-            {pack.entitlement === 'revoked' ? 'Ask Vistar support to turn it back on.' : 'Upgrade your plan or ask Vistar support to turn it on.'}
+            {pack.entitlement === 'revoked' ? 'Ask Tootodo support to turn it back on.' : 'Upgrade your plan or ask Tootodo support to turn it on.'}
             {installed && ' Data this pack added is kept and comes back when it is turned on again.'}
           </InlineAlert>
         )}

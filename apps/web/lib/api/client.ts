@@ -79,11 +79,11 @@ const STATUS_FALLBACK: Array<[number, ErrorCode, string]> = [
 function fallbackFor(status: number): [ErrorCode, string] {
   const hit = STATUS_FALLBACK.find(([s]) => s === status);
   if (hit) return [hit[1], hit[2]];
-  if (status === 502 || status === 503 || status === 504) return ['SERVICE_UNAVAILABLE', 'Vistar is not available right now. Try again in a minute.'];
+  if (status === 502 || status === 503 || status === 504) return ['SERVICE_UNAVAILABLE', 'Tootodo is not available right now. Try again in a minute.'];
   return ['INTERNAL_ERROR', 'Something went wrong on our side. Try again.'];
 }
 
-export const NETWORK_ERROR_MESSAGE = 'Vistar could not reach the server. Check your connection and try again.';
+export const NETWORK_ERROR_MESSAGE = 'Tootodo could not reach the server. Check your connection and try again.';
 export const TIMEOUT_ERROR_MESSAGE = 'The server took too long to answer. Try again.';
 
 /** `error.planLimit` of 402 PLAN_LIMIT_REACHED responses (ApiRequestError itself stays as it is). */

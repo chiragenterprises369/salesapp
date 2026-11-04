@@ -34,7 +34,7 @@ const FEATURE_LABEL: Partial<Record<keyof PlanDefinition['features'], string>> =
 
 /**
  * Plan comparison with the monthly / yearly switch. A card's button upgrades (checkout when it is
- * available, otherwise a request to Vistar), schedules a downgrade for the renewal date, or switches
+ * available, otherwise a request to Tootodo), schedules a downgrade for the renewal date, or switches
  * the cycle. `highlight` comes from ?upgrade=<plan> (the 402 toast and upgradeUrl).
  */
 export function PlanPicker({ overview, plans, canManage, highlight }: { overview: BillingOverview; plans: readonly PlanDefinition[]; canManage: boolean; highlight: Plan | null }) {
@@ -159,7 +159,7 @@ function PlanChangeDialog({
     action.via === 'checkout'
       ? `You pay for the ${plan.name} plan now (the unused part of your current plan is credited). The new limits apply as soon as the payment goes through.`
       : action.via === 'request'
-        ? 'Online payment is not set up yet, so this sends a request to Vistar. You get a notification when it is approved, with an invoice to pay.'
+        ? 'Online payment is not set up yet, so this sends a request to Tootodo. You get a notification when it is approved, with an invoice to pay.'
         : `Your plan stays as it is until ${renewal}; the ${plan.name} plan starts then. Usage above the smaller limits blocks new records from that day.`;
 
   const confirm = async () => {
@@ -169,7 +169,7 @@ function PlanChangeDialog({
       onClose();
       if (r.outcome === 'checkout' && r.checkout) await onCheckout(r.checkout);
       else if (r.outcome === 'scheduled') toast.success(`Your plan changes to ${plan.name} on ${renewal}`, { description: r.warnings.join(' ') || undefined });
-      else if (r.outcome === 'requested') toast.success('Request sent to Vistar', { description: 'You get a notification when it is decided.' });
+      else if (r.outcome === 'requested') toast.success('Request sent to Tootodo', { description: 'You get a notification when it is decided.' });
       else toast.success(`You are on the ${plan.name} plan now`);
     } catch (e) {
       setError(isApiRequestError(e) ? e.message : 'The plan was not changed. Check your connection and try again.');
@@ -188,7 +188,7 @@ function PlanChangeDialog({
         <DialogBody className="flex flex-col gap-3">
           <p className="text-sm text-fg-secondary">{what}</p>
           {action.via === 'request' && (
-            <FormField label="Note for Vistar" hint="Optional, for example the number of users you need.">
+            <FormField label="Note for Tootodo" hint="Optional, for example the number of users you need.">
               <Textarea rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
             </FormField>
           )}

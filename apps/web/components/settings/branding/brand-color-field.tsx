@@ -10,7 +10,7 @@ import { formatOklch, normalizeHex } from '@/lib/branding/color';
 import { cn } from '@/lib/cn';
 
 export const BRAND_PRESETS: ReadonlyArray<{ hex: string; name: string }> = [
-  { hex: '#4F46E5', name: 'Vistar indigo' },
+  { hex: '#4F46E5', name: 'Tootodo indigo' },
   { hex: '#1D4ED8', name: 'Royal blue' },
   { hex: '#0E7490', name: 'Teal' },
   { hex: '#059669', name: 'Emerald' },
@@ -133,7 +133,7 @@ export function BrandColorField({ value, onChange, disabled }: { value: string |
         {value && (
           <Button variant="ghost" size="sm" onClick={() => onChange(null)} disabled={disabled} className="mb-0.5">
             <RotateCcw aria-hidden />
-            Use Vistar indigo
+            Use Tootodo indigo
           </Button>
         )}
       </div>

@@ -74,14 +74,14 @@ export function ProfileForm({ touch = false }: { touch?: boolean }) {
     <form onSubmit={onSubmit} noValidate>
       <SettingsCard
         title="Profile"
-        description="Your name and number as they appear across Vistar."
+        description="Your name and number as they appear across Tootodo."
         footer={<SaveBar dirty={dirty} saving={saving} readOnlyReason={reason} onDiscard={() => setValues(saved)} />}
       >
         <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
           <FormField label="Name" error={errors.name} required>
             <Input className={field} autoComplete="name" value={values.name} maxLength={80} onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))} />
           </FormField>
-          <FormField label="Mobile number" error={errors.phone} hint="Used for click-to-call: Vistar rings this number first">
+          <FormField label="Mobile number" error={errors.phone} hint="Used for click-to-call: Tootodo rings this number first">
             <Input
               className={field}
               type="tel"

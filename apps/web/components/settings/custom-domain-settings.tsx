@@ -47,7 +47,7 @@ function CopyValue({ value, label }: { value: string; label: string }) {
 
 function DnsRecords({ domain }: { domain: CustomDomain }) {
   const rows = [
-    { type: 'CNAME', name: domain.dns.cname.name, value: domain.dns.cname.value, why: 'Sends visitors of this address to Vistar.' },
+    { type: 'CNAME', name: domain.dns.cname.name, value: domain.dns.cname.value, why: 'Sends visitors of this address to Tootodo.' },
     { type: 'TXT', name: domain.dns.txt.name, value: domain.dns.txt.value, why: 'Proves that your company owns the domain.' },
   ];
   return (
@@ -102,7 +102,7 @@ function LocalTestCard({ hostname, port }: { hostname: string | null; port: stri
       </ol>
       <p className="mt-3 flex items-start gap-2 text-xs text-muted-strong">
         <Info aria-hidden className="mt-px size-3.5 shrink-0" />
-        Real domains need both records. Keep the TXT record after verifying: Vistar checks it again before renewing the certificate.
+        Real domains need both records. Keep the TXT record after verifying: Tootodo checks it again before renewing the certificate.
       </p>
     </SettingsCard>
   );
@@ -149,7 +149,7 @@ export function CustomDomainSettings() {
       <EmptyState
         icon={<Globe />}
         title="Custom domains are not turned on for your company"
-        description="Vistar support switches this on per company. Ask them to enable a custom domain, then come back here to connect it."
+        description="Tootodo support switches this on per company. Ask them to enable a custom domain, then come back here to connect it."
       />
     );
   }
@@ -186,7 +186,7 @@ export function CustomDomainSettings() {
     try {
       await remove.mutateAsync();
       setInput('');
-      toast.success('Custom domain removed. Vistar keeps working on its own address.');
+      toast.success('Custom domain removed. Tootodo keeps working on its own address.');
     } catch (err) {
       toast.error(errorMessage(err, 'The domain was not removed. Try again.'));
     }

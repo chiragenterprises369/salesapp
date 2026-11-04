@@ -51,7 +51,7 @@ export function SignupForm() {
       setFailure(result);
       const fromApi: Partial<Record<Field, string>> = {};
       for (const d of result.details ?? []) fromApi[d.path as Field] ??= d.message;
-      if (result.code === 'EMAIL_TAKEN') fromApi.email = 'This email already has a Vistar account. Sign in instead.';
+      if (result.code === 'EMAIL_TAKEN') fromApi.email = 'This email already has a Tootodo account. Sign in instead.';
       setErrors(fromApi);
       focusFirstInvalid(formRef.current);
       return;
@@ -63,7 +63,7 @@ export function SignupForm() {
 
   return (
     <>
-      <AuthCard title="Create your workspace" description="Set up Vistar for your company. You can invite your team next.">
+      <AuthCard title="Create your workspace" description="Set up Tootodo for your company. You can invite your team next.">
         <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           {failure && <FormAlert>{failure.message}</FormAlert>}
           <FormField label="Your name" error={errors.name} required>
@@ -99,7 +99,7 @@ export function SignupForm() {
         />
       </AuthCard>
       <p className="text-center text-sm text-muted-strong">
-        Already use Vistar?{' '}
+        Already use Tootodo?{' '}
         <Link href="/login" className="focus-ring rounded-xs font-medium text-accent-text underline-offset-4 hover:underline">
           Sign in
         </Link>

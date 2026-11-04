@@ -123,7 +123,7 @@ function LabelsForm({ stored }: { stored: ResolvedLabels }) {
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
       <InlineAlert tone="info" title="Only the words people see change">
         Links, exports, reports, API names, webhooks and workflow variables keep the original names (lead, contact, deal...), so nothing that
-        connects to Vistar breaks.
+        connects to Tootodo breaks.
       </InlineAlert>
       <SettingsCard
         title="Names used across the app"

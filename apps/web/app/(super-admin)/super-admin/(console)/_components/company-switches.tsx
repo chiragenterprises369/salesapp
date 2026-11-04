@@ -50,7 +50,7 @@ export function CompaniesSection() {
     <PlatformSection
       section="companies"
       title="Companies"
-      description="Every workspace on Vistar with plan, status and usage. Custom domains are off until you switch them on for a company."
+      description="Every workspace on Tootodo with plan, status and usage. Custom domains are off until you switch them on for a company."
       icon="Building2"
       searchLabel="Search companies"
       columns={[

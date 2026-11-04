@@ -56,7 +56,7 @@ export function DataVisibility() {
         ))}
       </DataTable>
       <div className="grid gap-4 lg:grid-cols-2">
-        <SettingsCard title="How visibility works" description="Vistar checks every list, detail page, report and live update against the role's scope.">
+        <SettingsCard title="How visibility works" description="Tootodo checks every list, detail page, report and live update against the role's scope.">
           <dl className="flex flex-col gap-3">
             {DATA_SCOPES.map((s) => (
               <div key={s}>

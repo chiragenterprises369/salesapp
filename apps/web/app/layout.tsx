@@ -18,9 +18,9 @@ const urbanist = Urbanist({
 });
 
 export const metadata: Metadata = {
-  title: { default: 'Vistar', template: '%s · Vistar' },
+  title: { default: 'Tootodo', template: '%s · Tootodo' },
   description: 'Sales management for Indian SMEs: leads, pipeline, automation and a live team floor.',
-  applicationName: 'Vistar',
+  applicationName: 'Tootodo',
 };
 
 export const viewport: Viewport = {

@@ -124,7 +124,7 @@ function auditItem(a: AuditLog): string {
 }
 
 const ACTOR_TONE: Record<AuditLog['actorType'], ChipTone> = { user: 'neutral', super_admin: 'indigo', system: 'grey', api_key: 'blue', workflow: 'grey' };
-const ACTOR_LABEL: Record<AuditLog['actorType'], string> = { user: 'Person', super_admin: 'Vistar support', system: 'System', api_key: 'API key', workflow: 'Workflow' };
+const ACTOR_LABEL: Record<AuditLog['actorType'], string> = { user: 'Person', super_admin: 'Tootodo support', system: 'System', api_key: 'API key', workflow: 'Workflow' };
 const PAGE = 25;
 
 export function AuditSettings() {
@@ -165,7 +165,7 @@ export function AuditSettings() {
       {status === 'ready' && (
         <div className="flex items-center justify-between gap-3 text-xs text-muted-strong">
           <span>
-            Showing {Math.min(shown, rows.length)} of {rows.length} entries from the last 45 days. Support sessions by Vistar are always listed here.
+            Showing {Math.min(shown, rows.length)} of {rows.length} entries from the last 45 days. Support sessions by Tootodo are always listed here.
           </span>
           {shown < rows.length && (
             <Button size="sm" onClick={() => setShown((n) => n + PAGE)}>

@@ -84,7 +84,7 @@ export function RazorpayCard() {
           <CreditCard aria-hidden className="mt-0.5 size-5 shrink-0 text-muted" />
           <div>
             <CardTitle id="razorpay-title">Razorpay</CardTitle>
-            <CardDescription>Online payments for Vistar invoices (cards, UPI, net banking). Without it, companies send plan requests and you record bank transfers.</CardDescription>
+            <CardDescription>Online payments for Tootodo invoices (cards, UPI, net banking). Without it, companies send plan requests and you record bank transfers.</CardDescription>
           </div>
         </div>
         {s && (

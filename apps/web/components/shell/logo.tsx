@@ -11,7 +11,7 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-export function Logo({ className, label = 'Vistar' }: { className?: string; label?: string }) {
+export function Logo({ className, label = 'Tootodo' }: { className?: string; label?: string }) {
   return (
     <span className={cn('inline-flex items-center gap-2', className)}>
       <LogoMark />

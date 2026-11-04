@@ -55,7 +55,7 @@ function Billing() {
     <div className="flex w-full min-w-0 flex-col gap-6 pb-6">
       <PageHeader
         title="Billing and usage"
-        description="Your Vistar plan, usage against its limits, invoices and payments."
+        description="Your Tootodo plan, usage against its limits, invoices and payments."
         meta={overview.data && <Chip tone={SUBSCRIPTION_STATUS[overview.data.subscription.status].tone}>{SUBSCRIPTION_STATUS[overview.data.subscription.status].label}</Chip>}
         className="mb-0"
       />
@@ -129,7 +129,7 @@ function Alerts({ overview, canManage }: { overview: BillingOverview; canManage:
       {pendingRequest && (
         <InlineAlert tone="info" title={`Request for the ${planName(pendingRequest.toPlan)} plan sent`}>
           <span className="flex flex-wrap items-center gap-2">
-            Sent {formatDay(pendingRequest.createdAt.slice(0, 10))}. Vistar reviews it and you get a notification.
+            Sent {formatDay(pendingRequest.createdAt.slice(0, 10))}. Tootodo reviews it and you get a notification.
             {canManage && (
               <Button size="sm" variant="link" className="h-auto p-0" loading={m.cancelChange.isPending} onClick={() => void cancel()}>
                 Withdraw request
@@ -179,7 +179,7 @@ function CurrentPlan({ overview }: { overview: BillingOverview }) {
         ))}
       </dl>
       <p className="text-xs text-muted-strong">
-        {checkout.available ? (checkout.provider === 'mock' ? 'Payments use the test provider in this build.' : `Pay online by card, UPI or net banking (Razorpay${checkout.mode === 'test' ? ', test mode' : ''}).`) : 'Online payment is not set up yet: plan changes go to Vistar as a request.'}
+        {checkout.available ? (checkout.provider === 'mock' ? 'Payments use the test provider in this build.' : `Pay online by card, UPI or net banking (Razorpay${checkout.mode === 'test' ? ', test mode' : ''}).`) : 'Online payment is not set up yet: plan changes go to Tootodo as a request.'}
         {plan.trialDays > 0 && sub.status === 'trialing' ? ` ${plan.trialDays}-day trial.` : ''}
       </p>
     </Card>

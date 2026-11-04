@@ -17,7 +17,7 @@ import { isMockData, noteMockUse } from '@/lib/api/data-source';
 
 /**
  * Super Admin > Floors (SPEC 29.5, 29.11; D-061) on the PLATFORM routes (/api/super, platform audience):
- * floor requests across companies, the company's floor versions, upload (GLB, zipped glTF or a Vistar
+ * floor requests across companies, the company's floor versions, upload (GLB, zipped glTF or a Tootodo
  * floor plan .json written by an AI chat), seat map, publish. Mock data mode (tests only): empty lists.
  */
 
@@ -194,7 +194,7 @@ export async function checkFloorFile(file: File): Promise<FileCheck> {
     return {
       ok: false,
       problems: [
-        'Use a Vistar floor plan (.json), a .glb model, or a .zip with one .gltf and its files.',
+        'Use a Tootodo floor plan (.json), a .glb model, or a .zip with one .gltf and its files.',
       ],
     };
   if (file.size > MAX_MODEL)

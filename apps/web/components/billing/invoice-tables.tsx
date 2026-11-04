@@ -59,7 +59,7 @@ export function PdfButton({ label, fetchPdf, fallbackName }: { label: string; fe
 }
 
 /**
- * Vistar invoices (company page and the Super Admin company billing). `actions` renders extra buttons
+ * Tootodo invoices (company page and the Super Admin company billing). `actions` renders extra buttons
  * per row (Pay, Mark paid, Issue, Cancel); `showCompany` adds the company column (Super Admin lists).
  */
 export function PlatformInvoicesTable({
@@ -71,7 +71,7 @@ export function PlatformInvoicesTable({
   showCompany = false,
   footer,
   highlightId,
-  emptyDescription = 'Invoices from Vistar appear here when a paid period starts.',
+  emptyDescription = 'Invoices from Tootodo appear here when a paid period starts.',
 }: {
   rows: readonly PlatformInvoiceListItem[];
   status: Status;
@@ -87,7 +87,7 @@ export function PlatformInvoicesTable({
   const columns = showCompany ? [INVOICE_COLUMNS[0]!, { key: 'company', label: 'Company', hideBelow: 'sm' as const }, ...INVOICE_COLUMNS.slice(1)] : INVOICE_COLUMNS;
   return (
     <div className="flex flex-col gap-2">
-      <DataTable label="Invoices from Vistar" columns={columns} status={status} onRetry={onRetry} skeletonRows={3} empty={{ icon: <ReceiptIndianRupee />, title: 'No invoices yet', description: emptyDescription }}>
+      <DataTable label="Invoices from Tootodo" columns={columns} status={status} onRetry={onRetry} skeletonRows={3} empty={{ icon: <ReceiptIndianRupee />, title: 'No invoices yet', description: emptyDescription }}>
         {rows.map((i) => {
           const chip = invoiceChip(i);
           return (

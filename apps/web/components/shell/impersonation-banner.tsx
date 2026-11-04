@@ -70,7 +70,7 @@ function Banner({ info, workspaceName, timeZone }: { info: ImpersonationInfo; wo
     >
       <ShieldAlert aria-hidden className="size-4 shrink-0" />
       <p className="min-w-0 flex-1 basis-64">
-        <span className="font-semibold">{info.adminName}</span> from Vistar support is viewing {workspaceName}.{' '}
+        <span className="font-semibold">{info.adminName}</span> from Tootodo support is viewing {workspaceName}.{' '}
         <span className="text-fg-secondary">Reason: {info.reason}</span>
       </p>
       <span className="flex flex-wrap items-center gap-2">

@@ -189,6 +189,11 @@ export const useSessionStore = create<SessionState>()((set, get) => {
   const startWorkspace = (accessToken: string, expiresIn: number, me: MeResponse) => {
     setAccessToken('workspace', accessToken, expiresIn);
     writeHint('workspace');
+    try {
+      window.localStorage.setItem('vistar.dataSource', 'api');
+    } catch {
+      /* ignore */
+    }
     setMe(me);
     return me;
   };
@@ -238,7 +243,7 @@ export const useSessionStore = create<SessionState>()((set, get) => {
             set({
               status: 'unauthenticated',
               session: null,
-              endReason: { code: (err.code ?? 'SERVICE_UNAVAILABLE') as SessionEndReason['code'], message: err.message ?? 'Vistar could not reach the server.' },
+              endReason: { code: (err.code ?? 'SERVICE_UNAVAILABLE') as SessionEndReason['code'], message: err.message ?? 'Tootodo could not reach the server.' },
             });
           }
         }
@@ -247,6 +252,12 @@ export const useSessionStore = create<SessionState>()((set, get) => {
 
     signInMock: (persona, opts = {}) => {
       write(KEY_PERSONA, { persona, impersonating: !!opts.impersonating });
+      try {
+        window.localStorage.setItem('vistar.dataSource', 'mock');
+        window.localStorage.setItem('vistar.mock.persona', persona);
+      } catch {
+        /* ignore */
+      }
       set({ status: 'authenticated', session: buildMock(persona, opts.impersonating), endReason: null });
     },
 

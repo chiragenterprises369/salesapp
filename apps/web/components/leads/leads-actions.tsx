@@ -60,7 +60,7 @@ export function LeadsActions({
           () => toast.success(`Calling ${lead.name}`, { description: 'Your phone rings first. Pick up and the call connects to the customer.' }),
           (e: unknown) => {
             if (e instanceof ApiRequestError && DIAL_FALLBACK.has(e.code)) {
-              toast(`Dialling ${formatPhone(phone)}`, { description: 'Click-to-call is not set up, so your device dialer opens. Connect a telephony provider in Integrations to call from Vistar.' });
+              toast(`Dialling ${formatPhone(phone)}`, { description: 'Click-to-call is not set up, so your device dialer opens. Connect a telephony provider in Integrations to call from Tootodo.' });
               openDialer(phone);
               return;
             }
