@@ -18,22 +18,22 @@
 /* Stage edges (spec: New blue, Contacted cyan, Interested amber, Quote sent indigo, Won green, Lost red);
    x0..x5 are the fallback hues for custom stages without their own colour. */
 [data-board-variant='neon'] {
-  --vn-edge-new: #3d8bff;
-  --vn-edge-contacted: #22d3ee;
-  --vn-edge-interested: #fbbf24;
-  --vn-edge-quote-sent: #7c7fff;
-  --vn-edge-won: #34d27b;
-  --vn-edge-lost: #f43f5e;
-  --vn-edge-x0: #a78bfa;
-  --vn-edge-x1: #f472b6;
-  --vn-edge-x2: #2dd4bf;
-  --vn-edge-x3: #fb923c;
-  --vn-edge-x4: #a3e635;
-  --vn-edge-x5: #38bdf8;
+  --vn-edge-new: #5cb8ff;
+  --vn-edge-contacted: #3ef2ff;
+  --vn-edge-interested: #ffbe4d;
+  --vn-edge-quote-sent: #9b82ff;
+  --vn-edge-won: #d4ff3f;
+  --vn-edge-lost: #ff5c8a;
+  --vn-edge-x0: #9b82ff;
+  --vn-edge-x1: #ff5c8a;
+  --vn-edge-x2: #3ef2ff;
+  --vn-edge-x3: #ffbe4d;
+  --vn-edge-x4: #d4ff3f;
+  --vn-edge-x5: #5cb8ff;
   /* Card slab and column glass over the dimmed plate. */
-  --vn-slab: color-mix(in srgb, var(--vn-base-2, #07080f) 90%, transparent);
-  --vn-glass: color-mix(in srgb, var(--vn-base-2, #07080f) 52%, transparent);
-  --vn-glass-low: color-mix(in srgb, var(--vn-base-2, #07080f) 22%, transparent);
+  --vn-slab: color-mix(in srgb, var(--surface, #111218) 96%, transparent);
+  --vn-glass: color-mix(in srgb, var(--surface-2, #181922) 75%, transparent);
+  --vn-glass-low: color-mix(in srgb, var(--surface, #111218) 45%, transparent);
   --vn-top-edge: color-mix(in srgb, var(--fg) 55%, transparent);
   --vn-overdue: var(--vn-edge-lost);
 }

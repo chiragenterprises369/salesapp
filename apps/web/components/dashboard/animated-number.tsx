@@ -31,8 +31,8 @@ export function AnimatedNumber({
       return;
     }
     const controls = animate(from, value, {
-      duration: 0.6,
-      ease: [0.2, 0, 0, 1],
+      duration: 0.85,
+      ease: [0.22, 1, 0.36, 1],
       onUpdate: (v) => {
         shown.current = v;
         el.textContent = format(Number.isInteger(value) ? Math.round(v) : v);

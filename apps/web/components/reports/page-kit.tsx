@@ -1,11 +1,12 @@
 'use client';
 
 import { AlertTriangle, RotateCw, Search, X } from 'lucide-react';
-import { useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
+import { animateNavPill, animateTabContent } from '@/lib/rivet-motion';
 
 /**
  * Small building blocks shared by the Tasks, Calls, Inbox, Team, Targets and Reports pages:
@@ -43,7 +44,7 @@ export interface PillOption<T extends string> {
   alert?: boolean;
 }
 
-/** Single-choice filter pills with counts (radio group: arrows, Home, End). */
+/** Single-choice filter pills with counts (radio group: arrows, Home, End) with Rivet sliding pill. */
 export function FilterPills<T extends string>({
   label,
   value,
@@ -57,11 +58,33 @@ export function FilterPills<T extends string>({
   onChange: (v: T) => void;
   className?: string;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLSpanElement>(null);
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const firstRender = useRef(true);
   const i = Math.max(0, options.findIndex((o) => o.value === value));
+
+  useEffect(() => {
+    if (!containerRef.current || !pillRef.current) return;
+    const target = refs.current[i] ?? null;
+    animateNavPill(pillRef.current, containerRef.current, target, firstRender.current, 9999);
+    firstRender.current = false;
+  }, [value, options, i]);
+
   const onKeyDown = useRovingKeys(options.length, i, (n) => onChange(options[n]!.value), refs);
   return (
-    <div role="radiogroup" aria-label={label} onKeyDown={onKeyDown} className={cn('flex flex-wrap items-center gap-1.5', className)}>
+    <div
+      ref={containerRef}
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+      className={cn('relative inline-flex flex-wrap items-center gap-1.5 rounded-full border border-hair bg-card p-1', className)}
+    >
+      <span
+        ref={pillRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full bg-well-2 shadow-[inset_0_0_0_1px_var(--hair-2)] opacity-0"
+      />
       {options.map((o, idx) => {
         const active = o.value === value;
         return (
@@ -76,14 +99,14 @@ export function FilterPills<T extends string>({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(o.value)}
             className={cn(
-              'focus-ring inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium whitespace-nowrap transition-colors duration-150 ease-standard',
+              'focus-ring relative z-[1] inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-semibold whitespace-nowrap transition-colors duration-200',
               'pointer-coarse:h-11 pointer-coarse:px-3.5 pointer-coarse:text-sm',
-              active ? 'border-status-indigo-border bg-accent-soft text-accent-soft-fg' : 'border-border bg-surface text-fg-secondary hover:bg-surface-2 hover:text-fg',
+              active ? 'text-accent-text font-bold' : 'text-faint hover:text-ink',
             )}
           >
             {o.label}
             {o.count !== undefined && (
-              <span className={cn('tabular rounded-full px-1.5 text-2xs', o.alert && o.count > 0 ? 'bg-status-red-bg text-status-red-fg' : active ? 'bg-surface text-fg' : 'bg-surface-2 text-muted-strong')}>
+              <span className={cn('tabular rounded-full px-1.5 text-2xs', o.alert && o.count > 0 ? 'bg-status-red-bg text-status-red-fg' : active ? 'bg-accent/20 text-accent-text' : 'bg-surface-2 text-muted-strong')}>
                 {o.count.toLocaleString('en-IN')}
               </span>
             )}
@@ -94,7 +117,7 @@ export function FilterPills<T extends string>({
   );
 }
 
-/** Tabs (role=tablist) that switch one panel. `panelId` is the id of the controlled element. */
+/** Tabs (role=tablist) that switch one panel with Rivet fluid sliding pill and content entrance. */
 export function Tabs<T extends string>({
   label,
   value,
@@ -110,11 +133,40 @@ export function Tabs<T extends string>({
   panelId: string;
   className?: string;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLSpanElement>(null);
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const firstRender = useRef(true);
   const i = Math.max(0, tabs.findIndex((o) => o.value === value));
+
+  useEffect(() => {
+    if (!containerRef.current || !pillRef.current) return;
+    const target = refs.current[i] ?? null;
+    animateNavPill(pillRef.current, containerRef.current, target, firstRender.current, 10);
+    firstRender.current = false;
+  }, [value, tabs, i]);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const panel = document.getElementById(panelId);
+      if (panel) animateTabContent(panel);
+    }
+  }, [value, panelId]);
+
   const onKeyDown = useRovingKeys(tabs.length, i, (n) => onChange(tabs[n]!.value), refs);
   return (
-    <div role="tablist" aria-label={label} onKeyDown={onKeyDown} className={cn('flex items-end gap-1 border-b border-border', className)}>
+    <div
+      ref={containerRef}
+      role="tablist"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+      className={cn('tabs relative flex items-center gap-1 overflow-x-auto rounded-[12px] border border-hair bg-card p-1', className)}
+    >
+      <span
+        ref={pillRef}
+        aria-hidden="true"
+        className="tabs__pill pointer-events-none absolute inset-0 rounded-[10px] bg-well-2 shadow-[inset_0_-2px_0_var(--accent-text),inset_0_0_0_1px_var(--hair)] opacity-0"
+      />
       {tabs.map((t, idx) => {
         const active = t.value === value;
         return (
@@ -131,13 +183,17 @@ export function Tabs<T extends string>({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.value)}
             className={cn(
-              'focus-ring -mb-px inline-flex h-9 items-center gap-1.5 rounded-t-md border-b-2 px-3 text-sm font-medium whitespace-nowrap transition-colors duration-150',
+              'tabs__item focus-ring relative z-[1] inline-flex h-9 items-center gap-1.5 rounded-[10px] px-3.5 text-xs font-semibold whitespace-nowrap transition-colors duration-200',
               'pointer-coarse:h-11',
-              active ? 'border-accent text-fg' : 'border-transparent text-muted-strong hover:text-fg',
+              active ? 'text-ink' : 'text-faint hover:text-ink',
             )}
           >
             {t.label}
-            {t.count !== undefined && <span className="tabular rounded-full bg-surface-2 px-1.5 text-2xs text-muted-strong">{t.count.toLocaleString('en-IN')}</span>}
+            {t.count !== undefined && (
+              <span className={cn('tabular rounded-full px-1.5 py-0.5 text-2xs font-semibold', active ? 'bg-accent/15 text-accent-text' : 'bg-surface-2 text-muted-strong')}>
+                {t.count.toLocaleString('en-IN')}
+              </span>
+            )}
           </button>
         );
       })}

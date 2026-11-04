@@ -9,7 +9,7 @@ import { login, type AuthFailure } from '@/lib/auth/actions';
 import { SUPER_LOGIN_PATH } from '@/lib/auth/redirect';
 import { isCustomHost } from '@/lib/branding/boot';
 import { useRedirectWhenSignedIn } from '@/lib/auth/use-auth';
-import { useSessionEndReason } from '@/lib/session/session';
+import { useSessionEndReason, useSessionStore } from '@/lib/session/session';
 import { AuthCard, FormAlert } from './auth-frame';
 import { DemoAccounts } from './demo-accounts';
 import { fieldErrors, focusFirstInvalid } from './form-errors';
@@ -47,6 +47,7 @@ export function LoginForm({ next }: { next: string | null }) {
 
   async function signIn(values: { email: string; password: string }) {
     setFailure(null);
+    useSessionStore.setState({ endReason: null });
     const parsed = LoginRequestSchema.safeParse(values);
     if (!parsed.success) {
       setErrors(fieldErrors<Field>(parsed.error, MESSAGES));
@@ -75,7 +76,23 @@ export function LoginForm({ next }: { next: string | null }) {
     <>
       <AuthCard title="Sign in to Vistar" description="Use the email your company added you with.">
         <form ref={formRef} onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-          {!failure && endReason && endReason.code !== 'AUTH_UNAUTHENTICATED' && <FormAlert tone="info">{endReason.message.replace(/\.?$/, '.')}</FormAlert>}
+          {!failure && endReason && endReason.code !== 'AUTH_UNAUTHENTICATED' && (
+            <FormAlert tone="info">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex-1">{endReason.message.replace(/\.?$/, '.')}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    useSessionStore.setState({ endReason: null });
+                    window.location.reload();
+                  }}
+                  className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-2xs font-bold text-accent-ink hover:brightness-110 active:scale-95 transition-all"
+                >
+                  Retry
+                </button>
+              </div>
+            </FormAlert>
+          )}
           {failure && (
             <FormAlert>
               {failure.message}

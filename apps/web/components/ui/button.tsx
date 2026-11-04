@@ -6,26 +6,26 @@ import { cn } from '@/lib/cn';
 
 export const buttonVariants = cva(
   [
-    'relative inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium',
-    'transition-[background-color,border-color,color,box-shadow] duration-150 ease-standard',
+    'relative inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--r-ctl,10px)] font-semibold',
+    'transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-standard',
     'focus-ring disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50',
     '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   ],
   {
     variants: {
       variant: {
-        primary: 'bg-accent text-accent-fg shadow-card hover:bg-accent-hover active:bg-accent-active',
-        secondary: 'border border-border bg-surface text-fg shadow-card hover:bg-surface-2 active:bg-surface-3',
-        ghost: 'text-fg-secondary hover:bg-surface-3 hover:text-fg active:bg-surface-3',
-        danger: 'bg-danger text-danger-fg shadow-card hover:bg-danger-hover',
+        primary: 'magnetic bg-accent text-accent-fg font-bold hover:bg-accent-hover hover:shadow-[var(--glow)] active:scale-[0.96] transition-transform duration-150',
+        secondary: 'border border-hair bg-card text-ink font-semibold hover:border-hair-2 hover:bg-well active:bg-well active:scale-[0.96] transition-transform duration-150',
+        ghost: 'text-dim hover:bg-well hover:text-ink active:scale-[0.96] transition-transform duration-150',
+        danger: 'bg-danger text-danger-fg font-semibold hover:bg-danger-hover active:scale-[0.96] transition-transform duration-150',
         link: 'h-auto px-0 text-accent-text underline-offset-4 hover:underline',
       },
       size: {
-        sm: 'h-7 px-2.5 text-xs',
-        md: 'h-8 px-3 text-sm',
-        lg: 'h-10 px-4 text-base',
-        icon: 'size-8 text-sm',
-        'icon-sm': 'size-7 text-xs [&_svg]:size-3.5',
+        sm: 'h-8 px-3 text-xs rounded-[8px] gap-1.5 [&_svg]:size-[15px]',
+        md: 'h-10 px-4 text-sm rounded-[10px] gap-2 [&_svg]:size-[17px]',
+        lg: 'h-11 px-5 text-base rounded-[12px] gap-2 [&_svg]:size-5',
+        icon: 'size-10 rounded-[10px] [&_svg]:size-[17px]',
+        'icon-sm': 'size-8 rounded-[8px] [&_svg]:size-[15px]',
         /** Employee panel / touch: 44x44 minimum target. */
         touch: 'h-11 min-w-11 px-3 text-base [&_svg]:size-5',
         'icon-touch': 'size-11 [&_svg]:size-5',

@@ -77,7 +77,7 @@ function parse<S extends ZodType>(schema: S, input: unknown): z.output<S> {
 
 const VISTAR = SellerSnapshotSchema.parse({
   legalName: 'Vistar Software Private Limited',
-  gstin: '29AAKCV1234F1Z5',
+  gstin: '29AAKCV1234F1ZB',
   address: { line1: '4th Floor, 80 Feet Road, Koramangala', city: 'Bengaluru', stateCode: '29', pincode: '560034', country: 'IN' },
   email: 'billing@vistar.example',
 });
@@ -152,7 +152,7 @@ function seed(): Store {
       scheduledChange: null,
       billingContact:
         i === 0
-          ? { name: 'Shakti Industries Private Limited', email: 'accounts@shakti.example', phone: '+919820012345', gstin: '27AAACS1234A1Z1', address: { line1: 'Plot 21, MIDC Bhosari', line2: null, city: 'Pune', state: 'Maharashtra', stateCode: '27', pincode: '411026', country: 'IN' } }
+          ? { name: 'Shakti Industries Private Limited', email: 'accounts@shakti.example', phone: '+919820012345', gstin: '27AAACS1234A1Z2', address: { line1: 'Plot 21, MIDC Bhosari', line2: null, city: 'Pune', state: 'Maharashtra', stateCode: '27', pincode: '411026', country: 'IN' } }
           : null,
       version: 1,
       createdAt: c.createdAt,

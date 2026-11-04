@@ -7,7 +7,7 @@ import { cn } from '@/lib/cn';
  * Soft status chip. Status colours are fixed by the design system:
  * on call = blue, idle = green, busy = amber, offline/away = grey, error = red. Indigo = accent/selected.
  */
-export const chipVariants = cva('inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border font-medium', {
+export const chipVariants = cva('inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border font-semibold tracking-tight', {
   variants: {
     tone: {
       neutral: 'border-border bg-surface-2 text-fg-secondary',
@@ -19,8 +19,8 @@ export const chipVariants = cva('inline-flex shrink-0 items-center gap-1 whitesp
       red: 'border-status-red-border bg-status-red-bg text-status-red-fg',
     } satisfies Record<ChipTone, string>,
     size: {
-      sm: 'h-5 px-1.5 text-2xs [&_svg]:size-3',
-      md: 'h-6 px-2 text-xs [&_svg]:size-3.5',
+      sm: 'h-5 px-2 text-2xs [&_svg]:size-3',
+      md: 'h-6 px-2.5 text-xs [&_svg]:size-3.5',
     },
   },
   defaultVariants: { tone: 'neutral', size: 'sm' },
@@ -31,7 +31,7 @@ export type ChipProps = ComponentProps<'span'> & VariantProps<typeof chipVariant
 export function Chip({ className, tone, size, dot, children, ...props }: ChipProps) {
   return (
     <span data-slot="chip" className={cn(chipVariants({ tone, size }), className)} {...props}>
-      {dot && <span aria-hidden className="size-1.5 rounded-full bg-current" />}
+      {dot && <span aria-hidden className="size-1.5 rounded-full bg-current shadow-[0_0_6px_currentColor]" />}
       {children}
     </span>
   );

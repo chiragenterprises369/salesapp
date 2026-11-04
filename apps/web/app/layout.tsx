@@ -1,7 +1,8 @@
 import { getThemeBootScript } from '@vistar/shared';
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Urbanist } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { RivetMotionProvider } from '@/components/shell/rivet-motion-provider';
 import { Toaster } from '@/components/ui';
 import { BrandingProvider, getBrandingBootScript } from '@/lib/branding';
 import { AppProviders } from '@/lib/providers';
@@ -9,6 +10,12 @@ import { getInterfaceBootScript, InterfaceProvider, ThemeProvider } from '@/lib/
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
+const urbanist = Urbanist({
+  subsets: ['latin'],
+  variable: '--font-urbanist',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+});
 
 export const metadata: Metadata = {
   title: { default: 'Vistar', template: '%s · Vistar' },
@@ -18,8 +25,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F6F7F9' },
-    { media: '(prefers-color-scheme: dark)', color: '#0F1115' },
+    { media: '(prefers-color-scheme: light)', color: '#e9ebf0' },
+    { media: '(prefers-color-scheme: dark)', color: '#050507' },
   ],
   viewportFit: 'cover',
 };
@@ -35,7 +42,7 @@ export const viewport: Viewport = {
  */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-IN" className={inter.variable} suppressHydrationWarning>
+    <html lang="en-IN" className={`${urbanist.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: getThemeBootScript() }} />
         <script dangerouslySetInnerHTML={{ __html: getInterfaceBootScript() }} />
@@ -46,7 +53,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <ThemeProvider>
             <InterfaceProvider />
             <BrandingProvider />
-            {children}
+            <RivetMotionProvider>
+              {children}
+            </RivetMotionProvider>
           </ThemeProvider>
           <Toaster />
         </AppProviders>

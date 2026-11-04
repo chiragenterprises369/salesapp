@@ -79,31 +79,31 @@ function SrTable({
   );
 }
 
-/** Funnel by stage: horizontal bars, share of the first stage on the right. */
+/** Funnel by stage: Rivet-styled rounded bars, vibrant lime gradient. */
 export function FunnelChart({ funnel }: { funnel: DashboardSummary['funnel'] }) {
   const w = useLeadWords();
   const top = funnel[0]?.count || 1;
   return (
     <div>
-      <ol className="flex flex-col gap-2" aria-hidden>
+      <ol className="flex flex-col gap-3" aria-hidden>
         {funnel.map((s, i) => {
           const pct = (s.count / top) * 100;
           return (
             <li
               key={s.stageId}
-              className="grid grid-cols-[72px_minmax(0,1fr)_36px] sm:grid-cols-[80px_minmax(0,1fr)_36px_112px] items-center gap-3 text-xs"
+              className="grid grid-cols-[80px_minmax(0,1fr)_40px] sm:grid-cols-[100px_minmax(0,1fr)_44px_120px] items-center gap-3 text-xs"
             >
-              <span className="truncate text-fg-secondary">{s.name}</span>
-              <span className="relative h-5 overflow-hidden rounded-sm bg-surface-2">
+              <span className="truncate font-semibold text-ink text-[12.5px]">{s.name}</span>
+              <span className="relative h-5 overflow-hidden rounded-full bg-well shadow-[inset_0_0_0_1px_var(--hair)]">
                 <span
-                  className="absolute inset-y-0 left-0 rounded-sm bg-chart-1 transition-[width] duration-250 ease-standard"
-                  style={{ width: `${Math.max(pct, s.count ? 2 : 0)}%`, opacity: 1 - i * 0.14 }}
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-accent to-accent-hi transition-[width] duration-500 ease-[var(--ease)] shadow-[0_0_12px_rgba(212,255,63,0.35)]"
+                  style={{ width: `${Math.max(pct, s.count ? 2 : 0)}%` }}
                 />
               </span>
-              <span className="tabular text-right font-medium text-fg">
+              <span className="tabular text-right font-bold text-ink text-xs">
                 {formatNumber(s.count)}
               </span>
-              <span className="tabular hidden truncate text-right text-muted sm:block">
+              <span className="tabular hidden truncate text-right font-semibold text-faint sm:block text-xs">
                 {formatInr(s.valueInr, { compact: true })} · {Math.round(pct)}%
               </span>
             </li>
@@ -213,27 +213,28 @@ export function CallsPerHourChart({ data }: { data: DashboardSummary['callsPerHo
               name="Answered"
               stackId="c"
               fill={p['chart-1']}
+              radius={[0, 0, 4, 4]}
               isAnimationActive={!reduced}
-              animationDuration={250}
+              animationDuration={350}
             />
             <Bar
               dataKey="missed"
               name="Missed"
               stackId="c"
-              fill={p['chart-5']}
-              radius={[3, 3, 0, 0]}
+              fill={p['chart-2']}
+              radius={[4, 4, 0, 0]}
               isAnimationActive={!reduced}
-              animationDuration={250}
+              animationDuration={350}
             />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div aria-hidden className="mt-2 flex items-center gap-4 text-xs text-muted">
+      <div aria-hidden className="mt-3 flex items-center gap-4 text-xs font-semibold text-faint">
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-xs bg-chart-1" /> Answered
+          <span className="size-2 rounded-full bg-accent" /> Answered
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="size-2 rounded-xs bg-chart-5" /> Missed
+          <span className="size-2 rounded-full bg-[#3ef2ff]" /> Missed
         </span>
       </div>
       <SrTable

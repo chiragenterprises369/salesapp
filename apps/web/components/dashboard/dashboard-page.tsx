@@ -4,11 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import { formatInr, formatNumber, type MeResponse } from '@vistar/shared';
 import { createEventSimulator, DAY_MS, istDayStart } from '@vistar/shared/fixtures';
 import { LayoutDashboard, Pause, Play } from 'lucide-react';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
+import { animatePageEntrance } from '@/lib/rivet-motion';
 import { api } from '@/lib/api/client';
 import { isMockData } from '@/lib/api/data-source';
 import { useTeams } from '@/lib/api/directory';
@@ -122,19 +123,21 @@ function Dashboard({ me }: { me: MeResponse }) {
     <div className="flex min-w-0 flex-col gap-4 px-4 pt-4 pb-8 md:px-6 md:pt-5">
       {/* ---- change #20: config (setup banner until the company setup is complete) */}
       <SetupBanner />
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 my-2">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted-strong">
+          <p className="text-[12.5px] font-semibold text-faint mb-1 tracking-wide uppercase">
             {me.workspace.name} · {scopeLabel} · {RANGE_LABEL[range]}
           </p>
+          <h1 className="text-3xl lg:text-[34px] font-bold tracking-tight text-ink leading-tight">
+            {`Good morning, ${me.user.name.split(' ')[0] || 'User'}`}
+          </h1>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Segmented label="Date range" value={range} options={RANGES} onChange={setRange} />
           {me.role.dataScope === 'all' ? (
             <Select
               aria-label="Team"
-              className="w-40"
+              className="w-36 h-9 text-xs rounded-[10px] border-hair bg-card font-semibold"
               value={teamId ?? ALL_TEAMS}
               onValueChange={(v) => setTeamId(v === ALL_TEAMS ? null : v)}
               options={[
@@ -143,26 +146,29 @@ function Dashboard({ me }: { me: MeResponse }) {
               ]}
             />
           ) : (
-            <span className="inline-flex h-8 items-center rounded-md border border-border bg-surface px-2.5 text-sm text-fg-secondary">
+            <span className="inline-flex h-9 items-center rounded-[10px] border border-hair bg-card px-3 text-xs font-semibold text-dim">
               {scopeLabel}
             </span>
           )}
           <Button
+            size="sm"
+            variant="secondary"
             aria-pressed={!paused}
             onClick={() => setPaused((p) => !p)}
             aria-label={paused ? 'Resume live updates' : 'Pause live updates'}
             title={paused ? 'Resume live updates' : 'Pause live updates'}
+            className="h-9 px-3 rounded-[10px] font-semibold gap-2"
           >
             {paused ? (
-              <Play aria-hidden />
+              <Play aria-hidden className="size-3.5" />
             ) : (
               <span aria-hidden className="relative inline-flex size-2">
-                <span className="absolute inset-0 animate-ping rounded-full bg-success opacity-60 motion-reduce:hidden" />
-                <span className="relative size-2 rounded-full bg-success" />
+                <span className="absolute inset-0 animate-ping rounded-full bg-accent opacity-60 motion-reduce:hidden" />
+                <span className="relative size-2 rounded-full bg-accent" />
               </span>
             )}
             <span className="hidden sm:inline">{paused ? 'Paused' : 'Live'}</span>
-            {!paused && <Pause aria-hidden className="hidden text-muted sm:inline" />}
+            {!paused && <Pause aria-hidden className="hidden size-3.5 text-faint sm:inline" />}
           </Button>
         </div>
       </header>
@@ -274,8 +280,17 @@ function LiveDashboard({
     [kpis, callsLabel, w.leads],
   );
 
+  const dashboardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (dashboardRef.current) {
+      animatePageEntrance(dashboardRef.current);
+    }
+  }, []);
+
   return (
     <div
+      ref={dashboardRef}
       className={cn(
         'flex flex-col gap-4 transition-opacity duration-150',
         refreshing && 'opacity-80',

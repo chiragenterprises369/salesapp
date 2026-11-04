@@ -49,18 +49,18 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-0 flex-1">
         <aside
           data-slot="sidebar"
-          className="relative isolate hidden w-56 shrink-0 flex-col border-r border-border bg-surface lg:flex spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome"
+          className="relative isolate hidden w-[248px] shrink-0 flex-col border-r border-border bg-side lg:flex"
         >
           <GlassSheen />
-          <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
+          <div className="flex h-16 shrink-0 items-center gap-2.5 border-b border-border px-4">
             <BrandMark />
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">{brandName(me.workspace)}</span>
-              <span className="block truncate text-2xs text-muted">My workspace</span>
+              <span className="block truncate text-base font-bold tracking-tight text-ink">{brandName(me.workspace)}</span>
+              <span className="block truncate text-2xs font-semibold text-faint">My workspace</span>
             </span>
           </div>
-          <nav aria-label="Main" className="flex-1 overflow-y-auto p-2">
-            <ul className="flex flex-col gap-0.5">
+          <nav aria-label="Main" className="flex-1 overflow-y-auto p-3">
+            <ul className="flex flex-col gap-1">
               {items.map((item) => {
                 const active = isActive(item.id, item.href);
                 return (
@@ -69,9 +69,13 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
                       href={item.href}
                       data-slot="nav-item"
                       aria-current={active ? 'page' : undefined}
-                      className="focus-ring flex h-10 items-center gap-3 rounded-md px-3 text-sm text-fg-secondary transition-colors hover:bg-surface-3 hover:text-fg aria-[current=page]:bg-accent-soft aria-[current=page]:font-medium aria-[current=page]:text-accent-soft-fg"
+                      className={cn(
+                        'focus-ring flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-colors duration-200',
+                        'text-dim hover:bg-well hover:text-ink',
+                        active && 'bg-well text-ink shadow-[inset_3px_0_0_var(--accent-text),inset_0_0_0_1px_var(--hair)]',
+                      )}
                     >
-                      <NavIcon name={item.icon} className="size-5" />
+                      <NavIcon name={item.icon} className={cn('size-5', active ? 'text-accent-text' : 'text-faint')} />
                       {item.label}
                     </Link>
                   </li>
@@ -80,8 +84,8 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
             </ul>
           </nav>
           {isManager && (
-            <div className="border-t border-border p-2">
-              <Button asChild variant="ghost" className="h-10 w-full justify-start">
+            <div className="border-t border-border p-3">
+              <Button asChild variant="ghost" className="h-10 w-full justify-start font-semibold text-faint hover:text-ink">
                 <Link href="/app">
                   <Building2 aria-hidden />
                   Company panel
@@ -94,7 +98,7 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col">
           <header
             data-slot="topbar"
-            className="relative isolate flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-1 border-b border-border bg-surface px-3 pt-[env(safe-area-inset-top)] lg:px-6 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome"
+            className="relative isolate flex h-16 shrink-0 items-center gap-2 border-b border-border bg-bg px-4 pt-[env(safe-area-inset-top)] lg:px-6"
           >
             <GlassSheen />
             <Link href="/me" aria-label="Home" className="focus-ring rounded-md lg:hidden">
@@ -120,7 +124,7 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
             <div className="w-full px-4 py-4 sm:px-6 lg:px-8 lg:py-6">{children}</div>
           </PageTransitionMain>
 
-          <nav aria-label="Main" className="relative isolate shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden spatial:mx-2 spatial:mb-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome">
+          <nav aria-label="Main" className="relative isolate shrink-0 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] lg:hidden">
             <GlassSheen />
             <ul className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
               {items.map((item) => {
@@ -131,12 +135,12 @@ export function EmployeeShell({ children }: { children: ReactNode }) {
                       href={item.href}
                       aria-current={active ? 'page' : undefined}
                       className={cn(
-                        'focus-ring relative flex h-14 min-h-11 flex-col items-center justify-center gap-0.5 text-2xs font-medium text-muted outline-offset-[-2px]',
-                        'aria-[current=page]:text-accent-text',
+                        'focus-ring relative flex h-14 min-h-11 flex-col items-center justify-center gap-0.5 text-2xs font-semibold text-faint outline-offset-[-2px] transition-colors',
+                        'hover:text-ink aria-[current=page]:text-ink',
                       )}
                     >
-                      {active && <span aria-hidden className="absolute top-0 h-0.5 w-8 rounded-full bg-accent" />}
-                      <NavIcon name={item.icon} className="size-5" />
+                      {active && <span aria-hidden className="absolute top-0 h-0.5 w-8 rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" />}
+                      <NavIcon name={item.icon} className={cn('size-5', active ? 'text-accent-text' : 'text-faint')} />
                       {item.label}
                     </Link>
                   </li>

@@ -1,14 +1,14 @@
 import type { ComponentProps } from 'react';
 import { cn } from '@/lib/cn';
 
-/** Surface container: 12px radius, 1px border, subtle elevation. */
+/** Surface container: Rivet 18px radius, card gradient, 1px border, subtle elevation. */
 export function Card({ className, interactive, ...props }: ComponentProps<'div'> & { interactive?: boolean }) {
   return (
     <div
       data-slot="card"
       className={cn(
-        'rounded-lg border border-border bg-surface text-fg shadow-card',
-        interactive && 'transition-[box-shadow,border-color] duration-150 ease-standard hover:border-border-strong hover:shadow-raised',
+        'card relative min-w-0 rounded-[var(--r-card,18px)] border border-hair bg-[linear-gradient(180deg,var(--card-top),var(--card)_40%)] text-ink shadow-card',
+        interactive && 'transition-[box-shadow,border-color,transform] duration-250 ease-[var(--ease)] hover:border-hair-2 hover:shadow-pop hover:-translate-y-0.5 active:translate-y-0',
         className,
       )}
       {...props}

@@ -118,37 +118,40 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
     }
   };
 
-  const view =
-    mode === 'board' ? (
-      pipelineReady ? (
-        <LeadsBoardView pipelineId={pipelineId} density={panel === 'employee' ? 'compact' : 'default'} />
+  const view = (
+    <div key={mode} className="flex-1 min-h-0 flex flex-col transition-all duration-300 animate-in fade-in-50 slide-in-from-bottom-2">
+      {mode === 'board' ? (
+        pipelineReady ? (
+          <LeadsBoardView pipelineId={pipelineId} density={panel === 'employee' ? 'compact' : 'default'} />
+        ) : (
+          <Skeleton className="h-[60vh] w-full rounded-[18px]" />
+        )
       ) : (
-        <Skeleton className="h-[60vh] w-full" />
-      )
-    ) : (
-      <TableView onCreate={canCreate ? () => setCreateOpen(true) : undefined} />
-    );
+        <TableView onCreate={canCreate ? () => setCreateOpen(true) : undefined} />
+      )}
+    </div>
+  );
 
   return (
     <LeadsActions open={drawer.open}>
-      <div data-leads-page className="flex min-w-0 flex-col gap-3 pt-4 pb-4 md:pt-5">
-        <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <h1 className="text-xl font-semibold">{leadsTitle}</h1>
-            <span className="tabular text-sm text-muted-strong" aria-live="polite">
+      <div data-leads-page className="flex min-w-0 flex-col gap-4 pt-3 pb-6">
+        <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl lg:text-[34px] font-bold tracking-tight text-ink leading-tight">{leadsTitle}</h1>
+            <span className="tabular text-xs font-bold px-2.5 py-1 rounded-full bg-well text-faint border border-hair" aria-live="polite">
               {total === undefined ? (
                 <span
                   aria-hidden
-                  className="inline-block h-3.5 w-10 animate-pulse rounded-md bg-skeleton align-middle"
+                  className="inline-block h-3.5 w-8 animate-pulse rounded-full bg-skeleton align-middle"
                 />
               ) : (
                 total.toLocaleString('en-IN')
               )}
               <span className="sr-only"> {total === 1 ? leadLower : leadsLower}</span>
             </span>
+            <ViewSwitch value={mode} onChange={setMode} />
           </div>
-          <ViewSwitch value={mode} onChange={setMode} />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2">
             {canImport && (
               <Button className="hidden md:inline-flex" onClick={() => setImportOpen(true)}>
                 <Upload aria-hidden />
@@ -219,14 +222,14 @@ function LeadsWorkspace({ panel, me }: { panel: LeadsPanel; me: MeResponse }) {
           {reduced ? (
             <div className="col-start-1 row-start-1 min-w-0">{view}</div>
           ) : (
-            <AnimatePresence initial={false}>
+            <AnimatePresence initial={false} mode="wait">
               <motion.div
                 key={mode}
                 className="col-start-1 row-start-1 min-w-0"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
+                initial={{ opacity: 0, y: 10, scale: 0.995 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.995 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
               >
                 {view}
               </motion.div>

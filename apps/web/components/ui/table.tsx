@@ -27,7 +27,7 @@ export function TableRow({ className, ...props }: ComponentProps<'tr'>) {
     <tr
       data-slot="table-row"
       className={cn(
-        'group/row bg-surface transition-colors duration-150 hover:bg-surface-2',
+        'group/row transition-colors duration-200 hover:bg-surface-3',
         'data-[state=selected]:bg-accent-soft data-[new=true]:animate-row-in',
         className,
       )}
@@ -42,7 +42,7 @@ export function TableHead({ className, ...props }: ComponentProps<'th'>) {
       data-slot="table-head"
       scope="col"
       className={cn(
-        'h-[var(--table-head-h,2rem)] whitespace-nowrap border-b border-border bg-surface px-3 text-left align-middle text-xs font-medium text-muted',
+        'h-[var(--table-head-h,2rem)] whitespace-nowrap border-b border-border px-3 text-left align-middle text-xs font-semibold text-faint',
         '[&:has([role=checkbox])]:w-8 [&:has([role=checkbox])]:pr-0',
         className,
       )}
@@ -55,7 +55,7 @@ export function TableCell({ className, ...props }: ComponentProps<'td'>) {
   return (
     <td
       data-slot="table-cell"
-      className={cn('h-[var(--table-row-h,2.25rem)] whitespace-nowrap border-b border-border px-3 align-middle text-sm text-fg [&:has([role=checkbox])]:pr-0', className)}
+      className={cn('h-[var(--table-row-h,2.25rem)] whitespace-nowrap border-b border-border px-3 align-middle text-sm font-semibold text-ink [&:has([role=checkbox])]:pr-0', className)}
       {...props}
     />
   );

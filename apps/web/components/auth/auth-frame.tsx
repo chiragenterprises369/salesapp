@@ -102,12 +102,18 @@ export function AuthCard({ title, description, children, className }: { title: s
   const company = useContext(AuthBrandContext);
   const shown = company ? title.replace(/\bVistar\b/, company) : title;
   return (
-    <section className={cn('rounded-lg border border-border bg-surface p-6 shadow-card', className)} aria-labelledby="auth-title">
-      <h1 id="auth-title" className="text-xl font-semibold tracking-tight text-fg">
+    <section
+      className={cn(
+        'card relative overflow-hidden rounded-[22px] border border-hair bg-gradient-to-b from-[var(--card-top,#191c20)] to-[var(--card,#121517)] p-7 md:p-8 shadow-[var(--shadow-card)]',
+        className,
+      )}
+      aria-labelledby="auth-title"
+    >
+      <h1 id="auth-title" className="text-2xl font-bold tracking-tight text-ink font-display">
         {shown}
       </h1>
-      {description && <p className="mt-1 text-sm text-muted">{description}</p>}
-      <div className="mt-5">{children}</div>
+      {description && <p className="mt-1.5 text-sm text-faint leading-relaxed">{description}</p>}
+      <div className="mt-6">{children}</div>
     </section>
   );
 }
@@ -118,8 +124,10 @@ export function FormAlert({ tone = 'danger', children }: { tone?: 'danger' | 'in
     <div
       role={tone === 'danger' ? 'alert' : 'status'}
       className={cn(
-        'rounded-md border px-3 py-2 text-sm',
-        tone === 'danger' ? 'border-status-red-border bg-status-red-bg text-status-red-fg' : 'border-status-blue-border bg-status-blue-bg text-status-blue-fg',
+        'rounded-[10px] border px-3.5 py-2.5 text-xs font-medium leading-relaxed',
+        tone === 'danger'
+          ? 'border-status-red-border bg-status-red-bg text-status-red-fg'
+          : 'border-hair-2 bg-well-2 text-ink',
       )}
     >
       {children}

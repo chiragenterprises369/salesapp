@@ -31,23 +31,24 @@ export function KpiCard({ label, kpi, format, lowerIsBetter, series = 'chart-1' 
   const data = kpi.sparkline.map((v, i) => ({ i, v }));
 
   return (
-    <Card className="flex min-w-0 flex-col gap-1 p-4">
+    <Card className="kpi flex min-w-0 flex-col justify-between gap-3 p-5 rounded-[16px] border border-hair bg-[linear-gradient(180deg,var(--card-top),var(--card)_60%)]">
       <div className="flex items-center justify-between gap-2">
-        <h3 data-slot="kpi-label" className="truncate text-xs font-medium text-muted">{label}</h3>
+        <h3 data-slot="kpi-label" className="truncate text-[11.5px] font-bold text-faint uppercase tracking-wider">{label}</h3>
         {delta !== null && Number.isFinite(delta) && (
           <Chip
             tone={good ? 'green' : 'red'}
             aria-label={`${delta >= 0 ? 'Up' : 'Down'} ${Math.abs(delta).toFixed(0)}% versus the previous period`}
+            className="text-2xs font-bold"
           >
-            {delta >= 0 ? <ArrowUpRight aria-hidden /> : <ArrowDownRight aria-hidden />}
+            {delta >= 0 ? <ArrowUpRight aria-hidden className="size-3" /> : <ArrowDownRight aria-hidden className="size-3" />}
             {Math.abs(delta).toFixed(0)}%
           </Chip>
         )}
       </div>
-      <div data-slot="kpi-value" className="text-2xl font-semibold">
+      <div data-slot="kpi-value" className="text-2xl sm:text-[28px] font-bold tracking-tight text-ink tabular-nums">
         <AnimatedNumber value={kpi.value} format={format} />
       </div>
-      <div aria-hidden className="-mx-1 h-9">
+      <div aria-hidden className="-mx-1 h-10 mt-1">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={data}
@@ -59,11 +60,11 @@ export function KpiCard({ label, kpi, format, lowerIsBetter, series = 'chart-1' 
               type="monotone"
               dataKey="v"
               stroke={color}
-              strokeWidth={1.5}
+              strokeWidth={2}
               fill={color}
-              fillOpacity={0.1}
+              fillOpacity={0.12}
               isAnimationActive={!reduced}
-              animationDuration={250}
+              animationDuration={350}
               dot={false}
             />
           </AreaChart>

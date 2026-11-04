@@ -8,11 +8,12 @@
     `motion-full:` applies only when travel (parallax, slides, lifts) is allowed.
 */
 @import 'tailwindcss';
-@layer theme, base, components, utilities, premium;
+@layer theme, base, components, utilities, premium, rivet;
 @import './tokens.css';
 @import './space.css';
 @import './scrollbar.css';
 @import './premium.css';
+@import './rivet.css';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 @custom-variant reduced-motion (&:where([data-reduced-motion='on'], [data-reduced-motion='on'] *));
@@ -24,7 +25,7 @@
 @custom-variant standard (&:where(html:not([data-ui='premium']) *));
 
 @theme inline {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: var(--font-urbanist), 'Urbanist', var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Menlo, monospace;
 
   --color-*: initial;
@@ -95,12 +96,12 @@
   --breakpoint-3xl: 112rem;
   --breakpoint-4xl: 140rem;
 
-  /* Radius: 8px default, 12px cards. Premium (styles/premium.css) sets --r-* for a crisper scale. */
+  /* Radius: Rivet 10px control, 18px cards scale. */
   --radius-*: initial;
   --radius-xs: var(--r-xs, 4px);
-  --radius-sm: var(--r-sm, 6px);
-  --radius-md: var(--r-md, 8px);
-  --radius-lg: var(--r-lg, 12px);
+  --radius-sm: var(--r-sm, 8px);
+  --radius-md: var(--r-md, 10px);
+  --radius-lg: var(--r-lg, 18px);
   --radius-full: 9999px;
 
   /* Elevation: shadow-card | shadow-raised | shadow-overlay | shadow-lift (drag) */

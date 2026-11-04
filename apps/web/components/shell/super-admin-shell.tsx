@@ -55,23 +55,22 @@ export function SuperAdminShell({ children }: { children: ReactNode }) {
         <aside
           data-slot="sidebar"
           className={cn(
-            'relative isolate hidden shrink-0 flex-col border-r border-border bg-surface md:flex',
-            'spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome',
-            isDesktop ? 'w-52' : 'w-14',
+            'relative isolate hidden shrink-0 flex-col border-r border-border bg-side md:flex',
+            isDesktop ? 'w-[248px]' : 'w-[80px]',
           )}
         >
           <GlassSheen />
-          <div className={cn('flex h-12 shrink-0 items-center border-b border-border', isDesktop ? 'px-3' : 'px-2')}>
+          <div className={cn('flex h-16 shrink-0 items-center border-b border-border', isDesktop ? 'px-4' : 'px-2')}>
             <ConsoleHeader expanded={isDesktop} />
           </div>
-          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-3">
             <SidebarNav groups={groups} expanded={isDesktop} density="dense" label="Platform" />
           </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <header
             data-slot="topbar"
-            className="relative isolate flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 lg:px-4 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome"
+            className="relative isolate flex h-16 shrink-0 items-center gap-2 border-b border-border bg-bg px-4 lg:px-6"
           >
             <GlassSheen />
             <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}>

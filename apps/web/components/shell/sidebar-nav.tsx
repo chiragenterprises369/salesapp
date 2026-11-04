@@ -3,8 +3,10 @@
 import type { NavGroup } from '@vistar/shared';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 import { Tooltip } from '@/components/common/tooltip';
 import { cn } from '@/lib/cn';
+import { animateNavPill } from '@/lib/rivet-motion';
 import { NavIcon } from './nav-icon';
 import { isItemActive } from './nav-utils';
 
@@ -17,20 +19,36 @@ interface SidebarNavProps {
   label: string;
 }
 
-/** Grouped panel navigation, expanded or as an icon rail. Active item: aria-current="page". */
+/** Grouped panel navigation, expanded or as an icon rail. Active item has sliding fluid pill. */
 export function SidebarNav({ groups, expanded, density = 'default', onNavigate, label }: SidebarNavProps) {
   const pathname = usePathname();
+  const navRef = useRef<HTMLElement>(null);
+  const pillRef = useRef<HTMLSpanElement>(null);
+  const firstRender = useRef(true);
+
+  useEffect(() => {
+    if (!navRef.current || !pillRef.current) return;
+    const activeEl = navRef.current.querySelector<HTMLElement>('[data-slot="nav-item"][aria-current="page"]');
+    animateNavPill(pillRef.current, navRef.current, activeEl, firstRender.current, 10);
+    firstRender.current = false;
+  }, [pathname, expanded, groups]);
+
   return (
-    <nav aria-label={label} className="flex flex-col gap-4">
+    <nav ref={navRef} aria-label={label} className="relative flex flex-col gap-4">
+      {/* Rivet sliding active indicator pill */}
+      <span ref={pillRef} className="nav__pill" aria-hidden="true" />
+
       {groups.map((group, gi) => (
-        <div key={group.id} className="flex flex-col gap-0.5">
+        <div key={group.id} className="relative z-[1] flex flex-col gap-1">
           {group.label &&
             (expanded ? (
-              <p data-slot="nav-group-label" className="px-2 pb-1 text-xs font-medium text-muted">{group.label}</p>
+              <p data-slot="nav-group-label" className="px-3 pt-3 pb-1 text-[11px] font-bold tracking-[0.1em] uppercase text-faint">
+                {group.label}
+              </p>
             ) : (
-              gi > 0 && <span aria-hidden className="mx-auto mb-1 h-px w-6 bg-border" />
+              gi > 0 && <span aria-hidden className="mx-auto my-1.5 h-px w-6 bg-hair" />
             ))}
-          <ul className="flex flex-col gap-0.5">
+          <ul className="flex flex-col gap-1">
             {group.items.map((item) => {
               const active = isItemActive(pathname, item);
               const link = (
@@ -40,14 +58,13 @@ export function SidebarNav({ groups, expanded, density = 'default', onNavigate, 
                   data-slot="nav-item"
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'focus-ring group flex items-center rounded-md text-fg-secondary transition-colors duration-150 ease-standard',
-                    'hover:bg-surface-3 hover:text-fg aria-[current=page]:bg-accent-soft aria-[current=page]:font-medium aria-[current=page]:text-accent-soft-fg',
-                    'neon:aria-[current=page]:edge-glow',
-                    density === 'dense' ? 'h-7 text-sm' : 'h-8 text-sm',
-                    expanded ? 'gap-2.5 px-2' : 'mx-auto size-9 justify-center',
+                    'focus-ring group relative z-[1] flex items-center rounded-[10px] font-semibold text-dim transition-colors duration-200 ease-[var(--ease)]',
+                    'hover:text-ink aria-[current=page]:text-ink aria-[current=page]:font-semibold',
+                    '[&_svg]:transition-colors [&_svg]:duration-200 aria-[current=page]:[&_svg]:text-accent-text',
+                    expanded ? 'h-10 gap-3 px-3 text-[13.5px]' : 'mx-auto size-10 justify-center',
                   )}
                 >
-                  <NavIcon name={item.icon} className="text-current" />
+                  <NavIcon name={item.icon} className="size-[18px] shrink-0 text-faint group-hover:text-ink aria-[current=page]:text-accent-text" />
                   <span className={cn(expanded ? 'truncate' : 'sr-only')}>{item.label}</span>
                 </Link>
               );

@@ -1,0 +1,672 @@
+/*
+  RIVET DESIGN SYSTEM & MOTION STYLING FOR VISTAR SALES CRM
+  Directly adapted from Rivet (demo.codeandchill.store/rivet)
+  Black and neon by default, crafted light theme, 60fps/120fps motion.
+*/
+
+:root {
+  --lightningcss-light: ;
+  --lightningcss-dark: initial;
+  color-scheme: dark;
+  --bg: #050507;
+  --side: #0a0b10;
+  --card: #111218;
+  --card-top: #15161e;
+  --raised: #181922;
+  --well: #1a1b24;
+  --well-2: #22232e;
+  --hair: #ffffff14;
+  --hair-2: #ffffff29;
+  --ink: #f4f5f9;
+  --dim: #aab0c2;
+  --faint: #858a9e;
+  --scrim: #0000009e;
+  --accent: #d4ff3f;
+  --accent-hi: #e2ff6e;
+  --on-accent: #0b0d05;
+  --accent-text: #d4ff3f;
+  --accent-soft: #d4ff3f24;
+  --accent-line: #d4ff3f59;
+  --glow: 0 0 0 1px #d4ff3f59, 0 0 22px -4px #d4ff3f8c;
+  --series-1: #d4ff3f;
+  --series-2: #3ef2ff;
+  --series-3: #33364a;
+  --series-3-hi: #464a62;
+  --n-lime: #d4ff3f;
+  --n-cyan: #3ef2ff;
+  --n-amber: #ffbe4d;
+  --n-pink: #ff5c8a;
+  --n-mint: #4dffc3;
+  --n-sand: #e8c9a0;
+  --n-coral: #ff8a5c;
+  --n-sky: #5cb8ff;
+  --n-slate: #8a90a8;
+  --good: #d4ff3f;
+  --warn: #ffbe4d;
+  --bad: #ff5c8a;
+  --info: #3ef2ff;
+  --shadow-card: none;
+  --shadow-pop: 0 18px 40px -16px #000000d9, 0 0 0 1px var(--hair-2);
+  --font: "Urbanist", var(--font-urbanist), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fs-2xs: 11px;
+  --fs-xs: 12px;
+  --fs-sm: 12.5px;
+  --fs-md: 13.5px;
+  --fs-base: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 17px;
+  --fs-2xl: 20px;
+  --fs-3xl: 22px;
+  --fs-4xl: 26px;
+  --fs-display: 34px;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --r-card: 18px;
+  --r-ctl: 10px;
+  --gap: 16px;
+  --side-w: 248px;
+  --rail-w: 84px;
+  --pad: 24px;
+}
+
+:root[data-theme="light"],
+[data-theme="light"] {
+  --lightningcss-light: initial;
+  --lightningcss-dark: ;
+  color-scheme: light;
+  --bg: #e9ebf0;
+  --side: #f3f4f7;
+  --card: #fbfbfc;
+  --card-top: #ffffff;
+  --raised: #ffffff;
+  --well: #eef0f4;
+  --well-2: #e1e4ea;
+  --hair: #0d0f1417;
+  --hair-2: #0d0f142b;
+  --ink: #0d0f14;
+  --dim: #434958;
+  --faint: #5f6574;
+  --scrim: #0d0f1461;
+  --accent: #d4ff3f;
+  --accent-hi: #c8f52a;
+  --accent-text: #496500;
+  --accent-soft: #6ea00021;
+  --accent-line: #5a820073;
+  --glow: 0 0 0 1px #5a820059, 0 6px 18px -6px #6ea00073;
+  --series-1: #a6dc1a;
+  --series-2: #12a9c4;
+  --series-3: #cdd1da;
+  --series-3-hi: #b3b8c4;
+  --n-lime: #5c8a00;
+  --n-cyan: #00869b;
+  --n-amber: #a96400;
+  --n-pink: #cc2a5d;
+  --n-mint: #00875f;
+  --n-sand: #8c5f2c;
+  --n-coral: #c84a1f;
+  --n-sky: #1d68c4;
+  --n-slate: #596074;
+  --good: #4a7300;
+  --warn: #9a5b00;
+  --bad: #c4234f;
+  --info: #007d91;
+  --shadow-card: 0 1px 2px #0d0f140a, 0 6px 18px -10px #0d0f1424;
+  --shadow-pop: 0 20px 44px -18px #0d0f1459, 0 0 0 1px var(--hair);
+}
+
+/* ==========================================================================
+   GLOBAL TYPOGRAPHY & TABULAR NUMS
+   ========================================================================== */
+body {
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   CARDS & CONTAINERS
+   ========================================================================== */
+[data-slot="card"],
+.card,
+.rivet-card {
+  position: relative;
+  background: linear-gradient(180deg, var(--card-top), var(--card) 40%) !important;
+  border: 1px solid var(--hair) !important;
+  border-radius: var(--r-card, 18px) !important;
+  box-shadow: var(--shadow-card);
+  transition: transform .25s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease);
+}
+
+[data-slot="card"]:after,
+.card:after,
+.rivet-card:after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--hair-2);
+  opacity: 0;
+  transition: opacity .45s var(--ease);
+}
+
+@media (hover: hover) {
+  [data-slot="card"]:hover:after,
+  .card:hover:after,
+  .rivet-card:hover:after {
+    opacity: 1;
+  }
+}
+
+/* KPI Stat Cards */
+.kpi,
+.rivet-kpi {
+  background: linear-gradient(180deg, var(--card-top), var(--card) 60%) !important;
+  border: 1px solid var(--hair) !important;
+  box-shadow: var(--shadow-card);
+  border-radius: 16px !important;
+  padding: 16px 18px;
+  position: relative;
+}
+
+.kpi__label {
+  font-size: var(--fs-sm);
+  color: var(--faint);
+  font-weight: 600;
+}
+
+.kpi__value {
+  font-size: var(--fs-3xl);
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  margin-top: 6px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.delta {
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  display: inline-flex;
+  font-weight: 600;
+}
+
+.delta--up,
+.delta.up {
+  color: var(--good) !important;
+}
+
+.delta--down,
+.delta.down {
+  color: var(--bad) !important;
+}
+
+/* ==========================================================================
+   BUTTONS (NEON, GHOST, DANGER, MAGNETIC)
+   ========================================================================== */
+[data-slot="button"],
+.btn {
+  border-radius: var(--r-ctl, 10px) !important;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  font-family: var(--font);
+  transition: background-color .25s, border-color .25s, box-shadow .3s var(--ease), color .25s, transform .12s cubic-bezier(.22, 1, .36, 1);
+  position: relative;
+  will-change: transform;
+}
+
+[data-slot="button"]:active,
+.btn:active,
+.iconbtn:active {
+  transform: scale(0.96) !important;
+}
+
+/* Primary / Neon Button */
+[data-slot="button"][data-variant="primary"],
+.btn--neon {
+  background-color: var(--accent) !important;
+  color: var(--on-accent) !important;
+  font-weight: 700 !important;
+  border: 1px solid transparent !important;
+  box-shadow: none;
+}
+
+[data-slot="button"][data-variant="primary"]:hover,
+.btn--neon:hover {
+  background-color: var(--accent-hi) !important;
+  box-shadow: var(--glow) !important;
+}
+
+/* Secondary / Ghost Button */
+[data-slot="button"][data-variant="secondary"],
+.btn--ghost {
+  background-color: var(--card) !important;
+  border: 1px solid var(--hair) !important;
+  color: var(--ink) !important;
+}
+
+[data-slot="button"][data-variant="secondary"]:hover,
+.btn--ghost:hover {
+  border-color: var(--hair-2) !important;
+  background-color: var(--well) !important;
+  color: var(--ink) !important;
+}
+
+/* Danger Button */
+[data-slot="button"][data-variant="danger"],
+.btn--danger {
+  background-color: var(--bad) !important;
+  color: #ffffff !important;
+  border: 1px solid transparent !important;
+}
+
+:root[data-theme="dark"] [data-slot="button"][data-variant="danger"],
+:root[data-theme="dark"] .btn--danger {
+  color: #1a0710 !important;
+}
+
+[data-slot="button"][data-variant="danger"]:hover,
+.btn--danger:hover {
+  background-color: color-mix(in srgb, var(--bad) 85%, #ffffff) !important;
+}
+
+/* Icon Buttons */
+.iconbtn {
+  border-radius: var(--r-ctl, 10px) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--hair) !important;
+  width: 40px;
+  height: 40px;
+  color: var(--dim);
+  display: inline-grid;
+  place-items: center;
+  transition: color .25s, border-color .25s, background-color .25s, transform .2s var(--ease);
+}
+
+.iconbtn:hover {
+  color: var(--ink) !important;
+  border-color: var(--hair-2) !important;
+}
+
+/* ==========================================================================
+   INPUTS & FORM FIELDS
+   ========================================================================== */
+[data-slot="input"],
+[data-slot="textarea"],
+.field input,
+.field textarea,
+.field select,
+.input {
+  border-radius: var(--r-ctl, 10px) !important;
+  background: var(--well) !important;
+  border: 1px solid var(--hair) !important;
+  color: var(--ink) !important;
+  font-family: var(--font) !important;
+  font-size: var(--fs-md);
+  transition: border-color .25s, box-shadow .25s var(--ease);
+}
+
+[data-slot="input"]:focus,
+[data-slot="textarea"]:focus,
+.field input:focus,
+.field textarea:focus,
+.field select:focus,
+.input:focus {
+  border-color: var(--accent-text) !important;
+  box-shadow: 0 0 0 4px var(--accent-soft) !important;
+  outline: none !important;
+}
+
+/* ==========================================================================
+   SIDEBAR & SLIDING NAVIGATION PILL
+   ========================================================================== */
+[data-slot="sidebar"] {
+  background-color: var(--side) !important;
+  border-right: 1px solid var(--hair) !important;
+}
+
+/* Brand mark tile */
+.brand__mark,
+.brand-mark-tile {
+  background: var(--accent) !important;
+  width: 30px;
+  height: 30px;
+  color: var(--on-accent) !important;
+  border-radius: 9px !important;
+  place-items: center;
+  display: grid;
+  box-shadow: 0 0 18px -4px #d4ff3f99 !important;
+}
+
+/* Nav links */
+[data-slot="nav-item"] {
+  border-radius: 10px !important;
+  font-weight: 600;
+  transition: color .25s var(--ease), background-color .25s var(--ease);
+  position: relative;
+  z-index: 1;
+}
+
+[data-slot="nav-item"]:hover {
+  color: var(--ink) !important;
+}
+
+[data-slot="nav-item"][aria-current="page"] {
+  color: var(--ink) !important;
+}
+
+/* Sliding active indicator pill */
+.nav__pill {
+  position: absolute;
+  pointer-events: none;
+  background: var(--well);
+  box-shadow: inset 3px 0 0 var(--accent-text), inset 0 0 0 1px var(--hair);
+  border-radius: 10px;
+  z-index: 0;
+  will-change: transform, clip-path, top, left, width, height;
+}
+
+/* ==========================================================================
+   TOPBAR & SEARCH (⌘K)
+   ========================================================================== */
+[data-slot="topbar"] {
+  background-color: var(--bg) !important;
+  border-bottom: 1px solid var(--hair) !important;
+}
+
+.search,
+[data-slot="search-trigger"] {
+  border-radius: var(--r-ctl, 10px) !important;
+  background: var(--card) !important;
+  border: 1px solid var(--hair) !important;
+  color: var(--faint);
+  transition: border-color .25s var(--ease);
+}
+
+.search:hover,
+[data-slot="search-trigger"]:hover {
+  border-color: var(--hair-2) !important;
+}
+
+kbd {
+  font: 600 var(--fs-2xs)/1 var(--font);
+  color: var(--faint);
+  background: var(--well) !important;
+  border: 1px solid var(--hair) !important;
+  border-radius: 6px !important;
+  padding: 4px 6px;
+}
+
+/* ==========================================================================
+   STATUS CHIPS & SPILLS
+   ========================================================================== */
+[data-slot="chip"],
+.spill {
+  border-radius: 9999px !important;
+  font-weight: 600;
+  font-size: var(--fs-xs);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+
+/* ==========================================================================
+   TABLES
+   ========================================================================== */
+[data-slot="table"] {
+  border-collapse: collapse !important;
+  font-size: var(--fs-md);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-slot="table-head"] {
+  border-bottom: 1px solid var(--hair) !important;
+  font-size: var(--fs-xs) !important;
+  color: var(--faint) !important;
+  font-weight: 600 !important;
+  background: transparent !important;
+}
+
+[data-slot="table-cell"] {
+  border-bottom: 1px solid var(--hair) !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+}
+
+[data-slot="table-row"]:hover {
+  background-color: var(--well) !important;
+}
+
+/* ==========================================================================
+   MODALS, DIALOGS & DRAWERS
+   ========================================================================== */
+[data-slot="dialog-content"],
+.modal {
+  border: 1px solid var(--hair-2) !important;
+  background: var(--raised) !important;
+  box-shadow: var(--shadow-pop) !important;
+  border-radius: 22px !important;
+}
+
+[data-slot="dialog-overlay"] {
+  background: var(--scrim) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ==========================================================================
+   RIVET ENTRANCE & TITLES
+   ========================================================================== */
+.head__title,
+.rivet-title {
+  letter-spacing: -.025em;
+  font-weight: 600;
+  line-height: 1.04;
+  overflow: hidden;
+}
+
+.head__title .ch,
+.rivet-ch {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+/* Tabular figures */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   DROPDOWNS, POPOVERS & MENUS
+   ========================================================================== */
+[data-slot="dropdown-menu-content"],
+[data-slot="popover-content"],
+.pop {
+  background: var(--raised) !important;
+  border: 1px solid var(--hair-2) !important;
+  box-shadow: var(--shadow-pop) !important;
+  border-radius: 14px !important;
+  padding: 6px !important;
+}
+
+[data-slot="dropdown-menu-item"] {
+  border-radius: 9px !important;
+  font-weight: 600 !important;
+  color: var(--dim) !important;
+  padding: 8px 10px !important;
+  transition: background-color .15s, color .15s;
+}
+
+[data-slot="dropdown-menu-item"]:hover,
+[data-slot="dropdown-menu-item"]:focus {
+  background-color: var(--well) !important;
+  color: var(--ink) !important;
+  outline: none !important;
+}
+
+/* ==========================================================================
+   TABS & SEGMENTS (RIVET PILL ANIMATION & STYLES)
+   ========================================================================== */
+.tabs,
+[role="tablist"] {
+  background: var(--card) !important;
+  border: 1px solid var(--hair) !important;
+  border-radius: 12px !important;
+  padding: 4px !important;
+  gap: 2px !important;
+  display: flex !important;
+  position: relative !important;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs__pill {
+  background: var(--well-2) !important;
+  box-shadow: inset 0 -2px 0 var(--accent-text), inset 0 0 0 1px var(--hair) !important;
+  border-radius: 10px !important;
+  position: absolute !important;
+  pointer-events: none !important;
+  inset: 0 !important;
+  opacity: 0;
+  will-change: clip-path, opacity;
+}
+
+.tabs__item,
+[role="tab"] {
+  z-index: 1 !important;
+  height: 34px !important;
+  font-size: var(--fs-md, 13.5px) !important;
+  color: var(--faint) !important;
+  border-radius: 10px !important;
+  padding: 0 14px !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  white-space: nowrap !important;
+  transition: color .25s var(--ease) !important;
+  position: relative !important;
+}
+
+.tabs__item:hover,
+.tabs__item[aria-current="page"],
+[role="tab"]:hover,
+[role="tab"][aria-selected="true"],
+[role="tab"][data-state="active"] {
+  color: var(--ink) !important;
+}
+
+/* Rivet Segmented Controls (.seg) */
+.seg,
+[data-slot="segmented"] {
+  background: var(--card) !important;
+  border: 1px solid var(--hair) !important;
+  border-radius: var(--r-ctl, 10px) !important;
+  padding: 3px !important;
+  display: inline-flex !important;
+  position: relative !important;
+  gap: 2px !important;
+}
+
+.seg__pill {
+  background: var(--well-2) !important;
+  box-shadow: inset 0 0 0 1px var(--hair-2) !important;
+  border-radius: 8px !important;
+  position: absolute !important;
+  pointer-events: none !important;
+  inset: 0 !important;
+  opacity: 0;
+  will-change: clip-path, opacity;
+}
+
+.seg__btn {
+  z-index: 1 !important;
+  height: 28px !important;
+  font-size: var(--fs-sm, 12.5px) !important;
+  color: var(--faint) !important;
+  border-radius: 8px !important;
+  padding: 0 11px !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+  transition: color .25s var(--ease) !important;
+  position: relative !important;
+}
+
+.seg__btn:hover,
+.seg__btn[aria-pressed="true"],
+.seg__btn[aria-checked="true"] {
+  color: var(--ink) !important;
+}
+
+/* ==========================================================================
+   SWITCHES & TOGGLES
+   ========================================================================== */
+.switch__track,
+[role="switch"] {
+  border-radius: 12px !important;
+  transition: background-color .25s var(--ease) !important;
+}
+
+[role="switch"][aria-checked="true"],
+[role="switch"][data-state="checked"] {
+  background-color: var(--accent) !important;
+}
+
+[role="switch"][aria-checked="true"] span,
+[role="switch"][data-state="checked"] span {
+  background-color: var(--on-accent) !important;
+}
+
+/* ==========================================================================
+   METER & PROGRESS
+   ========================================================================== */
+.meter__track {
+  background: var(--well) !important;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--hair);
+  overflow: hidden;
+}
+
+.meter__fill {
+  background: linear-gradient(90deg, var(--series-2), var(--series-1)) !important;
+}
+
+/* ==========================================================================
+   SKELETON SHIMMER
+   ========================================================================== */
+[data-slot="skeleton"],
+.skeleton {
+  background: linear-gradient(90deg, var(--well) 0%, var(--well-2) 50%, var(--well) 100%) !important;
+  background-size: 200% 100% !important;
+  animation: rivet-shimmer 1.8s infinite !important;
+  border-radius: 8px !important;
+}
+
+@keyframes rivet-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ==========================================================================
+   TOASTS (SONNER / RIVET TOAST)
+   ========================================================================== */
+[data-sonner-toast],
+.toast {
+  background: var(--ink) !important;
+  color: var(--bg) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--shadow-pop) !important;
+  font-weight: 600 !important;
+  border: 1px solid var(--hair-2) !important;
+}
+

@@ -3,6 +3,7 @@
 import { motion as motionTokens, spaceTokens } from '@vistar/shared';
 import { usePathname } from 'next/navigation';
 import { useEffectEvent, useLayoutEffect, useRef, ViewTransition, type HTMLAttributes } from 'react';
+import { animatePageEntrance } from '@/lib/rivet-motion';
 import { useInterfaceStore } from '@/lib/theme';
 
 type TransitionKind = 'none' | 'vs-glide' | 'vs-fade';
@@ -55,6 +56,9 @@ export function PageTransitionMain({ children, ...props }: HTMLAttributes<HTMLEl
     if (committedRoom.current === room) return;
     committedRoom.current = room;
     fallbackEntrance();
+    if (mainRef.current) {
+      animatePageEntrance(mainRef.current);
+    }
   }, [room]);
 
   return (

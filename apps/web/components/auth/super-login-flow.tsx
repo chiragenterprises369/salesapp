@@ -90,20 +90,21 @@ function PasswordStep({ onChallenge }: { onChallenge: (c: SuperLoginChallenge, s
         </form>
       </AuthCard>
       {isDev && (
-        <section aria-labelledby="demo-super" className="rounded-lg border border-dashed border-border-strong bg-surface p-4">
+        <section aria-labelledby="demo-super" className="card rounded-[18px] border border-hair bg-gradient-to-b from-[var(--card-top,#191c20)] to-[var(--card,#121517)] p-5">
           <div className="flex items-center justify-between gap-2">
-            <h2 id="demo-super" className="text-sm font-semibold">
+            <h2 id="demo-super" className="text-sm font-bold text-ink">
               Demo account
             </h2>
-            <span className="text-xs text-muted">Development only</span>
+            <span className="text-2xs font-semibold text-faint uppercase tracking-wider">Dev</span>
           </div>
-          <p className="mt-1 text-xs text-muted">
-            {DEMO_SUPER_ADMIN.email} with the demo password.{' '}
+          <p className="mt-1 text-xs text-faint">
+            <span className="font-semibold text-ink">{DEMO_SUPER_ADMIN.email}</span> with password <code className="rounded-[4px] bg-well-2 px-1.5 py-0.5 font-mono text-ink text-2xs">{DEMO_PASSWORD}</code>.{' '}
             {isMockData() ? 'Any 6-digit code passes the second step.' : 'The first sign-in sets up two-step verification with an authenticator app.'}
           </p>
           <Button
             size="sm"
-            className="mt-3"
+            variant="secondary"
+            className="mt-3.5"
             disabled={submitting}
             onClick={() => {
               setEmail(DEMO_SUPER_ADMIN.email);

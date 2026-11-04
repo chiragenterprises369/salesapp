@@ -1,7 +1,7 @@
 'use client';
 
 import { NAV_COMPANY, type MeResponse } from '@vistar/shared';
-import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Menu, PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, type ReactNode } from 'react';
 import { TooltipProvider } from '@/components/common/tooltip';
@@ -20,6 +20,7 @@ import { NavDrawer } from './nav-drawer';
 import { companyNav } from './nav-utils';
 import { NotificationsMenu } from './notifications-menu';
 import { PageTransitionMain } from './page-transition';
+import { QuickCreateButton } from './quick-create-button';
 import { useShellStore } from './shell-store';
 import { SidebarNav } from './sidebar-nav';
 import { GlassSheen, SpaceBackdrop } from './space-backdrop';
@@ -32,12 +33,12 @@ function WorkspaceHeader({ me, expanded }: { me: MeResponse; expanded: boolean }
   const name = brandName(me.workspace);
   // Expanded: the visible name is the link text (WCAG 2.5.3 label in name). Icon rail: aria-label.
   return (
-    <Link href="/app" className={cn('focus-ring flex min-w-0 items-center gap-2 rounded-md', !expanded && 'mx-auto')} aria-label={expanded ? undefined : `${name} dashboard`}>
+    <Link href="/app" className={cn('focus-ring flex min-w-0 items-center gap-2.5 rounded-lg transition-transform active:scale-95', !expanded && 'mx-auto')} aria-label={expanded ? undefined : `${name} dashboard`}>
       <BrandMark className={expanded ? undefined : 'max-w-8'} />
       {expanded && (
         <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-fg">{name}</span>
-          <span className="block text-2xs text-muted">{PLAN_LABEL[me.workspace.plan]} plan</span>
+          <span className="block truncate text-base font-bold tracking-tight text-ink">{name}</span>
+          <span className="block text-2xs font-semibold text-faint">{PLAN_LABEL[me.workspace.plan]} plan</span>
           <span className="sr-only">, dashboard</span>
         </span>
       )}
@@ -73,27 +74,44 @@ export function CompanyShell({ children }: { children: ReactNode }) {
           <aside
             data-slot="sidebar"
             className={cn(
-              'relative isolate hidden shrink-0 flex-col border-r border-border bg-surface transition-[width] duration-200 ease-standard md:flex',
-              'spatial:my-2 spatial:ml-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome',
-              expanded ? 'w-60' : 'w-14',
+              'relative isolate hidden shrink-0 flex-col border-r border-border bg-side transition-[width] duration-300 ease-[var(--ease)] md:flex',
+              expanded ? 'w-[248px]' : 'w-[80px]',
             )}
           >
             <GlassSheen />
-            <div className={cn('flex h-14 shrink-0 items-center border-b border-border', expanded ? 'px-3' : 'px-2')}>
+            <div className={cn('flex h-16 shrink-0 items-center border-b border-border', expanded ? 'px-4' : 'px-2')}>
               <WorkspaceHeader me={me} expanded={expanded} />
             </div>
-            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-3">
+            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-4">
               <SidebarNav groups={groups} expanded={expanded} label="Main" />
             </div>
-            <div className={cn('hidden shrink-0 border-t border-border p-2 lg:flex', !expanded && 'justify-center')}>
+            {expanded && (
+              <div className="px-3 pb-2 pt-1">
+                <div className="card relative rounded-[14px] border border-hair bg-[linear-gradient(180deg,var(--card-top),var(--card))] p-3.5 shadow-card">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="flex size-6 items-center justify-center rounded-md bg-accent-soft text-accent">
+                      <Zap className="size-3.5 fill-current" />
+                    </span>
+                    <span className="text-xs font-bold text-ink">Go Premium</span>
+                  </div>
+                  <p className="text-2xs text-faint mb-3 leading-relaxed">
+                    Forecasts, smart alerts & unlimited pipelines in one plan.
+                  </p>
+                  <Button variant="primary" size="sm" asChild className="w-full text-xs font-bold h-8">
+                    <Link href="/app/billing">Upgrade plan</Link>
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className={cn('hidden shrink-0 border-t border-hair p-3 lg:flex', !expanded && 'justify-center')}>
               {expanded ? (
-                <Button variant="ghost" size="sm" onClick={toggleCollapsed} aria-expanded className="w-full justify-start">
+                <Button variant="ghost" size="sm" onClick={toggleCollapsed} aria-expanded className="w-full justify-start text-faint hover:text-ink">
                   <PanelLeftClose aria-hidden />
                   Collapse sidebar
                 </Button>
               ) : (
                 <Tooltip content="Expand sidebar">
-                  <Button variant="ghost" size="icon" onClick={toggleCollapsed} aria-expanded={false} aria-label="Expand sidebar">
+                  <Button variant="ghost" size="icon" onClick={toggleCollapsed} aria-expanded={false} aria-label="Expand sidebar" className="text-faint hover:text-ink">
                     <PanelLeftOpen aria-hidden />
                   </Button>
                 </Tooltip>
@@ -104,22 +122,24 @@ export function CompanyShell({ children }: { children: ReactNode }) {
           <div className="flex min-w-0 flex-1 flex-col">
             <header
               data-slot="topbar"
-              className="relative isolate flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3 sm:px-4 spatial:mx-2 spatial:mt-2 spatial:rounded-lg spatial:border spatial:shadow-depth-2 spatial:glass-chrome premium:lg:gap-4"
+              className="relative isolate flex h-16 shrink-0 items-center justify-between gap-3 border-b border-hair bg-bg px-4 sm:px-6"
             >
               <GlassSheen />
-              <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}>
-                <Menu aria-hidden />
-              </Button>
-              <Link href="/app" aria-label={`${brandName(me.workspace)} dashboard`} className="focus-ring rounded-md md:hidden">
-                <BrandMark />
-              </Link>
-              <ShellBreadcrumbs groups={groups} root={COMPANY_ROOT} className="hidden flex-1 premium:lg:flex" />
-              <div className="flex min-w-0 flex-1 items-center premium:lg:w-[min(30rem,34vw)] premium:lg:flex-none">
-                <SearchTrigger />
+              <div className="flex items-center gap-3 min-w-0">
+                <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation" onClick={() => setMobileNavOpen(true)}>
+                  <Menu aria-hidden />
+                </Button>
+                <Link href="/app" aria-label={`${brandName(me.workspace)} dashboard`} className="focus-ring rounded-md md:hidden">
+                  <BrandMark />
+                </Link>
+                <div className="w-[min(380px,50vw)] min-w-[200px]">
+                  <SearchTrigger />
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-0.5">
-                <ThemeToggle />
+              <div className="flex shrink-0 items-center gap-2">
                 <NotificationsMenu base="/app" />
+                <ThemeToggle />
+                <QuickCreateButton />
                 <UserMenu panel="company" triggerClassName="ml-1" />
               </div>
             </header>

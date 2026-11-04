@@ -90,7 +90,7 @@ export function CommandMenu({ groups }: { groups: readonly NavGroup[] }) {
   );
 }
 
-/** Field-shaped trigger in the top bar (icon button on small screens). */
+/** Field-shaped trigger in the top bar (icon button on small screens). Rivet styled. */
 export function SearchTrigger() {
   const setOpen = useShellStore((s) => s.setCommandOpen);
   return (
@@ -98,19 +98,19 @@ export function SearchTrigger() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="focus-ring hidden h-8 w-full max-w-md min-w-0 items-center gap-2 rounded-md border border-input bg-surface-2 px-2.5 text-left text-sm text-muted-strong transition-colors hover:border-fg-secondary sm:flex premium:h-9 premium:max-w-none premium:rounded-lg premium:bg-surface premium:shadow-card"
+        className="focus-ring hidden h-10 w-full min-w-0 items-center gap-2.5 rounded-[var(--r-ctl,10px)] border border-hair bg-card px-3 text-left text-sm text-faint transition-[border-color,background-color] duration-200 hover:border-hair-2 hover:text-ink sm:flex"
       >
-        <Search aria-hidden className="size-4 shrink-0" />
+        <Search aria-hidden className="size-4 shrink-0 text-faint" />
         <span className="flex-1 truncate">
-          Search or jump to<span className="hidden premium:inline"> pages, settings and actions</span>
+          Search payments, pages, people…
         </span>
-        <kbd className="rounded-xs border border-border bg-surface px-1.5 font-sans text-2xs text-muted premium:bg-surface-2 premium:font-medium premium:text-muted-strong">Ctrl K</kbd>
+        <kbd className="rounded-md border border-hair bg-well px-2 py-0.5 font-sans text-2xs font-semibold text-faint">⌘K</kbd>
       </button>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Search or jump to"
-        className="focus-ring inline-flex size-8 items-center justify-center rounded-md text-fg-secondary hover:bg-surface-3 sm:hidden"
+        aria-label="Search payments, pages, people"
+        className="focus-ring inline-flex size-10 items-center justify-center rounded-[var(--r-ctl,10px)] border border-hair bg-card text-dim transition-colors hover:border-hair-2 hover:text-ink sm:hidden"
       >
         <Search aria-hidden className="size-4" />
       </button>

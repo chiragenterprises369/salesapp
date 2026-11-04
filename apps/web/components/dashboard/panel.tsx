@@ -24,20 +24,20 @@ export function Panel({
   return (
     <Card className={cn('flex min-w-0 flex-col', className)}>
       <section aria-labelledby={titleId} className="flex min-h-0 flex-1 flex-col">
-        <div data-slot="panel-head" className="flex items-start justify-between gap-3 px-4 pt-4 pb-3">
+        <div data-slot="panel-head" className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-2.5">
           <div className="min-w-0">
-            <h2 id={titleId} className="text-sm font-semibold">
+            <h2 id={titleId} className="text-base font-bold tracking-tight text-ink">
               {title}
             </h2>
             {description && (
-              <p id={descId} className="text-xs text-muted">
+              <p id={descId} className="text-xs font-medium text-faint mt-0.5">
                 {description}
               </p>
             )}
           </div>
           {action}
         </div>
-        <div className="min-h-0 flex-1 px-4 pb-4">
+        <div className="min-h-0 flex-1 px-5 sm:px-6 pb-5 sm:pb-6">
           {children({ titleId, descId: description ? descId : undefined })}
         </div>
       </section>

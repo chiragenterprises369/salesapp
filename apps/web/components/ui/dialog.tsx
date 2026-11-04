@@ -15,7 +15,7 @@ export function DialogOverlay({ className, ...props }: ComponentProps<typeof Dia
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
-      className={cn('fixed inset-0 z-50 bg-overlay data-[state=open]:animate-fade-in', className)}
+      className={cn('fixed inset-0 z-50 bg-overlay backdrop-blur-[4px] data-[state=open]:animate-fade-in', className)}
       {...props}
     />
   );
@@ -37,7 +37,7 @@ export function DialogContent({
         data-slot="dialog-content"
         className={cn(
           'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col',
-          'rounded-lg border border-border bg-surface text-fg shadow-overlay outline-none data-[state=open]:animate-dialog-in',
+          'rounded-[22px] border border-border-strong bg-surface-2 text-ink shadow-[var(--shadow-pop)] outline-none data-[state=open]:animate-dialog-in',
           sizes[size],
           className,
         )}

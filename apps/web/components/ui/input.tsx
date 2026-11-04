@@ -2,10 +2,10 @@ import { cloneElement, isValidElement, useId, type ComponentProps, type ReactEle
 import { cn } from '@/lib/cn';
 
 const fieldBase = [
-  'w-full min-w-0 rounded-md border border-input bg-surface text-fg shadow-card',
-  'placeholder:text-muted transition-[border-color,box-shadow] duration-150 ease-standard',
-  'hover:border-fg-secondary focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-  'disabled:cursor-not-allowed disabled:bg-surface-2 disabled:opacity-60',
+  'w-full min-w-0 rounded-[var(--r-ctl,10px)] border border-border bg-well text-ink font-medium',
+  'placeholder:text-faint transition-[border-color,box-shadow] duration-200 ease-standard',
+  'hover:border-border-strong focus-visible:border-accent-text focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-accent-soft',
+  'disabled:cursor-not-allowed disabled:bg-surface-3 disabled:opacity-50',
   'aria-invalid:border-danger-text aria-invalid:focus-visible:ring-danger-text',
 ];
 
@@ -16,7 +16,7 @@ export function Input({ className, size = 'md', type = 'text', ...props }: Input
     <input
       data-slot="input"
       type={type}
-      className={cn(fieldBase, size === 'sm' ? 'h-7 px-2 text-xs' : 'h-8 px-2.5 text-sm', 'file:border-0 file:bg-transparent file:text-sm file:font-medium', className)}
+      className={cn(fieldBase, size === 'sm' ? 'h-8 px-2.5 text-xs' : 'h-10 px-3 text-sm', 'file:border-0 file:bg-transparent file:text-sm file:font-medium', className)}
       {...props}
     />
   );
