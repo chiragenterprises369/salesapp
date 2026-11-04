@@ -20,6 +20,7 @@ export function MoveMenu({
   touch,
   onMove,
   onOpenChange,
+  trigger,
 }: {
   leadName: string;
   stageId: string;
@@ -27,15 +28,18 @@ export function MoveMenu({
   touch: boolean;
   onMove: (stageId: string) => void;
   onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
 }) {
   // The card is re-mounted in its new column and takes focus; do not send focus back to this trigger.
   const moved = useRef(false);
   return (
     <DropdownMenu.Root onOpenChange={onOpenChange}>
       <DropdownMenu.Trigger asChild>
-        <Button size={touch ? 'icon-touch' : 'icon-sm'} className={cn(touch && TOUCH_ICON)} variant="ghost" aria-label={`Move ${leadName} to stage`} title="Move to stage…">
-          <ArrowRightLeft aria-hidden />
-        </Button>
+        {trigger ?? (
+          <Button size={touch ? 'icon-touch' : 'icon-sm'} className={cn(touch && TOUCH_ICON)} variant="ghost" aria-label={`Move ${leadName} to stage`} title="Move to stage…">
+            <ArrowRightLeft aria-hidden />
+          </Button>
+        )}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content

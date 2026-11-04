@@ -1,15 +1,33 @@
 /*
-  Leads Board depth and motion (SPEC 11.1). Colours come only from design tokens.
+  Leads Board depth and motion (SPEC 11.1) + Tavola Kitchen Orders Visual Design.
   Root (.vb-depth, set on the board and the drag overlay) carries the live config as variables:
   --vb-perspective, --vb-thickness, --vb-neighbour-opacity, --vb-sheen, --vb-hover-lift
   and data attributes: data-depth (full | lite | none), data-sheen (on | off), data-motion
   (full | reduced | flat), data-dim (on | off), data-dragging (while a card is lifted).
 */
 
-.vb-depth {
+:root, .vb-depth {
+  --amber: #ecd29a;
+  --on-amber: #2b2110;
+  --amber-grad: linear-gradient(135deg, #f4e2b8, #e8cc91);
+
+  --ember: #eeb2a3;
+  --on-ember: #2e1813;
+  --ember-grad: linear-gradient(135deg, #f5c8bc, #eaa999);
+
+  --mint: #a8dcc8;
+  --on-mint: #10291f;
+  --mint-grad: linear-gradient(135deg, #c3e9da, #9fd6c1);
+
+  --ink: #3a4767;
+  --on-ink: #eef2fb;
+  --ink-grad: linear-gradient(135deg, #3d4a6c, #263150);
+  --ink-line: #9aa6c2;
+  --r-tile: 18px;
+
   --vb-ink: var(--overlay);
-  --vb-lip: color-mix(in srgb, var(--border-strong) 62%, var(--surface));
-  --vb-lip-edge: var(--border-strong);
+  --vb-lip: transparent;
+  --vb-lip-edge: transparent;
   --vb-highlight: transparent;
   --vb-sheen-hi: transparent;
   --vb-sheen-lo: color-mix(in srgb, var(--surface-3) 80%, transparent);
@@ -20,13 +38,55 @@
 }
 
 [data-theme='dark'] .vb-depth {
-  --vb-lip: color-mix(in srgb, var(--border-strong) 78%, var(--bg));
+  --vb-lip: transparent;
   --vb-highlight: color-mix(in srgb, var(--fg) 9%, transparent);
   --vb-sheen-hi: color-mix(in srgb, var(--fg) 8%, transparent);
   --vb-sheen-lo: transparent;
   --vb-shimmer: color-mix(in srgb, var(--fg) 5%, transparent);
   --vb-shadow-rest: 0 1px 1px color-mix(in srgb, var(--vb-ink) 60%, transparent), 0 3px 8px -2px color-mix(in srgb, var(--vb-ink) 55%, transparent);
   --vb-shadow-hover: 0 1px 2px color-mix(in srgb, var(--vb-ink) 60%, transparent), 0 12px 24px -8px color-mix(in srgb, var(--vb-ink) 80%, transparent);
+}
+
+/* ---------------------------------------------------------------- Tavola Palettes */
+
+.ob-t--amber {
+  --t: var(--amber-grad);
+  --on: var(--on-amber);
+  --tf: var(--amber);
+  --glow: rgba(232, 204, 145, 0.45);
+  --well-on: rgba(255, 255, 255, 0.38);
+  --note-bg: #121a2e;
+  --note-on: #ffffff;
+}
+
+.ob-t--ember {
+  --t: var(--ember-grad);
+  --on: var(--on-ember);
+  --tf: var(--ember);
+  --glow: rgba(234, 169, 153, 0.45);
+  --well-on: rgba(255, 255, 255, 0.32);
+  --note-bg: var(--amber-grad);
+  --note-on: var(--on-amber);
+}
+
+.ob-t--mint {
+  --t: var(--mint-grad);
+  --on: var(--on-mint);
+  --tf: var(--mint);
+  --glow: rgba(159, 214, 193, 0.45);
+  --well-on: rgba(255, 255, 255, 0.32);
+  --note-bg: #121a2e;
+  --note-on: #ffffff;
+}
+
+.ob-t--ink {
+  --t: var(--ink-grad);
+  --on: var(--on-ink);
+  --tf: var(--ink-line);
+  --glow: rgba(0, 0, 0, 0.65);
+  --well-on: rgba(255, 255, 255, 0.12);
+  --note-bg: var(--amber-grad);
+  --note-on: var(--on-amber);
 }
 
 /* ---------------------------------------------------------------- card */
@@ -37,25 +97,28 @@
 
 .vb-lift {
   position: relative;
-  transition: transform var(--duration-fast) var(--easing);
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* Thickness edge: the card's side, visible under the face. */
+/* Thickness edge disabled for sleek Tavola look */
 .vb-lip {
-  position: absolute;
-  inset: var(--vb-thickness, 3px) 0 calc(var(--vb-thickness, 3px) * -1) 0;
-  border-radius: 12px;
-  border: 1px solid var(--vb-lip-edge);
-  background: var(--vb-lip);
-  pointer-events: none;
+  display: none !important;
 }
 
 .vb-face {
-  box-shadow: var(--vb-shadow-rest), inset 0 1px 0 var(--vb-highlight);
+  border-radius: var(--r-tile, 18px);
+  background: var(--t, var(--surface));
+  color: var(--on, var(--fg));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 16px 28px -20px var(--glow, rgba(0, 0, 0, 0.2));
   transition:
-    box-shadow var(--duration-fast) var(--easing),
-    border-color var(--duration-fast) var(--easing),
-    background-color var(--duration-fast) var(--easing);
+    box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ob-t--ink.vb-face,
+.ob-t--ink .vb-face {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 28px -20px rgba(0, 0, 0, 0.6);
 }
 
 /* Specular sheen (follows the pointer on desktop; shifts with tilt on the dragged card). */
@@ -70,19 +133,15 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  [data-depth='full'] .vb-li:hover .vb-lift:not([data-placeholder]) {
-    transform: translate3d(0, -1px, var(--vb-hover-lift, 6px));
+  .vb-li:hover .vb-lift:not([data-placeholder]) {
+    transform: translateY(-2.5px) scale(1.008);
   }
-  [data-depth]:not([data-depth='none']) .vb-li:hover .vb-face:not([data-placeholder]) {
-    box-shadow: var(--vb-shadow-hover), inset 0 1px 0 var(--vb-highlight);
+  .vb-li:hover .vb-face:not([data-placeholder]) {
+    box-shadow: 0 20px 35px -10px var(--glow), 0 0 24px 2px var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
   }
   [data-sheen='on'] .vb-li:hover .vb-face:not([data-placeholder]) .vb-sheen {
     opacity: var(--vb-sheen, 0.6);
   }
-}
-
-[data-depth='lite'] .vb-face {
-  box-shadow: var(--vb-shadow-lite), inset 0 1px 0 var(--vb-highlight);
 }
 
 [data-depth='none'] .vb-lip,
@@ -95,11 +154,103 @@
   box-shadow: none;
 }
 
+/* Tavola Elements inside card */
+.ob-chip {
+  background: var(--well-on);
+  letter-spacing: .01em;
+  white-space: nowrap;
+  border-radius: 999px;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 800;
+  display: inline-flex;
+}
+.ob-chip.is-late {
+  color: #b5523f;
+  background: #ffffff;
+  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.35);
+}
+
+.ob-ch {
+  background: var(--well-on);
+  border-radius: 9px;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  display: grid;
+}
+
+.ob-where {
+  letter-spacing: -.02em;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+  display: flex;
+}
+
+.ob-lines {
+  background: var(--well-on);
+  border-radius: 14px;
+  gap: 4px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  display: grid;
+}
+
+.ob-amt {
+  letter-spacing: -.02em;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.ob-go {
+  white-space: nowrap;
+  border-radius: 999px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 13px 0 11px;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  position: relative;
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.ob-go:hover {
+  box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.45);
+}
+
+.ob-face__more {
+  width: 28px;
+  height: 28px;
+  color: inherit;
+  border: 1px solid color-mix(in srgb, var(--on) 25%, transparent);
+  border-radius: 50%;
+  flex: none;
+  place-items: center;
+  display: grid;
+  transition: background-color 0.15s ease;
+}
+.ob-face__more:hover {
+  background: var(--well-on);
+}
+
 /* Confirmation ring (Web Animations drive opacity/scale; colour set per pulse). */
 .vb-ring {
   position: absolute;
   inset: -3px;
-  border-radius: 15px;
+  border-radius: 20px;
   border: 2px solid currentColor;
   box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 20%, transparent);
   opacity: 0;
@@ -118,6 +269,28 @@
 }
 
 /* ---------------------------------------------------------------- column */
+
+.vb-column {
+  border-radius: 20px;
+  position: relative;
+}
+
+/* Tavola Column Lighting Glow during drag over */
+.vb-column:after {
+  content: "";
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: color-mix(in srgb, var(--t, var(--accent)) 12%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--t, var(--accent)) 75%, transparent), 0 0 40px -8px color-mix(in srgb, var(--t, var(--accent)) 55%, transparent);
+  transition: opacity 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+.vb-column[data-over="true"]:after {
+  opacity: 1;
+}
 
 .vb-list {
   transition: opacity var(--duration-fast) var(--easing);
@@ -149,20 +322,18 @@
 /* ---------------------------------------------------------------- drag overlay */
 
 .vb-ghost {
-  border-radius: 12px;
+  border-radius: var(--r-tile, 18px);
+}
+.vb-ghost .vb-face {
+  border-radius: var(--r-tile, 18px);
+  box-shadow: 0 35px 65px -15px rgba(0, 0, 0, 0.6), 0 0 32px 6px var(--glow), inset 0 0 0 2px rgba(255, 255, 255, 0.8) !important;
 }
 .vb-ghost-shadow {
   position: absolute;
   inset: 0;
-  border-radius: 12px;
-  box-shadow: var(--elevation-drag);
+  border-radius: var(--r-tile, 18px);
+  box-shadow: 0 34px 50px -18px rgba(30, 40, 90, 0.45), 0 10px 20px -10px rgba(30, 40, 90, 0.3);
   pointer-events: none;
-}
-[data-depth='lite'] .vb-ghost-shadow {
-  box-shadow: var(--elevation-2);
-}
-[data-depth='none'] .vb-ghost-shadow {
-  box-shadow: var(--elevation-1);
 }
 .vb-ghost-sheen {
   position: absolute;
@@ -177,7 +348,17 @@
 .vb-deck-layer {
   position: absolute;
   inset: 0;
+  border-radius: var(--r-tile, 18px);
   box-shadow: var(--elevation-1);
+}
+
+/* Placeholder card in column */
+.vb-lift[data-placeholder] .vb-face,
+.vb-face[data-placeholder] {
+  border-radius: var(--r-tile, 18px) !important;
+  background: color-mix(in srgb, var(--tf, #fff) 8%, transparent) !important;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tf, #fff) 45%, transparent) !important;
+  border: 1.5px dashed color-mix(in srgb, var(--tf, #fff) 50%, transparent) !important;
 }
 
 /* ---------------------------------------------------------------- skeleton */

@@ -25,7 +25,7 @@ const BUILD_DEFAULT: DataSource = process.env.NEXT_PUBLIC_DATA_SOURCE === 'mock'
 let cached: DataSource | null = null;
 
 function isProductionHost(): boolean {
-  if (typeof window === 'undefined') return process.env.NODE_ENV === 'production';
+  if (typeof window === 'undefined' || !window.location?.hostname) return process.env.NODE_ENV === 'production';
   const h = window.location.hostname.toLowerCase();
   return (
     h === 'tootodo.com' ||

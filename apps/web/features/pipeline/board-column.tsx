@@ -13,7 +13,7 @@ import { useBoardController, useDragState } from './drag/context';
 import { pulseChip } from './drag/effects';
 import { throttle } from './hooks';
 import { QuickAdd } from './quick-add';
-import { COLUMN_TINT, COUNT_BORDER, STAGE_DOT, stageColorVar } from './tones';
+import { COLUMN_TINT, COUNT_BORDER, STAGE_DOT, getTavolaTheme, stageColorVar } from './tones';
 import { TOUCH_BUTTON, TOUCH_ICON } from './touch';
 import { countOf, useBoardWords } from './words';
 
@@ -55,7 +55,7 @@ export interface BoardColumnProps {
 }
 
 /** Count chip: ticks to the new count and pulses when a card enters or leaves, or a drag hovers. */
-function CountChip({ count, isOver, tone, pulses, tickMs, pulseMs }: { count: number; isOver: boolean; tone: keyof typeof COUNT_BORDER; pulses: boolean; tickMs: number; pulseMs: number }) {
+function CountChip({ count, isOver, pulses, tickMs, pulseMs }: { count: number; isOver: boolean; pulses: boolean; tickMs: number; pulseMs: number }) {
   const words = useBoardWords();
   const ref = useRef<HTMLSpanElement>(null);
   const prev = useRef({ count, isOver });
@@ -71,7 +71,7 @@ function CountChip({ count, isOver, tone, pulses, tickMs, pulseMs }: { count: nu
     <span
       ref={ref}
       data-count={count}
-      className={cn('inline-flex shrink-0 rounded-full border bg-surface px-1.5 text-2xs leading-4 font-semibold text-fg-secondary tabular', COUNT_BORDER[tone])}
+      className="inline-grid min-w-[24px] h-[22px] place-items-center rounded-full bg-white/10 dark:bg-black/25 px-2 text-xs font-bold text-fg tabular"
     >
       <AnimatedNumber value={count} format={formatCount} durationMs={tickMs} animate={pulses} />
       <span className="sr-only"> {countOf(count, words)}</span>
@@ -169,9 +169,17 @@ export const BoardColumn = memo(function BoardColumn({
     instructionsId,
     enter: enter && { base: enter.base + enter.step, step: enter.step },
   };
+  const stageIndex = stages.findIndex((s) => s.id === stage.id);
+  const tavolaTheme = getTavolaTheme(stageIndex, stage);
   const remaining = Math.max(1, count - leads.length);
   const sharePct = Math.round(valueShare * 100);
-  const style = { '--vb-stage': stageColorVar(stage, tone), '--vn-edge': edge, ...(enter ? { animationDelay: `${enter.base}ms` } : {}) } as CSSProperties;
+  const style = {
+    '--t': tavolaTheme.accent,
+    '--glow': tavolaTheme.glow,
+    '--vb-stage': tavolaTheme.accent,
+    '--vn-edge': edge,
+    ...(enter ? { animationDelay: `${enter.base}ms` } : {}),
+  } as CSSProperties;
 
   return (
     <section
@@ -183,49 +191,56 @@ export const BoardColumn = memo(function BoardColumn({
       style={style}
       className={cn(
         // Width only (D-066): 288 px minimum from md, growing to share the board's width so wide screens have no empty band.
-        'vb-column relative flex w-[85vw] max-w-[320px] shrink-0 snap-start flex-col rounded-lg border md:w-[288px] md:max-w-none md:grow',
-        'transition-[box-shadow,background-color] duration-150 ease-standard',
-        COLUMN_TINT[tone],
+        'vb-column relative flex w-[85vw] max-w-[320px] shrink-0 snap-start flex-col rounded-[22px] border border-white/10 dark:border-white/5 bg-surface/50 dark:bg-[#0c1428]/70 backdrop-blur-md md:w-[292px] md:max-w-none md:grow',
+        'transition-[box-shadow,background-color] duration-200 ease-standard',
         enter && 'vb-enter',
-        // Soft target highlight; the dashed slot placeholder marks the exact drop position.
-        isOver && 'ring-2 ring-accent/50',
       )}
     >
-      <header className={cn('flex flex-col gap-1 pr-1.5 pl-3', compact ? 'pt-1 pb-1' : 'pt-2 pb-1.5')}>
+      <header className={cn('flex flex-col gap-1.5 pr-2 pl-3', compact ? 'pt-1.5 pb-1' : 'pt-2.5 pb-2')}>
         <div className="flex items-center gap-2">
-          <span aria-hidden className={cn('vb-dot size-2 shrink-0 rounded-full', STAGE_DOT[tone])} />
-          <h3 id={titleId} className="min-w-0 truncate text-sm font-semibold text-fg">
+          {/* Tavola glowing dot */}
+          <span
+            aria-hidden
+            className="size-3 shrink-0 rounded-full"
+            style={{
+              backgroundColor: tavolaTheme.accent,
+              boxShadow: `0 0 0 4px color-mix(in srgb, ${tavolaTheme.accent} 22%, transparent), 0 0 14px color-mix(in srgb, ${tavolaTheme.accent} 70%, transparent)`,
+            }}
+          />
+          <h3 id={titleId} className="min-w-0 truncate text-[15px] font-bold tracking-tight text-fg">
             {stage.name}
           </h3>
-          <CountChip count={count} isOver={isOver} tone={tone} pulses={pulses} tickMs={numberTickMs} pulseMs={countPulseMs} />
+          <CountChip count={count} isOver={isOver} pulses={pulses} tickMs={numberTickMs} pulseMs={countPulseMs} />
           <span
             data-column-total=""
-            className="ml-auto shrink-0 text-xs font-medium text-muted-strong tabular"
+            className="ml-auto shrink-0 text-xs font-bold text-muted tabular"
             title={`${formatInr(totalValueInr)} · ${sharePct}% of pipeline value`}
           >
             <span className="sr-only">Total value </span>
             <AnimatedNumber value={totalValueInr} format={formatTotal} durationMs={numberTickMs} animate={pulses} />
-            <span className="sr-only">, {sharePct}% of pipeline value</span>
           </span>
           {canCreate ? (
             <Button
               ref={addRef}
               size={compact ? 'icon-touch' : 'icon-sm'}
-              className={cn(compact && TOUCH_ICON)}
+              className={cn('size-7 rounded-full text-muted hover:text-fg hover:bg-white/10', compact && TOUCH_ICON)}
               variant="ghost"
               aria-label={`Add ${words.oneLower} to ${stage.name}`}
               aria-expanded={adding}
               onClick={() => setAdding(true)}
             >
-              <Plus aria-hidden />
+              <Plus aria-hidden className="size-4" />
             </Button>
           ) : (
             <span aria-hidden className="w-1.5" />
           )}
         </div>
         {/* Share of the pipeline's value (transform only). */}
-        <div aria-hidden className="vb-share-track mr-1.5 h-0.5 overflow-hidden rounded-full">
-          <div className="vb-share h-full rounded-full" style={{ transform: `scaleX(${valueShare})` }} />
+        <div aria-hidden className="mr-1.5 h-1 overflow-hidden rounded-full bg-white/10 dark:bg-black/20">
+          <div
+            className="h-full rounded-full transition-transform duration-500 ease-out"
+            style={{ transform: `scaleX(${valueShare})`, backgroundColor: tavolaTheme.accent, transformOrigin: 'left' }}
+          />
         </div>
       </header>
 

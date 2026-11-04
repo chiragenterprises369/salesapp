@@ -2,11 +2,21 @@
 
 import { useSpringValue } from '@react-spring/web';
 import { formatInr, type LeadListItem, type Stage } from '@vistar/shared';
-import { CalendarClock, Check, UserRound } from 'lucide-react';
+import {
+  ArrowRight,
+  Building2,
+  CalendarClock,
+  Check,
+  CheckCircle2,
+  MessageCircle,
+  MoreHorizontal,
+  Phone,
+  UserRound,
+  Zap,
+} from 'lucide-react';
 import { memo, useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { LeadQuickActions, useLeadActions } from '@/components/leads-shared/lead-actions';
+import { useLeadActions } from '@/components/leads-shared/lead-actions';
 import { Avatar } from '@/components/ui/avatar';
-import { Chip } from '@/components/ui/chip';
 import { cn } from '@/lib/cn';
 import { useLeadsViewState } from '@/lib/leads/state';
 import { useBoardController, useDragState } from './drag/context';
@@ -15,16 +25,27 @@ import type { CardHandle, DragState } from './drag/types';
 import { followUpLabel } from './hooks';
 import { MoveMenu } from './move-menu';
 import { isOverdue } from './skins/skin-model';
-import { TEMPERATURE_DOT, TEMPERATURE_NAME } from './tones';
-import { TOUCH_CHILDREN } from './touch';
+import { getTavolaTheme, type TavolaTone } from './tones';
 import { useBoardWords } from './words';
 
-/** Width one touch action takes in compact cards (44 px button + 2 px gap). */
-const TOUCH_ACTION_WIDTH = 46;
+/** Formats a relative time string (e.g. 12 min, 2h, 3d) */
+function formatAge(dateStr: string, now: number): string {
+  const ms = Math.max(0, now - new Date(dateStr).getTime());
+  const mins = Math.floor(ms / (1000 * 60));
+  if (mins < 60) return `${Math.max(1, mins)} min`;
+  const hours = Math.floor(mins / (1000 * 60 * 60));
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / (1000 * 60 * 60 * 24));
+  return `${days}d`;
+}
 
 /** Card face shared by the real card and the drag ghost. */
-export function cardSurface(compact: boolean): string {
-  return cn('relative flex flex-col rounded-lg border border-border bg-surface text-left', compact ? 'gap-1 p-2.5' : 'gap-1.5 p-3');
+export function cardSurface(compact: boolean, themeClass: string = 'ob-t--amber'): string {
+  return cn(
+    'relative flex flex-col rounded-[18px] text-left transition-all duration-200',
+    themeClass,
+    compact ? 'gap-1.5 p-3' : 'gap-2.5 p-3.5',
+  );
 }
 
 export interface LeadCardBodyProps {
@@ -33,111 +54,185 @@ export interface LeadCardBodyProps {
   now: number;
   selectMode?: boolean;
   selected?: boolean;
-  /** Compact cards reserve room on the meta row for always-visible touch actions. */
+  theme?: TavolaTone;
+  stageIndex?: number;
+  stage?: Stage;
+  stages?: readonly Stage[];
+  onQuickAction?: () => void;
+  onMove?: (toStageId: string) => void;
+  onOpenChange?: (open: boolean) => void;
   reserveActions?: number;
   nameId?: string;
   detailsId?: string;
 }
 
-function Owner({ lead }: { lead: LeadListItem }) {
-  if (lead.owner) {
-    return (
-      <span className="flex shrink-0 items-center" title={`Owner: ${lead.owner.name}`}>
-        <span className="sr-only">Owner</span>
-        <Avatar name={lead.owner.name} size="xs" />
-      </span>
-    );
-  }
-  return (
-    <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-dashed border-border-strong text-muted" title="Unassigned">
-      <UserRound aria-hidden className="size-3" />
-      <span className="sr-only">Unassigned</span>
-    </span>
-  );
-}
-
-function Tags({ tags, max }: { tags: readonly string[]; max: number }) {
-  if (tags.length === 0) return null;
-  const shown = tags.slice(0, max);
-  const more = tags.length - shown.length;
-  return (
-    <span className="flex min-w-0 items-center gap-1 overflow-hidden" data-lead-tags="">
-      <span className="sr-only">Tags:</span>
-      {shown.map((t) => (
-        <Chip key={t} className="max-w-36 min-w-0 shrink">
-          <span className="truncate">{t}</span>
-        </Chip>
-      ))}
-      {more > 0 && (
-        <Chip>
-          <span aria-hidden>+{more}</span>
-          <span className="sr-only">and {more} more</span>
-        </Chip>
-      )}
-    </span>
-  );
-}
-
-/** Card content (name, company, value, owner, tags, follow-up, temperature). Presentational. */
-export function LeadCardBody({ lead, compact, now, selectMode = false, selected = false, reserveActions = 0, nameId, detailsId }: LeadCardBodyProps) {
-  const words = useBoardWords();
-  const temperature = `${TEMPERATURE_NAME[lead.temperature]} ${words.oneLower}`;
+/** Card content styled identically to Tavola Kitchen Orders */
+export function LeadCardBody({
+  lead,
+  compact,
+  now,
+  selectMode = false,
+  selected = false,
+  theme = 'amber',
+  stage,
+  stages,
+  onQuickAction,
+  onMove,
+  onOpenChange,
+  nameId,
+  detailsId,
+}: LeadCardBodyProps) {
+  // Tavola ticket ID sequence: #1070 style
+  const leadSeq = lead.id.replace(/\D/g, '').slice(-4).padStart(4, '0') || lead.id.slice(0, 4).toUpperCase();
   const followUp = lead.nextFollowUpAt ? followUpLabel(lead.nextFollowUpAt, now) : null;
-  const followUpEl = followUp && (
-    <span data-lead-followup="" className={cn('flex min-w-0 items-center gap-1 text-xs', followUp.overdue ? 'font-medium text-danger-text' : 'text-muted')}>
-      <CalendarClock aria-hidden className="size-3.5 shrink-0" />
-      <span aria-hidden className="truncate">
-        {followUp.text}
-      </span>
-      <span className="sr-only">{followUp.spoken}</span>
-    </span>
-  );
+
+  // Decide action icon and label depending on stage tone (paralleling Fire / Mark ready / Served / Paid)
+  let ActionIcon = Zap;
+  let actionLabel = 'Call';
+  if (theme === 'amber') {
+    ActionIcon = Zap;
+    actionLabel = lead.phone ? 'Quick Call' : 'Contact';
+  } else if (theme === 'ember') {
+    ActionIcon = MessageCircle;
+    actionLabel = lead.phone ? 'WhatsApp' : 'Follow Up';
+  } else if (theme === 'mint') {
+    ActionIcon = ArrowRight;
+    actionLabel = 'Advance';
+  } else if (theme === 'ink') {
+    ActionIcon = CheckCircle2;
+    actionLabel = stage?.type === 'won' ? 'Closed' : 'Done';
+  }
+
   return (
     <>
-      <div className="relative flex items-start gap-2">
-        {selectMode && (
+      {/* TOP ROW: #ID badge, Time pill, Selection / More actions menu */}
+      <div className="flex items-center gap-2">
+        {selectMode ? (
           <span
             aria-hidden
             className={cn(
-              'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-xs border',
-              selected ? 'border-accent bg-accent text-accent-fg' : 'border-input bg-surface',
+              'flex size-5 shrink-0 items-center justify-center rounded-md border text-xs font-bold transition-all',
+              selected ? 'border-white bg-white text-slate-900 shadow-sm' : 'border-current/30 bg-[var(--well-on)] text-transparent',
             )}
           >
-            {selected && <Check className="size-3" strokeWidth={3} />}
+            {selected && <Check className="size-3.5 stroke-[3]" />}
+          </span>
+        ) : (
+          <span className="ob-chip tabular-nums">#{leadSeq}</span>
+        )}
+
+        {followUp ? (
+          <span className={cn('ob-chip', followUp.overdue && 'is-late')}>
+            <CalendarClock className="size-3.5" />
+            <span>{followUp.text}</span>
+          </span>
+        ) : (
+          <span className="ob-chip">
+            <span>⏱ {formatAge(lead.createdAt, now)}</span>
           </span>
         )}
-        <span aria-hidden title={temperature} className={cn('mt-1.5 size-2 shrink-0 rounded-full', TEMPERATURE_DOT[lead.temperature])} />
-        <span id={nameId} data-lead-name="" className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
+
+        {/* Three-dots menu for Move to Stage and other actions */}
+        {stages && stages.length > 0 && onMove && !selectMode && (
+          <div className="ml-auto flex items-center">
+            <MoveMenu
+              leadName={lead.name}
+              stageId={stage?.id ?? lead.stageId}
+              stages={stages}
+              touch={compact}
+              onMove={onMove}
+              onOpenChange={onOpenChange}
+              trigger={
+                <button
+                  type="button"
+                  onClick={(e) => e.stopPropagation()}
+                  className="ob-face__more flex size-7 shrink-0 items-center justify-center rounded-full border border-current/25 hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+                  aria-label={`Options for ${lead.name}`}
+                >
+                  <MoreHorizontal className="size-4" />
+                </button>
+              }
+            />
+          </div>
+        )}
+      </div>
+
+      {/* SUBJECT / TITLE ROW: Left Squircle pill with icon + Large bold Contact Name */}
+      <div className="flex items-center gap-2.5">
+        <div className="ob-ch">
+          {lead.companyName ? <Building2 className="size-4" /> : <UserRound className="size-4" />}
+        </div>
+        <span id={nameId} data-lead-name="" className="ob-where truncate">
           {lead.name}
         </span>
-        <span data-lead-value="" className="shrink-0 text-sm font-semibold text-fg tabular">
-          {formatInr(lead.valueInr, { compact: true })}
-        </span>
       </div>
-      <div id={detailsId} className={cn('relative flex min-w-0 flex-col', compact ? 'gap-1' : 'gap-1.5')}>
-        <span className="sr-only">{temperature}.</span>
-        {compact ? (
-          <div className="flex min-w-0 items-center gap-2">
-            <span data-lead-company="" className="min-w-0 flex-1 truncate text-xs text-muted">
+
+      {/* INNER ITEMS BOX (.ob-lines): Company, Phone, Tags, Notes */}
+      <div id={detailsId} className="ob-lines">
+        {lead.companyName && (
+          <div className="flex items-center gap-1.5 truncate opacity-90">
+            <Building2 className="size-3.5 shrink-0 opacity-70" />
+            <span data-lead-company="" className="truncate font-semibold">
               {lead.companyName}
             </span>
-            {followUpEl}
           </div>
-        ) : (
-          lead.companyName && (
-            <p data-lead-company="" className="truncate text-xs text-muted">
-              {lead.companyName}
-            </p>
-          )
         )}
-        {!compact && lead.tags.length > 0 && <Tags tags={lead.tags} max={2} />}
-        <div
-          className={cn('flex min-w-0 items-center gap-1.5', compact ? (reserveActions ? 'h-[44px]' : 'h-6') : 'h-7')}
-          style={reserveActions ? { paddingRight: reserveActions * TOUCH_ACTION_WIDTH } : undefined}
-        >
-          <Owner lead={lead} />
-          {compact ? <Tags tags={lead.tags} max={1} /> : followUpEl}
+        {lead.phone && (
+          <div className="flex items-center gap-1.5 truncate opacity-85">
+            <Phone className="size-3.5 shrink-0 opacity-70" />
+            <span className="truncate tabular font-medium">{lead.phone}</span>
+          </div>
+        )}
+        {lead.tags && lead.tags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mt-0.5">
+            {lead.tags.slice(0, 2).map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-black/10 dark:bg-white/10 text-[11px] font-bold"
+              >
+                {tag}
+              </span>
+            ))}
+            {lead.tags.length > 2 && (
+              <span className="text-[11px] font-bold opacity-75">+{lead.tags.length - 2}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* FOOTER ROW: Owner Avatar + Bold INR Amount on Left; Quick Action Pill (.ob-go) on Right */}
+      <div className="flex items-center justify-between gap-2 pt-0.5">
+        <div className="flex items-center gap-2 min-w-0">
+          {lead.owner ? (
+            <Avatar name={lead.owner.name} size="xs" className="ring-2 ring-white/60 shrink-0" />
+          ) : (
+            <span className="size-6 shrink-0 rounded-full border border-dashed border-current/40 flex items-center justify-center text-2xs opacity-75">
+              ?
+            </span>
+          )}
+          <span data-lead-value="" className="ob-amt truncate tabular-nums">
+            {formatInr(lead.valueInr, { compact: true })}
+          </span>
         </div>
+
+        {onQuickAction && !selectMode && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onQuickAction();
+            }}
+            className={cn(
+              'ob-go flex items-center gap-1.5 rounded-full font-bold transition-transform hover:scale-105 active:scale-95',
+              compact ? 'h-7 px-3 text-[11px]' : 'h-8 px-3.5 text-xs',
+              theme === 'amber' ? 'bg-[#2b2110] text-white hover:bg-black' : 'bg-white text-slate-900 hover:bg-slate-100',
+            )}
+            title={actionLabel}
+          >
+            <ActionIcon className="size-3.5 stroke-[2.5]" />
+            <span>{actionLabel}</span>
+          </button>
+        )}
       </div>
     </>
   );
@@ -168,31 +263,22 @@ export interface BoardCardProps {
   stageId: string;
   index: number;
   compact: boolean;
-  /** Pointer and keyboard drag (leads.update; in select mode, pointer drags carry the selection). */
   canDrag: boolean;
-  /** "Move to stage..." menu (leads.update). */
   canMove: boolean;
   selectMode: boolean;
-  /** Call / WhatsApp / note quick actions. */
   showQuick: boolean;
-  /** Compact or coarse pointer: actions always visible (no hover to reveal them). */
   alwaysShowActions: boolean;
   stages: readonly Stage[];
   now: number;
-  /** Id of the hidden instructions for this mode (aria-describedby). */
   instructionsId?: string;
-  /** Entrance animation delay (ms), first load only. */
   enterDelay?: number;
-  /** Virtual lists only. */
   virtualStart?: number;
   measure?: (el: Element | null) => void;
   setSize?: number;
 }
 
 /**
- * Board card: a thick card (thickness edge, layered shadows, 1 px top highlight, pointer sheen)
- * that lifts slightly on hover. Memoised: during a drag it never re-renders (neighbour nudges are
- * springs on `y`); only the dragged card re-renders to become a placeholder.
+ * Board card: Tavola Order style card with ambient glow, hover elevation, and interactive action button.
  */
 export const BoardCard = memo(function BoardCard({
   lead,
@@ -200,10 +286,10 @@ export const BoardCard = memo(function BoardCard({
   index,
   compact,
   canDrag,
-  canMove,
+  canMove: _canMove,
   selectMode,
-  showQuick,
-  alwaysShowActions,
+  showQuick: _showQuick,
+  alwaysShowActions: _alwaysShowActions,
   stages,
   now,
   instructionsId,
@@ -218,15 +304,13 @@ export const BoardCard = memo(function BoardCard({
   const selected = useLeadsViewState((s) => s.selectedIds.has(lead.id));
   const toggleSelected = useLeadsViewState((s) => s.toggleSelected);
   const nudgeRef = useRef<HTMLDivElement>(null);
-  // The nudge transform is written imperatively (spring frames here, instant changes in the
-  // controller), never through React props, so a re-render can never restore a stale value.
   const y = useSpringValue(0, {
     onChange: (r: { value: number }) => writeNudge(nudgeRef.current, r.value),
     onRest: (r: { value: number }) => writeNudge(nudgeRef.current, r.value),
   });
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [_hovered, setHovered] = useState(false);
+  const [_focused, setFocused] = useState(false);
+  const [_menuOpen, setMenuOpen] = useState(false);
   const liRef = useRef<HTMLLIElement | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLSpanElement>(null);
@@ -250,7 +334,6 @@ export const BoardCard = memo(function BoardCard({
     return () => ctrl.unregisterCard(h);
   }, [ctrl, lead.id, stageId, y]);
 
-  // Virtual rows: keep the rest position fresh (used when the card leaves this column).
   useLayoutEffect(() => {
     if (virtualStart !== undefined && liRef.current) ctrl.setRestTop(lead.id, liRef.current, virtualStart);
   }, [ctrl, lead.id, virtualStart]);
@@ -276,15 +359,28 @@ export const BoardCard = memo(function BoardCard({
   };
 
   const isPlaceholder = placeholder !== 'none';
-  // Desktop hover actions mount on demand (hover, focus, open menu): hidden-but-mounted buttons on
-  // every card cost real paint/layerize time while dragging. Touch layouts always show them.
-  const engaged = alwaysShowActions || hovered || focused || menuOpen;
-  const showActions = engaged && !selectMode && !isPlaceholder && (showQuick || canMove);
-  const actionCount = (showQuick ? 3 : 0) + (canMove ? 1 : 0);
   const virtual = virtualStart !== undefined;
-  // Neon Space pulses (painted only by that skin): hot leads breathe, overdue follow-ups get a red edge.
   const hot = lead.temperature === 'hot';
   const overdue = isOverdue(lead, stages.find((s) => s.id === stageId)?.type, now);
+
+  const stageIndex = stages.findIndex((s) => s.id === stageId);
+  const currentStage = stages[stageIndex];
+  const tavolaTheme = getTavolaTheme(stageIndex, currentStage);
+
+  const onQuickAction = () => {
+    if (stageIndex === 0 && lead.phone) {
+      actions.call(lead);
+    } else if (stageIndex === 1 && lead.phone) {
+      actions.whatsapp(lead);
+    } else if (stageIndex < stages.length - 1) {
+      const nextStage = stages[stageIndex + 1];
+      if (nextStage) {
+        ctrl.moveToStage(lead, stageId, nextStage.id);
+      }
+    } else {
+      actions.open(lead);
+    }
+  };
 
   return (
     <li
@@ -295,18 +391,13 @@ export const BoardCard = memo(function BoardCard({
       aria-posinset={virtual ? index + 1 : undefined}
       className={cn('vb-li relative', virtual && 'absolute inset-x-0 top-0')}
       style={virtual ? { transform: `translateY(${virtualStart}px)` } : undefined}
-      onPointerEnter={alwaysShowActions ? undefined : () => setHovered(true)}
-      onPointerLeave={alwaysShowActions ? undefined : () => setHovered(false)}
-      onFocus={alwaysShowActions ? undefined : () => setFocused(true)}
-      onBlur={
-        alwaysShowActions
-          ? undefined
-          : (e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
-            }
-      }
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
+      }}
     >
-      {/* Vertical nudge (neighbours making room, FLIP); transform written by writeNudge only. */}
       <div ref={nudgeRef} className="relative">
         <div
           className={cn('vb-lift relative', enterDelay !== undefined && 'vb-enter')}
@@ -321,8 +412,6 @@ export const BoardCard = memo(function BoardCard({
             tabIndex={0}
             aria-checked={selectMode ? selected : undefined}
             aria-roledescription={canDrag ? 'draggable card' : undefined}
-            // Name from content (name, value, company, owner, follow-up): it then always contains
-            // the visible text (WCAG 2.5.3 Label in Name), and nothing is read twice.
             aria-describedby={instructionsId}
             data-placeholder={isPlaceholder ? placeholder : undefined}
             onPointerDown={canDrag ? onPointerDown : undefined}
@@ -331,11 +420,11 @@ export const BoardCard = memo(function BoardCard({
             onKeyDown={onKeyDown}
             onBlur={() => ctrl.blur(lead.id)}
             className={cn(
-              cardSurface(compact),
+              cardSurface(compact, tavolaTheme.cardClass),
               'vb-face outline-none select-none [-webkit-touch-callout:none]',
               canDrag ? 'cursor-grab touch-manipulation' : 'cursor-pointer',
               !isPlaceholder && 'focus-ring',
-              !isPlaceholder && (selected ? 'border-accent ring-1 ring-accent' : 'hover:border-border-strong'),
+              !isPlaceholder && (selected ? 'ring-2 ring-white shadow-lg' : ''),
               isPlaceholder && 'border-transparent bg-transparent outline-2 -outline-offset-2 outline-dashed [&>*]:invisible',
               (placeholder === 'origin' || placeholder === 'deck') && 'outline-border-strong',
               placeholder === 'target' && 'bg-accent-soft/50 outline-accent',
@@ -348,32 +437,17 @@ export const BoardCard = memo(function BoardCard({
               now={now}
               selectMode={selectMode}
               selected={selected}
-              reserveActions={compact && !selectMode ? actionCount : 0}
+              theme={tavolaTheme.tone}
+              stageIndex={stageIndex}
+              stage={currentStage}
+              stages={stages}
+              onQuickAction={onQuickAction}
+              onMove={(to) => ctrl.moveToStage(lead, stageId, to)}
+              onOpenChange={setMenuOpen}
             />
           </div>
           {overdue && <span aria-hidden className="vb-overdue-edge" data-overdue="" />}
           <span ref={ringRef} aria-hidden className="vb-ring" />
-          {showActions && (
-            <div
-              className={cn(
-                'vb-actions absolute flex items-center gap-0.5 rounded-md bg-surface',
-                compact ? 'right-2.5 bottom-2.5' : 'right-2 bottom-2',
-                !alwaysShowActions && 'vb-actions-in',
-              )}
-            >
-              {showQuick && <LeadQuickActions lead={lead} size={compact ? 'touch' : 'sm'} className={cn(compact && TOUCH_CHILDREN)} />}
-              {canMove && (
-                <MoveMenu
-                  leadName={lead.name}
-                  stageId={stageId}
-                  stages={stages}
-                  touch={compact}
-                  onOpenChange={setMenuOpen}
-                  onMove={(to) => ctrl.moveToStage(lead, stageId, to)}
-                />
-              )}
-            </div>
-          )}
         </div>
       </div>
     </li>

@@ -1,20 +1,33 @@
 'use client';
 
 import { animated, to, useSpringValue } from '@react-spring/web';
-import { formatNumber } from '@vistar/shared';
+import { formatNumber, type Stage } from '@vistar/shared';
 import { useCallback, useEffect, useLayoutEffect, type CSSProperties } from 'react';
 import { DragOverlayPortal, springConfig } from '@/features/shared/physics';
 import { cn } from '@/lib/cn';
 import { useBoardController, useDragState } from './drag/context';
 import type { Flight } from './drag/types';
 import { cardSurface, LeadCardBody } from './lead-card';
+import { getTavolaTheme } from './tones';
 
 /**
  * Fixed overlay above the page: the lifted card while dragging (depth, tilt, moving shadow, sheen
  * that shifts with tilt, optional deck stack) and cards flying along an arc (realtime moves, menu
  * moves, rollbacks). Pointer events pass through; all motion is transform/opacity only.
  */
-export function DragLayer({ compact, now, rootStyle, depthAttrs }: { compact: boolean; now: number; rootStyle: CSSProperties; depthAttrs: Record<string, string> }) {
+export function DragLayer({
+  compact,
+  now,
+  rootStyle,
+  depthAttrs,
+  stages,
+}: {
+  compact: boolean;
+  now: number;
+  rootStyle: CSSProperties;
+  depthAttrs: Record<string, string>;
+  stages?: readonly Stage[];
+}) {
   const ctrl = useBoardController();
   const active = useDragState((s) => s.active);
   const flights = useDragState((s) => s.flights);
@@ -36,11 +49,15 @@ export function DragLayer({ compact, now, rootStyle, depthAttrs }: { compact: bo
   const liftZ = ctrl.physics.liftZ;
   const deck = active?.deck.length ?? 0;
 
+  const activeStageIndex = stages && active ? stages.findIndex((s) => s.id === active.fromStageId) : 0;
+  const activeStage = stages && activeStageIndex >= 0 ? stages[activeStageIndex] : undefined;
+  const activeTavolaTheme = getTavolaTheme(activeStageIndex, activeStage);
+
   return (
     <DragOverlayPortal className="vb-depth vb-overlay" style={rootStyle}>
       <div className="contents" {...depthAttrs}>
         {flights.map((f) => (
-          <FlightGhost key={f.key} flight={f} compact={compact} now={now} onDone={onFlightDone} />
+          <FlightGhost key={f.key} flight={f} compact={compact} now={now} onDone={onFlightDone} stages={stages} />
         ))}
         {active && (
           <animated.div
@@ -59,8 +76,18 @@ export function DragLayer({ compact, now, rootStyle, depthAttrs }: { compact: bo
             />
             {deck > 0 && (
               <>
-                {deck > 1 && <div aria-hidden className={cn('vb-deck-layer', cardSurface(compact))} style={{ transform: 'translate3d(8px, 8px, 0) rotate(2.5deg)' }} />}
-                <div aria-hidden className={cn('vb-deck-layer', cardSurface(compact))} style={{ transform: 'translate3d(4px, 4px, 0) rotate(1.2deg)' }} />
+                {deck > 1 && (
+                  <div
+                    aria-hidden
+                    className={cn('vb-deck-layer', cardSurface(compact, activeTavolaTheme.cardClass))}
+                    style={{ transform: 'translate3d(8px, 8px, 0) rotate(2.5deg)' }}
+                  />
+                )}
+                <div
+                  aria-hidden
+                  className={cn('vb-deck-layer', cardSurface(compact, activeTavolaTheme.cardClass))}
+                  style={{ transform: 'translate3d(4px, 4px, 0) rotate(1.2deg)' }}
+                />
               </>
             )}
             <animated.div
@@ -74,13 +101,21 @@ export function DragLayer({ compact, now, rootStyle, depthAttrs }: { compact: bo
               }}
             >
               <div aria-hidden className="vb-lip" />
-              <div className={cn(cardSurface(compact), 'vb-face h-full overflow-hidden', active.mode === 'keyboard' && 'ring-2 ring-ring')}>
+              <div className={cn(cardSurface(compact, activeTavolaTheme.cardClass), 'vb-face h-full overflow-hidden shadow-2xl', active.mode === 'keyboard' && 'ring-2 ring-ring')}>
                 <animated.span
                   aria-hidden
                   className="vb-ghost-sheen"
                   style={{ transform: to([rx, ry], (a, b) => `translate3d(${b * 4}%, ${-a * 4}%, 0)`) }}
                 />
-                <LeadCardBody lead={active.lead} compact={compact} now={now} />
+                <LeadCardBody
+                  lead={active.lead}
+                  compact={compact}
+                  now={now}
+                  theme={activeTavolaTheme.tone}
+                  stageIndex={activeStageIndex}
+                  stage={activeStage}
+                  stages={stages}
+                />
               </div>
               {deck > 0 && (
                 <span className="absolute -top-2.5 -right-2.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-fg shadow-raised tabular">
@@ -96,7 +131,19 @@ export function DragLayer({ compact, now, rootStyle, depthAttrs }: { compact: bo
 }
 
 /** A card travelling from `from` to `to` along an arc (spring on progress, slight lean). */
-function FlightGhost({ flight, compact, now, onDone }: { flight: Flight; compact: boolean; now: number; onDone: (key: string) => void }) {
+function FlightGhost({
+  flight,
+  compact,
+  now,
+  onDone,
+  stages,
+}: {
+  flight: Flight;
+  compact: boolean;
+  now: number;
+  onDone: (key: string) => void;
+  stages?: readonly Stage[];
+}) {
   const ctrl = useBoardController();
   const { key, from, to: dest, kind } = flight;
   const t = useSpringValue(0);
@@ -104,7 +151,6 @@ function FlightGhost({ flight, compact, now, onDone }: { flight: Flight; compact
   const dx = dest.x - from.x;
   const dy = dest.y - from.y;
   const dist = Math.hypot(dx, dy);
-  // Higher arcs for longer trips; a within-column hop barely lifts.
   const arc = Math.min(ctrl.physics.arcHeight, dist * 0.35) * (Math.abs(dx) > 8 ? 1 : 0.4);
   const lean = Math.sign(dx) * Math.min(4, Math.abs(dx) / 120);
 
@@ -120,6 +166,10 @@ function FlightGhost({ flight, compact, now, onDone }: { flight: Flight; compact
       window.clearTimeout(timer);
     };
   }, [key, t, ctrl, onDone]);
+
+  const flightStageIndex = stages ? stages.findIndex((s) => s.id === flight.lead.stageId) : 0;
+  const flightStage = stages && flightStageIndex >= 0 ? stages[flightStageIndex] : undefined;
+  const flightTavolaTheme = getTavolaTheme(flightStageIndex, flightStage);
 
   return (
     <animated.div
@@ -139,8 +189,16 @@ function FlightGhost({ flight, compact, now, onDone }: { flight: Flight; compact
       <animated.div aria-hidden className="vb-ghost-shadow" style={{ opacity: t.to((p) => 0.35 + 0.65 * Math.sin(Math.PI * Math.min(1, Math.max(0, p)))) }} />
       <div className="vb-ghost absolute inset-0">
         <div aria-hidden className="vb-lip" />
-        <div className={cn(cardSurface(compact), 'vb-face h-full overflow-hidden', kind === 'rollback' && 'border-danger')}>
-          <LeadCardBody lead={flight.lead} compact={compact} now={now} />
+        <div className={cn(cardSurface(compact, flightTavolaTheme.cardClass), 'vb-face h-full overflow-hidden', kind === 'rollback' && 'border-danger')}>
+          <LeadCardBody
+            lead={flight.lead}
+            compact={compact}
+            now={now}
+            theme={flightTavolaTheme.tone}
+            stageIndex={flightStageIndex}
+            stage={flightStage}
+            stages={stages}
+          />
         </div>
       </div>
     </animated.div>

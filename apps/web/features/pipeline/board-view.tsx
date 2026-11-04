@@ -343,7 +343,7 @@ export function BoardView({ pipelineId, density = 'default', devCommit, quality:
                   ))}
                 </div>
               </div>
-              <DragLayer compact={compact} now={now} rootStyle={rootStyle} depthAttrs={depthAttrs} />
+              <DragLayer compact={compact} now={now} rootStyle={rootStyle} depthAttrs={depthAttrs} stages={stages} />
               <ActionsSheet
                 target={sheet}
                 stages={stages}
