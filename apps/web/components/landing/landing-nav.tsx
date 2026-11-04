@@ -25,14 +25,17 @@ export function LandingNav() {
     <header className="fixed top-0 right-0 left-0 z-50 border-b border-transparent bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-indigo-600">
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 shadow-sm">
             <svg viewBox="0 0 32 32" className="size-5">
               <path d="M9 10.5 16 22l7-11.5" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               <circle cx="23" cy="10.5" r="2" fill="#FFFFFF" />
             </svg>
           </div>
-          <span className="text-[18px] font-bold tracking-tight text-gray-900">Tootodo</span>
+          <div className="flex flex-col">
+            <span className="text-[17px] font-bold tracking-tight text-gray-900 leading-none">Tootodo</span>
+            <span className="text-[10px] font-semibold text-indigo-600 tracking-wider uppercase mt-1 leading-none">Sales CRM</span>
+          </div>
         </Link>
 
         {/* Desktop nav */}
