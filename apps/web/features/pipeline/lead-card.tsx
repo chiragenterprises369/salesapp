@@ -14,7 +14,7 @@ import {
   UserRound,
   Zap,
 } from 'lucide-react';
-import { memo, useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { useLeadActions } from '@/components/leads-shared/lead-actions';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/cn';
@@ -26,7 +26,6 @@ import { followUpLabel } from './hooks';
 import { MoveMenu } from './move-menu';
 import { isOverdue } from './skins/skin-model';
 import { getTavolaTheme, type TavolaTone } from './tones';
-import { useBoardWords } from './words';
 
 /** Formats a relative time string (e.g. 12 min, 2h, 3d) */
 function formatAge(dateStr: string, now: number): string {
@@ -42,7 +41,7 @@ function formatAge(dateStr: string, now: number): string {
 /** Card face shared by the real card and the drag ghost. */
 export function cardSurface(compact: boolean, themeClass: string = 'ob-t--amber'): string {
   return cn(
-    'relative flex flex-col rounded-[18px] text-left transition-all duration-200',
+    'relative flex flex-col rounded-[18px] text-left',
     themeClass,
     compact ? 'gap-1.5 p-3' : 'gap-2.5 p-3.5',
   );
@@ -74,6 +73,7 @@ export function LeadCardBody({
   selectMode = false,
   selected = false,
   theme = 'amber',
+  stageIndex = 0,
   stage,
   stages,
   onQuickAction,
@@ -86,21 +86,27 @@ export function LeadCardBody({
   const leadSeq = lead.id.replace(/\D/g, '').slice(-4).padStart(4, '0') || lead.id.slice(0, 4).toUpperCase();
   const followUp = lead.nextFollowUpAt ? followUpLabel(lead.nextFollowUpAt, now) : null;
 
-  // Decide action icon and label depending on stage tone (paralleling Fire / Mark ready / Served / Paid)
-  let ActionIcon = Zap;
-  let actionLabel = 'Call';
-  if (theme === 'amber') {
+  // Decide action icon and label depending on stage and tone
+  let ActionIcon = ArrowRight;
+  let actionLabel = 'Advance';
+  if (stageIndex === 0) {
     ActionIcon = Zap;
     actionLabel = lead.phone ? 'Quick Call' : 'Contact';
-  } else if (theme === 'ember') {
+  } else if (stageIndex === 1) {
     ActionIcon = MessageCircle;
     actionLabel = lead.phone ? 'WhatsApp' : 'Follow Up';
-  } else if (theme === 'mint') {
+  } else if (stage?.type === 'won') {
+    ActionIcon = CheckCircle2;
+    actionLabel = 'Won';
+  } else if (stage?.type === 'lost') {
+    ActionIcon = CheckCircle2;
+    actionLabel = 'Archived';
+  } else if (stages && stageIndex < stages.length - 1) {
     ActionIcon = ArrowRight;
     actionLabel = 'Advance';
-  } else if (theme === 'ink') {
+  } else {
     ActionIcon = CheckCircle2;
-    actionLabel = stage?.type === 'won' ? 'Closed' : 'Done';
+    actionLabel = 'Done';
   }
 
   return (
@@ -145,6 +151,8 @@ export function LeadCardBody({
               trigger={
                 <button
                   type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                   onClick={(e) => e.stopPropagation()}
                   className="ob-face__more flex size-7 shrink-0 items-center justify-center rounded-full border border-current/25 hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
                   aria-label={`Options for ${lead.name}`}
@@ -218,14 +226,19 @@ export function LeadCardBody({
         {onQuickAction && !selectMode && (
           <button
             type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               onQuickAction();
             }}
+            style={{
+              backgroundColor: 'var(--pill-bg, #2b2110)',
+              color: 'var(--pill-fg, #ffffff)',
+            }}
             className={cn(
-              'ob-go flex items-center gap-1.5 rounded-full font-bold transition-transform hover:scale-105 active:scale-95',
+              'ob-go flex items-center gap-1.5 rounded-full font-bold transition-transform hover:scale-105 active:scale-95 shadow-sm',
               compact ? 'h-7 px-3 text-[11px]' : 'h-8 px-3.5 text-xs',
-              theme === 'amber' ? 'bg-[#2b2110] text-white hover:bg-black' : 'bg-white text-slate-900 hover:bg-slate-100',
             )}
             title={actionLabel}
           >
@@ -338,12 +351,26 @@ export const BoardCard = memo(function BoardCard({
     if (virtualStart !== undefined && liRef.current) ctrl.setRestTop(lead.id, liRef.current, virtualStart);
   }, [ctrl, lead.id, virtualStart]);
 
-  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => ctrl.pointerDown(e, lead, stageId);
-  const onClick = () => {
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    // If the press started inside a button, link, or dropdown, don't initiate a card drag
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('button, [role="button"], [role="menuitem"], a, input, select, textarea, [data-radix-collection-item]')) {
+      return;
+    }
+    ctrl.pointerDown(e, lead, stageId);
+  };
+
+  const onClick = (e: MouseEvent<HTMLDivElement>) => {
+    // If click was on a button, dropdown menu, or interactive control, NEVER open the lead drawer!
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('button, [role="button"], [role="menuitem"], a, input, select, textarea, [data-radix-collection-item]')) {
+      return;
+    }
     if (ctrl.consumeClick()) return;
     if (selectMode) toggleSelected(lead.id);
     else actions.open(lead);
   };
+
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
     if (selectMode && (e.key === ' ' || e.key === 'Enter')) {
@@ -377,8 +404,6 @@ export const BoardCard = memo(function BoardCard({
       if (nextStage) {
         ctrl.moveToStage(lead, stageId, nextStage.id);
       }
-    } else {
-      actions.open(lead);
     }
   };
 

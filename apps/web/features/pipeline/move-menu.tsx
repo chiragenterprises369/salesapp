@@ -36,7 +36,16 @@ export function MoveMenu({
     <DropdownMenu.Root onOpenChange={onOpenChange}>
       <DropdownMenu.Trigger asChild>
         {trigger ?? (
-          <Button size={touch ? 'icon-touch' : 'icon-sm'} className={cn(touch && TOUCH_ICON)} variant="ghost" aria-label={`Move ${leadName} to stage`} title="Move to stage…">
+          <Button
+            size={touch ? 'icon-touch' : 'icon-sm'}
+            className={cn(touch && TOUCH_ICON)}
+            variant="ghost"
+            aria-label={`Move ${leadName} to stage`}
+            title="Move to stage…"
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <ArrowRightLeft aria-hidden />
           </Button>
         )}
@@ -47,8 +56,11 @@ export function MoveMenu({
           sideOffset={4}
           collisionPadding={8}
           className="z-50 min-w-52 rounded-md border border-border bg-surface p-1 text-fg shadow-overlay data-[state=open]:animate-fade-in"
+          onPointerDown={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
           onCloseAutoFocus={(e) => {
-            if (moved.current) e.preventDefault();
+            e.preventDefault();
             moved.current = false;
           }}
         >
@@ -59,10 +71,14 @@ export function MoveMenu({
               <DropdownMenu.Item
                 key={s.id}
                 disabled={current}
-                onSelect={() => {
+                onSelect={(e) => {
+                  e.preventDefault();
                   moved.current = true;
                   onMove(s.id);
                 }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
                 className={cn(
                   'flex cursor-default items-center gap-2 rounded-sm px-2 text-sm outline-none select-none',
                   touch ? 'min-h-[44px]' : 'min-h-8',

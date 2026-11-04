@@ -7,6 +7,7 @@
 */
 
 :root, .vb-depth {
+  /* Tavola Palettes - Light Mode & Shared Defaults */
   --amber: #ecd29a;
   --on-amber: #2b2110;
   --amber-grad: linear-gradient(135deg, #f4e2b8, #e8cc91);
@@ -18,6 +19,26 @@
   --mint: #a8dcc8;
   --on-mint: #10291f;
   --mint-grad: linear-gradient(135deg, #c3e9da, #9fd6c1);
+
+  --sky: #93c5fd;
+  --on-sky: #0c283f;
+  --sky-grad: linear-gradient(135deg, #cde4f7, #a8d2f5);
+
+  --emerald: #4ade80;
+  --on-emerald: #064e3b;
+  --emerald-grad: linear-gradient(135deg, #bbf7d0, #86efac);
+
+  --slate: #94a3b8;
+  --on-slate: #1e293b;
+  --slate-grad: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+
+  --indigo: #a78bfa;
+  --on-indigo: #2e1065;
+  --indigo-grad: linear-gradient(135deg, #ddd6fe, #c4b5fd);
+
+  --rose: #f43f5e;
+  --on-rose: #4c0519;
+  --rose-grad: linear-gradient(135deg, #fecdd3, #fda4af);
 
   --ink: #3a4767;
   --on-ink: #eef2fb;
@@ -45,6 +66,12 @@
   --vb-shimmer: color-mix(in srgb, var(--fg) 5%, transparent);
   --vb-shadow-rest: 0 1px 1px color-mix(in srgb, var(--vb-ink) 60%, transparent), 0 3px 8px -2px color-mix(in srgb, var(--vb-ink) 55%, transparent);
   --vb-shadow-hover: 0 1px 2px color-mix(in srgb, var(--vb-ink) 60%, transparent), 0 12px 24px -8px color-mix(in srgb, var(--vb-ink) 80%, transparent);
+
+  /* Dark mode slate/lost stage */
+  --slate-grad: linear-gradient(135deg, #2b3548, #1a2233);
+  --on-slate: #f1f5f9;
+  --ink-grad: linear-gradient(135deg, #222b3d, #141a29);
+  --on-ink: #f1f5f9;
 }
 
 /* ---------------------------------------------------------------- Tavola Palettes */
@@ -54,9 +81,9 @@
   --on: var(--on-amber);
   --tf: var(--amber);
   --glow: rgba(232, 204, 145, 0.45);
-  --well-on: rgba(255, 255, 255, 0.38);
-  --note-bg: #121a2e;
-  --note-on: #ffffff;
+  --well-on: rgba(255, 255, 255, 0.4);
+  --pill-bg: #2b2110;
+  --pill-fg: #ffffff;
 }
 
 .ob-t--ember {
@@ -64,9 +91,9 @@
   --on: var(--on-ember);
   --tf: var(--ember);
   --glow: rgba(234, 169, 153, 0.45);
-  --well-on: rgba(255, 255, 255, 0.32);
-  --note-bg: var(--amber-grad);
-  --note-on: var(--on-amber);
+  --well-on: rgba(255, 255, 255, 0.35);
+  --pill-bg: #2e1813;
+  --pill-fg: #ffffff;
 }
 
 .ob-t--mint {
@@ -74,9 +101,59 @@
   --on: var(--on-mint);
   --tf: var(--mint);
   --glow: rgba(159, 214, 193, 0.45);
-  --well-on: rgba(255, 255, 255, 0.32);
-  --note-bg: #121a2e;
-  --note-on: #ffffff;
+  --well-on: rgba(255, 255, 255, 0.35);
+  --pill-bg: #10291f;
+  --pill-fg: #ffffff;
+}
+
+.ob-t--sky {
+  --t: var(--sky-grad);
+  --on: var(--on-sky);
+  --tf: var(--sky);
+  --glow: rgba(168, 210, 245, 0.45);
+  --well-on: rgba(255, 255, 255, 0.35);
+  --pill-bg: #0c283f;
+  --pill-fg: #ffffff;
+}
+
+.ob-t--emerald {
+  --t: var(--emerald-grad);
+  --on: var(--on-emerald);
+  --tf: var(--emerald);
+  --glow: rgba(134, 239, 172, 0.45);
+  --well-on: rgba(255, 255, 255, 0.4);
+  --pill-bg: #064e3b;
+  --pill-fg: #ffffff;
+}
+
+.ob-t--slate {
+  --t: var(--slate-grad);
+  --on: var(--on-slate);
+  --tf: var(--slate);
+  --glow: rgba(203, 213, 225, 0.45);
+  --well-on: rgba(255, 255, 255, 0.45);
+  --pill-bg: #334155;
+  --pill-fg: #ffffff;
+}
+
+.ob-t--indigo {
+  --t: var(--indigo-grad);
+  --on: var(--on-indigo);
+  --tf: var(--indigo);
+  --glow: rgba(196, 181, 253, 0.45);
+  --well-on: rgba(255, 255, 255, 0.4);
+  --pill-bg: #2e1065;
+  --pill-fg: #ffffff;
+}
+
+.ob-t--rose {
+  --t: var(--rose-grad);
+  --on: var(--on-rose);
+  --tf: var(--rose);
+  --glow: rgba(253, 164, 175, 0.45);
+  --well-on: rgba(255, 255, 255, 0.4);
+  --pill-bg: #4c0519;
+  --pill-fg: #ffffff;
 }
 
 .ob-t--ink {
@@ -85,8 +162,8 @@
   --tf: var(--ink-line);
   --glow: rgba(0, 0, 0, 0.65);
   --well-on: rgba(255, 255, 255, 0.12);
-  --note-bg: var(--amber-grad);
-  --note-on: var(--on-amber);
+  --pill-bg: #ffffff;
+  --pill-fg: #0f172a;
 }
 
 /* ---------------------------------------------------------------- card */
@@ -97,7 +174,16 @@
 
 .vb-lift {
   position: relative;
-  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform var(--duration-fast) var(--easing);
+}
+
+/* While dragging, disable CSS transitions on lifted cards to let react-spring run uninterrupted at 60fps */
+[data-dragging='true'] .vb-lift,
+.vb-ghost,
+.vb-ghost-shadow,
+.vb-ghost-sheen,
+.vb-ghost .vb-face {
+  transition: none !important;
 }
 
 /* Thickness edge disabled for sleek Tavola look */
@@ -112,8 +198,12 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 16px 28px -20px var(--glow, rgba(0, 0, 0, 0.2));
   transition:
     box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
     border-color 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ob-t--slate.vb-face,
+.ob-t--slate .vb-face {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 0 0 1px rgba(0, 0, 0, 0.05), 0 12px 24px -16px rgba(0, 0, 0, 0.15);
 }
 
 .ob-t--ink.vb-face,
@@ -133,10 +223,10 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .vb-li:hover .vb-lift:not([data-placeholder]) {
-    transform: translateY(-2.5px) scale(1.008);
+  :root:not([data-dragging='true']) [data-depth='full'] .vb-li:hover .vb-lift:not([data-placeholder]) {
+    transform: translateY(-2px);
   }
-  .vb-li:hover .vb-face:not([data-placeholder]) {
+  [data-depth='full'] .vb-li:hover .vb-face:not([data-placeholder]) {
     box-shadow: 0 20px 35px -10px var(--glow), 0 0 24px 2px var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
   }
   [data-sheen='on'] .vb-li:hover .vb-face:not([data-placeholder]) .vb-sheen {
@@ -144,153 +234,132 @@
   }
 }
 
-[data-depth='none'] .vb-lip,
-.vb-lift[data-placeholder] .vb-lip {
-  display: none;
+/* ---------------------------------------------------------------- Flat skin */
+[data-board-skin='flat'] .vb-face,
+[data-depth='none'] .vb-face {
+  box-shadow: none !important;
+  border: 1px solid var(--border) !important;
 }
 
-[data-depth='none'] .vb-face,
-.vb-face[data-placeholder] {
-  box-shadow: none;
+[data-board-skin='flat'] .vb-li:hover .vb-lift,
+[data-depth='none'] .vb-li:hover .vb-lift {
+  transform: none !important;
 }
 
-/* Tavola Elements inside card */
+[data-board-skin='flat'] .vb-li:hover .vb-face:not([data-placeholder]),
+[data-depth='none'] .vb-li:hover .vb-face:not([data-placeholder]) {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
+  border-color: var(--border-strong) !important;
+}
+
+/* ---------------------------------------------------------------- Neon Space skin */
+[data-board-skin='neon'] .vb-face:not([data-placeholder]) {
+  color: var(--fg) !important;
+  border-radius: 14px;
+}
+[data-board-variant='neon'] .vb-face:not([data-placeholder]) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 18%, var(--vn-slab)) 0%, color-mix(in srgb, var(--vn-edge) 5%, var(--vn-slab)) 75%) !important;
+  border: 1px solid color-mix(in srgb, var(--vn-edge) 34%, transparent) !important;
+  border-top-color: color-mix(in srgb, var(--vn-edge) 55%, var(--vn-top-edge)) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--vn-edge) 40%, var(--vn-top-edge)), 0 6px 16px -8px rgb(0 0 0 / 0.8) !important;
+}
+[data-board-variant='aurora'] .vb-face:not([data-placeholder]) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vn-edge) 8%, var(--vn-slab)) 0%, var(--vn-slab) 60%) !important;
+  border: 1px solid color-mix(in srgb, var(--vn-edge) 26%, var(--border)) !important;
+  border-top-color: var(--vn-edge) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--vn-edge) 55%, transparent), 0 8px 18px -10px color-mix(in srgb, var(--vn-edge) 42%, transparent) !important;
+}
+[data-board-skin='neon'] .ob-chip {
+  background: color-mix(in srgb, var(--vn-edge) 16%, transparent) !important;
+  color: var(--fg) !important;
+  border-color: color-mix(in srgb, var(--vn-edge) 30%, transparent) !important;
+}
+[data-board-skin='neon'] .ob-ch {
+  background: color-mix(in srgb, var(--vn-edge) 24%, transparent) !important;
+  color: var(--fg) !important;
+}
+[data-board-skin='neon'] .ob-lines {
+  background: color-mix(in srgb, var(--vn-edge) 9%, transparent) !important;
+  color: var(--fg) !important;
+}
+[data-board-skin='neon'] .ob-go {
+  background: var(--vn-edge) !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+/* ---------------------------------------------------------------- Tavola Micro-components */
+
 .ob-chip {
-  background: var(--well-on);
-  letter-spacing: .01em;
-  white-space: nowrap;
-  border-radius: 999px;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 24px;
-  padding: 0 9px;
-  font-size: 12px;
-  font-weight: 800;
-  display: inline-flex;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: var(--well-on, rgba(255, 255, 255, 0.38));
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(4px);
 }
+
 .ob-chip.is-late {
-  color: #b5523f;
-  background: #ffffff;
-  box-shadow: 0 4px 12px -4px rgba(0, 0, 0, 0.35);
+  background: #f87171 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
 }
 
 .ob-ch {
-  background: var(--well-on);
-  border-radius: 9px;
-  flex: none;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
-  display: grid;
+  border-radius: 8px;
+  background: var(--well-on, rgba(255, 255, 255, 0.4));
+  color: inherit;
+  flex-shrink: 0;
 }
 
 .ob-where {
-  letter-spacing: -.02em;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1.2;
-  display: flex;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .ob-lines {
-  background: var(--well-on);
-  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
   padding: 8px 10px;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 12px;
+  background: var(--well-on, rgba(255, 255, 255, 0.32));
+  font-size: 12px;
   line-height: 1.35;
-  display: grid;
 }
 
 .ob-amt {
-  letter-spacing: -.02em;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
-.ob-go {
-  white-space: nowrap;
-  border-radius: 999px;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 13px 0 11px;
-  font-size: 12.5px;
-  font-weight: 700;
-  display: inline-flex;
-  position: relative;
-  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.3);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.ob-go:hover {
-  box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.45);
-}
-
-.ob-face__more {
-  width: 28px;
-  height: 28px;
-  color: inherit;
-  border: 1px solid color-mix(in srgb, var(--on) 25%, transparent);
-  border-radius: 50%;
-  flex: none;
-  place-items: center;
-  display: grid;
-  transition: background-color 0.15s ease;
-}
-.ob-face__more:hover {
-  background: var(--well-on);
-}
-
-/* Confirmation ring (Web Animations drive opacity/scale; colour set per pulse). */
+/* Confirmation ring */
 .vb-ring {
   position: absolute;
   inset: -3px;
-  border-radius: 20px;
+  border-radius: 15px;
   border: 2px solid currentColor;
   box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 20%, transparent);
   opacity: 0;
   pointer-events: none;
 }
 
-/* Hover actions slide in with a spring-like overshoot. */
-@keyframes vb-actions-in {
-  from {
-    opacity: 0;
-    translate: 8px 0;
-  }
-}
-.vb-actions-in {
-  animation: vb-actions-in 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
 /* ---------------------------------------------------------------- column */
-
-.vb-column {
-  border-radius: 20px;
-  position: relative;
-}
-
-/* Tavola Column Lighting Glow during drag over */
-.vb-column:after {
-  content: "";
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0;
-  background: color-mix(in srgb, var(--t, var(--accent)) 12%, transparent);
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--t, var(--accent)) 75%, transparent), 0 0 40px -8px color-mix(in srgb, var(--t, var(--accent)) 55%, transparent);
-  transition: opacity 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-}
-.vb-column[data-over="true"]:after {
-  opacity: 1;
-}
 
 .vb-list {
   transition: opacity var(--duration-fast) var(--easing);
@@ -390,8 +459,6 @@
 }
 [data-motion='reduced'] .vb-enter,
 [data-motion='flat'] .vb-enter,
-[data-motion='reduced'] .vb-actions-in,
-[data-motion='flat'] .vb-actions-in,
 [data-motion='reduced'] .vb-shimmer::after,
 [data-motion='flat'] .vb-shimmer::after {
   animation: none;

@@ -191,7 +191,7 @@ export const BoardColumn = memo(function BoardColumn({
       style={style}
       className={cn(
         // Width only (D-066): 288 px minimum from md, growing to share the board's width so wide screens have no empty band.
-        'vb-column relative flex w-[85vw] max-w-[320px] shrink-0 snap-start flex-col rounded-[22px] border border-white/10 dark:border-white/5 bg-surface/50 dark:bg-[#0c1428]/70 backdrop-blur-md md:w-[292px] md:max-w-none md:grow',
+        'vb-column relative flex w-[85vw] max-w-[320px] shrink-0 snap-start flex-col rounded-[22px] border border-black/[0.06] dark:border-white/5 bg-slate-500/[0.03] dark:bg-[#0c1428]/70 backdrop-blur-md md:w-[292px] md:max-w-none md:grow',
         'transition-[box-shadow,background-color] duration-200 ease-standard',
         enter && 'vb-enter',
       )}
