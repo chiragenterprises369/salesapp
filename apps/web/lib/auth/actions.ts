@@ -1,6 +1,6 @@
 import type { FieldError, InviteAccept, LoginRequest, SignupRequest, SuperLoginChallenge } from '@vistar/shared';
 import { api } from '../api/client';
-import { isMockData } from '../api/data-source';
+import { isMockData, MOCK_DATA_ALLOWED } from '../api/data-source';
 import { isApiRequestError } from '../api-error';
 import { useSessionStore } from '../session/session';
 import { mockAcceptInvite, mockLogin, mockSignup, mockSuperLogin, mockSuperVerify, type AuthFailure, type AuthFailureCode, type SuperLoginStep } from './mock-auth';
@@ -44,7 +44,15 @@ export async function login(input: LoginRequest): Promise<{ ok: true } | AuthFai
     await useSessionStore.getState().signIn(input.email, input.password);
     return { ok: true };
   } catch (e) {
-    return authFailureFrom(e);
+    const failure = authFailureFrom(e);
+    if (failure.code === 'NETWORK' && MOCK_DATA_ALLOWED) {
+      const r = await mockLogin(input);
+      if (r.ok) {
+        useSessionStore.getState().signInMock(r.persona);
+        return { ok: true };
+      }
+    }
+    return failure;
   }
 }
 
@@ -108,7 +116,11 @@ export async function superLogin(input: LoginRequest): Promise<SuperLoginStep | 
     const challenge: SuperLoginChallenge = await useSessionStore.getState().superSignIn(input.email, input.password);
     return { ok: true, challenge, secret: secretFromOtpauth(challenge.otpauthUrl) };
   } catch (e) {
-    return authFailureFrom(e);
+    const failure = authFailureFrom(e);
+    if (failure.code === 'NETWORK' && MOCK_DATA_ALLOWED) {
+      return mockSuperLogin(input);
+    }
+    return failure;
   }
 }
 
@@ -122,8 +134,13 @@ export async function superVerify(input: { challengeToken: string; code: string 
     await useSessionStore.getState().superVerify(input.challengeToken, input.code);
     return { ok: true };
   } catch (e) {
-    // Expired, used or over-tried challenges need the password again; a wrong code can be retyped.
-    return authFailureFrom(e, { AUTH_TOKEN_EXPIRED: 'CHALLENGE_EXPIRED', AUTH_TOKEN_INVALID: 'CHALLENGE_EXPIRED', AUTH_INVALID_CREDENTIALS: 'BAD_CODE' });
+    const failure = authFailureFrom(e, { AUTH_TOKEN_EXPIRED: 'CHALLENGE_EXPIRED', AUTH_TOKEN_INVALID: 'CHALLENGE_EXPIRED', AUTH_INVALID_CREDENTIALS: 'BAD_CODE' });
+    if (failure.code === 'NETWORK' && MOCK_DATA_ALLOWED) {
+      const r = await mockSuperVerify(input);
+      if (r.ok) useSessionStore.getState().signInMock('super_admin');
+      return r;
+    }
+    return failure;
   }
 }
 

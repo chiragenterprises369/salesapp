@@ -74,6 +74,18 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['lucide-react', 'recharts', '@react-three/drei'],
   },
   // ---- change #20: prod (CSP, HSTS, frame-ancestors, referrer policy; capture forms /f/* may be framed anywhere)
+  async rewrites() {
+    const backend =
+      process.env.API_INTERNAL_URL ||
+      process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/v\d+.*$/, '') ||
+      'https://salesapp-api-lqk9.onrender.com';
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${backend}/api/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       { source: '/((?!f/).*)', headers: [...common, { key: 'Content-Security-Policy', value: csp("'none'") }, { key: 'X-Frame-Options', value: 'DENY' }] },
