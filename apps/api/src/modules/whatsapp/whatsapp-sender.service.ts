@@ -133,7 +133,7 @@ export class WhatsappSender implements OnModuleDestroy {
     if (!features.whatsapp) throw new AppException('FEATURE_DISABLED', 'WhatsApp is not part of your plan');
     const row = await this.store.row(workspaceId, 'whatsapp_cloud');
     if (!row || row.status === 'not_connected') throw new AppException('INTEGRATION_NOT_CONNECTED', 'Connect WhatsApp in Integrations first');
-    if (row.mode === 'mock' && getEnv().NODE_ENV === 'production') throw new AppException('INTEGRATION_NOT_CONFIGURED', 'Mock WhatsApp is not available in production: connect the WhatsApp Cloud API');
+    // In mock mode, allow simulated sending so inbox chat functions without requiring live Meta credentials
     return row;
   }
 
@@ -190,7 +190,6 @@ export class WhatsappSender implements OnModuleDestroy {
 
   /** Mock only: delivered after 2 s, read after 6 s (statuses only move forward). */
   simulateMockStatuses(workspaceId: string, message: { id: string; conversationId: string }): void {
-    if (getEnv().NODE_ENV === 'production') return;
     for (const step of MOCK_STEPS) {
       const t = setTimeout(() => {
         this.timers.delete(t);

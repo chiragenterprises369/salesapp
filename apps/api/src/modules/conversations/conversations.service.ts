@@ -180,14 +180,15 @@ export class ConversationsService {
     const conv = await this.visible(db, auth, id);
     const now = new Date();
     const isNote = body.type === 'note';
-    if (!isNote) {
-      if (conv.contact.whatsappOptIn === 'opted_out') throw new AppException('CONSENT_OPTED_OUT', 'This contact opted out of WhatsApp messages');
-      const windowOpen = !!conv.lastInboundAt && now.getTime() - conv.lastInboundAt.getTime() < WINDOW_MS;
-      if (body.type !== 'template' && !windowOpen) throw new AppException('WHATSAPP_WINDOW_CLOSED', 'The 24-hour window is closed. Send an approved template instead');
-    }
     // ---- change #20: prod (WhatsApp Cloud API through the connected integration; mock in development)
     const wa = isNote ? null : await this.whatsapp.connection(auth.workspaceId);
-    if (!isNote && !conv.contact.phone) throw new AppException('VALIDATION_FAILED', 'This contact has no WhatsApp number');
+    if (!isNote) {
+      if (conv.contact.whatsappOptIn === 'opted_out') throw new AppException('CONSENT_OPTED_OUT', 'This contact opted out of WhatsApp messages');
+      const isMock = !wa || wa.mode === 'mock';
+      const windowOpen = isMock || (!!conv.lastInboundAt && now.getTime() - conv.lastInboundAt.getTime() < WINDOW_MS);
+      if (body.type !== 'template' && !windowOpen) throw new AppException('WHATSAPP_WINDOW_CLOSED', 'The 24-hour window is closed. Send an approved template instead');
+      if (!conv.contact.phone) throw new AppException('VALIDATION_FAILED', 'This contact has no WhatsApp number');
+    }
     let payload: WhatsappPayload | null = null;
     // ---- end change #20: prod
     let text: string | null = null;

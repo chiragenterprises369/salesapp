@@ -17,15 +17,39 @@ export const DATA_SOURCE_KEY = 'vistar.dataSource';
 const MOCK_PERSONA_KEY = 'vistar.mock.persona';
 
 export const MOCK_DATA_ALLOWED =
-  process.env.NEXT_PUBLIC_ALLOW_MOCK_DATA === '1' || process.env.NEXT_PUBLIC_DATA_SOURCE === 'mock';
+  (process.env.NEXT_PUBLIC_ALLOW_MOCK_DATA === '1' || process.env.NEXT_PUBLIC_DATA_SOURCE === 'mock') &&
+  process.env.NODE_ENV !== 'production';
 
 const BUILD_DEFAULT: DataSource = process.env.NEXT_PUBLIC_DATA_SOURCE === 'mock' ? 'mock' : 'api';
 
 let cached: DataSource | null = null;
 
+function isProductionHost(): boolean {
+  if (typeof window === 'undefined') return process.env.NODE_ENV === 'production';
+  const h = window.location.hostname.toLowerCase();
+  return (
+    h === 'tootodo.com' ||
+    h.endsWith('.tootodo.com') ||
+    h.includes('vercel.app') ||
+    process.env.NODE_ENV === 'production'
+  );
+}
+
 export function getDataSource(): DataSource {
   if (cached) return cached;
-  if (!MOCK_DATA_ALLOWED) return (cached = 'api');
+  if (isProductionHost() || !MOCK_DATA_ALLOWED) {
+    if (typeof window !== 'undefined') {
+      try {
+        if (window.localStorage.getItem(DATA_SOURCE_KEY) === 'mock') {
+          window.localStorage.removeItem(DATA_SOURCE_KEY);
+        }
+        window.localStorage.removeItem(MOCK_PERSONA_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+    return (cached = 'api');
+  }
   // Server render: no storage. Session-dependent UI renders on the client only.
   if (typeof window === 'undefined') return BUILD_DEFAULT;
   let stored: string | null = null;
