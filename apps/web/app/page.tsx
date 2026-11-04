@@ -1,22 +1,17 @@
-'use client';
+import type { Metadata } from 'next';
+import LandingPage, { metadata as landingMetadata } from './(marketing)/landing/page';
 
-import { homePathFor } from '@vistar/shared';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { ShellSkeleton } from '@/components/shell/shell-skeleton';
-import { LOGIN_PATH } from '@/lib/auth/redirect';
-import { usePrincipal, useSessionStatus } from '@/lib/session/session';
+export const metadata: Metadata = {
+  ...landingMetadata,
+  title: 'Tootodo – A CRM that helps your team stay in flow',
+  description:
+    'Organize leads, track deals, and close faster. Tootodo is the modern CRM built for fast-moving sales teams.',
+};
 
-/** "/": signed in -> the role's home panel, otherwise the sign-in page. */
+/**
+ * Root page ("/"): Displays the Tootodo marketing landing page.
+ * Users can also access it directly at "/landing".
+ */
 export default function RootPage() {
-  const router = useRouter();
-  const status = useSessionStatus();
-  const principal = usePrincipal();
-
-  useEffect(() => {
-    if (status === 'loading') return;
-    router.replace(status === 'authenticated' && principal ? homePathFor(principal) : LOGIN_PATH);
-  }, [status, principal, router]);
-
-  return <ShellSkeleton variant="plain" />;
+  return <LandingPage />;
 }

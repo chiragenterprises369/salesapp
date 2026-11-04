@@ -1,0 +1,10 @@
+export { LandingNav } from './landing-nav';
+export { HeroSection } from './hero-section';
+export { FeaturesSection } from './features-section';
+export { StepsSection } from './steps-section';
+export { StatsSection } from './stats-section';
+export { IntegrationsSection } from './integrations-section';
+export { TestimonialsSection } from './testimonials-section';
+export { FaqSection } from './faq-section';
+export { CtaSection } from './cta-section';
+export { LandingFooter } from './landing-footer';

@@ -1,5 +1,7 @@
 /* App-level styles. Theme, tokens and Tailwind setup live in styles/theme.css (orchestrator-owned). */
 @import '../styles/theme.css';
+/* Landing page color palette (Tailwind defaults disabled by theme; landing needs standard colors). */
+@import '../styles/landing.css';
 
 /* Tailwind v4 source detection for workspace packages used in class names. */
 @source '../components';
