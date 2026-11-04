@@ -69,6 +69,17 @@ export function envFallbacks(group: RegistryGroupKey): Record<string, ConfigValu
   const raw = process.env;
   switch (group) {
     case 'email': {
+      const resendKey = str(env.RESEND_API_KEY ?? env.SALESAPP_MESSAGING_RESEND_API_KEY);
+      const resendDomain = str(env.RESEND_EMAIL_DOMAIN ?? env.SALESAPP_MESSAGING_RESEND_EMAIL_DOMAIN ?? 'tootodo.com');
+      if (resendKey) {
+        return {
+          provider: 'resend',
+          apiKey: resendKey,
+          fromName: 'Tootodo',
+          fromEmail: `notifications@${resendDomain}`,
+          replyTo: `support@${resendDomain}`,
+        };
+      }
       const from = parseFrom(env.SMTP_FROM);
       return {
         provider: env.SMTP_HOST ? 'smtp' : null,

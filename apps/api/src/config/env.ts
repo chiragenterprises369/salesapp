@@ -61,6 +61,10 @@ const EnvSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_EMAIL_DOMAIN: z.string().optional(),
+  SALESAPP_MESSAGING_RESEND_API_KEY: z.string().optional(),
+  SALESAPP_MESSAGING_RESEND_EMAIL_DOMAIN: z.string().optional(),
 
   WHATSAPP_APP_ID: z.string().optional(),
   WHATSAPP_APP_SECRET: z.string().optional(),
