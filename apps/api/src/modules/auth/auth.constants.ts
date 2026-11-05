@@ -34,10 +34,11 @@ export const SUPER_REFRESH_PATH = '/api/super/auth';
 export { REFRESH_COOKIE, SUPER_REFRESH_COOKIE, SUPER_SESSION };
 
 export function refreshCookieOptions(path: string, maxAgeSec?: number): CookieOptions {
+  const isProd = getEnv().NODE_ENV === 'production' || process.env.NODE_ENV === 'production';
   return {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: getEnv().NODE_ENV === 'production',
+    sameSite: isProd ? 'none' : 'lax',
+    secure: isProd,
     path,
     ...(maxAgeSec !== undefined ? { maxAge: maxAgeSec * 1000 } : {}),
   };

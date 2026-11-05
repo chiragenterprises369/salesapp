@@ -15,31 +15,71 @@ export interface StoredToken {
   refreshable: boolean;
 }
 
-const slots: Record<Audience, StoredToken | null> = { workspace: null, platform: null };
+const STORAGE_PREFIX = 'vistar.token.';
+
+function readStorageToken(audience: Audience): StoredToken | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(`${STORAGE_PREFIX}${audience}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredToken;
+    if (!parsed || typeof parsed.token !== 'string' || typeof parsed.expiresAt !== 'number') return null;
+    if (parsed.expiresAt <= Date.now()) {
+      window.localStorage.removeItem(`${STORAGE_PREFIX}${audience}`);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStorageToken(audience: Audience, token: StoredToken | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (!token) {
+      window.localStorage.removeItem(`${STORAGE_PREFIX}${audience}`);
+    } else {
+      window.localStorage.setItem(`${STORAGE_PREFIX}${audience}`, JSON.stringify(token));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+const slots: Record<Audience, StoredToken | null> = {
+  workspace: readStorageToken('workspace'),
+  platform: readStorageToken('platform'),
+};
 const listeners = new Set<(audience: Audience) => void>();
 
 export function setAccessToken(audience: Audience, token: string, expiresInSec: number, opts: { refreshable?: boolean } = {}): void {
-  slots[audience] = { token, expiresAt: Date.now() + Math.max(0, expiresInSec) * 1000, refreshable: opts.refreshable ?? true };
+  const stored: StoredToken = { token, expiresAt: Date.now() + Math.max(0, expiresInSec) * 1000, refreshable: opts.refreshable ?? true };
+  slots[audience] = stored;
+  writeStorageToken(audience, stored);
   for (const l of listeners) l(audience);
 }
 
 export function getStoredToken(audience: Audience): StoredToken | null {
+  if (!slots[audience]) {
+    slots[audience] = readStorageToken(audience);
+  }
   return slots[audience];
 }
 
 export function getAccessTokenFor(audience: Audience): string | null {
-  return slots[audience]?.token ?? null;
+  return getStoredToken(audience)?.token ?? null;
 }
 
 export function clearAccessToken(audience: Audience): void {
-  if (!slots[audience]) return;
   slots[audience] = null;
+  writeStorageToken(audience, null);
   for (const l of listeners) l(audience);
 }
 
 /** True when the token exists and is valid for at least `skewMs` more. */
 export function isTokenFresh(audience: Audience, skewMs: number, now = Date.now()): boolean {
-  const t = slots[audience];
+  const t = getStoredToken(audience);
   return !!t && t.expiresAt - skewMs > now;
 }
 

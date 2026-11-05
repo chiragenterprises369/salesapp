@@ -25,8 +25,9 @@ import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import type { z } from 'zod';
 import { create } from 'zustand';
 import { api, configureApiClient, refreshAccessToken, superApi, type SessionEndReason } from '../api/client';
+import { TOKEN_REFRESH_SKEW_MS } from '../api/config';
 import { isMockData } from '../api/data-source';
-import { clearAccessToken, decodeTokenClaims, getAccessTokenFor, setAccessToken, type Audience } from '../api/tokens';
+import { clearAccessToken, decodeTokenClaims, getAccessTokenFor, getStoredToken, isTokenFresh, setAccessToken, type Audience } from '../api/tokens';
 import { readMockDb } from '../mock-db';
 import { startRealtime } from '../realtime/client';
 import { MOCK_PERSONAS, mockMe, mockPlatformAdmin, type MockPersona } from './mock';
@@ -110,6 +111,8 @@ const keyProfile = (p: MockPersona) => `vistar.mock.profile.${p}`;
 const KEY_WORKSPACE = 'vistar.mock.workspace';
 /** API mode: which audience may have a refresh cookie (no secrets). */
 export const SESSION_HINT_KEY = 'vistar.session';
+const KEY_SESSION_ME = 'vistar.session.me';
+const KEY_SESSION_ADMIN = 'vistar.session.admin';
 const isDev = process.env.NODE_ENV !== 'production';
 
 function read<T>(key: string): T | null {
@@ -179,16 +182,24 @@ function requireWorkspace(s: Session | null): Extract<Session, { audience: 'work
 let hydrateStarted = false;
 
 export const useSessionStore = create<SessionState>()((set, get) => {
-  const setMe = (me: MeResponse) => set({ status: 'authenticated', session: { audience: 'workspace', me, accessToken: null }, endReason: null });
+  const setMe = (me: MeResponse) => {
+    write(KEY_SESSION_ME, me);
+    set({ status: 'authenticated', session: { audience: 'workspace', me, accessToken: null }, endReason: null });
+  };
   /** Replace part of `me` if the same user is still signed in. */
   const patchMe = (userId: string, fn: (me: MeResponse) => MeResponse) => {
     const s = get().session;
-    if (s?.audience === 'workspace' && s.me.user.id === userId) set({ session: { ...s, me: fn(s.me) } });
+    if (s?.audience === 'workspace' && s.me.user.id === userId) {
+      const nextMe = fn(s.me);
+      write(KEY_SESSION_ME, nextMe);
+      set({ session: { ...s, me: nextMe } });
+    }
   };
 
   const startWorkspace = (accessToken: string, expiresIn: number, me: MeResponse) => {
     setAccessToken('workspace', accessToken, expiresIn);
     writeHint('workspace');
+    write(KEY_SESSION_ME, me);
     try {
       window.localStorage.setItem('vistar.dataSource', 'api');
     } catch {
@@ -226,16 +237,51 @@ export const useSessionStore = create<SessionState>()((set, get) => {
       hydrateStarted = true;
       const hint = readHint();
       if (!hint) return set({ status: 'unauthenticated', session: null });
+
+      // Immediate synchronous restore from storage so reload doesn't trigger unauthorized redirects
+      if (hint === 'workspace') {
+        const cachedMe = read<MeResponse>(KEY_SESSION_ME);
+        const storedToken = getStoredToken('workspace');
+        if (cachedMe && storedToken && isTokenFresh('workspace', 0)) {
+          set({
+            status: 'authenticated',
+            session: { audience: 'workspace', me: cachedMe, accessToken: storedToken.token },
+            endReason: null,
+          });
+        }
+      } else if (hint === 'platform') {
+        const cachedAdmin = read<PlatformAdmin>(KEY_SESSION_ADMIN);
+        const storedToken = getStoredToken('platform');
+        if (cachedAdmin && storedToken && isTokenFresh('platform', 0)) {
+          set({
+            status: 'authenticated',
+            session: { audience: 'platform', admin: cachedAdmin, accessToken: storedToken.token },
+            endReason: null,
+          });
+        }
+      }
+
       void (async () => {
         try {
           if (hint === 'workspace') {
-            await refreshAccessToken('workspace');
-            setMe(await api.call('authMe'));
+            if (!isTokenFresh('workspace', TOKEN_REFRESH_SKEW_MS)) {
+              await refreshAccessToken('workspace');
+            }
+            const freshMe = await api.call('authMe');
+            setMe(freshMe);
           } else {
-            // onPlatformRefresh (below) stores the admin of the rotated session.
-            await refreshAccessToken('platform');
+            if (!isTokenFresh('platform', TOKEN_REFRESH_SKEW_MS)) {
+              await refreshAccessToken('platform');
+            }
           }
         } catch (e) {
+          // If we already restored a fresh session, keep the user signed in
+          const current = get();
+          if (current.status === 'authenticated' && current.session) {
+            if (isTokenFresh(hint, 0)) {
+              return;
+            }
+          }
           // Session-ending refresh errors already signed out (onSessionEnded). A network failure
           // keeps the hint, so reloading once the API is back restores the session.
           if (get().status === 'loading') {
@@ -287,6 +333,7 @@ export const useSessionStore = create<SessionState>()((set, get) => {
       const s = await superApi.call('superVerify', { body: { challengeToken, code } });
       setAccessToken('platform', s.accessToken, s.expiresIn);
       writeHint('platform');
+      write(KEY_SESSION_ADMIN, s.admin);
       set({ status: 'authenticated', session: { audience: 'platform', admin: s.admin, accessToken: null }, endReason: null, impersonating: null });
       return s.admin;
     },
@@ -309,7 +356,11 @@ export const useSessionStore = create<SessionState>()((set, get) => {
         const logout = audience === 'workspace' ? api.call('authLogout') : superApi.call('superLogout');
         void logout.catch(() => undefined).finally(() => clearAccessToken(audience));
       }
+      write(KEY_SESSION_ME, null);
+      write(KEY_SESSION_ADMIN, null);
       writeHint(null);
+      clearAccessToken('workspace');
+      clearAccessToken('platform');
       set({ status: 'unauthenticated', session: null, endReason: null });
     },
 
@@ -321,6 +372,7 @@ export const useSessionStore = create<SessionState>()((set, get) => {
       const s = get().session;
       if (s?.audience !== 'workspace') return null;
       const me = await api.call('authMe');
+      write(KEY_SESSION_ME, me);
       set({ session: { audience: 'workspace', me, accessToken: null } });
       return me;
     },
@@ -458,9 +510,13 @@ configureApiClient({
     const s = st.session;
     if (s && s.audience !== audience) return;
     writeHint(null);
+    write(KEY_SESSION_ME, null);
+    write(KEY_SESSION_ADMIN, null);
+    clearAccessToken(audience);
     useSessionStore.setState({ status: 'unauthenticated', session: null, endReason: reason, impersonating: null });
   },
   onPlatformRefresh: (session) => {
+    write(KEY_SESSION_ADMIN, session.admin);
     const st = useSessionStore.getState();
     if (st.impersonating) {
       useSessionStore.setState({ impersonating: { ...st.impersonating, admin: session.admin } });
