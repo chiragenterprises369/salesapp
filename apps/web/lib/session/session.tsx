@@ -238,24 +238,26 @@ export const useSessionStore = create<SessionState>()((set, get) => {
       const hint = readHint();
       if (!hint) return set({ status: 'unauthenticated', session: null });
 
-      // Immediate synchronous restore from storage so reload doesn't trigger unauthorized redirects
+      // Immediate synchronous restore from storage so reload doesn't trigger unauthorized redirects.
+      // Even if the access token has expired, show the cached session right away (the async refresh
+      // below will get a new token). This prevents the "logged out" flash while Render cold-starts.
       if (hint === 'workspace') {
         const cachedMe = read<MeResponse>(KEY_SESSION_ME);
-        const storedToken = getStoredToken('workspace');
-        if (cachedMe && storedToken && isTokenFresh('workspace', 0)) {
+        if (cachedMe) {
+          const storedToken = getStoredToken('workspace');
           set({
             status: 'authenticated',
-            session: { audience: 'workspace', me: cachedMe, accessToken: storedToken.token },
+            session: { audience: 'workspace', me: cachedMe, accessToken: storedToken?.token ?? null },
             endReason: null,
           });
         }
       } else if (hint === 'platform') {
         const cachedAdmin = read<PlatformAdmin>(KEY_SESSION_ADMIN);
-        const storedToken = getStoredToken('platform');
-        if (cachedAdmin && storedToken && isTokenFresh('platform', 0)) {
+        if (cachedAdmin) {
+          const storedToken = getStoredToken('platform');
           set({
             status: 'authenticated',
-            session: { audience: 'platform', admin: cachedAdmin, accessToken: storedToken.token },
+            session: { audience: 'platform', admin: cachedAdmin, accessToken: storedToken?.token ?? null },
             endReason: null,
           });
         }
@@ -275,16 +277,22 @@ export const useSessionStore = create<SessionState>()((set, get) => {
             }
           }
         } catch (e) {
-          // If we already restored a fresh session, keep the user signed in
           const current = get();
+          // If we restored a cached session above, keep it alive — even if the async refresh
+          // failed (e.g. Render cold-start timeout). The user sees slightly stale data while
+          // the token refreshes in the background on the next API call. Only sign out when the
+          // server explicitly rejected the session (onSessionEnded already handled that).
           if (current.status === 'authenticated' && current.session) {
-            if (isTokenFresh(hint, 0)) {
-              return;
-            }
+            const err = e as { code?: string };
+            // Network / timeout errors: keep the cached session. The API client will retry
+            // the refresh on the next real request.
+            if (!err.code || err.code === 'SERVICE_UNAVAILABLE') return;
+            // If the server explicitly ended the session (token revoked, account disabled),
+            // onSessionEnded already set unauthenticated — nothing more to do.
+            return;
           }
-          // Session-ending refresh errors already signed out (onSessionEnded). A network failure
-          // keeps the hint, so reloading once the API is back restores the session.
-          if (get().status === 'loading') {
+          // No cached session and still loading: show the error on the sign-in page.
+          if (current.status === 'loading') {
             const err = e as { code?: string; message?: string };
             set({
               status: 'unauthenticated',

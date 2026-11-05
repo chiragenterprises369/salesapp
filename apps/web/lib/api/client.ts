@@ -187,26 +187,43 @@ function endSession(audience: Audience, err: { code: ErrorCode; message: string 
 
 async function doRefresh(audience: Audience): Promise<void> {
   const def: RouteDef = audience === 'workspace' ? API_ROUTES.authRefresh : API_ROUTES.superRefresh;
-  const res = await fetchWithTimeout(
-    API_ORIGIN + routePath(def),
-    { method: 'POST', credentials: 'include', headers: { 'x-request-id': newRequestId(), accept: 'application/json' } },
-    REQUEST_TIMEOUT_MS,
-  );
-  if (!res.ok) {
-    const err = await errorFromResponse(res);
-    if (SESSION_END_CODES.has(err.code) || err.code === 'FORBIDDEN') endSession(audience, err);
-    throw err;
+  // Retry once on timeout/network errors (Render free tier cold-starts take up to 60s).
+  const MAX_ATTEMPTS = 2;
+  const RETRY_TIMEOUT_MS = 35_000;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const timeout = attempt === 0 ? REQUEST_TIMEOUT_MS : RETRY_TIMEOUT_MS;
+      const res = await fetchWithTimeout(
+        API_ORIGIN + routePath(def),
+        { method: 'POST', credentials: 'include', headers: { 'x-request-id': newRequestId(), accept: 'application/json' } },
+        timeout,
+      );
+      if (!res.ok) {
+        const err = await errorFromResponse(res);
+        if (SESSION_END_CODES.has(err.code) || err.code === 'FORBIDDEN') endSession(audience, err);
+        throw err;
+      }
+      const json: unknown = await res.json().catch(() => null);
+      if (audience === 'workspace') {
+        const tokens = AuthTokensSchema.parse(json);
+        setAccessToken('workspace', tokens.accessToken, tokens.expiresIn);
+        hooks.onWorkspaceRefresh?.(tokens);
+      } else {
+        const session = SuperSessionSchema.parse(json);
+        setAccessToken('platform', session.accessToken, session.expiresIn);
+        hooks.onPlatformRefresh?.(session);
+      }
+      return;
+    } catch (e) {
+      lastErr = e;
+      const isRetryable = e instanceof ApiRequestError && (e.code === 'SERVICE_UNAVAILABLE');
+      if (!isRetryable || attempt === MAX_ATTEMPTS - 1) throw e;
+      // Brief pause before retry so the cold-started server has time to boot.
+      await new Promise((r) => setTimeout(r, 2_000));
+    }
   }
-  const json: unknown = await res.json().catch(() => null);
-  if (audience === 'workspace') {
-    const tokens = AuthTokensSchema.parse(json);
-    setAccessToken('workspace', tokens.accessToken, tokens.expiresIn);
-    hooks.onWorkspaceRefresh?.(tokens);
-  } else {
-    const session = SuperSessionSchema.parse(json);
-    setAccessToken('platform', session.accessToken, session.expiresIn);
-    hooks.onPlatformRefresh?.(session);
-  }
+  throw lastErr;
 }
 
 /**

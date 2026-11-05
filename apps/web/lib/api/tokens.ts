@@ -24,10 +24,8 @@ function readStorageToken(audience: Audience): StoredToken | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredToken;
     if (!parsed || typeof parsed.token !== 'string' || typeof parsed.expiresAt !== 'number') return null;
-    if (parsed.expiresAt <= Date.now()) {
-      window.localStorage.removeItem(`${STORAGE_PREFIX}${audience}`);
-      return null;
-    }
+    // Don't delete expired tokens here — let the refresh flow replace them. Deleting on read
+    // caused "sync restore" to fail on page reload when the short-lived access token had expired.
     return parsed;
   } catch {
     return null;
