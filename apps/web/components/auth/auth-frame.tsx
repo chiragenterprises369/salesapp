@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { createContext, useContext, type ReactNode } from 'react';
 import { BrandMark } from '@/components/shell/brand-mark';
 import { Logo } from '@/components/shell/logo';
@@ -22,9 +23,15 @@ const AuthBrandContext = createContext<string | null>(null);
  * shows a company's branding.
  */
 export function AuthFrame({ children, badge, brand = true }: { children: ReactNode; badge?: ReactNode; brand?: boolean }) {
+  const pathname = usePathname();
   const query = usePublicBranding(brand);
   const b: PublicBranding | null = (brand && query.data) || null;
   const image = b?.loginImage?.url ?? null;
+
+  // The custom login page handles its own full-canvas 2-column card layout
+  if (pathname === '/login') {
+    return <AuthBrandContext.Provider value={b?.workspaceName ?? null}>{children}</AuthBrandContext.Provider>;
+  }
 
   return (
     <AuthBrandContext.Provider value={b?.workspaceName ?? null}>

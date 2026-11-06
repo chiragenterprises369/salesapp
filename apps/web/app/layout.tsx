@@ -151,7 +151,7 @@ const jsonLd = {
  */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-IN" className={`${urbanist.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang="en-IN" data-theme="light" className={`${urbanist.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: getThemeBootScript() }} />
         <script dangerouslySetInnerHTML={{ __html: getInterfaceBootScript() }} />

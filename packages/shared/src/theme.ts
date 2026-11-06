@@ -16,7 +16,7 @@ export type ResolvedTheme = 'light' | 'dark';
 export const HhMmSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, { error: 'Use 24h HH:MM' });
 
 export const ThemePreferenceSchema = z.object({
-  mode: ThemeModeSchema.default('dark'),
+  mode: ThemeModeSchema.default('light'),
   /** Start of dark period for "scheduled" mode, workspace timezone, 24h HH:MM. */
   darkFrom: HhMmSchema.default('19:00'),
   /** End of dark period for "scheduled" mode, workspace timezone, 24h HH:MM. */
@@ -24,7 +24,7 @@ export const ThemePreferenceSchema = z.object({
 });
 export type ThemePreference = z.infer<typeof ThemePreferenceSchema>;
 
-export const DEFAULT_THEME_PREFERENCE: ThemePreference = { mode: 'dark', darkFrom: '19:00', darkTo: '07:00' };
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = { mode: 'light', darkFrom: '19:00', darkTo: '07:00' };
 
 export const THEME_COOKIE = 'vistar_theme';
 export const THEME_ATTRIBUTE = 'data-theme';
@@ -104,5 +104,5 @@ export function msUntilNextThemeSwitch(preference: ThemePreference, now: Date, t
  * <script dangerouslySetInnerHTML={{ __html: getThemeBootScript() }} />
  */
 export function getThemeBootScript(): string {
-  return `(function(){try{var d=document.documentElement,p={mode:'dark',darkFrom:'19:00',darkTo:'07:00',tz:'Asia/Kolkata'};var c=document.cookie.split('; ').find(function(x){return x.indexOf('${THEME_COOKIE}=')===0});if(c){try{var v=JSON.parse(decodeURIComponent(c.split('=').slice(1).join('=')));for(var k in v){p[k]=v[k]}}catch(e){}}function mins(s){var a=s.split(':');return(+a[0])*60+(+a[1])}var t='dark';if(p.mode==='light'){t='light'}else if(p.mode==='dark'){t='dark'}else if(p.mode==='scheduled'){var parts=new Intl.DateTimeFormat('en-GB',{timeZone:p.tz,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());var h=0,m=0;parts.forEach(function(x){if(x.type==='hour')h=+x.value;if(x.type==='minute')m=+x.value});var n=h*60+m,f=mins(p.darkFrom),to=mins(p.darkTo);t=(f===to)?'dark':(f<to?(n>=f&&n<to):(n>=f||n<to))?'dark':'light'}else if(p.mode==='system'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}d.setAttribute('${THEME_ATTRIBUTE}',t);d.setAttribute('${THEME_MODE_ATTRIBUTE}',p.mode);d.style.colorScheme=t}catch(e){}})();`;
+  return `(function(){try{var d=document.documentElement,p={mode:'light',darkFrom:'19:00',darkTo:'07:00',tz:'Asia/Kolkata'};var c=document.cookie.split('; ').find(function(x){return x.indexOf('${THEME_COOKIE}=')===0});if(c){try{var v=JSON.parse(decodeURIComponent(c.split('=').slice(1).join('=')));for(var k in v){p[k]=v[k]}}catch(e){}}function mins(s){var a=s.split(':');return(+a[0])*60+(+a[1])}var t='light';if(p.mode==='light'){t='light'}else if(p.mode==='dark'){t='dark'}else if(p.mode==='scheduled'){var parts=new Intl.DateTimeFormat('en-GB',{timeZone:p.tz,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());var h=0,m=0;parts.forEach(function(x){if(x.type==='hour')h=+x.value;if(x.type==='minute')m=+x.value});var n=h*60+m,f=mins(p.darkFrom),to=mins(p.darkTo);t=(f===to)?'dark':(f<to?(n>=f&&n<to):(n>=f||n<to))?'dark':'light'}else if(p.mode==='system'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}d.setAttribute('${THEME_ATTRIBUTE}',t);d.setAttribute('${THEME_MODE_ATTRIBUTE}',p.mode);d.style.colorScheme=t}catch(e){}})();`;
 }
