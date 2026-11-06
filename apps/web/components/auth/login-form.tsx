@@ -356,17 +356,19 @@ export function LoginForm({ next }: { next: string | null }) {
               </svg>
             </div>
 
-            {/* Translucent Frosted Glass Card Container */}
-            <div className="relative w-[82%] max-w-[340px] aspect-[4/5] rounded-[30px] border border-white/25 bg-white/10 backdrop-blur-md shadow-2xl overflow-hidden flex items-end justify-center">
-              {/* Inner ambient shine */}
-              <div className="absolute inset-0 bg-gradient-to-t from-white/10 to-transparent pointer-events-none" />
+            {/* Translucent Frosted Glass Card Container with Floating Hero */}
+            <div className="relative w-[86%] max-w-[360px] aspect-[4/5] flex items-center justify-center">
+              {/* Frosted Glass Backdrop Card */}
+              <div className="absolute inset-x-2 inset-y-3 rounded-[30px] border border-white/25 bg-white/10 backdrop-blur-md shadow-2xl overflow-hidden pointer-events-none">
+                <div className="absolute inset-0 bg-gradient-to-t from-white/15 to-transparent pointer-events-none" />
+              </div>
 
-              {/* The Businesswoman Portrait Image */}
+              {/* The Businesswoman Working on Laptop Hero Image */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/auth-hero.webp"
                 alt="Tootodo Sales CRM"
-                className="relative z-10 h-[92%] w-auto max-w-full object-contain object-bottom select-none pointer-events-none drop-shadow-2xl transition-transform duration-500 hover:scale-105"
+                className="relative z-10 w-full h-auto max-h-[96%] object-contain select-none pointer-events-none drop-shadow-2xl transition-transform duration-500 hover:scale-[1.03]"
               />
             </div>
           </div>
