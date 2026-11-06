@@ -5,7 +5,19 @@ export const metadata: Metadata = {
   ...landingMetadata,
   title: 'Tootodo – A CRM that helps your team stay in flow',
   description:
-    'Organize leads, track deals, and close faster. Tootodo is the modern CRM built for fast-moving sales teams.',
+    'Organize leads, automate WhatsApp follow-ups, and close deals faster. Tootodo is the modern sales CRM built for Indian businesses.',
+  alternates: {
+    canonical: 'https://tootodo.com',
+  },
+  openGraph: {
+    title: 'Tootodo – A CRM that helps your team stay in flow',
+    description:
+      'Organize leads, track deals, and close faster without the chaos. Built for Indian sales teams.',
+    url: 'https://tootodo.com',
+    siteName: 'Tootodo',
+    locale: 'en_IN',
+    type: 'website',
+  },
 };
 
 /**
