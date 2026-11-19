@@ -36,7 +36,7 @@ function Login([string]$email) {
   try {
     $r = Invoke-RestMethod -Uri "$Api/auth/login" -Method Post -ContentType 'application/json' -Body (@{ email = $email; password = $Password } | ConvertTo-Json) -TimeoutSec 60
     $ttl = 780; if ($r.expiresIn -as [int]) { $ttl = [int]$r.expiresIn - 120 }
-    return @{ token = $r.accessToken; exp = (Get-Date).AddSeconds($ttl) }
+    return @{ token = $r.accessToken; exp = (Get-Date).AddSeconds($ttl); userId = $r.me.user.id }
   } catch { Say "login failed $email $($_.Exception.Message)"; return $null }
 }
 function Call([hashtable]$s, [string]$method, [string]$path, $body) {
@@ -87,6 +87,18 @@ function EndCall($p) {
   if ($p.callId) { $null = Call $p.session 'Post' '/me/calls/active' @{ event = 'ended'; clientCallId = $p.callId; endedAt = (Get-Date).ToUniversalTime().ToString('o') }; Say "$($p.email) call ended" }
   $p.callId = $null
 }
+# Back at the desk people clear their overdue follow-ups (sometimes one stays, as in a real office).
+function DoTasks($p) {
+  $od = Call $p.session 'Get' '/tasks?scope=mine&due=overdue&limit=10' $null
+  $items = @($od.items)
+  if (-not $items.Count) { return }
+  $keep = 0; if ($items.Count -gt 1 -and (Rand 1 10) -le 3) { $keep = 1 }
+  Say "$($p.email) clears $($items.Count - $keep) overdue task(s)"
+  foreach ($t in ($items | Select-Object -Skip $keep)) {
+    $r = Call $p.session 'Patch' "/tasks/$($t.id)" @{ status = 'done' }
+    if ($r) { Say "$($p.email) done: $($t.title)" }
+  }
+}
 
 # ---------------------------------------------------------------- start
 Say "demo for $Company on $Api"
@@ -118,6 +130,7 @@ $firms = 'Traders', 'Enterprises', 'Industries', 'Engineering Works', 'Fabricato
 $cities = @(@('Pune', 'Maharashtra'), @('Ahmedabad', 'Gujarat'), @('Surat', 'Gujarat'), @('Nashik', 'Maharashtra'), @('Indore', 'Madhya Pradesh'), @('Jaipur', 'Rajasthan'), @('Coimbatore', 'Tamil Nadu'), @('Ludhiana', 'Punjab'), @('Hyderabad', 'Telangana'), @('Nagpur', 'Maharashtra'))
 $products = @('SS pipe 2 inch, 500 m', 'MS angle 50x50, 3 tonnes', 'GI sheets 0.5 mm, 200 pcs', 'SS 304 sheets, 1 tonne', 'MS channel 100 mm, 2 tonnes', 'SS round bar 25 mm, 800 kg', 'GI pipe 1.5 inch, 300 m')
 $nextBoard = (Get-Date).AddSeconds(20)
+$nextAssign = (Get-Date).AddSeconds(30)
 
 # ---------------------------------------------------------------- the office day
 while ($true) {
@@ -128,8 +141,8 @@ while ($true) {
     if ($now -gt $p.session.exp) { $n = Login $p.email; if ($n) { $p.session = $n } }
     if ($now -ge $p.until) {
       switch ($p.state) {
-        'call' { EndCall $p; $p.state = 'desk'; $p.until = $now.AddSeconds((Rand 20 70)) }
-        { $_ -in 'break', 'meeting' } { $null = Call $p.session 'Put' '/me/status' @{ status = 'available' }; Say "$($p.email) back at desk"; $p.state = 'desk'; $p.until = $now.AddSeconds((Rand 30 80)) }
+        'call' { EndCall $p; $p.state = 'desk'; $p.until = $now.AddSeconds((Rand 20 70)); if ((Rand 1 2) -eq 1) { DoTasks $p } }
+        { $_ -in 'break', 'meeting' } { $null = Call $p.session 'Put' '/me/status' @{ status = 'available' }; Say "$($p.email) back at desk"; $p.state = 'desk'; $p.until = $now.AddSeconds((Rand 30 80)); DoTasks $p }
         default {
           $roll = Rand 1 100
           if ($roll -le 45 -and $onCall -lt 4) { StartCall $p; if ($p.callId) { $p.state = 'call'; $onCall++; $p.until = $now.AddSeconds((Rand 40 150)) } else { $p.until = $now.AddSeconds(30) } }
@@ -140,6 +153,18 @@ while ($true) {
       }
     }
     if ($now -ge $p.nextBeat) { Beat $p }
+  }
+
+  # the manager hands out leads that waited more than 3 minutes (new ones still show as waiting for a while)
+  if ($now -ge $nextAssign -and $people.Count) {
+    $snap = Call $admin 'Get' '/team-floor/snapshot' $null
+    foreach ($w in @($snap.leadsWaiting)) {
+      if (((Get-Date).ToUniversalTime() - ([datetime]$w.createdAt).ToUniversalTime()).TotalMinutes -lt 3) { continue }
+      $to = $people | Get-Random
+      $r = Call $admin 'Patch' "/leads/$($w.leadId)" @{ ownerId = $to.session.userId }
+      if ($r) { Say "assigned $($w.name) -> $($to.email)" }
+    }
+    $nextAssign = $now.AddSeconds(60)
   }
 
   # board activity as the admin: a new lead or a lead moving on (sometimes Won)
