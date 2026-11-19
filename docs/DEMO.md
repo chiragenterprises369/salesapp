@@ -68,17 +68,22 @@ Company panel: http://localhost:3000/login
 
 1. As `anil@shakti.example`, Settings > Theme: set the workspace interface style to **Neon Space** and the board skin to
    **Neon**. Team Floor view mode: **3D**.
-2. Start the live demo so the Team Floor and the Leads board move on their own:
+2. Start the live office so the Team Floor and the Leads board move on their own:
 
    ```powershell
+   # local API
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo-live.ps1
+   # live API (tootodo.com)
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo-live.ps1 -Api https://salesapp-api-lqk9.onrender.com/api/v1
    ```
 
-   It keeps 10 Shakti people online (heartbeats every 15 s), changes some statuses every minute (meeting, field visit,
-   lunch, break) and adds a new lead or moves a lead on the board about every 45 s. It logs in as the demo users
-   through the API, so the API must be running. Log: `%TEMP%\vistar-run\demo-live.log`.
-   Stop it: `Stop-Process -Id (Get-Content "$env:TEMP\vistar-run\demo-live.pid")`
-
+   Every Shakti person (10) gets their own day: working at the desk with a screen and lead open, phone calls (walks to
+   the calling booth, the call is logged), chai break and lunch (walks to the lounge), meetings and field visits. As
+   the admin it adds new IndiaMART, website and WhatsApp leads and moves leads along the pipeline, sometimes to Won.
+   `-Company navkar` or `-Company sunrise` runs it for the other companies. It logs in through the API as the demo
+   users, so it only works with the demo data loaded.
+   Log: `%TEMP%\vistar-run\demo-live-<api host>.log`.
+   Stop: `Stop-Process -Id (Get-Content "$env:TEMP\vistar-run\demo-live-<api host>.pid")`
 ## What to show
 
 - `anil@` (admin): dashboard, Leads board (Neon skin), Team Floor 3D, Contacts, Deals, Quotations and Invoices
