@@ -23,6 +23,7 @@ import { useBoardController, useDragState } from './drag/context';
 import { writeNudge } from './drag/controller';
 import type { CardHandle, DragState } from './drag/types';
 import { followUpLabel } from './hooks';
+import { startedOnInnerControl } from './inner-control';
 import { MoveMenu } from './move-menu';
 import { isOverdue } from './skins/skin-model';
 import { getTavolaTheme, type TavolaTone } from './tones';
@@ -72,7 +73,7 @@ export function LeadCardBody({
   now,
   selectMode = false,
   selected = false,
-  theme = 'amber',
+  theme: _theme = 'amber',
   stageIndex = 0,
   stage,
   stages,
@@ -352,20 +353,14 @@ export const BoardCard = memo(function BoardCard({
   }, [ctrl, lead.id, virtualStart]);
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    // If the press started inside a button, link, or dropdown, don't initiate a card drag
-    const target = e.target as HTMLElement | null;
-    if (target?.closest('button, [role="button"], [role="menuitem"], a, input, select, textarea, [data-radix-collection-item]')) {
-      return;
-    }
+    // A press on a control inside the card (quick action, move menu...) is not a card drag.
+    if (startedOnInnerControl(e)) return;
     ctrl.pointerDown(e, lead, stageId);
   };
 
   const onClick = (e: MouseEvent<HTMLDivElement>) => {
-    // If click was on a button, dropdown menu, or interactive control, NEVER open the lead drawer!
-    const target = e.target as HTMLElement | null;
-    if (target?.closest('button, [role="button"], [role="menuitem"], a, input, select, textarea, [data-radix-collection-item]')) {
-      return;
-    }
+    // A click on a control inside the card never opens the lead drawer.
+    if (startedOnInnerControl(e)) return;
     if (ctrl.consumeClick()) return;
     if (selectMode) toggleSelected(lead.id);
     else actions.open(lead);

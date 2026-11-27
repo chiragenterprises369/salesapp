@@ -4,7 +4,6 @@ import { LoginRequestSchema } from '@vistar/shared';
 import { Eye, EyeOff, Lock, User, Zap, ChevronDown, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
-import { Button } from '@/components/ui/button';
 import { LogoMark } from '@/components/shell/logo';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { login, type AuthFailure } from '@/lib/auth/actions';
@@ -150,6 +149,16 @@ export function LoginForm({ next }: { next: string | null }) {
                         Go to Super Admin sign-in
                       </Link>
                     </>
+                  )}
+                  {/* The API says "incorrect" for Super Admin emails too (it never hints which accounts exist), so
+                      point platform staff to their own page. Not on company custom domains. */}
+                  {failure.code === 'BAD_CREDENTIALS' && !brandedHost && (
+                    <span className="mt-1 block">
+                      Super Admin account?{' '}
+                      <Link href={SUPER_LOGIN_PATH} className="font-medium underline underline-offset-4">
+                        Use the Super Admin sign-in
+                      </Link>
+                    </span>
                   )}
                 </FormAlert>
               </div>
