@@ -1,6 +1,7 @@
 import type { FieldError, InviteAccept, LoginRequest, SignupRequest, SuperLoginChallenge } from '@vistar/shared';
 import { api } from '../api/client';
 import { isMockData, MOCK_DATA_ALLOWED } from '../api/data-source';
+import { withColdStartRetry } from '../api/wake';
 import { isApiRequestError } from '../api-error';
 import { useSessionStore } from '../session/session';
 import { mockAcceptInvite, mockLogin, mockSignup, mockSuperLogin, mockSuperVerify, type AuthFailure, type AuthFailureCode, type SuperLoginStep } from './mock-auth';
@@ -41,7 +42,8 @@ export async function login(input: LoginRequest): Promise<{ ok: true } | AuthFai
     return { ok: true };
   }
   try {
-    await useSessionStore.getState().signIn(input.email, input.password);
+    // A sleeping API (free hosting) takes up to a minute to boot: wait for it and sign in once more.
+    await withColdStartRetry(() => useSessionStore.getState().signIn(input.email, input.password));
     return { ok: true };
   } catch (e) {
     const failure = authFailureFrom(e);
