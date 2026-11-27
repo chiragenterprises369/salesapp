@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { VersioningType } from '@nestjs/common';
+import { Logger, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
@@ -71,4 +71,10 @@ async function bootstrap(): Promise<void> {
   await app.listen(env.API_PORT);
 }
 
-void bootstrap();
+// A failed boot says why and exits non-zero (the host restarts it), instead of surfacing as an anonymous unhandled
+// rejection that leaves a process without a listening server.
+bootstrap().catch((err: unknown) => {
+  new Logger('Bootstrap').fatal(`API failed to start: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`, err instanceof Error ? err.stack : undefined);
+  process.exitCode = 1;
+  setTimeout(() => process.exit(1), 200);
+});

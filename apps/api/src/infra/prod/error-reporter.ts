@@ -141,12 +141,23 @@ async function send(err: unknown, ctx: ReportContext): Promise<void> {
   }
 }
 
+/**
+ * The unhandledRejection hook: log the reason with its stack and report it. It must never throw: a throw here turns any
+ * stray rejection into a process crash (the API boot-looped on Render from 2026-11-19 this way, and the reason was lost).
+ */
+export function handleUnhandledRejection(reason: unknown): void {
+  const err = reason instanceof Error ? reason : null;
+  try {
+    logger.error(`Unhandled rejection: ${err ? `${err.name}: ${err.message}` : String(reason)}`, err?.stack);
+  } catch {
+    process.stderr.write('Unhandled rejection (the logger failed to write it)\n');
+  }
+  reportError(reason, { tags: { kind: 'unhandledRejection' } });
+}
+
 /** Process-level hooks: unhandled rejections and uncaught exceptions are reported (and logged by Node as before). */
 export function installProcessErrorHooks(): void {
-  process.on('unhandledRejection', (reason) => {
-    logger.error(`Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`);
-    reportError(reason, { tags: { kind: 'unhandledRejection' } });
-  });
+  process.on('unhandledRejection', handleUnhandledRejection);
   process.on('uncaughtExceptionMonitor', (error) => {
     reportError(error, { level: 'fatal', tags: { kind: 'uncaughtException' } });
   });

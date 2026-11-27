@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { ConsoleLogger, Logger } from '@nestjs/common';
+import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '../../config/env.js';
-import { parseDsn } from './error-reporter.js';
+import { handleUnhandledRejection, parseDsn } from './error-reporter.js';
 import { truncateIp } from './http-middleware.js';
-import { levelsFrom } from './logger.js';
+import { levelsFrom, VistarLogger } from './logger.js';
 import { productionIssues, publicUrlProblem, weakSecretReason } from './production-config.js';
 import { bucketOf } from './rate-limit.js';
 import { redact, redactPath } from './redact.js';
@@ -109,6 +110,75 @@ describe('redaction', () => {
 
   it('log levels from a minimum', () => {
     expect(levelsFrom('warn')).toEqual(['warn', 'error', 'fatal']);
+  });
+
+  it('tolerates non-strings', () => {
+    expect(redact(undefined)).toBe('');
+    expect(redact(null)).toBe('');
+    expect(redact(42)).toBe('42');
+  });
+});
+
+/** Lines the JSON logger writes to stderr (error and fatal) while `run` executes. */
+function stderrLines(run: () => void): Array<Record<string, unknown>> {
+  const lines: string[] = [];
+  const spy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+    lines.push(String(chunk));
+    return true;
+  });
+  try {
+    run();
+  } finally {
+    spy.mockRestore();
+  }
+  return lines.map((l) => JSON.parse(l) as Record<string, unknown>);
+}
+
+describe('JSON logger', () => {
+  it('logs Nest Logger.error() without a stack instead of throwing', () => {
+    // Nest passes `undefined` in the stack slot when a contextual Logger gets no stack. The JSON logger used to turn it
+    // into JSON.stringify(undefined) (not a string) and crash in redact(): every unhandled rejection killed the API
+    // (Render boot loop since 2026-11-19).
+    Logger.overrideLogger(new VistarLogger({ json: true, level: 'log' }));
+    try {
+      const [entry] = stderrLines(() => new Logger('ErrorReporter').error('Unhandled rejection: boom'));
+      expect(entry).toMatchObject({ level: 'error', context: 'ErrorReporter', msg: 'Unhandled rejection: boom' });
+      expect(entry).not.toHaveProperty('extra');
+    } finally {
+      Logger.overrideLogger(new ConsoleLogger());
+    }
+  });
+
+  it('never throws on values JSON cannot encode', () => {
+    const logger = new VistarLogger({ json: true, level: 'log' });
+    const entries = stderrLines(() => {
+      logger.error(undefined);
+      logger.error('with extra', () => 1);
+    });
+    expect(entries.map((e) => e.msg)).toEqual(['undefined', 'with extra']);
+    expect(typeof entries[1]?.extra).toBe('string');
+  });
+
+  it('keeps a stack passed before a trailing undefined', () => {
+    const logger = new VistarLogger({ json: true, level: 'log' });
+    const [entry] = stderrLines(() => logger.error('failed', 'Error: x\n    at run (a.js:1:1)', undefined));
+    expect(entry).toMatchObject({ msg: 'failed', stack: 'Error: x\n    at run (a.js:1:1)' });
+    expect(entry?.context).toBeUndefined();
+  });
+
+  it('logs an unhandled rejection with its reason and stack, and never throws', () => {
+    Logger.overrideLogger(new VistarLogger({ json: true, level: 'log' }));
+    try {
+      const entries = stderrLines(() => {
+        handleUnhandledRejection(new Error('connect ECONNREFUSED db:5432'));
+        handleUnhandledRejection(undefined);
+      });
+      expect(entries[0]).toMatchObject({ context: 'ErrorReporter', msg: 'Unhandled rejection: Error: connect ECONNREFUSED db:5432' });
+      expect(String(entries[0]?.stack)).toContain('prod.spec');
+      expect(entries[1]).toMatchObject({ context: 'ErrorReporter', msg: 'Unhandled rejection: undefined' });
+    } finally {
+      Logger.overrideLogger(new ConsoleLogger());
+    }
   });
 });
 

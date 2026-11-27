@@ -24,8 +24,9 @@ const RULES: Array<[RegExp, string]> = [
 const PHONE = /(?<![\w-])\+?\d[\d\s-]{8,16}\d(?![\w-])/g;
 const DATE_LIKE = /^\d{4}-\d{2}-\d{2}$/;
 
-export function redact(text: string): string {
-  let out = text;
+/** Never throws: logging and error reports call it on whatever they were given (undefined or null becomes ''). */
+export function redact(text: unknown): string {
+  let out = typeof text === 'string' ? text : String(text ?? '');
   for (const [re, by] of RULES) out = out.replace(re, by);
   return out.replace(PHONE, (m) => {
     const digits = m.replace(/\D/g, '').length;

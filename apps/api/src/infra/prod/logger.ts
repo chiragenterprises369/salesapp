@@ -15,7 +15,8 @@ function textOf(message: unknown): string {
   if (typeof message === 'string') return message;
   if (message instanceof Error) return `${message.name}: ${message.message}`;
   try {
-    return JSON.stringify(message);
+    // JSON.stringify returns undefined, not a string, for undefined, functions and symbols
+    return JSON.stringify(message) ?? String(message);
   } catch {
     return String(message);
   }
@@ -74,8 +75,10 @@ export class VistarLogger implements LoggerService {
 
   private write(level: LogLevel, message: unknown, rest: unknown[]): void {
     if (!this.levels.has(level)) return;
-    const params = [...rest];
-    const context = typeof params[params.length - 1] === 'string' && params.length > 0 ? (params.pop() as string) : undefined;
+    const all = [...rest];
+    const context = typeof all[all.length - 1] === 'string' && all.length > 0 ? (all.pop() as string) : undefined;
+    // Nest's contextual Logger passes `undefined` in the stack slot of error() and fatal() when there is no stack.
+    const params = all.filter((p) => p !== undefined);
     let stack: string | undefined;
     if ((level === 'error' || level === 'fatal') && typeof params[0] === 'string' && params[0].includes('\n    at ')) stack = params.shift() as string;
     if (message instanceof Error) stack ??= message.stack;
