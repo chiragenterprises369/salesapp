@@ -1,0 +1,12 @@
+{
+  "name": "vistar-demo-live-worker",
+  "private": true,
+  "description": "Always-on live demo for the Team Floor and Leads board (Render Background Worker). Demo data only.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node worker.mjs"
+  }
+}

@@ -84,6 +84,44 @@ Company panel: http://localhost:3000/login
    users, so it only works with the demo data loaded.
    Log: `%TEMP%\vistar-run\demo-live-<api host>.log`.
    Stop: `Stop-Process -Id (Get-Content "$env:TEMP\vistar-run\demo-live-<api host>.pid")`
+
+## Live office 24/7 on Render
+
+[scripts/demo-live/worker.mjs](../scripts/demo-live/worker.mjs) is the same live office in Node 20+ (no dependencies)
+for a host that never sleeps. It keeps its sessions with the refresh cookie (no new password sign-in every 15 minutes),
+waits when the API is down or deploying, and on a restart ends open calls and signs everyone off. The pace is calmer
+than the PowerShell script: up to 3 calls at a time, a board action every 1.5 to 3 minutes (about a third are new
+leads, roughly 200 a day), a few overdue follow-ups cleared at a time.
+
+Render: New > **Background Worker**, repository `chiragenterprises369/salesapp`, branch `main`.
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `scripts/demo-live` (other changes in the repo do not restart it) |
+| Runtime | Node |
+| Build Command | `npm install` (nothing to install) |
+| Start Command | `node worker.mjs` |
+| Instance type | Starter (background workers have no free plan) |
+
+Environment variables are optional, and the worker needs no secrets (it signs in with the public demo password, the
+same default as `demo-live.ps1`):
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `DEMO_COMPANY` | `shakti` | `shakti`, `navkar` or `sunrise` |
+| `DEMO_HOURS` | `always` | Or office hours in India time, e.g. `09:30-19:30` (Mon-Sat): outside them everyone is offline and only an occasional enquiry comes in |
+| `DEMO_API_URL` | live API | Versioned API base, e.g. `https://salesapp-api-lqk9.onrender.com/api/v1` |
+
+Keep in mind:
+
+- The API (`salesapp-api`) must be a paid instance while the worker runs. On the free plan the worker keeps the API
+  awake about 720 hours a month, and the workspace's 750 free hours are shared by all its free services, so Render
+  would suspend them before the month ends.
+- Every day adds data (leads, calls, tasks, notifications). Re-run `pnpm db:seed:demo` against the live database
+  every month or so to start fresh; it only replaces the 3 demo companies and the demo Super Admin.
+- Do not run `demo-live.ps1` against the live API at the same time, or the office gets double activity.
+- Logs: the worker's Logs tab in Render. Stop: Settings > Suspend Background Worker (or delete it).
+
 ## What to show
 
 - `anil@` (admin): dashboard, Leads board (Neon skin), Team Floor 3D, Contacts, Deals, Quotations and Invoices
