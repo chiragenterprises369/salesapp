@@ -363,12 +363,12 @@ export function LoginForm({ next }: { next: string | null }) {
                 <div className="absolute inset-0 bg-gradient-to-t from-white/15 to-transparent pointer-events-none" />
               </div>
 
-              {/* The Businesswoman Working on Laptop Hero Image */}
+              {/* Growth CRM Laptop Hero Image */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/auth-hero.webp"
+                src="/auth-hero-growth.webp"
                 alt="Tootodo Sales CRM"
-                className="relative z-10 w-full h-auto max-h-[96%] object-contain select-none pointer-events-none drop-shadow-2xl transition-transform duration-500 hover:scale-[1.03]"
+                className="relative z-10 w-auto h-auto max-w-[104%] max-h-[98%] object-contain select-none pointer-events-none drop-shadow-2xl transition-transform duration-500 hover:scale-[1.03]"
               />
             </div>
           </div>

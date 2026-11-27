@@ -50,3 +50,6 @@ docs/screenshots/*/iter-*/
 
 # Local upload storage (STORAGE_DRIVER=local, D-065)
 .data/
+
+.vercel
+.env*

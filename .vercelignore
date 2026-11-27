@@ -1,0 +1,13 @@
+.worktrees
+.backups
+.data
+.claude
+references
+docs
+apps/mobile
+e2e
+deploy
+.env
+.env.*
+*.tsbuildinfo
+.next
