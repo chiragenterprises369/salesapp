@@ -1,12 +1,13 @@
 'use client';
 
 import { LoginRequestSchema } from '@vistar/shared';
-import { Eye, EyeOff, Lock, User, Zap, ChevronDown, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Lock, User, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { LogoMark } from '@/components/shell/logo';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { login, type AuthFailure } from '@/lib/auth/actions';
+import { DEMO_LOGIN_ENABLED } from '@/lib/auth/demo-accounts';
 import { SUPER_LOGIN_PATH } from '@/lib/auth/redirect';
 import { isCustomHost } from '@/lib/branding/boot';
 import { useRedirectWhenSignedIn } from '@/lib/auth/use-auth';
@@ -42,7 +43,6 @@ export function LoginForm({ next }: { next: string | null }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showDemo, setShowDemo] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [failure, setFailure] = useState<AuthFailure | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -304,33 +304,17 @@ export function LoginForm({ next }: { next: string | null }) {
               </p>
             )}
 
-            {/* Quick Demo Accounts Toggle for easy testing */}
-            <div className="mt-5 border-t border-gray-100 pt-3">
-              <button
-                type="button"
-                onClick={() => setShowDemo(!showDemo)}
-                className="w-full flex items-center justify-between text-2xs font-semibold text-gray-400 hover:text-gray-600 transition-colors py-1"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Zap className="size-3 text-amber-500" />
-                  Quick Demo Accounts
-                </span>
-                <ChevronDown className={`size-3 transition-transform ${showDemo ? 'rotate-180' : ''}`} />
-              </button>
-
-              {showDemo && (
-                <div className="mt-2">
-                  <DemoAccounts
-                    disabled={submitting}
-                    onPick={(e, p) => {
-                      setEmail(e);
-                      setPassword(p);
-                      void signIn({ email: e, password: p });
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+            {/* One-click demo sign-in: the demo site and development builds only, never production */}
+            {DEMO_LOGIN_ENABLED && (
+              <DemoAccounts
+                busy={submitting}
+                onPick={(e, p) => {
+                  setEmail(e);
+                  setPassword(p);
+                  void signIn({ email: e, password: p });
+                }}
+              />
+            )}
           </div>
 
           {/* ================= RIGHT SECTION: SIDE HERO VISUAL ================= */}

@@ -12,6 +12,11 @@ Development and demo only. Never load the demo data into production (`seed:demo`
 Demo seeds, demo accounts and the live office script only ever go to the demo environment. Running them against
 production once used up the free database quota and took crm.tootodo.com down (Nov 2026).
 
+The demo site's sign-in page has one-click buttons for the four Shakti roles below (admin, manager, employee,
+viewer). They come from `NEXT_PUBLIC_DEMO_LOGIN=1` in the Vercel project `salesapp-demo` (a build-time value:
+redeploy after changing it). Production (`salesapp`) never sets it, so crm.tootodo.com has no demo buttons.
+Development builds show them without the flag.
+
 ## Load the demo data
 
 ```powershell

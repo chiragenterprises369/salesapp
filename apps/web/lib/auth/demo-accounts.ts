@@ -19,7 +19,15 @@ export interface DemoAccount {
 
 const ROLE_ORDER: RoleKind[] = ['company_admin', 'manager', 'employee', 'viewer'];
 
-/** One account per role for the development "Demo accounts" list. */
+/**
+ * One-click demo sign-in on /login: development builds, and the demo site's build (demo.crm.tootodo.com,
+ * Vercel project salesapp-demo, built with NEXT_PUBLIC_DEMO_LOGIN=1). Production (crm.tootodo.com) never sets
+ * the flag: the demo accounts exist only in the demo database.
+ */
+export const DEMO_LOGIN_ENABLED: boolean =
+  process.env.NEXT_PUBLIC_DEMO_LOGIN === '1' || process.env.NODE_ENV !== 'production';
+
+/** One account per role (Shakti Industries) for the demo sign-in buttons. */
 export const DEMO_ACCOUNTS: readonly DemoAccount[] = ROLE_ORDER.map((role) => {
   const e = SHAKTI.employees.find((x) => x.role === role)!;
   return { email: e.email, name: e.name, title: e.title, persona: role };
@@ -27,7 +35,7 @@ export const DEMO_ACCOUNTS: readonly DemoAccount[] = ROLE_ORDER.map((role) => {
 
 export const DEMO_SUPER_ADMIN = { email: SUPER_ADMIN_FIXTURE.email, name: SUPER_ADMIN_FIXTURE.name } as const;
 
-/** Dev-only password shared by every seeded account (documented in the seed fixtures). */
+/** Password of every account the demo seed creates (`pnpm db:seed:demo`; public, docs/DEMO.md). */
 export const DEMO_PASSWORD: string = SEED_WORKSPACE.devPassword;
 
 export const DEMO_WORKSPACE_NAME: string = SHAKTI.name;
