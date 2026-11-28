@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { authFailureFrom } from '@/lib/auth/actions';
 import { usePublicPlatformInfo } from '@/lib/config/public';
 import { useDocumentTheme } from '@/lib/use-document-theme';
@@ -40,10 +40,25 @@ function loadGis(): Promise<GoogleId> {
 
 /**
  * "Continue with Google" (change #20): shown only when the Super Admin configured the Google OAuth
- * client (GET /public/platform), with its own "or" divider. The Google credential goes to POST
- * /auth/google with the sign-up company name or the invite token when the page has one.
+ * client (GET /public/platform), with its own "or" divider (`divider` replaces it). The Google credential goes
+ * to POST /auth/google with the sign-up company name or the invite token when the page has one.
+ * `buttonTheme` fixes Google's button style for pages that keep a light card in dark mode.
  */
-export function GoogleButton({ label = 'continue_with', workspaceName, inviteToken, onBeforeSignIn }: { label?: 'continue_with' | 'signup_with' | 'signin_with'; workspaceName?: string; inviteToken?: string; onBeforeSignIn?: () => string | null }) {
+export function GoogleButton({
+  label = 'continue_with',
+  workspaceName,
+  inviteToken,
+  onBeforeSignIn,
+  divider = <OrDivider />,
+  buttonTheme,
+}: {
+  label?: 'continue_with' | 'signup_with' | 'signin_with';
+  workspaceName?: string;
+  inviteToken?: string;
+  onBeforeSignIn?: () => string | null;
+  divider?: ReactNode;
+  buttonTheme?: 'outline' | 'filled_black';
+}) {
   const info = usePublicPlatformInfo();
   const theme = useDocumentTheme();
   const ref = useRef<HTMLDivElement>(null);
@@ -82,18 +97,18 @@ export function GoogleButton({ label = 'continue_with', workspaceName, inviteTok
           },
         });
         el.replaceChildren();
-        gis.renderButton(el, { theme: theme === 'dark' ? 'filled_black' : 'outline', size: 'large', text: label, shape: 'rectangular', width: Math.min(400, Math.max(200, el.clientWidth)), logo_alignment: 'center' });
+        gis.renderButton(el, { theme: buttonTheme ?? (theme === 'dark' ? 'filled_black' : 'outline'), size: 'large', text: label, shape: 'rectangular', width: Math.min(400, Math.max(200, el.clientWidth)), logo_alignment: 'center' });
       })
       .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : 'Google sign-in could not load.'));
     return () => {
       cancelled = true;
     };
-  }, [clientId, theme, label]);
+  }, [clientId, theme, label, buttonTheme]);
 
   if (!clientId) return null;
   return (
     <>
-      <OrDivider />
+      {divider}
       <div className="flex flex-col gap-3">
         <div ref={ref} className="flex min-h-10 w-full justify-center" />
         {error && <FormAlert>{error}</FormAlert>}
