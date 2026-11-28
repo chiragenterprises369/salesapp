@@ -10,7 +10,7 @@
  * the PowerShell script so the database does not grow too fast when it runs for weeks.
  *
  * Run:  node scripts/demo-live/worker.mjs          (Node 20+, no dependencies)
- * Env:  DEMO_API_URL   API base with version (default: the live API)
+ * Env:  DEMO_API_URL   API base with version (default: the demo API of demo.crm.tootodo.com; never production)
  *       DEMO_COMPANY   shakti | navkar | sunrise (default shakti)
  *       DEMO_PASSWORD  password of the demo accounts (default: the demo seed password, docs/DEMO.md)
  *       DEMO_HOURS     "always" (default), or office hours in India time such as "09:30-19:30" (Mon-Sat):
@@ -18,7 +18,7 @@
  * Logs go to stdout. Sessions are kept alive with the refresh cookie, not a new password sign-in.
  */
 
-const API = (process.env.DEMO_API_URL || 'https://salesapp-api-lqk9.onrender.com/api/v1').replace(/\/+$/, '');
+const API = (process.env.DEMO_API_URL || 'https://salesapp-api-demo.onrender.com/api/v1').replace(/\/+$/, '');
 const ORIGIN = API.replace(/\/api(\/v\d+)?$/, '');
 const COMPANY = (process.env.DEMO_COMPANY || 'shakti').trim();
 const PASSWORD = process.env.DEMO_PASSWORD || 'vistar-demo-123';

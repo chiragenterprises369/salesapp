@@ -7,7 +7,8 @@
 # the pipeline (sometimes to Won, which plays the celebration on the board).
 #
 # Run (local API):  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo-live.ps1
-# Run (live API):   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo-live.ps1 -Api https://salesapp-api-lqk9.onrender.com/api/v1
+# Run (demo site):  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo-live.ps1 -Api https://salesapp-api-demo.onrender.com/api/v1
+#                   (demo.crm.tootodo.com only; never point it at the production API)
 # Stop:             Stop-Process -Id (Get-Content "$env:TEMP\vistar-run\demo-live-<host>.pid")
 # Log:              %TEMP%\vistar-run\demo-live-<host>.log
 param(

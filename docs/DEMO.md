@@ -2,6 +2,16 @@
 
 Development and demo only. Never load the demo data into production (`seed:demo` refuses NODE_ENV=production).
 
+## Environments
+
+| Site | Web (Vercel) | API (Render) | Database (Neon) | Data |
+| --- | --- | --- | --- | --- |
+| `https://crm.tootodo.com` (production) | project `salesapp` | `salesapp-api` (`salesapp-api-lqk9.onrender.com`) | `salesapp-prod` | real companies only |
+| `https://demo.crm.tootodo.com` (demo) | project `salesapp-demo` | `salesapp-api-demo` (`salesapp-api-demo.onrender.com`) | `salesapp-demo` | the 3 demo companies below |
+
+Demo seeds, demo accounts and the live office script only ever go to the demo environment. Running them against
+production once used up the free database quota and took crm.tootodo.com down (Nov 2026).
+
 ## Load the demo data
 
 ```powershell
@@ -73,8 +83,8 @@ Company panel: http://localhost:3000/login
    ```powershell
    # local API
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo-live.ps1
-   # live API (tootodo.com)
-   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo-live.ps1 -Api https://salesapp-api-lqk9.onrender.com/api/v1
+   # demo site (demo.crm.tootodo.com); never the production API
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\demo-live.ps1 -Api https://salesapp-api-demo.onrender.com/api/v1
    ```
 
    Every Shakti person (10) gets their own day: working at the desk with a screen and lead open, phone calls (walks to
@@ -110,16 +120,19 @@ same default as `demo-live.ps1`):
 | --- | --- | --- |
 | `DEMO_COMPANY` | `shakti` | `shakti`, `navkar` or `sunrise` |
 | `DEMO_HOURS` | `always` | Or office hours in India time, e.g. `09:30-19:30` (Mon-Sat): outside them everyone is offline and only an occasional enquiry comes in |
-| `DEMO_API_URL` | live API | Versioned API base, e.g. `https://salesapp-api-lqk9.onrender.com/api/v1` |
+| `DEMO_API_URL` | demo API | Versioned API base of the demo environment, `https://salesapp-api-demo.onrender.com/api/v1` (never the production API) |
 
 Keep in mind:
 
-- The API (`salesapp-api`) must be a paid instance while the worker runs. On the free plan the worker keeps the API
-  awake about 720 hours a month, and the workspace's 750 free hours are shared by all its free services, so Render
-  would suspend them before the month ends.
-- Every day adds data (leads, calls, tasks, notifications). Re-run `pnpm db:seed:demo` against the live database
-  every month or so to start fresh; it only replaces the 3 demo companies and the demo Super Admin.
-- Do not run `demo-live.ps1` against the live API at the same time, or the office gets double activity.
+- The demo API (`salesapp-api-demo`) must be a paid instance while the worker runs. On the free plan the worker keeps
+  it awake about 720 hours a month, and the workspace's 750 free hours are shared by all its free services, so Render
+  would suspend them before the month ends. The demo database (Neon Free, 100 compute-hours a month) also runs out
+  when it never sleeps: use `DEMO_HOURS` office hours or a paid plan.
+- Every day adds data (leads, calls, tasks, notifications). Re-run `pnpm db:seed:demo` against the demo database
+  (Neon `salesapp-demo`) every month or so to start fresh; it only replaces the 3 demo companies and the demo Super
+  Admin. Run it with the demo API's `ENCRYPTION_KEY` (Render > salesapp-api-demo > Environment) so the seeded
+  integration secrets can be decrypted.
+- Do not run `demo-live.ps1` against the demo API at the same time, or the office gets double activity.
 - Logs: the worker's Logs tab in Render. Stop: Settings > Suspend Background Worker (or delete it).
 
 ## What to show
